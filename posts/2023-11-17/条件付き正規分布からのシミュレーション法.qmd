@@ -4,14 +4,14 @@ author: "Hirofumi Shiba"
 date: "11/17/2023"
 categories: [Math Notes]
 toc: true
-number-sections: false
+number-sections: true
 website:
     twitter-card: true
 bibliography: bib.bib
 csl: apa.csl
 ---
 
-文献 [@Doucet2010-ConditionalGaussianSimulation] の主張に証明を与える．
+[文献](https://www.cs.ubc.ca/~arnaud/doucet_simulationconditionalgaussian.pdf) [@Doucet2010-ConditionalGaussianSimulation] の主張に証明を与える．
 
 ![formula](formula.png)
 
@@ -20,6 +20,8 @@ csl: apa.csl
 ```{=html}
 <a class="embedly-card" href="https://www.cs.ubc.ca/~arnaud/doucet_simulationconditionalgaussian.pdf">Card</a><script async src="//cdn.embedly.com/widgets/platform.js" charset="UTF-8"></script>
 ```
+
+## 正規確率変数同士の条件付き分布 {#sec-1}
 
 ::: {.callout-tip title="命題：正規確率変数同士の条件付き分布"}
 $$Z=(X,Y)\sim\rN_n(m,\Sigma)\qquad m=\vctr{m_x}{m_y},\qquad\Sigma=\mtrx{\Sigma_{xx}}{\Sigma_{xy}}{\Sigma_{xy}^\top}{\Sigma_{yy}}$$
@@ -47,6 +49,8 @@ $$\Sigma^{-1}=\mtrx{S^{-1}}{-S^{-1}T}{-T^\top S^{-1}}{\Sigma_{yy}^{-1}+T^\top S^
 \end{align*}
 以上より，平均は $m_{x|y}=m_x+\eta$ で，共分散行列は $\Sigma_{x|y}=S$ ．
 :::
+
+## 条件付き分布からのシミュレーション {#sec-2}
 
 ::: {.callout-tip title="条件付き分布からのシミュレーション"}
 条件付き確率変数 $X|Y=y$ のシミュレーションは，条件付き共分散行列 $\Sigma_{x|y}$ のCholesky分解 $\Sigma_{x|y}=\sqrt{\Sigma_{x|y}}\paren{\sqrt{\Sigma_{x|y}}}^\top$ を用いて，
@@ -76,5 +80,54 @@ $$\Var[\ov{X}]=\E[\Var[\ov{X}|Y]]+\underbrace{\Var[\E[\ov{X}|Y]]}_{=0}=\Sigma_{x
 
 :::
 
-[@Doucet2010-ConditionalGaussianSimulation] は時空間統計と機械学習などで生じるGauss過程への応用で役に立ち得るのではないかと示唆している．
+
+## 応用 Ensemble Kalman filter
+
 また，Ensemble Kalman filterはこの手法の応用と理解することができ，この手法の別の応用としてFFBS (Forward Filtering Backward Sampling)アルゴリズムを代替するサンプリングアルゴリズムを得ることが出来ることも論じている．
+
+線型Gaussな状態空間モデル
+$$
+\begin{cases}
+X_n=A_nX_{n-1}+a_n+W_n&n\ge 1,W_n\sim\rN_p(0,R^w_n),\\
+Y_n=B_nX_n+b_n+V_n,&n\ge0,V_n\sim\rN_q(0,R_n^v).
+\end{cases}
+$$
+
+の最適な一段階予測推定量
+$$
+\eta_n:=\L[X_n|(Y_0,\cdots,Y_{n-1})]
+$$
+も，フィルタリング推定量
+$$
+\wh{\eta}_n:=\L[X_n|(Y_0,\cdots,Y_n)]
+$$
+もGauss確率変数で，平均と分散は @sec-1 の命題の繰り返し適用によって計算できる．これをKalman filterという．^[[@DelMoral-Penev2014] p.280 など参照．]
+
+### EnKF
+
+しかし，状態空間（$X_n$の値域）の次元が大きすぎる場合，@sec-2 で述べた理由と同様の理由で，Kalman gainの行列計算が実行不可能になる．
+
+このステップを，粒子平均によって代替する粒子法がEnsemble Kalman filterであり，前述の障碍が典型的に生じてきた地球科学・海洋科学の分野で発展してきた [@Evensen1994]．この方法では， @sec-2 のサンプリングトリックを用いて，再帰的にフィルタリング分布と予測分布を近似していく．
+
+### FFBS
+
+また，線型Gauss状態空間モデルのハイパーパラメータの推定が必要な場合などでは，Feynman-Kac分布 $p(x_{0:n}|y_{1:n})$ からのサンプリングが必要になる．
+
+典型的にはFFBS (Foward Filtering Backward Sampling) などの方法が知られている．これは $p(x_{0:n}|y_{1:n})$ があるMarkov連鎖の見本道の分布に一致することに基づき，その後ろ向き核による分解から，
+
+1. 前向きにフィルタリング分布と予測分布を計算する再帰的アルゴリズムを実行する．
+2. 2つの分布から後ろ向き核を計算する．
+3. 後ろ向き核を用いて， $X_n\sim p(x_n|y_{1:n})$ を後ろ向きにサンプリングしていく．
+
+と実行する方法である．^[[@Chopin-Papaspiliopoulos20-SMC] 5.4.4節 p.63 など参照．]
+
+一方で， @sec-2 のテクニックで次のようにしてサンプリングすることもできる．
+
+1. 前向きに $\E[X_{0:n}|Y_{1:n}], \E[X_{0:n}|Y_{1:n}=y_{1:n}]$ を計算する．
+2. 次をサンプリングする：$$\ov{X}_{0:n}:=E[X_{0:n}|Y_{1:n}=y_{1:n}]+X_{0:n}-\E[X_{0:n}|Y_{1:n}]$$
+
+[@Durbin-Koopman2002] では，多くの場合 $R^w_n$ のランクが低いことに注目して， $\E[W_{1:n}|Y_{1:n}]$ を計算して， $p(x_0,w_{1:n}|y_{1:n})$ からサンプリングすることを提唱している．
+
+### その他
+
+[@Doucet2010-ConditionalGaussianSimulation] は他にも，時空間統計 [@Cressie1993] と機械学習 [@Rasmussen-Williams2006] などで生じるGauss過程への応用で役に立ち得るのではないかと示唆している．
