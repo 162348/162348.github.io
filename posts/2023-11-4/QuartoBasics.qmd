@@ -7,6 +7,10 @@ abstract: Quartoのチュートリアル＋紹介＋おすすめポイント
 abstract-title: 概要
 toc: true
 number-sections: true
+website:
+    twitter-card: true
+code-block-bg: true
+code-block-border-left: "#31BAE9"
 ---
 
 筆者はQuartoを，「TeXにような使用感で数式・コードが併存する文章を書き，RStudioのような使用感でコードの実行やプレゼンができる，等号開発環境」と理解した．
@@ -80,3 +84,69 @@ $$\mathrm{P}[|\xi|<t]\le2e^{-\frac{t^2}{2\sigma^2}},\qquad t>0.$$
 * [プレゼンテーションにも使える](https://quarto.org/docs/presentations/)．
 * すごい細かいが，例えば`project type`を`website`としたリポジトリで`quarto render`をしても，不要なファイルが自動で削除される．このような点がライトユーザーでもとにかく使いやすい．
 * さらに[インタラクティブな機能](https://quarto.org/docs/interactive/)を実現してみたい．
+
+## Website Hostingのやり方
+
+[公式Guide](https://quarto.org/docs/publishing/github-pages.html)を参考．
+
+### Source Branchを`main`と別ける
+
+まず`gh-pages`という全く新しいブランチを作成する．既存のリポジトリのコミット履歴とは独立している新しいブランチを作るときは`--orphan`オプションが利用される．
+
+```{.bash filename="Terminal"}
+git checkout --orphan gh-pages
+git reset --hard # make sure all changes are committed before running this!
+git commit --allow-empty -m "Initialising gh-pages branch"
+git push origin gh-pages
+git checkout main
+```
+
+基本`gh-pages`ブランチには自分では立ち入らない．
+
+### `Publish`コマンドによるサイトの公開
+
+`main`ブランチにいることを確認して，
+```{.bash filename="Terminal"}
+quarto publish gh-pages
+```
+を実行．
+
+GitHubの方の設定**Settings: Pages**で，Sourceを`gh-pages`ブランチの`/(root)`にしていることを確認すれば，これで無事サイトが公開されていることが確認できる．
+
+### GitHub Actionの使用
+
+さらに，ローカル上で`render`するのではなく，コミットする度にGitHub上でレンダリングしてもらえるように自動化することもできる．こうするとスマホからも自分のサイトが更新できる．
+
+まず，GitHubの設定の**Actions**セクションの**Workflow permissions**から，読み書きの権限をGitHub Actionに付与する．
+
+続いて，次の内容のファイルを`.github/workflows/publish.yml`に書き込む：
+
+```{.yml filename=".github/workflows/publish.yml"}
+on:
+  workflow_dispatch:
+  push:
+    branches: main
+
+name: Quarto Publish
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render and Publish
+        uses: quarto-dev/quarto-actions/publish@v2
+        with:
+          target: gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+これで，`main`ブランチにコミットする度に，GitHub上で`render`が実行されることとなる．
