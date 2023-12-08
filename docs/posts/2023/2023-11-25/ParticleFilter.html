@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Hirofumi Shiba">
+<meta name="dcterms.date" content="2023-11-25">
+
+<title>Ano2math5 - 粒子フィルターとは何か | About Particle Filters（執筆中）</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../../../styles.css">
+<meta property="og:title" content="Ano2math5 - 粒子フィルターとは何か | About Particle Filters（執筆中）">
+<meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
+<meta property="og:site-name" content="Ano2math5">
+<meta name="twitter:title" content="Ano2math5 - 粒子フィルターとは何か | About Particle Filters（執筆中）">
+<meta name="twitter:description" content="粒子フィルターは今年で30周年を迎える「万能」非線型フィルタリング手法である．相関を持つ粒子系によって分布を逐次的に近似する遺伝的アルゴリズムであり，多くの科学分野にまたがる応用を持つと同時に，数理的対象としても豊かな構造を持つ．その概要と今後の研究方向を紹介する．">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Ano2math5</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html" rel="" target="">
+ <span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../index.html" rel="" target="">
+ <span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Lectures.html" rel="" target="">
+ <span class="menu-text">Sessions</span></a>
+  </li>  
+</ul>
+            <div class="quarto-navbar-tools">
+</div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">粒子フィルターとは何か | About Particle Filters（執筆中）</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Particles</div>
+                <div class="quarto-category">Survey</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Hirofumi Shiba </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">November 25, 2023</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="abstract-title">概要</div>
+      粒子フィルターは今年で30周年を迎える「万能」非線型フィルタリング手法である．相関を持つ粒子系によって分布を逐次的に近似する遺伝的アルゴリズムであり，多くの科学分野にまたがる応用を持つと同時に，数理的対象としても豊かな構造を持つ．その概要と今後の研究方向を紹介する．
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#背景" id="toc-背景" class="nav-link active" data-scroll-target="#背景"><span class="header-section-number">1</span> 背景</a>
+  <ul class="collapse">
+  <li><a href="#フィルタリング濾波問題とは" id="toc-フィルタリング濾波問題とは" class="nav-link" data-scroll-target="#フィルタリング濾波問題とは"><span class="header-section-number">1.1</span> フィルタリング（濾波）問題とは？</a></li>
+  <li><a href="#粒子フィルターの発明" id="toc-粒子フィルターの発明" class="nav-link" data-scroll-target="#粒子フィルターの発明"><span class="header-section-number">1.2</span> 粒子フィルターの発明</a></li>
+  <li><a href="#粒子フィルターの応用" id="toc-粒子フィルターの応用" class="nav-link" data-scroll-target="#粒子フィルターの応用"><span class="header-section-number">1.3</span> 粒子フィルターの応用</a></li>
+  <li><a href="#粒子フィルターの一般の推定問題への応用" id="toc-粒子フィルターの一般の推定問題への応用" class="nav-link" data-scroll-target="#粒子フィルターの一般の推定問題への応用"><span class="header-section-number">1.4</span> 粒子フィルターの一般の推定問題への応用</a></li>
+  <li><a href="#sec-欠点" id="toc-sec-欠点" class="nav-link" data-scroll-target="#sec-欠点"><span class="header-section-number">1.5</span> 粒子フィルターの欠点</a></li>
+  </ul></li>
+  <li><a href="#粒子フィルター入門" id="toc-粒子フィルター入門" class="nav-link" data-scroll-target="#粒子フィルター入門"><span class="header-section-number">2</span> 粒子フィルター入門</a>
+  <ul class="collapse">
+  <li><a href="#重点サンプリング" id="toc-重点サンプリング" class="nav-link" data-scroll-target="#重点サンプリング"><span class="header-section-number">2.1</span> 重点サンプリング</a></li>
+  <li><a href="#逐次重点サンプリングの修正としての粒子フィルター" id="toc-逐次重点サンプリングの修正としての粒子フィルター" class="nav-link" data-scroll-target="#逐次重点サンプリングの修正としての粒子フィルター"><span class="header-section-number">2.2</span> 逐次重点サンプリングの修正としての粒子フィルター</a></li>
+  </ul></li>
+  <li><a href="#技術的障壁と今後の研究" id="toc-技術的障壁と今後の研究" class="nav-link" data-scroll-target="#技術的障壁と今後の研究"><span class="header-section-number">3</span> 技術的障壁と今後の研究</a>
+  <ul class="collapse">
+  <li><a href="#提案分布の取り方" id="toc-提案分布の取り方" class="nav-link" data-scroll-target="#提案分布の取り方"><span class="header-section-number">3.1</span> 提案分布の取り方</a></li>
+  <li><a href="#部分的な線型構造の利用" id="toc-部分的な線型構造の利用" class="nav-link" data-scroll-target="#部分的な線型構造の利用"><span class="header-section-number">3.2</span> 部分的な線型構造の利用</a></li>
+  <li><a href="#粒子数に関する漸近論" id="toc-粒子数に関する漸近論" class="nav-link" data-scroll-target="#粒子数に関する漸近論"><span class="header-section-number">3.3</span> 粒子数に関する漸近論</a></li>
+  <li><a href="#属人化医療への応用" id="toc-属人化医療への応用" class="nav-link" data-scroll-target="#属人化医療への応用"><span class="header-section-number">3.4</span> 属人化医療への応用</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<section id="背景" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="背景"><span class="header-section-number">1</span> 背景</h2>
+<section id="フィルタリング濾波問題とは" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="フィルタリング濾波問題とは"><span class="header-section-number">1.1</span> フィルタリング（濾波）問題とは？</h3>
+<p>フィルタ（濾波器）の第一義は，液体から不純物を取り除くための装置である．そのアナロジーで「フィルタリング問題」と言った場合は，信号処理の意味で電圧や電波の信号を「濾過」してノイズを除去し本当に欲しい部分を純粋化する営みのことを指す．特に，凡ゆる通信機器において装置の熱運動によるノイズが入ることは避けられぬ自然の摂理である．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>従ってGaussが天体観測から「誤差論」として統計的推定理論を創始したように，通信と制御の分野では「時々刻々と受信するデータから時々刻々と変化する信号をどのようにうまく濾波するか」という独自の課題から，独自の理論が発展していった．特に，デジタル回路がない時代では，「どのような電気回路のシステムとして濾波機をデザインすれば良いか？」という電気工学的な回路設計の問題としての側面も大きかった．</p>
+<p>フィルタリングの問題を統計的技術で解くための理論<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>が，まず離散時間の場合が <span class="citation" data-cites="Kolmogorov1941">(<a href="#ref-Kolmogorov1941" role="doc-biblioref">Kolmogorov, 1941</a>)</span>，続いて連続時間の場合が <span class="citation" data-cites="Wiener1949">(<a href="#ref-Wiener1949" role="doc-biblioref">Wiener, 1949</a>)</span> によって模索された．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> しかし，このKolmogorov-Wiener理論では「信号とノイズの過程が定常である」という仮定を置いており，これが広い応用を阻んでいた．当時の技術（抵抗器やコンデンサーなど）で実装出来る範囲という制約がある以上，仕方ないことでもあったため，更なる理論的発展はデジタル技術の登場を待つ必要があった．</p>
+<p>トランジスタというデジタル技術が使われるようになると，「フィルタ（濾波器）」はアナログデジタル変換器，レジスタ，メモリ，マイクロプロセッサから構成されるようになり，物理的な姿は全く変わってしまった．その中で <span class="citation" data-cites="Kalman1960">(<a href="#ref-Kalman1960" role="doc-biblioref">Kalman, 1960</a>)</span> が，定常性の仮定が満たされない場合でも使えるアルゴリズムを提案すると，すぐにApollo計画に導入されるに止まらず，NASAのスペースシャトル，海軍の潜水艦などにも応用されていった．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>こうして「フィルタ（濾波器）」の語は，「水を濾過する如く電圧情報のノイズを除去する機器」という類比から，デジタル技術の出現により更なる一段階の抽象化を受けて物理的実体も失い，「ノイズを除去してメッセージ部分をなるべく正確に推定するアルゴリズム」という完全に数学的で抽象的な存在として研究が進められていくことになる．</p>
+<p>このKalman filterは素晴らしかった．だが，モデルが線型かつ正規である場合にしか使えない．そこで，計算機や情報通信技術の発展と共に複雑化していくシステム・データに併せて，様々なフィルターが考案されていく必要があるのである．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> これが統計計算の時代である．</p>
+</section>
+<section id="粒子フィルターの発明" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="粒子フィルターの発明"><span class="header-section-number">1.2</span> 粒子フィルターの発明</h3>
+<p>線型性や正規性の仮定を<strong>一才</strong>必要としない濾波アルゴリズムとして，<span class="citation" data-cites="Gordon+1993">(<a href="#ref-Gordon+1993" role="doc-biblioref">Gordon et al., 1993</a>)</span> がbootstrap filterという名前で発表し，角度観測のみを用いた物体追跡の問題への応用を付した．この角度情報のみから物体を追跡するという問題は古典的な非線型濾波問題で，従来の拡張Kalman filterの方法では精度が全く伸びず，これに比べてbootstrap filterでは圧倒的に性能が改善したのであった．リサンプリングは多項リサンプリングを採用しており，極めて実装が簡単という点も多くの応用を生んだ理由である．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p>なお，北川源四郎も同年（1993年）のカンファレンスでMonte Carlo filterの名前で同様のアルゴリズムを発表している．そのジャーナル版は <span class="citation" data-cites="北川1996">(<a href="#ref-北川1996" role="doc-biblioref">北川源四郎, 1996a</a>)</span>．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a> 日本語文献 <span class="citation" data-cites="北川源四郎1996-統計数理">(<a href="#ref-北川源四郎1996-統計数理" role="doc-biblioref">北川源四郎, 1996b</a>)</span> は<a href="https://www.ism.ac.jp/editsec/toukei/pdf/44-1-031.pdf">ウェブ上からも読める</a>．</p>
+</section>
+<section id="粒子フィルターの応用" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="粒子フィルターの応用"><span class="header-section-number">1.3</span> 粒子フィルターの応用</h3>
+<p>まず，<span class="citation" data-cites="Gordon+1993">(<a href="#ref-Gordon+1993" role="doc-biblioref">Gordon et al., 1993</a>)</span> による粒子フィルターの考案は，防衛，特に物体追跡への応用が念頭にあり，これを扱った一冊の本もある <span class="citation" data-cites="Ristic+2004">(<a href="#ref-Ristic+2004" role="doc-biblioref">Ristic et al., 2004</a>)</span>．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+<p>これに関連して，ロボティクス，HCI (Human-Computer Interaction) 分野への応用もなされている<span class="citation" data-cites="岡2005">(<a href="#ref-岡2005" role="doc-biblioref">岡兼司, 2005</a>)</span>, <span class="citation" data-cites="Wills-Schon2023">(<a href="#ref-Wills-Schon2023" role="doc-biblioref">Wills &amp; Schön, 2023</a>)</span>．</p>
+<p>ファイナンスで扱う時系列は非線型性・非正規性を示すと同時にデータ数も多い．逐次推定のステップ数が増えようとも誤差が蓄積しない粒子フィルターが見事に推定を実行する．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+<p>加えて，マクロ経済学の分野で<a href="https://en.wikipedia.org/wiki/Dynamic_stochastic_general_equilibrium">動学的確率的一般均衡モデル</a>の推定にも応用されている．このモデルは，非線型なミクロ経済学的モデルの上に構築されたモデルで，非線型な1次条件を持つ．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+<p>近年では<a href="https://ja.wikipedia.org/wiki/%E3%82%A8%E3%83%BC%E3%82%B8%E3%82%A7%E3%83%B3%E3%83%88%E3%83%BB%E3%83%99%E3%83%BC%E3%82%B9%E3%83%BB%E3%83%A2%E3%83%87%E3%83%AB">エージェント・ベースド・モデル</a>への応用もある <span class="citation" data-cites="Lux2018">(<a href="#ref-Lux2018" role="doc-biblioref">Lux, 2018</a>)</span>．</p>
+</section>
+<section id="粒子フィルターの一般の推定問題への応用" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="粒子フィルターの一般の推定問題への応用"><span class="header-section-number">1.4</span> 粒子フィルターの一般の推定問題への応用</h3>
+<p>こうして，粒子フィルターは濾波問題の文脈で発明されたMonte Carlo法であるが，濾波問題に限らず，多くの逐次推定問題，更には（逐次的構造を持たない）一般の推定問題にも応用できる．この観点から，粒子フィルターは「逐次Monte Carlo法（Sequential Monte Carlo methods 略して <strong>SMC</strong> ）」ともいう．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+<p>逐次的ではない通常の設定，いわば「静的」な設定の下でのBayes推論にSMCを用いる方法は <span class="citation" data-cites="Chopin2002">(<a href="#ref-Chopin2002" role="doc-biblioref">Chopin, 2002</a>)</span> が草分け的な仕事をした．この枠組みでは，Bayes事後分布 <span class="math inline">\(\pi(\theta|y_1,\cdots,y_N)\)</span> の近似において，途中の <span class="math inline">\(\pi(\theta|y_1,\cdots,y_n)\)</span> を経由して逐次的に近似することが，自然な計算コスト削減法として理解できる．</p>
+</section>
+<section id="sec-欠点" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="sec-欠点"><span class="header-section-number">1.5</span> 粒子フィルターの欠点</h3>
+<p>粒子フィルターは高い汎用性の代償として，多数の粒子を用意したいなら計算量が多くなることを欠点に持つ．従って，粒子フィルターは，他の手法が実行不可能なほどの非線型性・非正規性を示す問題に（のみ）用いるべきというものである．が，CPUや並列計算の発展により十分な量の粒子を用意できる場面も増えたため，その問題点も形骸化してきてると言える．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
+<p>また，粒子フィルターは，観測 <span class="math inline">\(Y_t\)</span> の次元が大きいなど，観測から得られる情報量が多く，尤度（ポテンシャル）の尖度が高いとき，多くの粒子が小さな荷重を持ってしまう．この状態は近似精度悪化の原因となり<strong>縮退</strong>と呼ばれる．<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a> そのような場合は，観測の情報を柔軟に取り入れた提案核を構築し，誘導粒子フィルターをうまく設計する必要がある．</p>
+<p>地球科学や天気予報の分野では <span class="math inline">\(Y_t\)</span> は大きく（<span class="math inline">\(10^7\)</span>を超えることもある），このような場合は粒子フィルターは実行可能でなくなる．加えてKalmanフィルターも行列計算の部分が実行不可能になり，アンサンブルKalmanフィルタという粒子法が用いられる．</p>
+</section>
+</section>
+<section id="粒子フィルター入門" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="粒子フィルター入門"><span class="header-section-number">2</span> 粒子フィルター入門</h2>
+<section id="重点サンプリング" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="重点サンプリング"><span class="header-section-number">2.1</span> 重点サンプリング</h3>
+</section>
+<section id="逐次重点サンプリングの修正としての粒子フィルター" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="逐次重点サンプリングの修正としての粒子フィルター"><span class="header-section-number">2.2</span> 逐次重点サンプリングの修正としての粒子フィルター</h3>
+<p>逐次重点サンプリングは，次元が上がっていくにつれて分散が指数増大するという致命的欠点がある．<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a> そこで，「リサンプリング」（「選択（セレクション）」ともいう）という新たな機構を各段階に取り入れることを考える．この機構により，次元の呪いを克服し，推定精度が保たれるのであるが，一方で粒子の間に相関が導入されるために，理論的解析を困難にする．この点から粒子フィルターは「（平均場）相関粒子法」「遺伝型粒子フィルター」<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a> ともいう．<a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a></p>
+</section>
+</section>
+<section id="技術的障壁と今後の研究" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="技術的障壁と今後の研究"><span class="header-section-number">3</span> 技術的障壁と今後の研究</h2>
+<p>粒子フィルターの応用には次の点の研究が肝要である．<a href="#fn17" class="footnote-ref" id="fnref17" role="doc-noteref"><sup>17</sup></a></p>
+<section id="提案分布の取り方" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="提案分布の取り方"><span class="header-section-number">3.1</span> 提案分布の取り方</h3>
+<p><a href="#sec-欠点">Section&nbsp;1.5</a> で触れた通り，特に観測の情報量が大きい場合，提案分布の選び方が粒子フィルターの精度を大きく左右するが，この取り方について普遍的な指針というものが得られていない．</p>
+<p><span class="citation" data-cites="Guarniero+2017">(<a href="#ref-Guarniero+2017" role="doc-biblioref">Guarniero et al., 2017</a>)</span> と <span class="citation" data-cites="Heng+2020">(<a href="#ref-Heng+2020" role="doc-biblioref">Heng et al., 2020</a>)</span> は提案分布にパラメトリックモデルを用意し，粒子推定量の分散を最小化するようにそのモデル内で逐次的に最適化していく機構を提案している．</p>
+<p><span class="citation" data-cites="Naesseth2015">(<a href="#ref-Naesseth2015" role="doc-biblioref">Naesseth et al., 2015</a>)</span> が提唱するnested SMCは，は各時刻での提案分布を近似するために，もう一つのSMCを内部に走らせる．当然計算量は二倍になるが，それでも単純なbootstrap filterから大きく性能が改善する場合が多い．</p>
+<blockquote class="blockquote">
+<p>粒子フィルタを適用する際の課題の一つは，各粒子に割り当てられる重みが1粒子に集中する，いわゆる退化の問題を限られた数の粒子でいかに克服するかである．<span class="citation" data-cites="上野玄太2019">(<a href="#ref-上野玄太2019" role="doc-biblioref">上野玄太, 2019</a>)</span></p>
+</blockquote>
+</section>
+<section id="部分的な線型構造の利用" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="部分的な線型構造の利用"><span class="header-section-number">3.2</span> 部分的な線型構造の利用</h3>
+<p>周辺化粒子フィルター，またはRao-Blackwellized particle filterとも呼ばれる方法である．これは多くの場面で，仮定されている状態空間モデルが部分的に線型である場合に，線型の部分をKalmanフィルターによって正確に解き，残った部分のみを粒子フィルターで解くことで，精度の向上とアルゴリズムの効率化を図る方法である．</p>
+<p><span class="citation" data-cites="Ristic+2004">(<a href="#ref-Ristic+2004" role="doc-biblioref">Ristic et al., 2004, p. 287</a>)</span> では，探知前追跡 (track-before-detect) の問題<a href="#fn18" class="footnote-ref" id="fnref18" role="doc-noteref"><sup>18</sup></a>において，周辺化粒子フィルタが，必要な粒子数を大きく削減してくれることを紹介している．</p>
+<p>その他にも，問題毎の特有の構造を利用して計算量を削減・パフォーマンスを最適化することは重要な営みである．</p>
+</section>
+<section id="粒子数に関する漸近論" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="粒子数に関する漸近論"><span class="header-section-number">3.3</span> 粒子数に関する漸近論</h3>
+<p>目前の問題を，所与の精度で解くために必要な粒子数は幾ばくか？という問題は実用上も有益だと思われる．<a href="#fn19" class="footnote-ref" id="fnref19" role="doc-noteref"><sup>19</sup></a></p>
+</section>
+<section id="属人化医療への応用" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="属人化医療への応用"><span class="header-section-number">3.4</span> 属人化医療への応用</h3>
+<p>筆者は属人化医療への応用が大きなモチベーションになっている．<a href="#fn20" class="footnote-ref" id="fnref20" role="doc-noteref"><sup>20</sup></a></p>
+<p>病気の進行（あるいは健康）のモニタリングのために，健康診断やウェアラブルデバイス，フォローアップから得られるデータは，治療の見直しや異常の早期発見のために即時処理されることが望ましい．これに逐次モンテカルロ法でBayes的に迫る研究がある <span class="citation" data-cites="Alvares+2021">(<a href="#ref-Alvares+2021" role="doc-biblioref">Alvares et al., 2021</a>)</span> ！</p>
+<p>さらに，個々人の日常生活のレベルではSMCを用いているものはどうやらまだなく，運動と睡眠時間の間の関係と処置効果をMonte Carlo法を用いて推定している研究はある <span class="citation" data-cites="Daza-Schneider2022">(<a href="#ref-Daza-Schneider2022" role="doc-biblioref">Daza &amp; Schneider, 2022</a>)</span>．これを逐次化することで，よりリアルタイムで自分に合った生活習慣への示唆が得られるアプリを開発できるかもしれない．</p>
+<p>また，属人化医療においてはシステム生物学的なモデルに基づいた薬効推定が欠かせない．小規模な患者群と測定時間（服薬時間）に関する不確定性を考慮した手法が <span class="citation" data-cites="Krengel+2013">(<a href="#ref-Krengel+2013" role="doc-biblioref">Krengel et al., 2013</a>)</span> で考察されている．</p>
+<p>次世代DNAシークエンサーでは，DNAの各塩基ごとに異なる蛍光物質を結合させ，蛍光の波長と強度により塩基を読み取る仕組みであり，蛍光強度の生データからDNA配列データへ変換するベースコールと呼ばれる段階で粒子フィルターを使うことも提案されている <span class="citation" data-cites="Shen-Vikalo2012">(<a href="#ref-Shen-Vikalo2012" role="doc-biblioref">Shen &amp; Vikalo, 2012</a>)</span>．</p>
+<p>また，腫瘍サンプルに含まれる体細胞の突然変異に関するデータから，SMCを用いて腫瘍の発達と進行の状態を理解する手法も提案されている <span class="citation" data-cites="Ogundijo+2019">(<a href="#ref-Ogundijo+2019" role="doc-biblioref">Ogundijo et al., 2019</a>)</span>．</p>
+<p>Covid-19のようなパンデミックにおいて，疫学モデルを通じて時間変動する再生産数をリアルタイムでモニタリングをして意思決定に繋げるためのSMC手法も考えられており，実際にノルウェーで使用され有効性が実証された <span class="citation" data-cites="Strovik+2023">(<a href="#ref-Strovik+2023" role="doc-biblioref">Strovik et al., 2023</a>)</span>．</p>
+<p>状態空間が高次元になることと，既存のモデルを状態空間モデルに定式化することに困難が伴うことが，朧げながら共通課題のように思われるが，その現れ方と解決法は個々の事例で異なる．</p>
+
+
+
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-line-spacing="2" role="list">
+<div id="ref-Alvares+2021" class="csl-entry" role="listitem">
+Alvares, D., Armero, C., Forte, A., &amp; Chopin, N. (2021). Sequential monte carlo methods in bayesian joint models for longitudinal and time-to-event data. <em>Statistical Modelling</em>, <em>21</em>(1-2), 161–181. <a href="https://journals.sagepub.com/doi/full/10.1177/1471082X20916088">https://journals.sagepub.com/doi/full/10.1177/1471082X20916088</a>
+</div>
+<div id="ref-Anderson-Moore1979-OptimalFiltering" class="csl-entry" role="listitem">
+Anderson, B. D. O., &amp; Moore, J. B. (1979). <em>Optimal filtering</em>. Dover Publications.
+</div>
+<div id="ref-Bain-Crisan2009-StochasticFiltering" class="csl-entry" role="listitem">
+Bain, A., &amp; Crisan, D. (2009). <em>Fundamentals of stochsatic filtering</em>. Springer New York.
+</div>
+<div id="ref-Chopin2002" class="csl-entry" role="listitem">
+Chopin, N. (2002). A sequential particle filter method for static models. <em>Biometrika</em>, <em>89</em>(3).
+</div>
+<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
+Chopin, N., &amp; Papaspiliopoulos, O. (2020). <em>An introduction to sequential monte carlo</em>. Springer Cham.
+</div>
+<div id="ref-Creal2011" class="csl-entry" role="listitem">
+Creal, D. (2011). A survey of sequential monte carlo methods for economics and finance. <em>Econometric Reviews</em>, <em>31</em>(3), 245–296. <a href="https://www.tandfonline.com/doi/full/10.1080/07474938.2011.607333">https://www.tandfonline.com/doi/full/10.1080/07474938.2011.607333</a>
+</div>
+<div id="ref-Daza-Schneider2022" class="csl-entry" role="listitem">
+Daza, E. J., &amp; Schneider, L. (2022). <em>Model-twin randomization (MoTR): A monte carlo method for estimating the within-individual average treatment effect using wearable sensors</em>. <a href="https://arxiv.org/abs/2208.00739">https://arxiv.org/abs/2208.00739</a>
+</div>
+<div id="ref-DelMoral-Horton2023-EnKF" class="csl-entry" role="listitem">
+Del&nbsp;Moral, P., &amp; Horton, E. (2023). A theoretical analysis of one-dimensional discrete generation ensemble kalman particle filters. <em>The Annals of Applied Probability</em>, <em>33</em>(2), 1327–1372.
+</div>
+<div id="ref-DelMoral-Penev2014" class="csl-entry" role="listitem">
+Del&nbsp;Moral, P., &amp; Penev, S. (2014). <em>Stochastic processes</em>. Chapman; Hall/CRC.
+</div>
+<div id="ref-DelMoral13-MeanFieldSimulation" class="csl-entry" role="listitem">
+Del&nbsp;Morel, P. (2013). <em>Mean field simulation for monte carlo integration</em> (Vol. 126). Chapman; Hall/CRC.
+</div>
+<div id="ref-Gordon+1993" class="csl-entry" role="listitem">
+Gordon, N. G., Salmond, D. J., &amp; Smith, A. F. M. (1993). Novel approach to nonlinear/non-gaussian bayesian state estimation. <em>IEE Proceedings-F</em>, <em>140</em>(2), 107–113.
+</div>
+<div id="ref-Guarniero+2017" class="csl-entry" role="listitem">
+Guarniero, P., Johansen, A. M., &amp; Lee, A. (2017). The iterated auxiliary particle filter. <em>Journal of the American Statistical Association</em>, <em>112</em>(520). <a href="https://www.tandfonline.com/doi/full/10.1080/01621459.2016.1222291">https://www.tandfonline.com/doi/full/10.1080/01621459.2016.1222291</a>
+</div>
+<div id="ref-Heng+2020" class="csl-entry" role="listitem">
+Heng, J., Bishop, A. N., Deligiannidis, G., &amp; Doucet, A. (2020). Controlled sequential monte carlo. <em>The Annals of Statistics</em>, <em>48</em>(5), 2904–2929.
+</div>
+<div id="ref-Kalman1960" class="csl-entry" role="listitem">
+Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. <em>Journal of Basic Engineering</em>, <em>82</em>(1), 35–45. <a href="https://asmedigitalcollection.asme.org/fluidsengineering/article-abstract/82/1/35/397706/A-New-Approach-to-Linear-Filtering-and-Prediction?redirectedFrom=fulltext">https://asmedigitalcollection.asme.org/fluidsengineering/article-abstract/82/1/35/397706/A-New-Approach-to-Linear-Filtering-and-Prediction?redirectedFrom=fulltext</a>
+</div>
+<div id="ref-Kolmogorov1941" class="csl-entry" role="listitem">
+Kolmogorov, A. N. (1941). Interpolation and extrapolation of stationary sequences. <em>Bulletin de l-Acad´emie Des Sciences de U.S.S.R., Ser. Math.</em>, <em>5</em>, 3–14.
+</div>
+<div id="ref-Krengel+2013" class="csl-entry" role="listitem">
+Krengel, A., Hauth, J., Taskinen, M., Adiels, M., &amp; Jirstrand, M. (2013). A continuous-time adaptive particle filter for estimations under measurement time uncertainties with an application to a plasma-leucine mixed effects model. <em>BMC Systems Biology</em>, <em>7</em>(8).
+</div>
+<div id="ref-Kummert+2021" class="csl-entry" role="listitem">
+Kummert, J., Schulz, A., Redick, T., Ayoub, N., Modabber, A., Abel, D., &amp; Hammer, B. (2021). Efficient reject options for particle filter object tracking in medical applications. <em>Sensors</em>, <em>21</em>(6), 2114.
+</div>
+<div id="ref-Lux2018" class="csl-entry" role="listitem">
+Lux, T. (2018). Estimation of agent-based model using sequential monte carlo methods. <em>Journal of Economic Dynamics and Control</em>, <em>91</em>, 391–408.
+</div>
+<div id="ref-Naesseth2015" class="csl-entry" role="listitem">
+Naesseth, C., Lindsten, F., &amp; Schon, T. (2015). Nested sequential monte carlo methods. <em>Proceedings of the 32nd International Conference on Machine Learning Research</em>, <em>37</em>, 1292–1301. <a href="https://proceedings.mlr.press/v37/naesseth15.html">https://proceedings.mlr.press/v37/naesseth15.html</a>
+</div>
+<div id="ref-Ogundijo+2019" class="csl-entry" role="listitem">
+Ogundijo, O. E., Zhu, K., Wang, X., &amp; Anastassiou, D. (2019). A sequential monte carlo algorithm for inference of subclonal structure in cancer. <em>PLoS One</em>, <em>14</em>(1).
+</div>
+<div id="ref-Ristic+2004" class="csl-entry" role="listitem">
+Ristic, B., Arulampalam, S., &amp; Gordon, N. (2004). <em>Beyond the kalman filter: Particle filters for tracking applications</em> (2nd ed.). Artech House Publishers: Boston, London.
+</div>
+<div id="ref-Shen-Vikalo2012" class="csl-entry" role="listitem">
+Shen, X., &amp; Vikalo, H. (2012). ParticleCall: A particle filter for base calling in next-generation sequencing systems. <em>BMC Bioinformatics</em>, <em>13</em>(160).
+</div>
+<div id="ref-Strovik+2023" class="csl-entry" role="listitem">
+Strovik, G., Palomares, A. D.-L., Engebretsen, S., Rø, G. Ø. I., Engø-Monsen, K., Kristoffersen, A.-B., Blasio, B. F. de, &amp; Frigessi, A. (2023). A sequential monte carlo approach to estimate a time varying reproduction number in infectious disease models: The covid-19 case. <em>Journal of the Royal Statistical Society Series A: Statistics in Society</em>, <em>qnad043</em>.
+</div>
+<div id="ref-Wiener1949" class="csl-entry" role="listitem">
+Wiener, N. (1949). <em>Extrapolation, interpolation &amp; smoothing of stationary time series</em>. The MIT Press, Cambridge, Mass.
+</div>
+<div id="ref-Wills-Schon2023" class="csl-entry" role="listitem">
+Wills, A. G., &amp; Schön, T. B. (2023). Sequential monte carlo: A unified review. <em>Annual Review of Control, Robotics, and Autonomous Systems</em>, <em>6</em>, 159–182.
+</div>
+<div id="ref-Yang+2023" class="csl-entry" role="listitem">
+Yang, J., Yao, Y., &amp; Yang, D. (2023). Particle filter based on harris hawks optimization algorithm for underwater visual tracking. <em>Journal of Marine Science and Engineering</em>, <em>11</em>(7), 1456.
+</div>
+<div id="ref-上野玄太2019" class="csl-entry" role="listitem">
+上野玄太. (2019). 粒子フィルタとデータ同化. <em>統計数理</em>, <em>67</em>(2), 241–253. <a href="https://www.ism.ac.jp/editsec/toukei/pdf/67-2-241.pdf">https://www.ism.ac.jp/editsec/toukei/pdf/67-2-241.pdf</a>
+</div>
+<div id="ref-北川1996" class="csl-entry" role="listitem">
+北川源四郎. (1996a). Monte carlo filter and smoother for non-gaussian nonlinear state space models. <em>Journal of Computational and Graphical Statistics</em>, <em>5</em>(1), 1–25. <a href="https://www.jstor.org/stable/1390750">https://www.jstor.org/stable/1390750</a>
+</div>
+<div id="ref-北川源四郎1996-統計数理" class="csl-entry" role="listitem">
+北川源四郎. (1996b). モンテカルロ・フィルタおよび平滑化について. <em>統計数理</em>, <em>44</em>(1), 31–48.
+</div>
+<div id="ref-岡2005" class="csl-entry" role="listitem">
+岡兼司. (2005). 適応的拡散制御を伴うパーティクルフィルタを用いた頭部姿勢推定システム. <em>電子情報通信学会論文誌</em>, <em>88</em>(8), 1601–1613.
+</div>
+<div id="ref-有本卓1970" class="csl-entry" role="listitem">
+有本卓. (1970). カルマン・フィルタ. <em>計測と制御</em>, <em>9</em>(8), 590–598. <a href="https://www.jstage.jst.go.jp/article/sicejl1962/9/8/9_8_590/_article/-char/ja">https://www.jstage.jst.go.jp/article/sicejl1962/9/8/9_8_590/_article/-char/ja</a>
+</div>
+<div id="ref-矢野2014" class="csl-entry" role="listitem">
+矢野浩一. (2014). 粒子フィルタの基礎と応用. <em>日本統計学会誌</em>, <em>44</em>(1), 189–216. <a href="https://www.jstage.jst.go.jp/article/jjssj/44/1/44_189/_article/-char/ja">https://www.jstage.jst.go.jp/article/jjssj/44/1/44_189/_article/-char/ja</a>
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><span class="citation" data-cites="Anderson-Moore1979-OptimalFiltering">(<a href="#ref-Anderson-Moore1979-OptimalFiltering" role="doc-biblioref">Anderson &amp; Moore, 1979</a>)</span> 第1.1節．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>このフィルタリング問題の統計的な側面を，前述の電気工学的な側面から区別して，stochastic filteringと呼んだりもする．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="Bain-Crisan2009-StochasticFiltering">(<a href="#ref-Bain-Crisan2009-StochasticFiltering" role="doc-biblioref">Bain &amp; Crisan, 2009</a>)</span> 1.3節．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="DelMoral-Penev2014">(<a href="#ref-DelMoral-Penev2014" role="doc-biblioref">Del&nbsp;Moral &amp; Penev, 2014</a>)</span> 参照．また，<span class="citation" data-cites="Kalman1960">(<a href="#ref-Kalman1960" role="doc-biblioref">Kalman, 1960</a>)</span> からちょうど10周年の文献 <span class="citation" data-cites="有本卓1970">(<a href="#ref-有本卓1970" role="doc-biblioref">有本卓, 1970</a>)</span> に当時の雰囲気も感じさせる良いサーベイがある．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>初めの非線型化の試みは，モデルの局所線型近似に基づく拡張Kalman filterであった．しかしこれらは本稿では触れない．<span class="citation" data-cites="Bain-Crisan2009-StochasticFiltering">(<a href="#ref-Bain-Crisan2009-StochasticFiltering" role="doc-biblioref">Bain &amp; Crisan, 2009</a>)</span> など参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Creal2011">(<a href="#ref-Creal2011" role="doc-biblioref">Creal, 2011</a>)</span> p.256．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><a href="https://people.bordeaux.inria.fr/pierre.delmoral/simulinks.html">Del MoralのWebサイト</a>も歴史的背景に詳しい．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Yang+2023">(<a href="#ref-Yang+2023" role="doc-biblioref">Yang et al., 2023</a>)</span> は水中での物体追跡が縮退により従来は粒子フィルタが使えなかった問題の解決を試みている．<span class="citation" data-cites="Kummert+2021">(<a href="#ref-Kummert+2021" role="doc-biblioref">Kummert et al., 2021</a>)</span> はロボット支援を用いた手術中に物体追跡を利用する際に，尤度が低すぎるなどの要素から追跡対象を失った状態を検出してアラートを出す機構を開発している．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p>ファイナンスにおける確率ボラティリティモデルなどの例が挙げられている <span class="citation" data-cites="Creal2011">(<a href="#ref-Creal2011" role="doc-biblioref">Creal, 2011</a>)</span> p.256．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p><span class="citation" data-cites="Creal2011">(<a href="#ref-Creal2011" role="doc-biblioref">Creal, 2011</a>)</span> p.246 に，粒子フィルターの経済学での応用が増えたきっかけがFernández-Villaverde and Rubio-Ramírez (2005, 2007) によるDSGEモデルの推定への応用だとしている．<span class="citation" data-cites="矢野2014">(<a href="#ref-矢野2014" role="doc-biblioref">矢野浩一, 2014</a>)</span> 実物景気循環モデル (Real Business Cycles Model) への応用を解説している．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020</a>)</span> 第3章参照．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="矢野2014">(<a href="#ref-矢野2014" role="doc-biblioref">矢野浩一, 2014</a>)</span> p.190，<span class="citation" data-cites="Ristic+2004">(<a href="#ref-Ristic+2004" role="doc-biblioref">Ristic et al., 2004</a>)</span> 前文 p.xi．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, pp. 19.1節 p.371</a>)</span>, <span class="citation" data-cites="Creal2011">(<a href="#ref-Creal2011" role="doc-biblioref">Creal, 2011, pp. 2.5.1節 p.258</a>)</span>．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn14"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020</a>)</span> 第8.7節 p.95，<span class="citation" data-cites="Creal2011">(<a href="#ref-Creal2011" role="doc-biblioref">Creal, 2011</a>)</span> p.253．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn15"><p><span class="citation" data-cites="DelMoral-Horton2023-EnKF">(<a href="#ref-DelMoral-Horton2023-EnKF" role="doc-biblioref">Del&nbsp;Moral &amp; Horton, 2023</a>)</span> など<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn16"><p>呼び方については<span class="citation" data-cites="DelMoral13-MeanFieldSimulation">(<a href="#ref-DelMoral13-MeanFieldSimulation" role="doc-biblioref">Del&nbsp;Morel, 2013</a>)</span>と<a href="https://162348.github.io/posts/2023-11-9/">この記事</a> も参照．<a href="#fnref16" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn17"><p><span class="citation" data-cites="Ristic+2004">(<a href="#ref-Ristic+2004" role="doc-biblioref">Ristic et al., 2004</a>)</span> Epilogueに次の言葉がある &gt; “The key factors for a successful application of particle filters in practice are therefore a good choice of the importance density and Rao-Blackwellization if possible.””<a href="#fnref17" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn18"><p>探知前追跡とは，信号が弱い，またはノイズが強い環境下において，信頼のおける初期信号を頼りにせずとも，物体追跡を実行するための手法．<a href="#fnref18" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn19"><p><span class="citation" data-cites="Ristic+2004">(<a href="#ref-Ristic+2004" role="doc-biblioref">Ristic et al., 2004, p. 288</a>)</span> に示唆されている．<a href="#fnref19" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn20"><p><a href="https://162348.github.io/posts/2023-11-6/">過去の記事</a>でも触れた．<a href="#fnref20" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
