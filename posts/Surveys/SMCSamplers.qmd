@@ -1,0 +1,75 @@
+---
+title: "粒子フィルターを用いたサンプリング"
+author: "Hirofumi Shiba"
+date: "12/14/2023"
+date-modified: "12/14/2023"
+categories: [Particles, Survey]
+toc: true
+number-sections: true
+twitter-card: true
+bibliography: ../../mathematics.bib
+csl: ../../apa.csl
+abstract-title: 概要
+abstract: 粒子フィルターは30年前に「万能」非線型フィルタリング手法として開発されたが，近年その真の力が明らかになりつつある．相関を持つ粒子系によって分布を逐次的に近似することで，複雑な分布からでも効率的にサンプリング出来るまたとない手法であるようだ．本稿では現在までのサンプラーとしてのSMC手法に対する理解をまとめる．
+crossref:
+    sec-prefix: 節
+    eq-prefix: 式
+---
+
+# テンパリングの歴史
+
+{{< include ../../_preamble.qmd >}}
+
+SMC の文脈で，目標の分布 $\pi_p\in\cP(E)$ が複雑であるとき，これに至る $\cP(E)$ 上の道
+$$
+[p]\mapsto\pi_n\in\cP(E)
+$$
+を通じて，より簡単な分布 $\pi_1,\pi_2,\cdots$ から逐次的にサンプリングをする，というアイデアを tempering という（[粒子フィルターの稿](../2023/2023-11-25/ParticleFilter.qmd#sec-SMC-Samplers) も参照）．
+
+良い訳語を考えあぐねているが，この tempering という考え方は古くは MCMC を多峰性を持つ分布に対して拡張する研究で見られた．
+
+まずはその歴史を概観する．
+
+## Metropolis-coupled MCMC
+
+まず最初の発想は，目標分布 $\pi_p$ が多峰性をもち，MCMC がうまく峰を見つけられず，収束が遅くなる問題を解決する中で生まれた．
+
+そこで，峰の間で遷移する動きを，不変分布を変えないように MCMC に加えることで，収束性が改善できないかと考えられた．
+
+峰を全て特定し，正しいステップサイズを選択するために，複数の MCMC を同時に走らせる **MC^3^** (Metropolis-Coupled MCMC) という手法が [@Geyer1991] により提案された．
+
+これは $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として独立な MCMC を実行し，時折 Metropolis 核の提案に従って不変分布を変えないようにそれらの位置を交換するという手法である．
+
+この手法は parallel tempering または [レプリカ交換法](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95) とも呼ばれる．^[[@Chopin+2023] でも [@Geyer1991] を引用して PT と呼んでいる．]
+
+しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う $\pi_n,\pi_{n+1}$ を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．^[[@Behrens+2012 p.66] も参照．]
+
+## 擬似テンパリング
+
+[焼きなまし法](https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95)（または擬似アニーリング） [@Kirkpartick+1983] の改良として最適化の文脈で提案されたのが 焼き戻し法，または **擬似テンパリング** (simulated tempering) [@Marinari-Parisi1992] である．
+
+これは状態空間を $E\times [p]$ に拡大し，^[記法 $[p]=\{1,\cdots,p\}$ は [本サイトの数学記法一覧](../2023-12-12/Notations.qmd#sec-numbers) を参照] 
+$$
+X|N=n\sim\pi_n
+$$
+を満たすようにすることで，MC^3^ が $p$ 本の MCMC を用いて実現していたことを，$E\times [p]$ 上の MCMC 1つで可能にする．
+
+## テンパリング遷移 [@Neal1996]
+
+tempered transitions とは，目標分布 $\pi_p$ が多峰性をもち，MCMC によるサンプリングの性能が悪い際，より多峰性の低い分布による近似列 $\pi_1,\pi_2,\cdots$ を用意し，これに対する MCMC の動きを，$\pi_p$ に対する MCMC の提案に取り入れるという手法である．^[[@Behrens+2012] も参照．]
+
+## 焼きなまし重点サンプリング [@Neal2001]
+
+ここで初めて SMC の文脈にもテンパリングが輸入された．[@Neal2001] は重点サンプリングによってあらゆる温度からの提案を効率的に採用する手法を提案した．
+
+## 重点テンパリング [@Gramacy+2010]
+
+
+
+## 荷重を保つ擬似テンパリング [@Tawn+2020]
+
+## 多峰性の最適化に基づく対処
+
+目標分布の峰を特定するタスクを MCMC から分離して，[BFGS 法](https://ja.wikipedia.org/wiki/BFGS%E6%B3%95) に基づく最適化法によって先に解いてしまう手法が [@Pompe+2020] によって提案されている．
+
+これにより探索した峰の全体を $\cI:=\{1,\cdots,I\}$ に格納し，拡大した状態空間 $E\times\cI$ 上で $\wt{\pi}$ を対象とした MCMC を実行するが，この $\wt{\pi}$ をさらに適応的に更新する Auxiliary Variable Adaptive MCMC を提案している．
