@@ -198,12 +198,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <ul>
   <li><a href="#テンパリングの歴史" id="toc-テンパリングの歴史" class="nav-link active" data-scroll-target="#テンパリングの歴史"><span class="header-section-number">1</span> テンパリングの歴史</a>
   <ul class="collapse">
-  <li><a href="#metropolis-coupled-mcmc" id="toc-metropolis-coupled-mcmc" class="nav-link" data-scroll-target="#metropolis-coupled-mcmc"><span class="header-section-number">1.1</span> Metropolis-coupled MCMC</a></li>
+  <li><a href="#mc3-並行テンパリング" id="toc-mc3-並行テンパリング" class="nav-link" data-scroll-target="#mc3-並行テンパリング"><span class="header-section-number">1.1</span> MC<sup>3</sup> / 並行テンパリング</a></li>
   <li><a href="#擬似テンパリング" id="toc-擬似テンパリング" class="nav-link" data-scroll-target="#擬似テンパリング"><span class="header-section-number">1.2</span> 擬似テンパリング</a></li>
   <li><a href="#テンパリング遷移-neal1996" id="toc-テンパリング遷移-neal1996" class="nav-link" data-scroll-target="#テンパリング遷移-neal1996"><span class="header-section-number">1.3</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(Neal, 1996)</span></a></li>
   <li><a href="#焼きなまし重点サンプリング-neal2001" id="toc-焼きなまし重点サンプリング-neal2001" class="nav-link" data-scroll-target="#焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.4</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(Neal, 2001)</span></a></li>
-  <li><a href="#荷重を保つ擬似テンパリング-tawn2020" id="toc-荷重を保つ擬似テンパリング-tawn2020" class="nav-link" data-scroll-target="#荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.5</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(Tawn et al., 2020)</span></a></li>
-  <li><a href="#多峰性の最適化に基づく対処" id="toc-多峰性の最適化に基づく対処" class="nav-link" data-scroll-target="#多峰性の最適化に基づく対処"><span class="header-section-number">1.6</span> 多峰性の最適化に基づく対処</a></li>
+  <li><a href="#重点テンパリング-gramacy2010" id="toc-重点テンパリング-gramacy2010" class="nav-link" data-scroll-target="#重点テンパリング-gramacy2010"><span class="header-section-number">1.5</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(Gramacy et al., 2010)</span></a></li>
+  <li><a href="#荷重を保つ擬似テンパリング-tawn2020" id="toc-荷重を保つ擬似テンパリング-tawn2020" class="nav-link" data-scroll-target="#荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.6</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(Tawn et al., 2020)</span></a></li>
+  <li><a href="#多峰性の最適化に基づく対処" id="toc-多峰性の最適化に基づく対処" class="nav-link" data-scroll-target="#多峰性の最適化に基づく対処"><span class="header-section-number">1.7</span> 多峰性の最適化に基づく対処</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -242,41 +243,50 @@ $$
 <p>%%% 矢印類 $$</p>
 </div>
 <p>SMC の文脈で，目標の分布 <span class="math inline">\(\pi_p\in\mathcal{P}(E)\)</span> が複雑であるとき，これに至る <span class="math inline">\(\mathcal{P}(E)\)</span> 上の道 <span class="math display">\[
-[p]\mapsto\pi_n\in\mathcal{P}(E)
-\]</span> を通じて，より簡単な分布 <span class="math inline">\(\pi_1,\pi_2,\cdots\)</span> から逐次的にサンプリングをする，というアイデアを tempering という（<a href="../../posts/2023/2023-11-25/ParticleFilter.html#sec-SMC-Samplers">粒子フィルターの稿</a> も参照）．</p>
-<p>良い訳語を考えあぐねているが，この tempering という考え方は古くは MCMC を多峰性を持つ分布に対して拡張する研究で見られた．</p>
+[p]\ni n\mapsto\pi_n\in\mathcal{P}(E)
+\]</span> を通じて，より簡単な分布 <span class="math inline">\(\pi_1,\pi_2,\cdots\)</span> から逐次的にサンプリングをする，というアイデアを <strong>調温 (tempering)</strong> という（<a href="../../posts/2023/2023-11-25/ParticleFilter.html#sec-SMC-Samplers">粒子フィルターの稿</a> も参照）．</p>
+<p>この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案された．</p>
 <p>まずはその歴史を概観する．</p>
-<section id="metropolis-coupled-mcmc" class="level2" data-number="1.1">
-<h2 data-number="1.1" class="anchored" data-anchor-id="metropolis-coupled-mcmc"><span class="header-section-number">1.1</span> Metropolis-coupled MCMC</h2>
+<section id="mc3-並行テンパリング" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="mc3-並行テンパリング"><span class="header-section-number">1.1</span> MC<sup>3</sup> / 並行テンパリング</h2>
 <p>まず最初の発想は，目標分布 <span class="math inline">\(\pi_p\)</span> が多峰性をもち，MCMC がうまく峰を見つけられず，収束が遅くなる問題を解決する中で生まれた．</p>
 <p>そこで，峰の間で遷移する動きを，不変分布を変えないように MCMC に加えることで，収束性が改善できないかと考えられた．</p>
 <p>峰を全て特定し，正しいステップサイズを選択するために，複数の MCMC を同時に走らせる <strong>MC<sup>3</sup></strong> (Metropolis-Coupled MCMC) という手法が <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span> により提案された．</p>
 <p>これは <span class="math inline">\(\pi_1\otimes\cdots\otimes\pi_p\)</span> を目標分布として独立な MCMC を実行し，時折 Metropolis 核の提案に従って不変分布を変えないようにそれらの位置を交換するという手法である．</p>
-<p>この手法は parallel tempering または <a href="https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95">レプリカ交換法</a> とも呼ばれる．</p>
-<p>しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う <span class="math inline">\(\pi_n,\pi_{n+1}\)</span> を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>この手法は <strong>parallel tempering</strong><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> または <a href="https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95">レプリカ交換法</a>，さらには population-based MCMC<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> とも呼ばれる．</p>
+<p>しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う <span class="math inline">\(\pi_n,\pi_{n+1}\)</span> を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
 </section>
 <section id="擬似テンパリング" class="level2" data-number="1.2">
 <h2 data-number="1.2" class="anchored" data-anchor-id="擬似テンパリング"><span class="header-section-number">1.2</span> 擬似テンパリング</h2>
-<p><a href="https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95">焼きなまし法</a>（または擬似アニーリング） <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span> の改良として最適化の文脈で提案されたのが 焼き戻し法，または <strong>擬似テンパリング</strong> (simulated tempering) <span class="citation" data-cites="Marinari-Parisi1992">(<a href="#ref-Marinari-Parisi1992" role="doc-biblioref">Marinari &amp; Parisi, 1992</a>)</span> である．</p>
-<p>これは状態空間を <span class="math inline">\(E\times [p]\)</span> に拡大し，<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> <span class="math display">\[
+<p><a href="https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95">焼きなまし法</a>（または擬似アニーリング） <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span> の改良として最適化の文脈で提案されたのが <strong>焼き戻し法</strong>，または <strong>擬似テンパリング</strong> (simulated tempering) <span class="citation" data-cites="Marinari-Parisi1992">(<a href="#ref-Marinari-Parisi1992" role="doc-biblioref">Marinari &amp; Parisi, 1992</a>)</span> である．</p>
+<p>これは状態空間を <span class="math inline">\(E\times [p]\)</span> に拡大し，<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> その上の標的分布を <span class="math display">\[
 X|N=n\sim\pi_n
-\]</span> を満たすようにすることで，MC<sup>3</sup> が <span class="math inline">\(p\)</span> 本の MCMC を用いて実現していたことを，<span class="math inline">\(E\times [p]\)</span> 上の MCMC 1つで可能にする．</p>
+\]</span> を満たすようにし，<span class="math inline">\(N|X\)</span> は適宜架橋分布 <span class="math inline">\(\{\pi_n\}\)</span> を往来するよう設計することで，MC<sup>3</sup> が <span class="math inline">\(p\)</span> 本の MCMC を用いて実現していたことを，<span class="math inline">\(E\times [p]\)</span> 上の MCMC 1つで効率的に実行する．</p>
+<p>また，MCMC の収束を大幅に加速する手法としても，遺伝学における複雑な事後分布からのサンプリングへの応用を念頭に独立に提案された <span class="citation" data-cites="Geyer-Thompson1995">(<a href="#ref-Geyer-Thompson1995" role="doc-biblioref">Geyer &amp; Thompson, 1995</a>)</span>．</p>
 </section>
 <section id="テンパリング遷移-neal1996" class="level2" data-number="1.3">
 <h2 data-number="1.3" class="anchored" data-anchor-id="テンパリング遷移-neal1996"><span class="header-section-number">1.3</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span></h2>
-<p>tempered transitions とは，目標分布 <span class="math inline">\(\pi_p\)</span> が多峰性をもち，MCMC によるサンプリングの性能が悪い際，より多峰性の低い分布による近似列 <span class="math inline">\(\pi_1,\pi_2,\cdots\)</span> を用意し，これに対する MCMC の動きを，<span class="math inline">\(\pi_p\)</span> に対する MCMC の提案に取り入れるという手法である．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p><strong>tempered transitions</strong> では，架橋列 <span class="math inline">\(\{\pi_n\}\)</span> を1往復して探索し，その結果を元に <span class="math inline">\(\pi_p\)</span> を効率的に探索する MCMC の提案を構成する．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>また， <span class="math display">\[
+\pi_n(x)\,\propto\,\pi_0(x)e^{-\beta_nh(x)}
+\]</span> と表せる際，架橋分布 <span class="math inline">\(\{\pi_n\}\)</span> は温度比 <span class="math inline">\(\beta_n/\beta_{n+1}\)</span> が一定になるように <strong>幾何的に</strong> 取ることを提案しており，現在でも一般的な基準であるようである <span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span>．</p>
 </section>
 <section id="焼きなまし重点サンプリング-neal2001" class="level2" data-number="1.4">
 <h2 data-number="1.4" class="anchored" data-anchor-id="焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.4</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span></h2>
-<p><span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> は重点サンプリングによってあらゆる温度からの提案を効率的に採用する手法を提案した．</p>
+<p>ここで初めて SMC の文脈にもテンパリングが輸入された．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a> <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> は重点サンプリングによってあらゆる温度 <span class="math inline">\(\{\pi_n\}\)</span> からの提案を効率的に採用する方法を模索した．</p>
+<p>テンパリング遷移の後半のアルゴリズムを発展させた形である．</p>
 </section>
-<section id="荷重を保つ擬似テンパリング-tawn2020" class="level2" data-number="1.5">
-<h2 data-number="1.5" class="anchored" data-anchor-id="荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.5</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(<a href="#ref-Tawn+2020" role="doc-biblioref">Tawn et al., 2020</a>)</span></h2>
+<section id="重点テンパリング-gramacy2010" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="重点テンパリング-gramacy2010"><span class="header-section-number">1.5</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(<a href="#ref-Gramacy+2010" role="doc-biblioref">Gramacy et al., 2010</a>)</span></h2>
+<p>こちらは擬似テンパリングを基にし，他の温度からの提案を保持しておく機構を提案している．</p>
 </section>
-<section id="多峰性の最適化に基づく対処" class="level2" data-number="1.6">
-<h2 data-number="1.6" class="anchored" data-anchor-id="多峰性の最適化に基づく対処"><span class="header-section-number">1.6</span> 多峰性の最適化に基づく対処</h2>
+<section id="荷重を保つ擬似テンパリング-tawn2020" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.6</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(<a href="#ref-Tawn+2020" role="doc-biblioref">Tawn et al., 2020</a>)</span></h2>
+</section>
+<section id="多峰性の最適化に基づく対処" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="多峰性の最適化に基づく対処"><span class="header-section-number">1.7</span> 多峰性の最適化に基づく対処</h2>
 <p>目標分布の峰を特定するタスクを MCMC から分離して，<a href="https://ja.wikipedia.org/wiki/BFGS%E6%B3%95">BFGS 法</a> に基づく最適化法によって先に解いてしまう手法が <span class="citation" data-cites="Pompe+2020">(<a href="#ref-Pompe+2020" role="doc-biblioref">Pompe &amp; Łatuszyński, 2020</a>)</span> によって提案されている．</p>
-<p>これにより探索した峰の全体を <span class="math inline">\(\cI:=\{1,\cdots,I\}\)</span> に格納し，拡大した状態空間 <span class="math inline">\(E\times\cI\)</span> 上で <span class="math inline">\(\widetilde{\pi}\)</span> を対象とした MCMC を実行するが，この <span class="math inline">\(\widetilde{\pi}\)</span> をさらに適応的に更新する Auxiliary Variable Adaptive MCMC を提案している．</p>
+<p>これにより探索した峰の全体を <span class="math inline">\(\mathcal{I}:=\{1,\cdots,I\}\)</span> に格納し，拡大した状態空間 <span class="math inline">\(E\times\mathcal{I}\)</span> 上で <span class="math inline">\(\widetilde{\pi}\)</span> を対象とした MCMC を実行するが，この <span class="math inline">\(\widetilde{\pi}\)</span> をさらに適応的に更新する Auxiliary Variable Adaptive MCMC を提案している．</p>
 
 
 
@@ -288,8 +298,23 @@ X|N=n\sim\pi_n
 <div id="ref-Behrens+2012" class="csl-entry" role="listitem">
 Behrens, G., Friel, N., &amp; Hurn, M. (2012). Tuning tempered transitions. <em>Statistics and Computing</em>, <em>22</em>, 65–78.
 </div>
+<div id="ref-Chopin+2023" class="csl-entry" role="listitem">
+Chopin, N., Crucinio, F. R., &amp; Korba, A. (2023). <em>A connection between tempering and entropic mirror descent</em>. <a href="https://arxiv.org/abs/2310.11914">https://arxiv.org/abs/2310.11914</a>
+</div>
+<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
+Chopin, N., &amp; Papaspiliopoulos, O. (2020). <em>An introduction to sequential monte carlo</em>. Springer Cham.
+</div>
 <div id="ref-Geyer1991" class="csl-entry" role="listitem">
 Geyer, C. J. (1991). Markov chain monte carlo maximum likelihood. In E. M. Keramidas (Ed.), <em>Computing science and statistics: Proceedings of the 23rd symposium on the interface</em> (pp. 156–163). Interface Foundation.
+</div>
+<div id="ref-Geyer-Thompson1995" class="csl-entry" role="listitem">
+Geyer, C. J., &amp; Thompson, E. A. (1995). Annealing markov chain monte carlo with applications to ancestral inference. <em>Journal of the American Statistical Association</em>, <em>90</em>(431), 909–920.
+</div>
+<div id="ref-Gramacy+2010" class="csl-entry" role="listitem">
+Gramacy, R., Samworth, R., &amp; King, R. (2010). Importance tempering. <em>Statistics and Computing</em>, <em>20</em>, 1–7.
+</div>
+<div id="ref-Jasra+2007" class="csl-entry" role="listitem">
+Jasra, A., Stephens, D. A., &amp; Holmes, C. C. (2007). On population-based simulation for static inference. <em>Statistics and Computing</em>, <em>17</em>, 263–279.
 </div>
 <div id="ref-Kirkpartick+1983" class="csl-entry" role="listitem">
 Kirkpartick, S., Gelatt, C. D., &amp; Vecchi, M. P. (1983). Optimization by simulated annealing. <em>Science</em>, <em>220</em>(4598), 671–680.
@@ -312,9 +337,12 @@ Tawn, N. G., Roberts, G. O., &amp; Rosenthal, J. S. (2020). Weight-preserving si
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012, p. 66</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>記法 <span class="math inline">\([p]=\{1,\cdots,p\}\)</span> は <a href="../2023-12-12/Notations.qmd#sec-numbers">本サイトの数学記法一覧</a> を参照<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p><span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span> でも <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span> を引用して PT と呼んでいる．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Jasra+2007">(<a href="#ref-Jasra+2007" role="doc-biblioref">Jasra et al., 2007</a>)</span> など．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012, p. 66</a>)</span> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>記法 <span class="math inline">\([p]=\{1,\cdots,p\}\)</span> は <a href="../../posts/2023/2023-12-12/Notations.html#sec-numbers">本サイトの数学記法一覧</a> を参照<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span> も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, p. 33</a>)</span> で，SMC を調音に初めて応用した論文として紹介されている．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
