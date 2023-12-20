@@ -1,0 +1,170 @@
+---
+title: "数学者のための Support Vector Machine 概観"
+author: "Hirofumi Shiba"
+date: 2023/11/18
+categories: [Kernel Methods, Math Notes]
+toc: true
+number-sections: true
+code-block-bg: true
+code-block-border-left: "#31BAE9"
+code-overflow: wrap
+code-fold: true
+bibliography: ../../../mathematics.bib
+csl: ../../../apa.csl
+crossref:
+    sec-prefix: 節
+    eq-prefix: 式
+    def-prefix: 定義
+    def-title: 定義
+    thm-prefix: 定理
+    thm-title: 定理
+abstract-title: 概要
+abstract: 数学者のために，SVMによるデータ解析が何をやっているのかを抽象的に説明する．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+# 初めに
+
+パーセプトロン型の線型識別器である． 1960年にVapnikらが考案．1990年にKernel法と合流．
+
+- その後の研究に大きな潮流をうんだ
+    - 凸最適化と機械学習が合流したこと
+    - SVMの汎化誤差の研究が大きく発展し，PAC学習に引き継がれている．
+    - カーネル法の発展と合流．
+
+つまり，SVMは死んだが，その要素技術が現代の機械学習に通底しているということだろう．
+
+> Support vector algorithms are commonly considered the ﬁrst practicable spin-off of statistical learning theory. [@Scholkopf-Smola2001 p.187]
+
+# SVMによる識別の定式化^[[@Scholkopf-Smola2001] 第7章などを参考．]
+
+内積空間を $H$，入力を $x\in\X\subset H$，出力を $y\in\{\pm1\}$ とし，訓練データ集合を $\D:=\{(x_i,y_i)\}_{i=1}^n$ とする．
+
+決定関数 $$f(x)=(w|x)+b\quad(w\in H,b\in\R)$$ と識別関数 $d=\sgn\circ f$ とする．分離超平面は 
+$$
+\begin{align*}
+\S&=\{x\in H\mid f(x)=0\}\\
+&=\{x\in H\mid(w|x)+b=0\}
+\end{align*}
+$$
+である．この $\S$ は $w$ を法線ベクトルの1つに持つ超平面である．$y\in H\setminus\S$ に対して，
+$$
+\norm{w}d(y,\S)=(w|y)+b
+$$
+が成り立つ．
+
+## 分離超平面
+
+::: {#def-linearly-separable}
+
+## 線型分離可能
+
+データ $\D:=\{(x_i,y_i)\}_{i=1}^n$ が**線型分離可能**とは，ある $w,b\in\R^p$ が存在して，
+$$
+\frac{y_i((w|x_i)+b)}{\norm{w}}\ge0\quad i\in[n]
+$$
+が成り立つことをいう．
+
+:::
+
+::: {#def-canonical-hyperplane}
+
+## Canonical Hyperplane
+
+データ $\D:=\{(x_i,y_i)\}_{i=1}^n$ が定める**標準超平面**とは，次を満たす組 $(w,b)\in H\times\R$ をいう：
+$$
+\min_{1\le i\le n}\abs{(w|x_i)+b}=1.
+$$
+すなわち， $\{x_i\}_{i=1}^n$ との距離の最小値が $\frac{1}{\norm{w}}$ となる超平面をいう．
+
+:::
+
+このとき，線型分離可能ならば，標準超平面 $(w,b)\in H\times\R$ は
+$$
+y_i\Paren{(x_i|w)+b}\ge1
+$$
+を満たす．
+
+## マージン
+
+::: {#def-geometrical-margin}
+
+## Geometrical Margin
+
+超平面 $(w,b)\in H\times\R$ について，
+
+1. 点 $(x,y)\in H\times\{\pm1\}$ との**幾何的マージン**とは，$$\rho_{(w,b)}(x,y):=\frac{y((w|x)+b)}{\norm{w}}$$という．
+2. データ $\D:=\{(x_i,y_i)\}_{i=1}^n$ との**幾何的マージン**とは，$$\rho_{(w,b)}:=\min_{1\le i\le n}\rho_{(w,b)}(x_i,y_i)$$をいう．
+
+すなわち，超平面 $\S$ に対して $d(\S,\D)$ の値に他ならない．
+
+:::
+
+## 最小マージン超平面
+
+ここで，幾何的マージン
+$$
+\rho_{(w,b)}=\min_{1\le i\le n}\frac{y_i((w|x_i)+b)}{\norm{w}}
+$$
+の最大化は，線型分離可能である場合は分母が一定であるから $\norm{w}$ の最小化に等価である．したがって，標準超平面に対象を絞り，その中で $\norm{w}$ を最小にするような $w$ を発見し，それに合わせて $b$ を定めれば良い．
+
+こうして，判別のためのSVMの主最適化問題は次のようになる：
+
+::: {#def-primal-optimization-problem}
+## Primal Optimization Problem
+$$
+\begin{align*}
+\minimize_{w\in H,b\in\R}&\quad\tau(w):=\frac{\norm{w}^2}{2}\\
+\subjectto&\quad c(w):=y_i\Paren{(x_i|w)+b}\ge1\quad i\in[n]
+\end{align*}
+$$
+次の関数を未定乗数 $\{\al_i\}_{i=1}^n\subset\R_+$ を持った**Lagrangian**という
+$$
+L(w,b,\al):=\frac{\norm{w}^2}{2}-\sum_{i=1}^n\al_i\Paren{y_i((x_i|w)+b)-1}
+$$
+:::
+
+これを特には双対理論を用いる．
+
+::: {#thm-KT-saddle-point-condition}
+## Kuhn-Tucker Saddle Point Condition^[[@Scholkopf-Smola2001] 定理6.21 p.166．]
+
+$H=\R^p$ とする．$(\ov{x},\ov{\al})\in H\times\R_+^n$ が次を満たすならば，$\ov{x}\in H$ は上の最適化問題の解である：
+$$
+L(\ov{x},\al)\le L(\ov{x},\ov{\al})\le L(x,\ov{\al})\quad(x\in H,\al\in\R_+^n)
+$$
+:::
+
+::: {#thm-KKT-for-Differentiable-Convex-Problems}
+## KKT for Differentiable Convex Problems^[[@Scholkopf-Smola2001 定理6.26 p.170．]]
+
+$\tau,c$ が $x:=(w,b)$ について可微分であるとする．このとき，ある $\ov{\al}\in\R_+^n$ が存在して次が成り立つならば，$\ov{x}\in\R^p$ は解である：
+$$
+\partial_wL(\ov{x},\ov{\al})=\partial_xf(\ov{x})+\sum_{i=1}^n\ov{\al}_i\partial_xc_i(\ov{x})=0
+$$
+$$
+\partial_{\al_i}L(\ov{x},\ov{\al})=c_i(\ov{x})\le0
+$$
+$$
+\sum_{i=1}^n\ov{\al}_ic_i(\ov{x})=0
+$$
+:::
+
+最初の条件から
+$$
+w=\sum_{i=1}^n\al_iy_ix_i
+$$
+が要請される．加えて，$\ov{\al}_i\ne0$ が成り立つ $i\in[n]$ においてのみ，制約条件の等号が成立する：
+$$
+\al_i\Paren{y_i((x_i|w)+b)-1}=0\quad i\in[n].
+$$
+このときの $\al_i>0$ を満たすデータ点 $x_i\in H$，すなわち最小のマージンを達成するベクトルを**サポートベクトル**という．他のベクトルは $\al_i=0$ が成り立つために，本質的には関与してこないとみなされる．
+
+# 二次計画問題（凸最適化）
+
+# ソフトマージン法
+
+訓練誤差が，最適超平面の誤差よりも定数倍だけ悪いような超平面を決定する問題はNP困難である[@Ben-David-Simon2001]．これに立ち向かうには，超平面のマージンのある定数倍の範疇にあるデータ点だけ無視すれば，多項式クラスにまで問題の難易度が落ちる．
+
+一方で，[@Cortes-Vapnik1995] はスラック変数による全く別の解決をした．
