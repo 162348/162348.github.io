@@ -6,10 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬博文">
-<meta name="dcterms.date" content="2023-12-23">
+<meta name="author" content="Draft Draft">
+<meta name="dcterms.date" content="2024-01-14">
 
-<title>Hirofumi Shiba - 分岐過程</title>
+<title>Hirofumi Shiba - 粒子フィルターの実装：リサンプリング編</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -95,10 +95,10 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 分岐過程">
+<meta property="og:title" content="Hirofumi Shiba - 粒子フィルターの実装：リサンプリング編">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
 <meta property="og:site-name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 分岐過程">
+<meta name="twitter:title" content="Hirofumi Shiba - 粒子フィルターの実装：リサンプリング編">
 <meta name="twitter:description" content="A Blog by a Bayesian Computation Researcher">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary">
@@ -155,9 +155,10 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">分岐過程</h1>
+      <h1 class="title">粒子フィルターの実装：リサンプリング編</h1>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Process</div>
+                <div class="quarto-category">Particles</div>
+                <div class="quarto-category">Python</div>
               </div>
                   </div>
   </div>
@@ -168,14 +169,14 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬博文 </p>
+               <p>Draft Draft </p>
             </div>
     </div>
       
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">December 23, 2023</p>
+        <p class="date">January 14, 2024</p>
       </div>
     </div>
     
@@ -185,7 +186,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="abstract-title">概要</div>
-      分岐過程の定義と歴史，性質についてまとめる．
+      粒子フィルターにおいて，リサンプリングの段階が最も肝要で，効率に大きな影響を与える．本稿では，リサンプリングのアルゴリズムを複数紹介し，比較する．
     </div>
   </div>
   
@@ -197,12 +198,9 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#離散分岐過程" id="toc-離散分岐過程" class="nav-link active" data-scroll-target="#離散分岐過程"><span class="header-section-number">1</span> 離散分岐過程</a>
+  <li><a href="#リサンプリング法の形式化" id="toc-リサンプリング法の形式化" class="nav-link active" data-scroll-target="#リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</a>
   <ul class="collapse">
-  <li><a href="#定義" id="toc-定義" class="nav-link" data-scroll-target="#定義"><span class="header-section-number">1.1</span> 定義</a></li>
-  <li><a href="#乱歩への埋め込み" id="toc-乱歩への埋め込み" class="nav-link" data-scroll-target="#乱歩への埋め込み"><span class="header-section-number">1.2</span> 乱歩への埋め込み</a></li>
-  <li><a href="#markov性" id="toc-markov性" class="nav-link" data-scroll-target="#markov性"><span class="header-section-number">1.3</span> Markov性</a></li>
-  <li><a href="#生存確率" id="toc-生存確率" class="nav-link" data-scroll-target="#生存確率"><span class="header-section-number">1.4</span> 生存確率</a></li>
+  <li><a href="#リサンプリングとは" id="toc-リサンプリングとは" class="nav-link" data-scroll-target="#リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -213,6 +211,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 
+<p>Python を用いた粒子フィルター全体の実装は <a href="../../../posts/2023/Particles/ParticleFilter.html">粒子フィルターの実装 | Particles Package</a> 参照．</p>
 <div class="hidden">
 $$
 <p>%%% 演算子 </p>
@@ -238,182 +237,112 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="離散分岐過程" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="離散分岐過程"><span class="header-section-number">1</span> 離散分岐過程</h2>
-<section id="定義" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="定義"><span class="header-section-number">1.1</span> 定義</h3>
-<div id="def-BGW" class="callout callout-style-default callout-tip no-icon callout-titled">
+<section id="リサンプリング法の形式化" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</h2>
+<p>リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="問題設定と記法">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-定義<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> ：Bienaymé-Galton-Watson 過程 <span class="citation" data-cites="Bienayme1845">(<a href="#ref-Bienayme1845" role="doc-biblioref">Bienaymé, 1845</a>)</span>, <span class="citation" data-cites="Watson-Galton1875">(<a href="#ref-Watson-Galton1875" role="doc-biblioref">Watson &amp; Galton, 1875</a>)</span>
+問題設定と記法
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(Y_1,Y_2,\cdots\)</span> を <span class="math inline">\(\mathbb{Z}\)</span>-値確率変数の列とし，<span class="math inline">\(\mu\in\mathcal{P}(\mathbb{Z})\)</span> を初期分布とする．これに対して <span class="math display">\[
-X_0\sim\mu,\quad X_{n+1}:=1_{\left\{X_n\ge 1\right\}}\sum_{j=T_{n-1}+1}^{T_{n-1}+X_n}Y_j,
-\]</span> <span class="math display">\[
-T_{-1}:=0,\quad T_n:=\sum_{j=0}^nX_j\quad(n\in\mathbb{N}),
-\]</span> と定める．この過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\)</span> を <strong>分岐過程</strong> といい，分布を <span class="math inline">\(\operatorname{P}_\mu\)</span> と表す．</p>
-<p>特に <span class="math inline">\(\{Y_n\}_{n=1}^\infty\subset\mathcal{L}(\Omega;\mathbb{N})\)</span> が非負で独立同分布である場合，過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;\mathbb{N})\)</span> を <strong>Bienaymé-Galton-Watson 分岐過程</strong> という．</p>
+<ol type="1">
+<li>状態空間を距離空間 <span class="math inline">\(E\)</span> とし，この上の Markov 過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;E)\)</span> を既知とし，<strong>参照過程</strong> と呼ぶ．</li>
+<li>この Markov 過程の，時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> までの見本道の分布を <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> と表す．</li>
+<li>非負値な有界可測関数の列 <span class="math inline">\(\{G_n\}_{n=0}^t\subset \mathcal{L}_b(E^2)_+\)</span> に関して， <span class="math display">\[
+\mathbb{Q}_{t}(dx_{0:t}):=\frac{1}{L_t}G_0(x_0)\left(\prod_{s=1}^tG_s(x_{s-1},x_s)\right)\mathbb{M}_t(dx_{0:t})
+\]</span> という形で表現される分布 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> を，<strong>ポテンシャル関数</strong> <span class="math inline">\((G_n)_{n=0}^t\)</span> に関する <strong>Feynman-Kac 測度</strong> という．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></li>
+<li>積測度の確率核による分解 <span class="math display">\[
+\mathbb{M}_t(dx_{0:t})=\mathbb{M}_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
+\]</span> を用いる．黒板ボールド <span class="math inline">\(\mathbb{M}_0,\cdots,\mathbb{M}_t\)</span> は積確率測度で，イタリック体 <span class="math inline">\(M_1,\cdots,M_t\)</span> は確率核を表す．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
+</ol>
 </div>
 </div>
-<p><span class="math inline">\(X_n\)</span> を第 <span class="math inline">\(n\)</span> 世代の個体数と解釈してみよう．<span class="math inline">\(T_n\)</span> は第 <span class="math inline">\(n\)</span> 世代までを含め，存在し得た全個体数を意味することとなる．</p>
-<p>第 <span class="math inline">\(n\)</span> 世代を構成する <span class="math inline">\(X_n\)</span> 個体がそれぞれ <span class="math inline">\(Y_{T_{n-1}+1},\cdots,Y_{T_{n-1}+X_n}=Y_{T_n}\)</span> 人の家族を遺して消滅し，これらの子孫が第 <span class="math inline">\(n+1\)</span> 世代 <span class="math inline">\(X_{n+1}\)</span> の構成員となる．</p>
-<p><span class="math inline">\(X_n\le0\)</span> となった場合は以降も常に <span class="math inline">\(X_m=0\;(m\ge n)\)</span> が成り立ち，<span class="math inline">\(0\)</span> が吸収点となる．</p>
-<p><span class="math inline">\(X_n,Y_n\)</span> に負の整数値も許す場合は，2つの種族の個体数の差を考える場合などと解釈できる．</p>
-</section>
-<section id="乱歩への埋め込み" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="乱歩への埋め込み"><span class="header-section-number">1.2</span> 乱歩への埋め込み</h3>
-<p>初期分布を <span class="math inline">\(\mu=\delta_1\)</span> とすると，<span class="math inline">\(T_0=X_0=1\;\;\text{a.s.}\)</span>．すると，任意の <span class="math inline">\(m\in\mathbb{N}^+\)</span> について，事象 <span class="math inline">\(\left\{X_m\ge 1\right\}\)</span> の上では， <span id="eq-Tn"><span class="math display">\[
-T_{n}=1+\sum_{j=1}^{T_{n-1}}Y_j\quad(0\le n\le m+1)
-\tag{1}\]</span></span> <span id="eq-Xn"><span class="math display">\[
-\begin{align*}
-    X_{n}&amp;=T_{n}-T_{n-1}\\
-    &amp;=1+\sum_{j=1}^{T_{n-1}}Y_j-T_{n-1}\\
-    &amp;=1+\sum_{j=1}^{T_{n-1}}\widetilde{Y}_j\quad(0\le n\le m+1)
-\end{align*}
-\tag{2}\]</span></span> <span class="math display">\[
-\widetilde{Y}_j:=Y_j-1\quad(j\in\mathbb{N}^+)
-\]</span> が成り立つ．</p>
-<p>よって，絶滅しないという事象 <span class="math display">\[
-\bigcap_{m\in\mathbb{N}^+}\left\{X_m\ge 1\right\}=\left\{\lim_{n\to\infty}T_n=\infty\right\}
-\]</span> の上では，<span class="math inline">\(X_0=1\;\;\text{a.s.}\)</span> から始まる乱歩 (random walk) <span class="math display">\[
-X_n=1+\widetilde{S}_{T_{n-1}}\quad(n\in\mathbb{N})
-\]</span> <span class="math display">\[
-\widetilde{S}_n:=\sum_{j=1}^n\widetilde{Y}_j\quad(n\in\mathbb{N})
-\]</span> と理解できる．</p>
-</section>
-<section id="markov性" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="markov性"><span class="header-section-number">1.3</span> Markov性</h3>
-<div id="prop-Markov-property" class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="例（フィルタリング問題と Feynman-Kac 測度">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-命題<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> （Markov性）
+例（フィルタリング問題と Feynman-Kac 測度
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
 <div id="callout-2" class="callout-2-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;\mathbb{Z})\)</span> を，初期分布 <span class="math inline">\(\mu=\delta_1\)</span> と確率変数列 <span class="math inline">\(\{Y_n\}_{n=1}^\infty\subset\mathcal{L}(\Omega;\mathbb{Z})\)</span> が定める分岐過程，<span class="math inline">\(\mathcal{F}_n:=\sigma(X_k|k\in n+1)\)</span> を <span class="math inline">\((X_n)\)</span> が定める filtration とする．</p>
-<ol type="1">
-<li>任意の <span class="math inline">\(n\in\mathbb{N}^+\)</span> について <span class="math inline">\(\operatorname{E}_{\delta_1}[Y_{n+1}|Y_1,\cdots,Y_n]=a\)</span> ならば， <span class="math display">\[
-\operatorname{E}_{\delta_1}[X_{n+1}|\mathcal{F}_n]=aX_n^+,\quad n\in\mathbb{N}.
-\]</span></li>
-<li>加えて <span class="math inline">\(\mathrm{V}_{\delta_1}[Y_{n+1}|Y_1,\cdots,Y_n]=\sigma^2\;(n\in\mathbb{N}^+)\)</span> ならば， <span class="math display">\[
-\mathrm{V}_{\delta_1}[X_{n+1}|\mathcal{F}_n]=\sigma^2X_n^+,\quad n\in\mathbb{N}.
-\]</span></li>
-<li>さらに <span class="math inline">\(\{Y_n\}_{n=1}^\infty\)</span> が独立であるならば，<span class="math inline">\(\{(X_n,T_{n-1})\}_{n=1}^\infty\)</span> は Markov 連鎖であるが，<span class="math inline">\(\{X_n\}_{n=0}^\infty\)</span> は Markov 連鎖であるとは限らない．</li>
-<li>さらに <span class="math inline">\(\{Y_n\}_{n=1}^\infty\)</span> が同分布であるならば，<span class="math inline">\(\{X_n\}_{n=0}^\infty\)</span> と <span class="math inline">\(\{(X_n,T_{n-1})\}_{n=1}^\infty\)</span> はいずれも時間的に一様な Markov 連鎖である．</li>
-</ol>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-証明
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li><p>任意の <span class="math inline">\(\{r_k\}_{k=1}^n\subset\mathbb{Z}\)</span> について，等式 <span class="math display">\[
-\operatorname{E}_{\delta_1}[X_{n+1}|X_1=r_1,\cdots,X_n=r_n]=ar_n^+
-\]</span> を示せば良い．<span class="math inline">\(r_n\le0\)</span> の場合は直ちに従うから，<span class="math inline">\(r_n\ge1\)</span> として考える．この下では変形 <a href="#eq-Tn">式&nbsp;1</a> を用いることが出来るから， <span class="math display">\[
-\begin{align*}
-&amp;\left\{\forall_{j\in[n]}\;X_j=r_j\right\}\\
-&amp;=\left\{\forall_{j\in[n-1]}\;T_j=i_j,X_n=r_n\right\}\\
-&amp;=\biggl\{\forall_{j\in[n-1]}\;\sum_{k=1}^{i_{j-1}}Y_k=i_j-1,\\
-&amp;\qquad\qquad\qquad\sum_{j=i_{n-2}+1}^{i_{n-1}}Y_j=r_n\biggr\}\\
-&amp;=:B_n
-\end{align*}
+<p><span class="math inline">\(\{X_n\}\)</span> をシステムダイナミクス，<span class="math inline">\(\{Y_n\}\subset\mathcal{L}(\Omega;\mathbb{R}^d)\)</span> を観測モデル <span class="math display">\[
+\operatorname{P}[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
 \]</span> <span class="math display">\[
-i_j:=1+r_1+\cdots+r_j,\quad j\in[n-1],
-\]</span> が成り立つから，仮定より <span class="math display">\[
-\operatorname{E}_{\delta_1}[Y_{j}1_{B_n}]=a\operatorname{P}_{\delta_1}[B_n]\quad(j\ge i_{n-1}+1)
-\]</span> であることに注意して， <span class="math display">\[
-\begin{align*}
-&amp;\operatorname{E}_{\delta_1}[X_{n+1}|X_1=r_1,\cdots,X_n=r_n]\\
-&amp;\qquad\cdot\operatorname{P}_{\delta_1}[X_1=r_1,\cdots,X_n=r_n]\\
-&amp;=\operatorname{E}_{\delta_1}[X_{n+1}1_{\left\{X_1=r_1,\cdots,X_n=r_n\right\}}]\\
-&amp;=\operatorname{E}_{\delta_1}\left[1_{B_n}\sum_{j=i_{n-1}+1}^{i_{n-1}+r_n}Y_j\right]\\
-&amp;=ar_n\operatorname{P}_{\delta_1}[B_n]
-\end{align*}
-\]</span> を得る．両辺を <span class="math inline">\(\operatorname{P}_{\delta_1}[B_n]\)</span> で割ると，初めの式を得る．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p></li>
-<li><p>同様にして， <span class="math display">\[
-\begin{align*}
-&amp;\mathrm{V}_{\delta_1}[X_{n+1}|X_1=r_1,\cdots,X_n=r_n]\\
-&amp;=\operatorname{E}_{\delta_1}[X_{n+1}^2|B_n]-\operatorname{E}_{\delta_1}[X_{n+1}|B_n]^2\\
-&amp;=\operatorname{E}_{\delta_1}\left[\left(\sum_{j=i_{n-1}+1}^{i_{n-1}+r_n}Y_j\right)^2\:\middle|\:B_n\right]\\
-&amp;\qquad\qquad-\operatorname{E}_{\delta_1}\left[\sum_{j=i_{n-1}+1}^{i_{n-1}+r_n}Y_j\:\middle|\:B_n\right]^2\\
-&amp;=\sum_{j=i_{n-1}+1}^{i_{n-1}+r_n}\biggr(\operatorname{E}_{\delta_1}[Y_j^2|B_n]-\operatorname{E}_{\delta_1}[Y_j|B_n]^2\biggl)\\
-&amp;=\sigma^2r_n^+.
-\end{align*}
-\]</span> ただし，途中の式変形で，任意の <span class="math inline">\(i_{n-1}&lt;j&lt;k\le i_{n}\)</span> について <span class="math display">\[
-\begin{align*}
-\operatorname{E}_{\delta_1}[Y_jY_k|B_n]&amp;=\operatorname{E}_{\delta_1}\biggl[Y_j\operatorname{E}[Y_k|B_n,Y_j]\:\bigg|\:B_n\biggr]\\
-&amp;=\operatorname{E}_{\delta_1}[Y_ja|B_n]\\
-&amp;=a^2=\operatorname{E}_{\delta_1}[Y_j|B_n]\operatorname{E}_{\delta_1}[Y_k|B_n]
-\end{align*}
-\]</span> が成り立つことを用いた．</p></li>
-<li><p><span class="math inline">\((Y_k)_{k=1}^\infty\)</span> が独立であるとき，<span class="math inline">\((X_k)_{k=0}^\infty\)</span> も独立である．これより，任意の時点 <span class="math inline">\(m_1&lt;\cdots&lt;m_k&lt;n\in\mathbb{N}\)</span> について，<span class="math inline">\(T_{m_k-1}\)</span> が与えられた下で，<span class="math inline">\(X_k\;(k\ge m_k)\)</span> と <span class="math inline">\(\mathcal{F}_{m_k-1}\)</span> とは独立である．よって特に，<span class="math inline">\((X_{m_k},T_{m_k-1})\)</span> が与えられた下で，<span class="math inline">\((X_n,T_{n-1})\)</span> と <span class="math inline">\((X_{m_i},T_{m_i-1})\;(i&lt;k)\)</span> とは独立である．よって，<a href="../../../posts/2023/Probability/条件付き期待値の問題.html#sec-conditional-independence">条件付き独立性の性質</a> より <span class="math display">\[
-\begin{align*}
-&amp;\operatorname{P}_{\delta_1}\biggl[(X_{n},T_{n-1})=(r_{n},s_{n-1})\:\bigg|\:\\
-&amp;\qquad\qquad\forall_{i\in[k]}\;(X_{m_i},T_{m_i-1})=(r_{m_i},s_{m_i-1})\biggr]\\
-&amp;=\operatorname{P}_{\delta_1}\biggl[(X_n,T_{n-1})=(r_n,s_{n-1})\:\bigg|\:\\
-&amp;\qquad\qquad(X_{m_k},T_{m_k-1})=(r_{m_k},s_{m_k-1})\biggr]
-\end{align*}
-\]</span> が成り立つ．</p></li>
-<li></li>
-</ol>
+A\in\mathcal{B}(\mathbb{R}^d),\quad x\in E,
+\]</span> に従った観測の過程とした，<a href="../../../posts/2023/Surveys/SSM.html">状態空間モデル</a> <span class="math inline">\((X_n,Y_n)\)</span> におけるフィルタリング問題とは，<span class="math inline">\(y_1,\cdots,y_n,\cdots\in\mathbb{R}^d\)</span> を観測として <span class="math display">\[
+G_n(x_{n-1},x_n):=f_n(y_n|x_n)
+\]</span> と定めた場合の Feynman-Kac 測度 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\)</span> がフィルタリング分布に他ならないから，これを時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> 毎に観測 <span class="math inline">\(y_1,\cdots,y_t\)</span> から逐次推定する問題と解釈できる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
 </div>
 </div>
-</section>
-<section id="生存確率" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="生存確率"><span class="header-section-number">1.4</span> 生存確率</h3>
-<div id="thm-survival" class="callout callout-style-default callout-tip no-icon callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
 </div>
-<div class="callout-title-container flex-fill">
-生存確率
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\{Z_n\}_{n=0}^\infty\)</span> を BGW 過程で，<span class="math inline">\(\operatorname{P}[Y_1\in 2]&lt;1\)</span> とする．このとき，<span class="math inline">\(\mu:=\operatorname{E}[Y_1]\in[0,\infty]\)</span> について， <a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<section id="リサンプリングとは" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</h3>
+<p>Feynman-Kac 測度を <span class="math inline">\(\mathbb{Q}_0,\mathbb{Q}_1,\cdots\)</span> と逐次的に推定していく問題を考える．</p>
 <ol type="1">
-<li><p><span class="math inline">\(\mu\le1\)</span> ならば， <span class="math display">\[
-\operatorname{P}_1[\forall_{n\in\mathbb{N}}\;Z_n\ge1]=0.
-\]</span></p></li>
-<li><p><span class="math inline">\(\mu&gt;1\)</span> ならば，ある <span class="math inline">\(q\in[0,1)\)</span> が存在して <span class="math display">\[
-\operatorname{P}_1[\forall_{n\in\mathbb{N}}\;Z_n\ge1]=1-q&gt;0
-\]</span> を満たし，<span class="math inline">\(q\in[0,1)\)</span> は <span class="math inline">\(Y_1\)</span> の確率母関数 <span class="math display">\[
-g(z):=\sum_{k=0}^\infty\operatorname{P}[Y_1=k]z^k
-\]</span> に関する方程式 <span class="math inline">\(g(z)=z\)</span> の <span class="math inline">\([0,1)\)</span> 上でのただ一つの解である．</p></li>
+<li>時刻 <span class="math inline">\(t=0\)</span> にて，提案分布を <span class="math inline">\(\mathbb{M}_0\)</span>，目標分布を <span class="math inline">\(\mathbb{Q}_0(dx_0)\propto G_0(x_0)\mathbb{M}_0(dx_0)\)</span> とした重点サンプリングを行って，<span class="math inline">\(\mathbb{Q}_0\)</span> の重点サンプリング推定量 <span class="math display">\[
+\mathbb{Q}_0^N(dx_0):=\sum_{i=1}^NW_0^{i}\delta_{X_0^{i}}(dx_0),
+\]</span> <span class="math display">\[
+X_0^i\overset{\text{iid}}{\sim}\mathbb{M}_0,\quad W^i_0:=\frac{G_0(X_0^i)}{\sum_{j=1}^NG_0(X_0^j)}
+\]</span> を得る．</li>
+<li>時刻 <span class="math inline">\(t=1\)</span> では目標分布 <span class="math inline">\(\mathbb{Q}_1(dx_{0:1})\propto G_1(x_0,x_1)\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> を，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> から重点サンプリングすることを考える．</li>
 </ol>
-</div>
-</div>
-<p>すなわち，「未来永劫絶滅しない」確率が正であるかどうかは <span class="math inline">\(Y_1\)</span> の期待値 <span class="math inline">\(\mu\)</span> のみに依存するが，その確率 <span class="math inline">\(1-q\)</span> は <span class="math inline">\(Y_1\)</span> の分布によって定まる． <a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
+<p>そこで，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> に従う標本 <span class="math inline">\(\{(X_0^i,X_1^i)\}_{i=1}^N\)</span> をどう得るかが問題になる．これを得たならば，残る重点サンプリングのステップとは，ポテンシャル <span class="math inline">\(G_1(x_0,x_1)\propto\frac{d \mathbb{Q}_1}{d \mathbb{Q}_0\otimes M_1}\)</span> に関して重み付けするのみである．</p>
+<p>まず，リサンプリングをしない粒子フィルターは，逐次重点サンプリングに等しい．その考え方は次の通りである：</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="逐次重点サンプリングの考え方">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-証明
+逐次重点サンプリングの考え方
 </div>
 </div>
 <div class="callout-body-container callout-body">
-
+<p><span class="math inline">\(\mathbb{Q}_0\)</span> の近似 <span class="math inline">\(\mathbb{Q}_0^N\)</span> を得た Step 1. はこの提案分布を計算する途中だったと見做す．</p>
+<p>つまり，Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させて得る粒子の荷重和 <span class="math display">\[
+\sum_{i=1}^NW^i_0(\delta_{X_0^i}\otimes\delta_{X_1^i}),
+\]</span> <span class="math display">\[
+X_1^i\sim M_1(X_0^i,-)
+\]</span> を，<span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の良い近似として利用することが出来る．</p>
+<p>これは極めて計算効率が良い戦略である．</p>
+</div>
+</div>
+<p>しかし荷重 <span class="math inline">\(W_0^i\le1\)</span> が引き継がれている点に注目して欲しい．ここに新たに <span class="math inline">\(W_0^iW_1^i\cdots\)</span> と連なっていくことになる．これでは，時間が経つ <span class="math inline">\(t\to\infty\)</span> につれて荷重の分散が拡大し，殆ど１つの粒子しか Feynman-Kac 分布 <span class="math inline">\(\mathbb{Q}_t\)</span> の推定に寄与しないことになる．これでは，たくさん粒子を用意した意味がない．</p>
+<p>そこで，定期的にリサンプリングを行い，<span class="math inline">\(\mathbb{Q}_t^N\)</span> の表現を荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> に頼り切るのではなく，粒子の濃密で代替して，荷重の方は一様化に戻すという段階を挟む．</p>
+<p>このリサンプリングの段階は，実用上はほとんどの場合，荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> の状態を監視して適応的に行うことが多い．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="リサンプリングの考え方">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+リサンプリングの考え方
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>計算が効率的である点を除けば，前段階 Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させる必要はなかったのである．</p>
+<p>むしろ，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> から直接 i.i.d. サンプリング（のようなもの）を行えば，追加の計算は必要になろうと，荷重が一様な <span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の近似を得ることが出来る．</p>
+<p>これはリサンプリングによって実現できる．</p>
+<p>というのは，まず <span class="math inline">\(\mathbb{Q}_0^N\)</span> からサンプリングを行う！．（完全に無駄なステップに見えるかも知れないが！）．</p>
+<p>正確に言えば，粒子番号 <span class="math inline">\([N]=\left\{1,\cdots,N\right\}\)</span> から，その重み <span class="math inline">\(W_0^1,\cdots,W_0^N\)</span> に従って，重複を許して <span class="math inline">\(N\)</span> 個の番号 <span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> をサンプリングする．すなわち，<span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> を多項分布 <span class="math inline">\(\mathrm{Mult}_N(W_0^{1:N})\)</span> のサンプルとする．すると，元の近似と分布同等である： <span class="math display">\[
+\mathbb{Q}^N_0=\sum_{n=1}^NW_0^n\delta_{X_0^n}\overset{\text{d}}{=}\sum_{n=1}^N\delta_{X_0^{A_1^n}}.
+\]</span> この操作を <strong>リサンプリング</strong> という．</p>
+<p>続いて，これを発展させる： <span class="math display">\[
+X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
+\]</span></p>
+<p>こうして得る粒子系 <span class="math inline">\(\{(X_0^{A_1^n},X_1^n)\}_{n=1}^N\)</span> は <span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> を一様な荷重で近似している： <span class="math display">\[
+\mathbb{Q}^N_0\otimes M_1\approx\frac{1}{N}\sum_{n=1}^N\delta_{(X_0^{A_1^n},X_1^n)}.
+\]</span></p>
+<p>ただし，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> の <strong>i.i.d. サンプルではない</strong> 点に注意すべきである．新たな粒子 <span class="math inline">\(X_1^n\)</span> の祖先番号 <span class="math inline">\(A_1^{n}\)</span> に重複を許しているため，いずれか２つのサンプルは依存関係をもち得る．</p>
 </div>
 </div>
 
@@ -424,35 +353,18 @@ g(z):=\sum_{k=0}^\infty\operatorname{P}[Y_1=k]z^k
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-line-spacing="2" role="list">
-<div id="ref-Bhattacharya-Waymire2021" class="csl-entry" role="listitem">
-Bhattacharya, R., &amp; Waymire, E. C. (2021). <em>Random walk, brownian motion, and martingales</em> (Vol. 292). Springer Cham. <a href="https://link.springer.com/book/10.1007/978-3-030-78939-8">https://link.springer.com/book/10.1007/978-3-030-78939-8</a>
+<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
+Chopin, N., &amp; Papaspiliopoulos, O. (2020). <em>An introduction to sequential monte carlo</em>. Springer Cham.
 </div>
-<div id="ref-Bienayme1845" class="csl-entry" role="listitem">
-Bienaymé, I. J. (1845). <a href="">De la loi de multiplication et de la durée des familes</a>. <em>Bulletin de La Société Philomathique de Paris</em>, <em>5</em>, 37–39.
-</div>
-<div id="ref-Heyde-Seneta1977" class="csl-entry" role="listitem">
-Heyde, C. C., &amp; Seneta, E. (1977). <em>I. J. Bienaymé: Statistical theory anticipated</em> (Vol. 3). Springer New York. <a href="https://link.springer.com/book/10.1007/978-1-4684-9469-3">https://link.springer.com/book/10.1007/978-1-4684-9469-3</a>
-</div>
-<div id="ref-Kendall1975" class="csl-entry" role="listitem">
-Kendall, D. G. (1975). The genealogy of genealogy branching processes before (and after) 1873. <em>Bulletin of the London Mathematical Society</em>, <em>7</em>(3), 225–253. <a href="https://academic.oup.com/blms/article-abstract/7/3/225/386250">https://academic.oup.com/blms/article-abstract/7/3/225/386250</a>
-</div>
-<div id="ref-Quine-Szczotka1994" class="csl-entry" role="listitem">
-Quine, M. P., &amp; Szczotka, W. (1994). Generalisations of the bienaymé-galton-watson branching process via its representation as an embedded random walk. <em>The Annals of Applied Probability</em>, <em>4</em>(4), 1206–1222. <a href="https://www.jstor.org/stable/2245089">https://www.jstor.org/stable/2245089</a>
-</div>
-<div id="ref-Schinazi14-ClassicalProcesses" class="csl-entry" role="listitem">
-Schinazi, R. B. (2014). <em>Classical and spatial stochastic processes</em> (2nd ed.). Birkhäuser New York.
-</div>
-<div id="ref-Watson-Galton1875" class="csl-entry" role="listitem">
-Watson, H. W., &amp; Galton, F. (1875). On the probability of the extinction of families. <em>The Journal of the Anthropological Institute of Great Britain and Ireland</em>, <em>4</em>, 138–144. <a href="https://www.jstor.org/stable/2841222">https://www.jstor.org/stable/2841222</a>
+<div id="ref-DelMoral-Penev14-StochasticProcesses" class="csl-entry" role="listitem">
+Del&nbsp;Moral, P., &amp; Penev, S. (2014). <em>Stochastic processes. From applications to theory</em>. Chapman; Hall/CRC Press.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>この一般的な定義は <span class="citation" data-cites="Quine-Szczotka1994">(<a href="#ref-Quine-Szczotka1994" role="doc-biblioref">Quine &amp; Szczotka, 1994</a>)</span> を参考にした．歴史は <span class="citation" data-cites="Kendall1975">(<a href="#ref-Kendall1975" role="doc-biblioref">Kendall, 1975</a>)</span>, <span class="citation" data-cites="Heyde-Seneta1977">(<a href="#ref-Heyde-Seneta1977" role="doc-biblioref">Heyde &amp; Seneta, 1977</a>)</span> が詳しい．<span class="citation" data-cites="Bienayme1845">(<a href="#ref-Bienayme1845" role="doc-biblioref">Bienaymé, 1845</a>)</span> が初めに考察をしたが，注目されなかった．<span class="citation" data-cites="Watson-Galton1875">(<a href="#ref-Watson-Galton1875" role="doc-biblioref">Watson &amp; Galton, 1875</a>)</span> は注目されたが，数学的な議論には誤りが含まれていた．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Quine-Szczotka1994">(<a href="#ref-Quine-Szczotka1994" role="doc-biblioref">Quine &amp; Szczotka, 1994, p. 1208</a>)</span> 命題1．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p><a href="../../../posts/2023/Probability/条件付き期待値の問題.html#sec-atom">条件付き期待値のアトムの上での性質</a> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><span class="citation" data-cites="Schinazi14-ClassicalProcesses">(<a href="#ref-Schinazi14-ClassicalProcesses" role="doc-biblioref">Schinazi, 2014, p. 19</a>)</span> 第2章定理1.1，<span class="citation" data-cites="Bhattacharya-Waymire2021">(<a href="#ref-Bhattacharya-Waymire2021" role="doc-biblioref">Bhattacharya &amp; Waymire, 2021, p. 114</a>)</span> 定理9.1 など．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p>この <span class="math inline">\(\mu\)</span> を <strong>基本再生産数</strong> と呼ぶこともある <a href="https://en.wikipedia.org/wiki/Branching_process">Wikipedia</a>．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p><span class="math inline">\(L_t\)</span> は積分を <span class="math inline">\(1\)</span> にするための正規化定数である．詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, pp. 51–52</a>)</span>, <span class="citation" data-cites="DelMoral-Penev14-StochasticProcesses">(<a href="#ref-DelMoral-Penev14-StochasticProcesses" role="doc-biblioref">Del&nbsp;Moral &amp; Penev, 2014, p. 239</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>確率核に関する記法は <a href="../../../posts/Surveys/Notations.html#sec-kernels">本サイトの数学記法一覧</a> を参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, p. 53</a>)</span> 参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
