@@ -1,0 +1,130 @@
+---
+title: "粒子フィルターの実装：リサンプリング編"
+author: "Draft Draft"
+date: 1/14/2024
+categories: [Particles, Python]
+toc: true
+number-sections: true
+code-block-bg: true
+code-block-border-left: "#31BAE9"
+code-overflow: wrap
+code-fold: true
+bibliography: ../../../mathematics.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: 粒子フィルターにおいて，リサンプリングの段階が最も肝要で，効率に大きな影響を与える．本稿では，リサンプリングのアルゴリズムを複数紹介し，比較する．
+crossref:
+    sec-prefix: 節
+    eq-prefix: 式
+    fig-prefix: 図
+    fig-title: 図
+---
+
+Python を用いた粒子フィルター全体の実装は [粒子フィルターの実装 | Particles Package](../../2023/Particles/ParticleFilter.qmd) 参照．
+
+{{< include ../../../_preamble.qmd >}}
+
+## リサンプリング法の形式化
+
+リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．
+
+:::{.callout-tip icon="false" title="問題設定と記法"}
+1. 状態空間を距離空間 $E$ とし，この上の Markov 過程 $\{X_n\}_{n=0}^\infty\subset\L(\Om;E)$ を既知とし，**参照過程** と呼ぶ．
+2. この Markov 過程の，時刻 $t\in\N$ までの見本道の分布を $\bM_t(dx_{0:t})\in\cP(E^{t+1})$ と表す．
+3. 非負値な有界可測関数の列 $\{G_n\}_{n=0}^t\subset \L_b(E^2)_+$ に関して，
+$$
+\bQ_{t}(dx_{0:t}):=\frac{1}{L_t}G_0(x_0)\paren{\prod_{s=1}^tG_s(x_{s-1},x_s)}\bM_t(dx_{0:t})
+$$
+という形で表現される分布 $\bQ_t(dx_{0:t})\in\cP(E^{t+1})$ を，**ポテンシャル関数** $(G_n)_{n=0}^t$ に関する **Feynman-Kac 測度** という．^[$L_t$ は積分を $1$ にするための正規化定数である．詳しくは [@Chopin-Papaspiliopoulos20-SMC pp.51-52], [@DelMoral-Penev14-StochasticProcesses p.239] も参照．]
+4. 積測度の確率核による分解
+$$
+\bM_t(dx_{0:t})=\bM_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
+$$
+を用いる．黒板ボールド $\bM_0,\cdots,\bM_t$ は積確率測度で，イタリック体 $M_1,\cdots,M_t$ は確率核を表す．^[確率核に関する記法は [本サイトの数学記法一覧](../../Surveys/Notations.qmd#sec-kernels) を参照．]
+:::
+
+:::{.callout-tip icon="false" title="例（フィルタリング問題と Feynman-Kac 測度" collapse="true"}
+$\{X_n\}$ をシステムダイナミクス，$\{Y_n\}\subset\L(\Om;\R^d)$ を観測モデル
+$$
+\P[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
+$$
+$$
+A\in\B(\R^d),\quad x\in E,
+$$
+に従った観測の過程とした，[状態空間モデル](../../2023/Surveys/SSM.qmd) $(X_n,Y_n)$ におけるフィルタリング問題とは，$y_1,\cdots,y_n,\cdots\in\R^d$ を観測として
+$$
+G_n(x_{n-1},x_n):=f_n(y_n|x_n)
+$$
+と定めた場合の Feynman-Kac 測度 $\bQ_t(dx_{0:t})$ がフィルタリング分布に他ならないから，これを時刻 $t\in\N$ 毎に観測 $y_1,\cdots,y_t$ から逐次推定する問題と解釈できる．^[詳しくは [@Chopin-Papaspiliopoulos20-SMC p.53] 参照．]
+:::
+
+### リサンプリングとは
+
+Feynman-Kac 測度を $\bQ_0,\bQ_1,\cdots$ と逐次的に推定していく問題を考える．
+
+1. 時刻 $t=0$ にて，提案分布を $\bM_0$，目標分布を $\bQ_0(dx_0)\propto G_0(x_0)\bM_0(dx_0)$ とした重点サンプリングを行って，$\bQ_0$ の重点サンプリング推定量
+$$
+\bQ_0^N(dx_0):=\sum_{i=1}^NW_0^{i}\delta_{X_0^{i}}(dx_0),
+$$
+$$
+X_0^i\iidsim\bM_0,\quad W^i_0:=\frac{G_0(X_0^i)}{\sum_{j=1}^NG_0(X_0^j)}
+$$
+を得る．
+2. 時刻 $t=1$ では目標分布 $\bQ_1(dx_{0:1})\propto G_1(x_0,x_1)\bQ_0(dx_0)M_1(x_0,dx_1)$ を，提案分布 $\bQ_0(dx_0)M_1(x_0,dx_1)$ から重点サンプリングすることを考える．
+
+そこで，提案分布 $\bQ_0(dx_0)M_1(x_0,dx_1)$ に従う標本 $\{(X_0^i,X_1^i)\}_{i=1}^N$ をどう得るかが問題になる．これを得たならば，残る重点サンプリングのステップとは，ポテンシャル $G_1(x_0,x_1)\propto\dd{\bQ_1}{\bQ_0\otimes M_1}$ に関して重み付けするのみである．
+
+まず，リサンプリングをしない粒子フィルターは，逐次重点サンプリングに等しい．その考え方は次の通りである：
+
+:::{.callout-tip icon="false" title="逐次重点サンプリングの考え方"}
+
+$\bQ_0$ の近似 $\bQ_0^N$ を得た Step 1. はこの提案分布を計算する途中だったと見做す．
+
+つまり，Step 1. の結果 $\bQ^N_0$ をそのまま発展させて得る粒子の荷重和
+$$
+\sum_{i=1}^NW^i_0(\delta_{X_0^i}\otimes\delta_{X_1^i}),
+$$
+$$
+X_1^i\sim M_1(X_0^i,-)
+$$
+を，$\bQ_0\otimes M_1$ の良い近似として利用することが出来る．
+
+これは極めて計算効率が良い戦略である．
+
+:::
+
+しかし荷重 $W_0^i\le1$ が引き継がれている点に注目して欲しい．ここに新たに $W_0^iW_1^i\cdots$ と連なっていくことになる．これでは，時間が経つ $t\to\infty$ につれて荷重の分散が拡大し，殆ど１つの粒子しか Feynman-Kac 分布 $\bQ_t$ の推定に寄与しないことになる．これでは，たくさん粒子を用意した意味がない．
+
+そこで，定期的にリサンプリングを行い，$\bQ_t^N$ の表現を荷重 $\{W_t^i\}_{i=1}^N$ に頼り切るのではなく，粒子の濃密で代替して，荷重の方は一様化に戻すという段階を挟む．
+
+このリサンプリングの段階は，実用上はほとんどの場合，荷重 $\{W_t^i\}_{i=1}^N$ の状態を監視して適応的に行うことが多い．
+
+:::{.callout-tip icon="false" title="リサンプリングの考え方"}
+
+計算が効率的である点を除けば，前段階 Step 1. の結果 $\bQ^N_0$ をそのまま発展させる必要はなかったのである．
+
+むしろ，$\bQ^N_0\otimes M_1$ から直接 i.i.d. サンプリング（のようなもの）を行えば，追加の計算は必要になろうと，荷重が一様な $\bQ_0\otimes M_1$ の近似を得ることが出来る．
+
+これはリサンプリングによって実現できる．
+
+というのは，まず $\bQ_0^N$ からサンプリングを行う！．（完全に無駄なステップに見えるかも知れないが！）．
+
+正確に言えば，粒子番号 $[N]=\Brace{1,\cdots,N}$ から，その重み $W_0^1,\cdots,W_0^N$ に従って，重複を許して $N$ 個の番号 $A_1^1,\cdots,A_1^N$ をサンプリングする．すなわち，$A_1^1,\cdots,A_1^N$ を多項分布 $\Mult_N(W_0^{1:N})$ のサンプルとする．すると，元の近似と分布同等である：
+$$
+\bQ^N_0=\sum_{n=1}^NW_0^n\delta_{X_0^n}\deq\sum_{n=1}^N\delta_{X_0^{A_1^n}}.
+$$
+この操作を **リサンプリング** という．
+
+続いて，これを発展させる：
+$$
+X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
+$$
+
+こうして得る粒子系 $\{(X_0^{A_1^n},X_1^n)\}_{n=1}^N$ は $\bQ^N_0\otimes M_1$ を一様な荷重で近似している：
+$$
+\bQ^N_0\otimes M_1\approx\frac{1}{N}\sum_{n=1}^N\delta_{(X_0^{A_1^n},X_1^n)}.
+$$
+
+ただし，$\bQ^N_0\otimes M_1$ の **i.i.d. サンプルではない** 点に注意すべきである．新たな粒子 $X_1^n$ の祖先番号 $A_1^{n}$ に重複を許しているため，いずれか２つのサンプルは依存関係をもち得る．
+
+:::
