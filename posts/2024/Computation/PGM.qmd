@@ -1,8 +1,8 @@
 ---
 title: "数学者のための確率的グラフィカルモデル概観"
-author: "Draft Draft"
+author: "司馬博文"
 date: 12/20/2023
-date-modified: 1/18/2024
+date-modified: 1/19/2024
 categories: [Computation, Math Notes]
 toc: true
 number-sections: true
@@ -24,7 +24,7 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 数学者のために，PGM (Probabilistic Graphical Modelling) によるデータ解析が何をやっているのかを抽象的に説明する．
+abstract: 数学者のために，PGM (Probabilistic Graphical Modelling) で用いられる代表的なモデル３つ（ベイジアンネットワーク，マルコフネットワーク，ファクターグラフ）を定義し，その性質を抽象的に説明する．
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -34,12 +34,13 @@ $$
 \DeclareMathOperator{\des}{des}
 \DeclareMathOperator{\nd}{nd}
 \DeclareMathOperator{\dsep}{d-sep}
+\DeclareMathOperator{\sep}{sep}
 $$
 :::
 
 [決定木](../../2023/数理法務/%E6%B3%95%E5%BE%8B%E5%AE%B6%E3%81%AE%E3%81%9F%E3%82%81%E3%81%AE%E7%B5%B1%E8%A8%88%E6%95%B0%E7%90%863.qmd)，[状態空間モデル](../../2023/Surveys/SSM.qmd) はいずれもベイジアンネットワークの例であり，確率的グラフィカルモデルの例である．^[[@Taroni+2014 p.35]，[@Sucar2021 p.x]]
 
-[@Koller-Friedman2009], [@Pearl84-Heuristics], [@Pearl88-IntelligentSystem], [@Wainwright-Jordan2008], [@Chen2023]
+[@Pearl84-Heuristics],  [@Wainwright-Jordan2008], [@Chen2023]
 
 ## 歴史と導入
 
@@ -49,21 +50,23 @@ $$
 
 この手法が特に肝要になるのが，自立して推論・意思決定を行うシステムの構築においてである．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．]
 
-特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するために，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．] 
+一般に，特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するためには，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．] 
 
 これは対象となるシステムの構造に関する知識を，計算機が理解可能な形で表現する model-based な接近であり，「知識」と「推論」という異なるタスクを分離する点に妙がある．
 
-この「知識表現」のために横断的に用いられる普遍的手法が **確率的グラフィカルモデリング** である．「確率的」というのは統計学的な手法の採用を指す．世界に対する知識には，不確実性がつきものであり，これを反映した表現がより現実に即したモデルを生む．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
+この「知識表現」のために横断的に用いられる普遍的な手法が **確率的グラフィカルモデリング** である．「確率的」というのは確率論的・統計学的な手法の採用を指す．世界に対する知識には不確実性がつきものであり，これを反映した表現がより現実に即したモデルを生むことから，近年盛んに研究・応用されている（ @sec-probabilistic-methods ）．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
 
 > I have approximate answers and possible beliefs with different degrees of uncertainty about different things, but I am not absolutely sure of anything. -- [Richard Feynman](https://www.youtube.com/watch?v=P-Qdl6Gbx0k)
 
-例えば音声認識や天気予報の分野で，対象とは音声言語と地球の大気環境であるが，これらのモデルをグラフで表す際，[状態空間モデル](../../2023/Surveys/SSM.qmd#sec-SSM) がよく用いられる．
+確率的グラフィカルモデリングの例には，次のようなものがある：
 
-医療診断では，複数の症状や検査結果，医学的指標との関連・相関・因果に関する知識を Bayesian Network （@sec-BN） で表現する．
+* 音声認識や天気予報の分野で，対象とは音声言語と地球の大気環境であるが，これらのモデルをグラフで表す際，[状態空間モデル](../../2023/Surveys/SSM.qmd#sec-SSM) がよく用いられる．
+
+* 医療診断では，複数の症状や検査結果，医学的指標との関連・相関・因果に関する知識を Bayesian Network （@sec-BN） で表現する．
 
 ### 諸科学での知識表現の歴史
 
-多くの科学分野において，知識表現の知識とは，特に因果関係に関する知識のことを指すようである．
+多くの科学分野において，知識表現の知識とは，特に因果関係に関する知識のことを指すようである．これを捉えるために，グラフを用いることは自然な発想であり，計算機の登場以前にも，純粋に人間が理解を深めるための用途に，歴史上極めて早い時期から用いられていた．
 
 :::{.callout-caution icon="false" collapse="true"}
 
@@ -79,7 +82,7 @@ $$
 
 :::
 
-### 人工知能分野での確率的モデリングの採用
+### 人工知能分野での確率的モデリングの採用 {#sec-probabilistic-methods}
 
 人工知能分野が確率的手法を採用したのは，エキスパートシステムの構築が志向された 1960 年代であった．^[[@Koller-Friedman2009 pp.12-14] 1.4節．]
 
@@ -103,6 +106,10 @@ $$
 1. 人間と計算機の双方にとって解釈しやすい **表現** である．
 2. 確率的グラフィカルモデルで表現できる分布のクラスと，効率的に Bayes **推論** が可能な分布のクラスとが一致する．^[[@Koller-Friedman2009 pp.5-6] 1.2.2節．高次元分布が成分間に依存を持つことと，その依存を用いてコンパクトに低次元で表現可能であることとは殆ど等価な事実である．]
 3. 人間と計算機の双方がモデリングに参加できる．後者によるモデリングは，**学習** とも呼ばれることになる．^[[@Koller-Friedman2009 p.6] 1.2.2節．"Probabilistic graphical models support a data-driven approach to model construction that is very eﬀective in practice."]
+
+さらに，高次元分布 $P$ の成分間の依存関係を効率よく捉える手法であるため，その背後にあるグラフが判れば，グラフの分離性（ @sec-d-separation, @sec-separation-in-markov-network ）を判定するだけで，$P$ の独立性の情報を得ることが出来る．
+
+他にも，グラフの構造を用いて，$P$ を効率的に表現し，本質的な次元を大幅に落として計算を効率化することもできる．
 
 ## 表現
 
@@ -231,7 +238,7 @@ $\cG$ を確率変数 $(X_1,\cdots,X_n)$ に関する Bayesian Network 構造，
 
 :::
 
-### 分離性
+### Bayesian Network の分離性 {#sec-d-separation}
 
 確率的グラフィカルモデルにおいて肝要なのは，**グラフ内に存在する統計的独立性の全てをハイライトする** ことである．するとこれを用いて，分布の効率的な表現と，クエリーへの回答を効率的に行うことが出来る．^[[@Koller-Friedman2009 p.68]]
 
@@ -303,7 +310,7 @@ $\cG$ を Bayesian Network 構造，$\b{Z}\subset\cX$ を観測された節と�
    1. $\{X_i\}_{i=1}^n\cap\b{Z}=\emptyset$．
    2. 任意の無向道内の合流結合 $X_{i-1}\rightarrow X_i\leftarrow X_{i+1}$ について，$X_i$ またはその子孫に $\b{Z}$ の元が存在する．
 2. $\b{X}\sqcup\b{Y}\sqcup\b{Z}\subset\cX$ を節の集合とする．$\b{X},\b{Y}$ が $\b{Z}$ に関して **$d$-分離** であるとは，任意の $X\in\b{X}$ と $Y\in\b{Y}$ と，$X,Y$ を結ぶ無向道が，$\b{Z}$ の下で active でないことをいう．このことを $\dsep_\cG(\b{X};\b{Y}|\b{Z})$ と表す．^[$I(\b{X},\b{Y}|\b{Z})_\cG$ と表すこともある．]
-3. $d$-分離な組 $(\b{X},\b{Y},\b{Z})$ が表す条件付き独立性の条件式の全体を
+3. $\cG$ 内の $d$-分離な組 $(\b{X},\b{Y},\b{Z})$ が表す条件付き独立性の条件式の全体を
 $$
 \cI(\cG):=\Brace{(\b{X}\indep\b{Y}|\b{Z})\mid\dsep_\cG(\b{X};\b{Y}|\b{Z})}.
 $$
@@ -335,7 +342,7 @@ digraph ExampleTrail {
 * $Z$ が観測された場合，$A,B$ のいずれかも観測されていれば，やはり $d$-分離である．
 :::
 
-#### $d$-分離性の特徴付け
+#### $d$-分離性の特徴付け {#sec-characterization-of-d-separation}
 
 :::{.callout-tip icon="false" collapse="false"}
 ## 命題^[[@Koller-Friedman2009 pp.72-73] 定理3.3, 3.5．] （$d$-分離性の特徴付け）
@@ -343,11 +350,13 @@ digraph ExampleTrail {
 $\cG$ を Bayesian Network 構造，$P\in\cP(\cX)$ を確率分布とする．
 
 1. $P$ が $\cG$ に沿って分解するならば，$\cI(\cG)\subset\cI(P)$．
-2. 殆ど全ての $P$ に関して，上の逆も成り立ち，特に等号が成立する．
+2. $\cH$ に沿って分解する殆ど全ての $P\in\cP(\cX)$ に関して，上の逆も成り立ち，特に等号が成立する．
 
 :::
 
 $\cG$ が定める分布族について，殆ど全ての分布が共通して持つ条件付き独立性の構造を，$\cG$ から読み取れる $d$-分離性によって発見できるということになる．
+
+さらには，分布 $P$ の独立性の情報を知りたい場合，この背後にあるグラフ $\cG$ を探し出して，$d$-分離性を調べれば良い，ということでもであるのである．^[[@Koller-Friedman2009 p.78] 3.4節 の内容．]
 
 #### $I$-同値性
 
@@ -397,35 +406,53 @@ $$
 $$
 とする．無向グラフとは集合 $V$ と $E\subset[V]^2$ の組 $G:=(V,E)$ のことをいう．^[[@Diestel2017 pp.1-2] 参照．]
 
-$G$ が **完備** (complete) であるとは，任意の $x,y\in V$ について $\{x,y\}\in E$ が成り立つことをいう．このとき，頂点集合 $V$ は **クリーク** (clique) であるという．
+**Markov Network 構造** とは，任意の無向グラフをいう．
 
-Markov Network 構造とは，任意の無向グラフをいう．
+２つの節 $x,y\in V$ が **隣接する** (adjacent / neighbours) とは，$\{x,y\}\in E$ が成り立つことをいう．
+
+無向グラフ $G$ が **完備** (complete) であるとは，任意の $x,y\in V$ について $\{x,y\}\in E$ が成り立つことをいう．このとき，頂点集合 $V$ は **クリーク** (clique) であるという．位数 $n$ の完備グラフは $K^n$ で表される．^[[@Diestel2017 p.3] 参照．]
+
+$K^r\subset G$ を満たす最大の数
+$$
+\om(G):=\Brace{r\in\N\mid K^r\subset G}
+$$
+を **クリーク数** といい，グラフの不変量となる．^[[@Diestel2017 p.135] 参照．]
+
+[**弦グラフ**](https://ja.wikipedia.org/wiki/%E5%BC%A6%E3%82%B0%E3%83%A9%E3%83%95) (chordal / triangulated graph) とは，任意の長さ４以上のサイクルが弦を持つグラフを言う．^[すなわち，三角形以外の [誘導部分グラフ](https://ja.wikipedia.org/wiki/%E8%AA%98%E5%B0%8E%E9%83%A8%E5%88%86%E3%82%B0%E3%83%A9%E3%83%95) を部分グラフに持たないグラフをいう．[@Diestel2017 p.135] 参照．] 弦グラフが，Bayesian Network と Markov Network の双方により表現可能であるグラフのクラスに一致する．
+
+#### Markov Network と Markov Random Field
+
+マルコフネットワークとマルコフ確率場はどうやら同じものを指すようである．
+
+後者は Ising モデルの一般化である．^[[@Kindermann-Snell1980 p.1]]
 
 #### 導入
-
-codal graph^[長さ４以上の全てのサイクルに少なくとも１つ横断する辺があるグラフを言う．] が，Bayesian Network と Markov Network の双方により表現可能であるグラフである．
 
 Markov Network は相互作用に自然な双方向性がない場合でもモデリングを可能とする．
 
 例えば，集合 $\{A,B,C,D\}$ 上の条件付き独立関係
 $$
-\cI:=\Brace{\substack{A\indep C|(B,D)\\B\indep D|(A,C)}}
+\cI:=\Brace{\substack{A\indep C|(B,D),\\B\indep D|(A,C)}}
 $$
 に関して，$\cI(\cG)=\cI$ を満たす Bayesian Network 構造 $\cG$ は存在しない．
 
-Markov Network では，節の間に自然な順序構造がないため，分布の表示が難しくなり，より純粋にグラフの分解に頼ることになる．
+一方で，分岐結合と合流結合とを区別できないため，因果性のような方向を持った依存関係は表現できない．
 
-これを factor と呼ばれる関数によって達成する．
+Markov Network では，節の間に自然な順序構造がないため，分布の表示が難しくなり，より純粋にグラフの分解に頼ることになる．それゆえ，データからの構造学習も遥かに難しくなる．^[[@Koller-Friedman2009 p.106] 4.2節．]
+
+Bayesian Network では条件付き確率密度のみで十分だったところを，これを一般化する概念である factor と呼ばれる概念によって達成する．
+
+条件付き確率密度 $p(x_1,\cdots,x_m|y_1,\cdots,y_k)$ とは，形式的には，積空間 $\prod_{i=1}^m\Im(X_i)\times\prod_{j=1}^k\Im(Y_j)$ 上の（正規化された）関数である．一般に，確率変数の値域の積上の（正規化されているとは限らない）関数を **ファクター** と言う．
 
 #### ファクター
 
-離散確率変数の組 $\b{X}=(X_1,\cdots,X_n)$ 上の **ファクター** とは，ある部分集合 $\{n_1,\cdots,n_D\}\subset[n]$ に対して，関数 $(X_{n_1},\cdots,X_{n_D})$ の値域上に定義された関数
+確率変数の組 $\b{X}=(X_1,\cdots,X_n)$ 上の **ファクター** とは，ある部分集合 $\{n_1,\cdots,n_D\}\subset[n]$ に対して，関数 $(X_{n_1},\cdots,X_{n_D})$ の値域上に定義された関数
 $$
 \phi:\prod_{i=1}^D\Im(X_{n_i})\to\R
 $$
 を言う．この定義域を **スコープ** と言う．^[[@Koller-Friedman2009 p.104] 定義4.1．]
 
-定義域 $a,b\subset[n]$ が被る２つのファクター $\phi_1,\phi_2,a\cap b\ne\emptyset$ が存在する場合，これらを接続して，$\prod_{i\in a\cup b}\Im(X_i)$ 上に定義された新たなファクターを作ることが出来る：^[ただし，$\phi_1(X_a)$ とは $\phi_1((X_i)_{i\in a})$ の略とした．]
+定義域 $a,b\subset[n]$ がかぶる２つのファクター $\phi_1,\phi_2,a\cap b\ne\emptyset$ が存在する場合，これらを接続して，$\prod_{i\in a\cup b}\Im(X_i)$ 上に定義された新たなファクターを作ることが出来る：^[ただし，$\phi_1(X_a)$ とは $\phi_1((X_i)_{i\in a})$ の略とした．]
 $$
 \phi_1\times\phi_2(X_{a\cup b}):=\phi_1(X_a)\phi_2(X_b).
 $$
@@ -440,12 +467,71 @@ $$
 $$
 \b{D}_j\subset\{X_i\}_{i=1}^n\quad(j\in[m])
 $$
-とが定める $\prod_{i=1}^n\Im(X_i)$ 上の **Gibbs 分布** とは，密度
+とが定める $\prod_{i=1}^n\Im(X_i)$ 上の [**Gibbs 分布**](https://en.wikipedia.org/wiki/Gibbs_measure) とは，密度
 $$
 p_\Phi(\b{x})=\frac{1}{Z}\prod_{j=1}^m\phi_j(\b{D}_j)
 $$
 が定める分布をいう．ここで $Z$ は正規化定数であり，歴史的には **分配関数** と言う．^[[@Koller-Friedman2009 p.105] によると，当初統計物理学の分野の Markov 確率場の概念でこの用語が用いられたことが始まりとなっている．]
-2. Gibbs 分布 $p_\Phi$ が Markov network $\cH=(\{X_i\}_{i=1}^n,\cE)$ 上で **分解する** とは，任意の $\cD_j\subset\{X_i\}_{i=1}^n\;(j\in[m])$ が $\cH$ の完備部分グラフであることをいう．このとき，各ファクター $\phi_1,\cdots,\phi_m$ を **clique potential** という．
+2. Gibbs 分布 $p_\Phi$ が Markov network $\cH=(\{X_i\}_{i=1}^n,\cE)$ 上で **分解する** とは，任意の $\cD_j\subset\{X_i\}_{i=1}^n\;(j\in[m])$ が $\cH$ のクリークであることをいう．このとき，各ファクター $\phi_1,\cdots,\phi_m$ を **clique potential** という．
 
 :::
 
+#### Markov Network の分離性 {#sec-separation-in-markov-network}
+
+:::{.callout-tip icon="false" collapse="false"}
+## 定義^[[@Koller-Friedman2009 pp.114-115] 定義4.8, 9．] （Global Markov Independence）
+
+$\cH$ を Markov network 構造とする．
+
+1. 道 $X_1\rightleftharpoons\cdots\rightleftharpoons X_n$ が $\b{Z}\subset\{X_i\}_{i=1}^n$ が観測された下でも **active** であるとは，$\{X_i\}_{i=1}^n\cap\b{Z}=\emptyset$ を満たすことをいう．
+2. 節集合 $\b{X},\b{Y},\b{Z}$ について，$\b{Z}$ が $\b{X},\b{Y}$ を **分離** するとは，任意の $X\in\b{X}$ と $Y\in\b{Y}$ と，$X,Y$ を結ぶ道が，$\b{Z}$ の下で active でないことをいう．このことを $\sep_\cH(\b{X};\b{Y}|\b{Z})$ と表す．
+* $\cH$ 内の分離的な組 $(\b{X},\b{Y},\b{Z})$ が表す条件付き独立性の条件式の全体を
+$$
+\cI(\cH):=\Brace{(\b{X}\indep\b{Y}|\b{Z})\mid\sep_\cH(\b{X};\b{Y}|\b{Z})}
+$$
+で表す．この元を **大域的独立性** ともいう．
+:::
+
+:::{.callout-tip icon="false" collapse="false"}
+## 定理^[[@Koller-Friedman2009 pp.116-117] 定理4.1，定理4.2．] [@Hammersley-Clifford1971]
+
+$P\in\cP(\cX)$ をノードの集合 $\cX=\{X_1,\cdots,X_n\}$ 上の確率分布，$\cH$ を $\cX$ 上の Markov network 構造とする．このとき 1. $\Rightarrow$ 2. が成り立ち，$P$ が $\cX$ 全域を台に持つとき次は同値：
+
+1. $\cH$ は $P$ の $I$-map である：$\cI(\cH)\subset\cI(P)$．
+2. $P$ は $\cH$ に従って分解する Gibbs 分布である．
+
+:::
+
+:::{.callout-tip icon="false" collapse="false"}
+## 命題^[[@Koller-Friedman2009 p.117] 定理4.3．] （分離性の特徴付け）
+
+$\cH$ を Markov network 構造，$\{X\}\sqcup\{Y\}\sqcup\b{Z}\subset\cX$ を節の集合とする．このとき，次が成り立つ：
+
+1. $\cH$ 内で $X,Y$ は $\b{Z}$ によって分離されないならば，ある $\cH$ に沿って分解する分布 $P\in\cP(\cX)$ について，$X\indep Y|\b{Z}$ が成り立つ．
+2. $\cH$ に沿って分解する殆ど全ての $P\in\cP(\cX)$ に関して，$\cI(\cH)=\cI(P)$ が成り立つ．
+:::
+
+Beysian Network （ @sec-characterization-of-d-separation ）の場合と違い，1. の主張が，$\cH$ に沿って分解する全ての分布 $P\in\cP(\cX)$ に関して成り立つとは限らない．
+
+しかし，殆ど全ての $\cH$ に沿って分解する分布 $P\in\cP(\cX)$ に関して成り立つ条件付き独立性は，グラフの構造から読み取れる．
+
+#### 局所依存性
+
+Bayesian Network の $d$-分離性に対応する分離性の概念を導入し，大域的独立性の概念を定義した．
+
+しかし，Bayesian Network の場合では有向グラフとしての構造からすぐに読み取れた局所依存性の概念は，Markov Network の場合では，グラフの構造からは読み取れない．
+
+そして２通りの定義が考え得る．局所依存性は，大域的依存性のサブセットであることに注意．そして，台を全体 $\cX$ に持つ分布については，大域的依存性も含めて３つの定義は全て同値である．^[これは台が縮退している場合は，自明な（決定論的な）独立性が生じてしまうためである．]
+
+### Factor Graph
+
+Markov network は Gibbs 分布の依存性を十分に表現できているわけではなかった（ @sec-separation-in-markov-network ）．これは特に，クリーク間の大小関係を把握できていないことに因る．
+
+:::{.callout-tip icon="false" collapse="false"}
+## 定義^[[@Koller-Friedman2009 p.123] 4.4.1.1．] （Factor Graph）
+
+Markov newtork から，ファクターを表す節を（四角形で囲うなどして区別した形で）追加し，ファクターをそのスコープに入る変数と隣接するようにし，一方で変数を表す（元々の）節とファクターを表す節とが隣接しないように修正した [２部グラフ](https://ja.wikipedia.org/wiki/2%E9%83%A8%E3%82%B0%E3%83%A9%E3%83%95) $\F$ を [**因子グラフ**](https://en.wikipedia.org/wiki/Factor_graph) という．
+
+分布 $P\in\cP(\cX)$ が $\F$ に関して **分解する** とは，$\F$ が定める確率変数の組とその上のファクターが定める Gibbs 分布であることをいう．
+
+:::
