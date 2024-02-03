@@ -117,6 +117,8 @@ def accuracy(ans, pred):
 ```
 
 ```{python}
+#| lst-label: lst-hard-k-means
+#| lst-cap: ハード K-平均法の実装
 def hkmeans_2d(data, K, init, max_iter=100):
     """
     ２次元データに対するハード K-平均法の実装．
@@ -137,7 +139,7 @@ def hkmeans_2d(data, K, init, max_iter=100):
     for _ in range(max_iter):
         # Assignment Step
         for i in range(N):
-            distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray
+            distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray になる．d は Euclid 距離として定義済み．
             k_hat = np.argmin(distances)  # 最小距離のクラスター番号
             r[k_hat,i] = 1
         
@@ -157,9 +159,6 @@ def hkmeans_2d(data, K, init, max_iter=100):
         m = new_m
     
     return np.argmax(r, axis=0)
-
-def skmeans_2d(data, K, init, beta, max_iter=100):
-    N = data.shape[0]  # データ数
 ```
 
 #### 正解率の観察
@@ -176,11 +175,13 @@ pred = hkmeans_2d(data_2d, 3, np.array([[0,0],[1,1],[2,2]]).T)
 ans = data.iloc[:, 0]
 num_correct, accr = accuracy(ans, normalize(pred))
 print(f'正解数: {num_correct}')
-print(f'正解率: {accr:.2f}')
+print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
 #| echo: false
+#| label: fig-1
+#| fig-cap: ハード K-平均法によるクラスタリングの結果
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
 initial_points = np.array([[0,0],[1,1],[2,2]])
@@ -215,18 +216,20 @@ plt.show()
 
 ```{python}
 #| echo: false
-pred = hkmeans_2d(data_2d, 3, np.array([[-1,1],[1,-2],[4,3]]).T)
+pred = hkmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T)
 ans = data.iloc[:, 0]
 num_correct, accr = accuracy(ans, normalize(pred))
 print(f'正解数: {num_correct}')
-print(f'正解率: {accr:.2f}')
+print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
 #| echo: false
+#| label: fig-2
+#| fig-cap: ハード K-平均法によるクラスタリングの結果
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[-1,1],[1,-2],[4,3]])
+initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
@@ -268,7 +271,7 @@ pred = hkmeans_2d(data_2d, 3, np.array([[-1,-1],[1,-2],[2.5,2]]).T)
 ans = data.iloc[:, 0]
 num_correct, accr = accuracy(ans, normalize(pred))
 print(f'正解数: {num_correct}')
-print(f'正解率: {accr:.2f}')
+print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
@@ -316,7 +319,7 @@ pred = hkmeans_2d(data_2d, 3, np.array([[-1,-2],[1,-2],[2.5,2]]).T)
 ans = data.iloc[:, 0]
 num_correct, accr = accuracy(ans, normalize(pred))
 print(f'正解数: {num_correct}')
-print(f'正解率: {accr:.2f}')
+print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
@@ -330,6 +333,7 @@ for marker in np.unique(markers_pred):
     axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Marker {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+axs[0].scatter(0.274, -2.433, facecolors='none', edgecolors='red', s=100)
 
 axs[0].set_title('Result of hard K-means')
 axs[0].set_xlabel('x')
@@ -349,7 +353,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-あ，この最後のやつは無理な気がする．しかもミスは２つでした．
+あ，この最後のやつ（赤丸で囲った点）は無理な気がする．しかもミスは２つでした．
 
 #### リトライ３度目の正直
 
@@ -365,7 +369,7 @@ pred = hkmeans_2d(data_2d, 3, np.array([[0,-2],[1,-2],[2.5,2]]).T)
 ans = data.iloc[:, 0]
 num_correct, accr = accuracy(ans, normalize(pred))
 print(f'正解数: {num_correct}')
-print(f'正解率: {accr:.2f}')
+print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
@@ -403,5 +407,170 @@ plt.show()
 全くアホらしい．このような初期値の目視での調整は，正解を知っているから出来ることである上に，何よりデータの次元が上がった場合には殆ど不可能である．
 
 ### ソフト $K$-平均法
+
+負担率の計算 $r_{kn}\gets\delta_{\argmax_{i\in[k]}d(m_i,x_n)}(k)$ を，
+$$
+\sigma(z;e)_i:=\frac{e^{z_i}}{\sum_{j=1}^Ke^{e_j}}\quad(i\in[K])
+$$
+で定まる [**ソフトマックス関数**](https://ja.wikipedia.org/wiki/%E3%82%BD%E3%83%95%E3%83%88%E3%83%9E%E3%83%83%E3%82%AF%E3%82%B9%E9%96%A2%E6%95%B0) $\sigma:\R^K\to(0,1)^K$ を用いて，「軟化」する．
+
+ここでは，$\beta\ge0$ として，
+$$
+\sigma(z;e^{-\beta})_i=\frac{e^{-\beta z_i}}{\sum_{j=1}^Ke^{-\beta e_j}}
+$$
+の形で用い，$\argmax$ の代わりに
+$$
+\begin{align*}
+    r_{kn}&\gets\sigma(d(-,x_n)\circ m;e^{-\beta})_k\\
+    &=\frac{e^{-\beta d(m_k,x_n)}}{\sum_{j=1}^K e^{-\beta d(m_j,x_n)}}
+\end{align*}
+$$
+とする．
+
+$\beta$ は硬度 (stiffness) または逆温度と呼ぶ．$\beta=0$のとき，温度が無限大の場合にあたり，常に負担率は一様になる．絶対零度に当たる$\beta\to\infty$の極限が hard $K$-means アルゴリズムに相当する．
+
+```{.python #lst-soft-k-means lst-cap="ソフト K-平均法の実装（負担率計算の部分のみが違う）"}
+for i in range(N):
+        distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray
+        denominator_ = np.sum(np.exp(-beta * distances))  # 分母
+        r[:,i] = np.exp(-beta * distances) / denominator_
+```
+
+```{python}
+#| echo: false
+def skmeans_2d(data, K, init, beta, max_iter=100):
+    """
+    ２次元データに対するソフト K-平均法の実装．
+
+    Parameters:
+    - data: (N,2)-numpy.ndarray
+    - K: int クラスター数
+    - init: (2,K)-numpy.ndarray 初期値
+    - beta: float 硬度パラメータ
+
+    Returns:
+    - clusters: (N,)-numpy.ndarray クラスター番号
+    """
+    N = data.shape[0]  # データ数
+    I = data.shape[1]  # 次元数 今回は２
+    m = init  # クラスター中心の初期化．2×K行列．
+    r = np.zeros((K, N))  # 負担率．K×N行列．
+
+    for _ in range(max_iter):
+        # Assignment Step
+        for i in range(N):
+            distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray
+            denominator_ = np.sum(np.exp(-beta * distances))  # 分母
+            r[:,i] = np.exp(- beta * distances) / denominator_
+        
+        # Update Step
+        new_m = np.zeros_like(m)
+        numerator = np.dot(r, data)  # (K,2)-numpy.ndarray
+        denominator = np.sum(r, axis=1)  # 各クラスターの負担率の和
+        for k in range(K):
+            if denominator[k] > 0:
+                new_m[:,k] = numerator[k] / denominator[k]
+            else:
+                new_m[:,k] = m[:,k]
+
+        # 終了条件の確認
+        if np.allclose(m, new_m):
+            break
+        m = new_m
+    
+    return np.argmax(r, axis=0)
+```
+
+#### 正解率の観察
+
+逆温度を $\beta=1$ としてみる．@fig-1 と全く同様な初期値
+$$
+\vctr{1}{1},\quad\vctr{2}{2},\quad\vctr{3}{3},
+$$
+を与えてみると，次の通りの結果を得る：
+
+```{python}
+#| echo: false
+pred = skmeans_2d(data_2d, 3, np.array([[0,0],[1,1],[2,2]]).T, 1)
+ans = data.iloc[:, 0]
+num_correct, accr = accuracy(ans, normalize(pred))
+print(f'正解数: {num_correct}')
+print(f'正解率: {accr*100:.1f} %')
+```
+
+```{python}
+#| echo: false
+markers_pred = normalize(pred)
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
+initial_points = np.array([[0,0],[1,1],[2,2]])
+
+# marker_predを使用したプロット
+for marker in np.unique(markers_pred):
+    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Marker {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+
+axs[0].set_title('Result of hard K-means')
+axs[0].set_xlabel('x')
+axs[0].set_ylabel('y')
+axs[0].legend()
+
+# markerを使用したプロット
+for marker in np.unique(markers):
+    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Marker {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+
+axs[1].set_title('Answer')
+axs[1].set_xlabel('x')
+axs[1].set_ylabel('y')
+axs[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+正解率 70% であったところから少し改善している．
+
+@fig-2 で与えた初期値も与えてみる．
+
+```{python}
+#| echo: false
+pred = skmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 1)
+ans = data.iloc[:, 0]
+num_correct, accr = accuracy(ans, normalize(pred))
+print(f'正解数: {num_correct}')
+print(f'正解率: {accr*100:.1f} %')
+```
+
+```{python}
+#| echo: false
+markers_pred = normalize(pred)
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
+initial_points = np.array([[0,0],[2,4],[4,2]])
+
+# marker_predを使用したプロット
+for marker in np.unique(markers_pred):
+    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Marker {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+
+axs[0].set_title('Result of hard K-means')
+axs[0].set_xlabel('x')
+axs[0].set_ylabel('y')
+axs[0].legend()
+
+# markerを使用したプロット
+for marker in np.unique(markers):
+    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Marker {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+
+axs[1].set_title('Answer')
+axs[1].set_xlabel('x')
+axs[1].set_ylabel('y')
+axs[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+この場合はハード $K$-平均法では 47.8% であったから，大きく改善されていることが判る．
 
 ## EM アルゴリズム
