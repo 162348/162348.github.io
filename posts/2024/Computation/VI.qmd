@@ -1,13 +1,15 @@
 ---
-title: "変分推論（１）EM アルゴリズム"
+title: "変分推論（１）K-平均アルゴリズム"
 author: "Draft Draft"
 date: 2/3/2024
-categories: [Computation, Math Notes, Python]
+date-modified: 2/4/2024
+categories: [Computation, Python]
 toc: true
 number-sections: true
 code-block-bg: true
 code-overflow: wrap
 code-fold: true
+code-annotations: select
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
@@ -22,7 +24,7 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 数学者のために，変分推論の基本的な考え方を説明する．今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムを扱う．さらにその特殊な場合である $K$-平均法から説明を始める．
+abstract: 数学者のために，変分推論の基本的な考え方を説明するシリーズであるが，今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムの，さらにその特殊な場合である $K$-平均法の説明から始める．
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -31,18 +33,18 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 
 ## $K$-平均アルゴリズム
 
-まずは $K$-平均アルゴリズムによるクラスタリングを，Python により実演しながら，このアルゴリズムの考え方と問題点をみる．次の章で，$K$-平均アルゴリズムの統計的な一般化である EM アルゴリズムを説明し，その問題点の数理的な理解を目指す．
+まずは [$K$-平均アルゴリズム](https://ja.wikipedia.org/wiki/K%E5%B9%B3%E5%9D%87%E6%B3%95) によるクラスタリングを，Python により実演しながら，このアルゴリズムの考え方と問題点をみる．次の章で，$K$-平均アルゴリズムの統計的な一般化である EM アルゴリズムを説明し，その問題点の数理的な理解を目指す．
 
 ### 用いるデータ
 
-次のような２次元のデータを考える．
+次のような２次元のデータ（＋最左列に教師データ付き）を考える．
 
 ```{python}
 #| echo: false
 import pandas as pd
-data = pd.read_csv('mixture1.dat', delimiter="\t" , header=None)
-data_2d = data.iloc[:, 1:3].to_numpy()
-print(data)
+data1 = pd.read_csv('mixture1.dat', delimiter="\t" , header=None)
+data1_2d = data1.iloc[:, 1:3].to_numpy()
+print(data1)
 ```
 
 ```{python}
@@ -50,13 +52,13 @@ print(data)
 import matplotlib.pyplot as plt
 import numpy as np
 
-markers = data.iloc[:, 0]
-x = data.iloc[:, 1]
-y = data.iloc[:, 2]
+markers1 = data1.iloc[:, 0]
+x1 = data1.iloc[:, 1]
+y1 = data1.iloc[:, 2]
 
 plt.figure(figsize=(4, 3))
-for marker in np.unique(markers):
-    plt.scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$') 
+for marker in np.unique(markers1):
+    plt.scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$') 
 
 plt.title('Scatter Plot of the Data')
 plt.xlabel('x') 
@@ -64,11 +66,15 @@ plt.ylabel('y')
 plt.show()
 ```
 
-### ハード $K$-平均法
+### ハード $K$-平均法 {#sec-hard-k-means}
 
-head $K$-means はデータ $\{x^{(n)}\}_{n=1}^N\subset\R^I$ とクラスタ数 $K\in\N^+$，そして初期値 $(m^{(k)})_{k=1}^K\in(\R^I)^K$ がパラメータである．soft $K$-means アルゴリズムはさらに硬度パラメータ $\beta\in\R_+$ を持つ．
+head $K$-means はデータ $\{x^{(n)}\}_{n=1}^N\subset\R^I$ とクラスタ数 $K\in\N^+$，そして初期値 $(m^{(k)})_{k=1}^K\in(\R^I)^K$ の３つをパラメータに持つ．
 
-特に `numpy` の提供する行列積を利用して，これを Python により実装した例を以下に示す．ソフト $K$-平均法の実装と対比できるように，負担率を通じた実装を行う．
+soft $K$-means アルゴリズムはさらに硬度パラメータ $\beta\in\R_+$ を持つ．
+
+特に `numpy` の提供する行列積を利用して，これを Python により実装した例を以下に示す．
+
+ソフト $K$-平均法の実装と対比できるように，負担率を通じた実装を意識した例である．アノテーションを付してあるので，該当箇所（右端の丸囲み数字）をクリックすることで適宜解説が読めるようになっている．
 
 ```{python}
 #| echo: false
@@ -100,6 +106,23 @@ def normalize(x):
 
     return np.select(conditions, choices)
 
+def normalize_abnormal(x):
+    """
+    ラベル番号データを昇順にする関数
+
+    Parameter:
+    - x: (N,)-numpy.ndarray
+    """
+    labels = [x[0]]
+    for i in x:
+        if i not in labels:
+            labels.append(i)
+
+    conditions = [x == labels[i] for i in range(len(labels))]
+    choices = [1,3,2]
+
+    return np.select(conditions, choices)
+
 def accuracy(ans, pred):
     """
     正解値と予測値を比べ，正答数と正解率を print する関数
@@ -113,12 +136,10 @@ def accuracy(ans, pred):
     return num_correct, accur
 ```
 
-```{python}
-#| lst-label: lst-hard-k-means
-#| lst-cap: ハード K-平均法の実装
+```{.python}
 def hkmeans_2d(data, K, init, max_iter=100):
     """
-    ２次元データに対するハード K-平均法の実装．
+    ２次元データに対するハード K-平均法の実装例．
 
     Parameters:
     - data: (N,2)-numpy.ndarray
@@ -128,60 +149,188 @@ def hkmeans_2d(data, K, init, max_iter=100):
     Returns:
     - clusters: (N,)-numpy.ndarray クラスター番号
     """
-    N = data.shape[0]  # データ数
-    I = data.shape[1]  # 次元数 今回は２
-    m = init  # クラスター中心の初期化．2×K行列．
-    r = np.zeros((K, N))  # 負担率．K×N行列．
+
+    N = data.shape[0]  # <1>
+    I = data.shape[1]  # <2>
+    m = init  # <3>
+    r = np.zeros((K, N), dtype=float)  # <4>
 
     for _ in range(max_iter):
         # Assignment Step
         for i in range(N):
-            distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray になる．d は Euclid 距離として定義済み．
-            k_hat = np.argmin(distances)  # 最小距離のクラスター番号
+            distances = np.array([d(data[i], m[:,k]) for k in range(K)]) # <5>
+            k_hat = np.argmin(distances)  # <6>
+            r[:,i] = 0  # <7>
             r[k_hat,i] = 1
         
         # Update Step
-        new_m = np.zeros_like(m)
-        numerator = np.dot(r, data)  # (K,2)-numpy.ndarray
-        denominator = np.sum(r, axis=1)  # 各クラスターの負担率の和
-        for k in range(K):
+        new_m = np.zeros_like(m, dtype=float) # <8>
+        numerator = np.dot(r, data)  # <9>
+        denominator = np.sum(r, axis=1) # <10>
+        for k in range(K): # <11>
             if denominator[k] > 0:
                 new_m[:,k] = numerator[k] / denominator[k]
             else:
                 new_m[:,k] = m[:,k]
 
-        # 終了条件の確認
-        if np.allclose(m, new_m):
+        if np.allclose(m, new_m): # <12>
             break
         m = new_m
     
-    return np.argmax(r, axis=0)
+    return np.argmax(r, axis=0)  # <13>
 ```
+
+1. データ数を取得している．
+2. データの次元を取得している．今回はすべて２次元データを用いる．
+3. クラスター中心に引数として受け取った初期値を代入. $2×K$-行列であることに注意．
+4. 負担率を $K×N$-行列として格納している．その理由は後ほど行列積を通じた計算を行うためである．`dtype=float` の理由は後述．
+5. この `distances` 変数は `(K,)-numpy.ndarray` になる．すなわち，第 $k$ 成分が，第 $k$ クラスター中心との距離となっているようなベクトルである．ただし，`d` は Euclid 距離を計算する関数として定義済みとした．
+6. 距離が最小となるクラスター番号 $\hat{k}:=[\argmin_{k\in[K]}d(m_k,x_i)]$ を，$i\in[N]$ 番目のデータについて求める．
+7. $\hat{k}$ に基づいて負担率を更新するが，ループ内で前回の結果をリセットする必要があることに注意．
+8. ここで `dtype=float` と指定しないと，初め引数 `init` が整数のみで構成されていた場合に，Python の自動型付機能が `int` 型だと判定し，クラスター中心 `m` の値が整数に限られてしまう．すると，アルゴリズムがすぐに手頃な格子点に収束してしまう．
+9. `numpy` の行列積を計算する関数 `np.dot` を使用している．更新式
+$$
+m^{(k)}\gets\frac{\sum_{n=1}^Nr^{(n)}_kx^{(n)}}{\sum_{n=1}^Nr^{(n)}_k}
+$$
+の分子を行列積と見たのである．
+10. 分母 (denominator) は $(K,N)$-行列 `r` の行和として得られる．
+11. ゼロによる除算が起こらないように場合わけをしている．
+12. クラスター中心がもはや変わらない場合はアルゴリズムを終了する．
+13. 負担率の最も大きいクラスター番号を返す．今回は `hat_k` の列をそのまま返せば良いが，soft $K$-means アルゴリズムにも通じる形で実装した．
+
+::: {.callout-caution icon="false" title="注：実際に用いる実装" collapse="true"}
+
+ただし，本記事の背後では次の実装を用いる．
+
+クラスター中心の推移のヒストリーを保存して図示に利用したり，負担率 `r` の中身を見たりすることが出来るようにするため，assignment step と update step とに分けてクラスメソッドとして実装し，`run` メソッドでそれらを呼び出すようにしている．これに `fetch_cluster` と `fetch_history` メソッドを加えることで，クラスター番号とクラスター中心の推移を取得することが出来る．フィールド `.r` から（最終的な）負担率を見ることもできる．
+
+```{python}
+#| code-fold: true
+class kmeans_2d:
+    """
+    ２次元データに対するソフト K-平均法の実装．
+
+    Usage:
+        kmeans = kmeans_2d(data, K, init, beta)
+        kmeans.run()
+
+    Parameters:
+    - data: (N,2)-numpy.ndarray
+    - K: int クラスター数
+    - init: (2,K)-numpy.ndarray 初期値
+    - beta: float 硬度パラメータ
+    """
+
+    def __init__(self, data, K, init, beta, max_iter=100):
+        self.data = np.array(data, dtype=float)
+        self.K = K
+        self.init = np.array(init, dtype=float)
+        self.beta = float(beta)
+        self.max_iter = max_iter
+        self.N = data.shape[0]  # データ数
+        self.I = data.shape[1]  # 次元数 今回は２
+        self.m = init  # クラスター中心の初期化．2×K行列．
+        self.r = np.zeros((K, self.N), dtype=float)  # 負担率．K×N行列．
+        self.history = [init.copy()] # クラスター中心の履歴．2×K行列．
+    
+    def soft_assigment(self):
+        """soft K-means の場合の負担率の更新"""
+        for i in range(self.N):
+            distances = np.array([d(self.data[i], self.m[:,j]) for j in range(self.K)]) # (N,)-numpy.ndarray
+            denominator_ = np.sum(np.exp(-self.beta * distances))  # 分母
+            self.r[:,i] = np.exp(- self.beta * distances) / denominator_
+
+    def hard_assigment(self):
+        """hard K-means の場合の負担率の更新"""
+        for i in range(self.N):
+            distances = np.array([d(self.data[i], self.m[:,j]) for j in range(self.K)]) # (N,)-numpy.ndarray
+            k_hat = np.argmin(distances)  # 最小距離のクラスター番号
+            self.r[:,i] = 0  # 前のループの結果をリセット
+            self.r[k_hat,i] = 1
+    
+    def update(self):
+        """クラスター中心の更新"""
+        new_m = np.zeros_like(self.m, dtype=float) # ここで float にしないと，クラスター中心が整数に限られてしまう．
+        numerator = np.dot(self.r, self.data)  # (K,2)-numpy.ndarray
+        denominator = np.sum(self.r, axis=1)  # 各クラスターの負担率の和
+        for k in range(self.K):
+            if denominator[k] > 0:
+                new_m[:,k] = numerator[k] / denominator[k]
+            else:
+                new_m[:,k] = self.m[:,k]
+        self.m = new_m
+
+    def fetch_cluster(self):
+        """最終的なクラスター番号を格納した (N,)-array を返す"""
+        return np.argmax(self.r, axis=0)
+    
+    def fetch_history(self):
+        """クラスター中心の履歴を格納したリストを，３次元の np.array に変換して返す"""
+        return np.stack(self.history, axis=0)
+
+    def run_soft(self):
+        """soft K-means アルゴリズムの実行"""
+        for _ in range(self.max_iter):
+            self.soft_assigment()
+            self.update()
+            self.history.append(self.m.copy())
+            if np.allclose(self.history[-1], self.history[-2]):
+                break
+    
+    def run_hard(self):
+        """hard K-means アルゴリズムの実行"""
+        for _ in range(self.max_iter):
+            self.hard_assigment()
+            self.update()
+            self.history.append(self.m.copy())
+            if np.allclose(self.history[-1], self.history[-2]):
+                break
+```
+
+なお，この実装は $\beta\ge500$ などの場合にオーバーフローが起こることに注意．
+
+:::
 
 #### 正解率の観察
 
-まずは簡単に初期値
+次の２つの初期値を与えてみる．
 $$
-\vctr{1}{1},\quad\vctr{2}{2},\quad\vctr{3}{3},
+m_1:=\vctr{4}{0},\quad m_2:=\vctr{1}{4},\quad m_3=\vctr{-1}{1},
 $$
-を与えてみると，次の通りの結果を得る：
+と，$m_2,m_3$ は変えずに $m_1$ の $y$-座標を $1$ だけ下げたもの
+$$
+m_1':=\vctr{4}{-1}
+$$
+とを初期値として与えてみる．
 
 ```{python}
 #| echo: false
 #| label: fig-1
-#| fig-cap: ハード K-平均法によるクラスタリングの結果
-pred = hkmeans_2d(data_2d, 3, np.array([[0,0],[1,1],[2,2]]).T)
-ans = data.iloc[:, 0]
+#| fig-cap: ハード K-平均法によるクラスタリングの結果．初期値は $(m_1,m_2,m_3)=\paren{\vctr{4}{0},\vctr{1}{4},\vctr{-1}{1}}$．赤丸で囲まれている点がクラスター中心 (CoC / Center of Cluster) の初期値で，その後の移動が図示されている．
+initial_points = np.array([[-1,1],[1,4],[4,0]])
+
+result = kmeans_2d(data1_2d, 3, initial_points.T, 0.1)
+result.run_hard()
+pred = result.fetch_cluster()
+history = result.fetch_history()
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[1,1],[2,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [2,1,0]
+default = [0,1,2]
+markerstyle = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markerstyle[j], label=f'CoC {j+1}', zorder=1)
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[0].set_title('Result of hard K-means')
 axs[0].set_xlabel('x')
@@ -189,8 +338,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -201,30 +350,41 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
 ```
-
-赤い点が初期値である．**ハード $K$-平均アルゴリズムは初期値に敏感である** ことがよく分かる．
 
 別の初期値を与えてみる．
 
 ```{python}
 #| echo: false
 #| label: fig-2
-#| fig-cap: ハード K-平均法によるクラスタリングの結果
-pred = hkmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T)
-ans = data.iloc[:, 0]
+#| fig-cap: ハード K-平均法によるクラスタリングの結果．初期値は $(m_1',m_2,m_3)=\paren{\vctr{4}{-1},\vctr{1}{4},\vctr{-1}{1}}$．
+
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+
+result = kmeans_2d(data1_2d, 3, initial_points.T, 0.1)
+result.run_hard()
+pred = result.fetch_cluster()
+history = result.fetch_history()
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [1,0,2]
+default = [0,1,2]
+markerstyle = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markerstyle[j], label=f'CoC {j+1}', zorder=1)
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[0].set_title('Result of hard K-means')
 axs[0].set_xlabel('x')
@@ -232,8 +392,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -244,90 +404,58 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
 ```
 
-これはひどい．
+結果が全く変わり，$(m_1',m_2,m_3)$ を与えた方が，大きく正解に近づいている．具体的には，右下の初期値 $m_1$ は右上の島に行くが，$m_1'$ は左下の島に行ってくれる．
 
-#### リトライ
+**ハード $K$-平均アルゴリズムは初期値に敏感である** ことがよく分かる．
+
+#### 正解率を上げる試み
+
+直前の結果ではクラスター２と３の境界線で４つのミスを犯しており，これを修正できないか試したい．
 
 そこで，答えに近いように，
 $$
-\vctr{-1}{-1},\quad\vctr{1}{-2},\quad\vctr{2.5}{2},
+m_1\gets\vctr{2.5}{2},\quad m_2\gets\vctr{-1}{-1},\quad m_3\gets\vctr{1}{-2},
 $$
 を初期値として与えてみて，正答率の変化を観察する．
 
 ```{python}
 #| echo: false
-pred = hkmeans_2d(data_2d, 3, np.array([[-1,-1],[1,-2],[2.5,2]]).T)
-ans = data.iloc[:, 0]
-
-markers_pred = normalize(pred)
-fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
 initial_points = np.array([[-1,-1],[1,-2],[2.5,2]])
-
-# marker_predを使用したプロット
-for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
-
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
-
-axs[0].set_title('Result of hard K-means')
-axs[0].set_xlabel('x')
-axs[0].set_ylabel('y')
-axs[0].legend()
-
-# markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
-
-axs[1].set_title('Answer')
-axs[1].set_xlabel('x')
-axs[1].set_ylabel('y')
-axs[1].legend()
-
-plt.tight_layout()
-plt.show()
-
-num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
-```
-
-#### リトライ２
-
-惜しい！！ １箇所だけ明らかに間違えている！何とかこれを消せないか！？
-左下の赤い丸をより下からスタートさせることで，青のクラスターに干渉しないことを目指す：
-$$
-\vctr{-1}{-1}\mapsto\vctr{-1}{-2}
-$$
-に変更．
-
-```{python}
-#| echo: false
-pred = hkmeans_2d(data_2d, 3, np.array([[-1,-2],[1,-2],[2.5,2]]).T)
-ans = data.iloc[:, 0]
+result = kmeans_2d(data1_2d, 3, initial_points.T, 0.1)
+result.run_hard()
+pred = result.fetch_cluster()
+history = result.fetch_history()
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[-1,-2],[1,-2],[2.5,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
-axs[0].scatter(0.274, -2.433, facecolors='none', edgecolors='red', s=100)
+rearrange = [2,0,1]
+default = [0,1,2]
+markerstyle = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markerstyle[j], label=f'CoC {j+1}', zorder=1)
 
-axs[0].set_title('Result of hard K-means')
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
+
+axs[0].set_title('Result of soft K-means with beta=1')
 axs[0].set_xlabel('x')
 axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -338,43 +466,53 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
+
+center1 = history[-1, :, :]
 ```
 
-あ，この最後のやつ（赤丸で囲った点）は無理な気がする．しかもミスは２つでした．
+もはや初期値から殆ど動いていないが，目標のクラスター３に分類された３つの点が，相変わらず３のままであり，加えてクラスター２の中心がこれらから逃げているようにも見えるので，クラスター２の初期値をよりクラスター３に近いように誘導し，クラスター３の中心をより右側から開始する：
 
-#### リトライ３度目の正直
+$$
+m_2:\vctr{-1}{-1}\mapsto\vctr{0}{-2}\quad m_3:\vctr{1}{-2}\mapsto\vctr{2}{-2}
+$$
 
-ええい！もうヤツの隣から初めてやる！
-$$
-\vctr{-1}{-2}\mapsto\vctr{0}{-2}
-$$
-に変更．
 
 ```{python}
 #| echo: false
-pred = hkmeans_2d(data_2d, 3, np.array([[0,-2],[1,-2],[2.5,2]]).T)
-ans = data.iloc[:, 0]
+initial_points = np.array([[0,-2],[2,-2],[2.5,2]])
+result = kmeans_2d(data1_2d, 3, initial_points.T, 0.1)
+result.run_hard()
+pred = result.fetch_cluster()
+history = result.fetch_history()
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,-2],[1,-2],[2.5,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [2,0,1]
+default = [0,1,2]
+markerstyle = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markerstyle[j], label=f'CoC {j+1}', zorder=1)
 
-axs[0].set_title('Result of hard K-means')
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
+
+axs[0].set_title('Result of soft K-means with beta=1')
 axs[0].set_xlabel('x')
 axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -385,17 +523,21 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
+
+center2 = history[-1, :, :]
 ```
 
-遂に正答率 100% ！！！
+こんなに誘導をしても，正しく分類してくれない．
 
-全くアホらしい．このような初期値の目視での調整は，正解を知っているから出来ることである上に，何よりデータの次元が上がった場合には殆ど不可能である．
+実は，以上２つの初期値では，最終的に３つのクラスター中心は同じ値に収束している．よって，これ以上どのように初期値を変更しても，正答率は上がらないシナリオが考えられる．
+
+以上の観察から，ハード $K$-平均法はある種の **局所解に収束する** ようなアルゴリズムであると考えられる．
 
 ### ソフト $K$-平均法
 
-負担率の計算 $r_{kn}\gets\delta_{\argmax_{i\in[k]}d(m_i,x_n)}(k)$ を，
+ハード $K$-平均法では，負担率 $r_{kn}\gets\delta_{\argmax_{i\in[k]}d(m_i,x_n)}(k)$ は $0,1$ のいずれかの値しか取らなかった．この振る舞いを，
 $$
 \sigma(z;e)_i:=\frac{e^{z_i}}{\sum_{j=1}^Ke^{e_j}}\quad(i\in[K])
 $$
@@ -414,7 +556,9 @@ $$
 $$
 とする．
 
-$\beta$ は硬度 (stiffness) または逆温度と呼ぶ．$\beta=0$ のとき，温度が無限大の場合にあたり，常に負担率は一様になる．絶対零度に当たる $\beta\to\infty$ の極限が hard $K$-means アルゴリズムに相当する．
+$\beta$ は **硬度 (stiffness)** または逆温度と呼ぶ．^[stiffness の用語は [@MacKay2003 p.289] から．] $\beta=0$ のときは温度が無限大の場合にあたり，常に負担率は一様になる．絶対零度に当たる $\beta\to\infty$ の極限が hard $K$-means アルゴリズムに相当する．
+
+実装は例えば hard $K$-means アルゴリズム（ @sec-hard-k-means ）から，次の部分だけ変更すれば良い：
 
 ```{.python #lst-soft-k-means lst-cap="ソフト K-平均法の実装（負担率計算の部分のみが違う）"}
 for i in range(N):
@@ -425,114 +569,8 @@ for i in range(N):
 
 ```{python}
 #| echo: false
-def skmeans_2d(data, K, init, beta, max_iter=100):
-    """
-    ２次元データに対するソフト K-平均法の実装．
-
-    Parameters:
-    - data: (N,2)-numpy.ndarray
-    - K: int クラスター数
-    - init: (2,K)-numpy.ndarray 初期値
-    - beta: float 硬度パラメータ
-
-    Returns:
-    - clusters: (N,)-numpy.ndarray クラスター番号
-    """
-    N = data.shape[0]  # データ数
-    I = data.shape[1]  # 次元数 今回は２
-    m = init  # クラスター中心の初期化．2×K行列．
-    r = np.zeros((K, N))  # 負担率．K×N行列．
-
-    for _ in range(max_iter):
-        # Assignment Step
-        for i in range(N):
-            distances = np.array([d(data[i], m[:,j]) for j in range(K)]) # (N,)-numpy.ndarray
-            denominator_ = np.sum(np.exp(-beta * distances))  # 分母
-            r[:,i] = np.exp(- beta * distances) / denominator_
-        
-        # Update Step
-        new_m = np.zeros_like(m)
-        numerator = np.dot(r, data)  # (K,2)-numpy.ndarray
-        denominator = np.sum(r, axis=1)  # 各クラスターの負担率の和
-        for k in range(K):
-            if denominator[k] > 0:
-                new_m[:,k] = numerator[k] / denominator[k]
-            else:
-                new_m[:,k] = m[:,k]
-
-        # 終了条件の確認
-        if np.allclose(m, new_m):
-            break
-        m = new_m
-    
-    return np.argmax(r, axis=0), r
-```
-
-```{python}
-#| echo: false
-
-class kmeans_2d:
-    """
-    ２次元データに対するソフト K-平均法のイテレータクラスとしての実装．
-
-    Usage:
-        kmeans = kmeans_2d(data, K, init, beta)
-        kmeans.run()
-
-    Parameters:
-    - data: (N,2)-numpy.ndarray
-    - K: int クラスター数
-    - init: (2,K)-numpy.ndarray 初期値
-    - beta: float 硬度パラメータ
-    """
-    def __init__(self, data, K, init, beta, max_iter=100):
-        self.data = data
-        self.K = K
-        self.init = init
-        self.beta = beta
-        self.max_iter = max_iter
-        self.N = data.shape[0]  # データ数
-        self.I = data.shape[1]  # 次元数 今回は２
-        self.m = init  # クラスター中心の初期化．2×K行列．
-        self.r = np.zeros((K, self.N))  # 負担率．K×N行列．
-        self.history = [init.copy()] # クラスター中心の履歴．2×K行列．
-    
-    def soft_assigment(self):
-        """負担率の更新"""
-        for i in range(self.N):
-            distances = np.array([d(self.data[i], self.m[:,j]) for j in range(self.K)]) # (N,)-numpy.ndarray
-            denominator_ = np.sum(np.exp(-self.beta * distances))  # 分母
-            self.r[:,i] = np.exp(- self.beta * distances) / denominator_
-    
-    def update(self):
-        """クラスター中心の更新"""
-        new_m = np.zeros_like(self.m)
-        numerator = np.dot(self.r, self.data)  # (K,2)-numpy.ndarray
-        denominator = np.sum(self.r, axis=1)  # 各クラスターの負担率の和
-        for k in range(self.K):
-            if denominator[k] > 0:
-                new_m[:,k] = numerator[k] / denominator[k]
-            else:
-                new_m[:,k] = self.m[:,k]
-        self.m = new_m
-
-    def fetch_cluster(self):
-        return np.argmax(self.r, axis=0)
-    
-    def fetch_history(self):
-        return np.stack(self.history, axis=0)
-
-    def run_soft(self):
-        for _ in range(self.max_iter):
-            self.soft_assigment()
-            self.update()
-            self.history.append(self.m.copy())
-            if np.allclose(self.history[-1], self.history[-2]):
-                break
-```
-
-```{python}
-result = kmeans_2d(data_2d, 3, np.array([[-3,-2],[4,2],[-2,2]]).T, 1)
+#| output: false
+result = kmeans_2d(data1_2d, 3, np.array([[-3,-2],[4,2],[-2,2]]).T, 1)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
@@ -542,6 +580,8 @@ print(f'正解率: {accr*100:.1f} %')
 ```
 
 ```{python}
+#| echo: false
+#| output: false
 
 plt.figure(figsize=(8, 6))
 
@@ -562,28 +602,29 @@ plt.show()
 
 #### 正解率の観察
 
-逆温度を $\beta=1$ としてみる．@fig-1 と全く同様な初期値
+逆温度をひとまず $\beta=1$ としてみる．@fig-1 と全く同様な初期値
 $$
-\vctr{0}{0},\quad\vctr{1}{1},\quad\vctr{2}{2},
+\vctr{4}{0},\quad\vctr{1}{4},\quad\vctr{-1}{1},
 $$
 を与えてみると，次の通りの結果を得る：
 
 ```{python}
 #| echo: false
+#| label: fig-3
 #| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果．赤い丸が初期値で，その後のクラスター中心 CoC (Center of Cluster) の推移が表現されている．
-result = kmeans_2d(data_2d, 3, np.array([[0,0],[1,1],[2,2]]).T, 1)
+initial_points = np.array([[-1,1],[1,4],[4,0]])
+result = kmeans_2d(data1_2d, 3, initial_points.T, 1)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
-ans = data.iloc[:, 0]
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[1,1],[2,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 rearrange = [2,1,0]
 for i in rearrange:  # 点の数だけ繰り返し
@@ -599,8 +640,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -611,33 +652,51 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
+
 ```
 
-正解率 70% であったところから少し改善している．
+
+正解率 43.3% であったところから少し改善している．さらに，反復数が９回であったところから，劇的に増えている．
+
+また，右上の２つのクラスター中心の収束先は，微妙にずれているがほとんど一致している点も注目に値する．
+```{.python}
+centers = history[-1, :, :]
+df = pd.DataFrame(centers, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+print(df)
+```
+```{python}
+#| echo: false
+center3 = history[-1, :, :]
+df = pd.DataFrame(center3, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+df = df[['Cluster3', 'Cluster2', 'Cluster1']]
+df.index = ['x', 'y']
+df.columns = ['Cluster1', 'Cluster2', 'Cluster3']
+print(df)
+```
 
 @fig-2 で与えた初期値も与えてみる．
 
 ```{python}
 #| echo: false
-#| label: fig-3
+#| label: fig-4
 #| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果
-result = kmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 1)
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+result = kmeans_2d(data1_2d, 3, initial_points.T, 1)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
-ans = data.iloc[:, 0]
+ans = data1.iloc[:, 0]
 
-markers_pred = normalize(pred)
+markers_pred = normalize_abnormal(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-rearrange = [2,1,0]
+rearrange = [1,0,2]
 for i in rearrange:  # 点の数だけ繰り返し
     x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
     y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
@@ -651,8 +710,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -663,16 +722,27 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
 ```
 
-この場合はハード $K$-平均法では 47.8% であったから，大きく改善されていることが判る．図 @fig-2 との差は，
+正答率は 94.4% からやはり少し改善しており，反復数が７回から大きく増えている．
 
-1. クラスター１がより大きな範囲を占めているため，正解率の上昇に寄与している．
-2. 図 @fig-2 ではクラスター３が海峡を渡りクラスター２を侵食していたが，それがみられない．
+結果はやはり @fig-3 と大きく異なっており，ハード $K$-平均法で観察された初期値鋭敏性が，変わらず残っている．
 
-の主に２点が観察されるが，これは $\beta=1$ による「軟化」の結果，$(2,4)^\top$ からスタートしたクラスター中心がしっかりと手前の大陸を制圧することに成功するためであると考えられる．
+加えてこの場合も @fig-3 のクラスター１と２と同様に，クラスター２と３の中心がほぼ一致している．
+
+```{python}
+#| echo: false
+center4 = history[-1, :, :]
+df = pd.DataFrame(center4, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+df = df[['Cluster2', 'Cluster3', 'Cluster1']]
+df.index = ['x', 'y']
+df.columns = ['Cluster1', 'Cluster2', 'Cluster3']
+print(df)
+```
+
+$\beta=1$ の場合のソフト $K$-平均法は，この例では **クラスター中心が融合する傾向にある** ようである．
 
 #### 硬度パラメータの変化
 
@@ -680,11 +750,11 @@ print(f'正解率: {accr*100:.1f} %')
 
 ```{python}
 #| echo: false
-result = kmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 0.1)
+result = kmeans_2d(data1_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 0.1)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
-ans = data.iloc[:, 0]
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
@@ -692,7 +762,7 @@ initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 rearrange = [2,1,0]
 for i in rearrange:  # 点の数だけ繰り返し
@@ -708,8 +778,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -730,11 +800,11 @@ print(f'正解率: {accr*100:.1f} %')
 
 ```{python}
 #| echo: false
-result = kmeans_2d(data_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 10)
+result = kmeans_2d(data1_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 10)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
-ans = data.iloc[:, 0]
+ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
@@ -742,7 +812,7 @@ initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
-    axs[0].scatter(x[markers_pred == marker], y[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 rearrange = [2,1,0]
 for i in rearrange:  # 点の数だけ繰り返し
@@ -758,8 +828,8 @@ axs[0].set_ylabel('y')
 axs[0].legend()
 
 # markerを使用したプロット
-for marker in np.unique(markers):
-    axs[1].scatter(x[markers == marker], y[markers == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+for marker in np.unique(markers1):
+    axs[1].scatter(x1[markers1 == marker], y1[markers1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 axs[1].set_title('Answer')
 axs[1].set_xlabel('x')
@@ -784,15 +854,15 @@ print(f'正解率: {accr*100:.1f} %')
 #| echo: false
 #| fig-cap: ソフト K-平均法によるクラスタリングの結果の比較（$\beta=1$ vs. $\beta=10$）．
 initial_points = np.array([[0,0],[-1,-2],[-2,-3]])
-result1 = kmeans_2d(data_2d, 3, initial_points.T, 1)
-result2 = kmeans_2d(data_2d, 3, initial_points.T, 10)
+result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1)
+result2 = kmeans_2d(data1_2d, 3, initial_points.T, 10)
 result1.run_soft()
 result2.run_soft()
 pred1 = result1.fetch_cluster()
 pred2 = result2.fetch_cluster()
 history1 = result1.fetch_history()
 history2 = result2.fetch_history()
-ans = data.iloc[:, 0]
+ans = data1.iloc[:, 0]
 
 markers_pred1 = normalize(pred1)
 markers_pred2 = normalize(pred2)
@@ -800,9 +870,16 @@ fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred1):
-    axs[0].scatter(x[markers_pred1 == marker], y[markers_pred1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred1 == marker], y1[markers_pred1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i in rearrange:  # 点の数だけ繰り返し
+    x_coords = history1[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history1[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[2-i], label=f'CoC {3-i}', zorder=1)
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[0].set_title('Result of soft K-means with beta=1')
 axs[0].set_xlabel('x')
@@ -812,9 +889,14 @@ axs[0].legend()
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred2):
-    axs[1].scatter(x[markers_pred2 == marker], y[markers_pred2 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[1].scatter(x1[markers_pred2 == marker], y1[markers_pred2 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[1].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+for i in rearrange:  # 点の数だけ繰り返し
+    x_coords = history2[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history2[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[1].plot(x_coords, y_coords, linestyle='-', marker=markers[2-i], label=f'CoC {3-i}', zorder=1)
+
+axs[1].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[1].set_title('Result of soft K-means with beta=10')
 axs[1].set_xlabel('x')
@@ -829,14 +911,22 @@ num_correct2, accr2 = accuracy(ans, normalize(pred2))
 print(f'正解数: {num_correct1} vs. {num_correct2}')
 print(f'正解率: {accr1*100:.1f} % vs. {accr2*100:.1f} %')
 ```
+
+$\beta=1$ の場合は，クラスター２と３が（たまたまクラスター１中心の初期位置で）合流してしまっている．一方で $\beta=10$ の場合は，そのような大移動は起きず，左下の島をクラスター２と３がうまく分け合っている．
 
 ```{python}
 #| echo: false
 #| fig-cap: ソフト K-平均法によるクラスタリングの結果の比較（$\beta=1$ vs. $\beta=10$）．
 initial_points = np.array([[0,-3],[-1,-2],[-2,-3]])
-pred1, r = skmeans_2d(data_2d, 3, initial_points.T, 1)
-pred2, r = skmeans_2d(data_2d, 3, initial_points.T, 10)
-ans = data.iloc[:, 0]
+result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1)
+result2 = kmeans_2d(data1_2d, 3, initial_points.T, 10)
+result1.run_soft()
+result2.run_soft()
+pred1 = result1.fetch_cluster()
+pred2 = result2.fetch_cluster()
+history1 = result1.fetch_history()
+history2 = result2.fetch_history()
+ans = data1.iloc[:, 0]
 
 markers_pred1 = normalize(pred1)
 markers_pred2 = normalize(pred2)
@@ -844,9 +934,17 @@ fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred1):
-    axs[0].scatter(x[markers_pred1 == marker], y[markers_pred1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[0].scatter(x1[markers_pred1 == marker], y1[markers_pred1 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[0].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [0,2,1]
+default = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history1[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history1[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
+
+axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[0].set_title('Result of soft K-means with beta=1')
 axs[0].set_xlabel('x')
@@ -856,9 +954,15 @@ axs[0].legend()
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred2):
-    axs[1].scatter(x[markers_pred2 == marker], y[markers_pred2 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
+    axs[1].scatter(x1[markers_pred2 == marker], y1[markers_pred2 == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-axs[1].scatter(initial_points[:, 0], initial_points[:, 1], color='red')
+rearrange = [1,0,2]
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
+    x_coords = history2[:, 0, i]  # i番目の点の全時点でのx座標
+    y_coords = history2[:, 1, i]  # i番目の点の全時点でのy座標
+    axs[1].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
+
+axs[1].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
 axs[1].set_title('Result of soft K-means with beta=10')
 axs[1].set_xlabel('x')
@@ -873,5 +977,7 @@ num_correct2, accr2 = accuracy(ans, normalize(pred2))
 print(f'正解数: {num_correct1} vs. {num_correct2}')
 print(f'正解率: {accr1*100:.1f} % vs. {accr2*100:.1f} %')
 ```
+
+正解率に惑わされてはいけない．やはり，温度が高い場合はクラスター中心が合流・融合してしまいやすいが，冷却することでクラスター数は大きい状態で安定する．
 
 ## EM アルゴリズム
