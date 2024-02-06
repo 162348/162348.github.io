@@ -31,11 +31,9 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 
 [@Blei+2017]
 
-## $K$-平均アルゴリズム
+本稿では，[$K$-平均アルゴリズム](https://ja.wikipedia.org/wiki/K%E5%B9%B3%E5%9D%87%E6%B3%95) によるクラスタリングを，Python により実演しながら，このアルゴリズムの考え方と問題点をみる．次の章で，$K$-平均アルゴリズムの統計的な一般化である EM アルゴリズムを説明し，その問題点の数理的な理解を目指す．
 
-まずは [$K$-平均アルゴリズム](https://ja.wikipedia.org/wiki/K%E5%B9%B3%E5%9D%87%E6%B3%95) によるクラスタリングを，Python により実演しながら，このアルゴリズムの考え方と問題点をみる．次の章で，$K$-平均アルゴリズムの統計的な一般化である EM アルゴリズムを説明し，その問題点の数理的な理解を目指す．
-
-### 用いるデータ
+## 用いるデータ
 
 次のような２次元のデータ（＋最左列に教師データ付き）を考える．
 
@@ -66,7 +64,7 @@ plt.ylabel('y')
 plt.show()
 ```
 
-### ハード $K$-平均法 {#sec-hard-k-means}
+## ハード $K$-平均法 {#sec-hard-k-means}
 
 head $K$-means はデータ $\{x^{(n)}\}_{n=1}^N\subset\R^I$ とクラスタ数 $K\in\N^+$，そして初期値 $(m^{(k)})_{k=1}^K\in(\R^I)^K$ の３つをパラメータに持つ．
 
@@ -291,7 +289,7 @@ class kmeans_2d:
 
 :::
 
-#### 正解率の観察
+### 正解率の観察
 
 次の２つの初期値を与えてみる．
 $$
@@ -403,6 +401,8 @@ axs[1].legend()
 plt.tight_layout()
 plt.show()
 
+center_2 = history[-1, :, :]
+
 num_correct, accr = accuracy(ans, normalize(pred))
 iteration = history.shape[0]
 print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
@@ -412,7 +412,7 @@ print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: 
 
 **ハード $K$-平均アルゴリズムは初期値に敏感である** ことがよく分かる．
 
-#### 正解率を上げる試み
+### 正解率を上げる試み
 
 直前の結果ではクラスター２と３の境界線で４つのミスを犯しており，これを修正できないか試したい．
 
@@ -535,7 +535,7 @@ center2 = history[-1, :, :]
 
 以上の観察から，ハード $K$-平均法はある種の **局所解に収束する** ようなアルゴリズムであると考えられる．
 
-### ソフト $K$-平均法
+## ソフト $K$-平均法
 
 ハード $K$-平均法では，負担率 $r_{kn}\gets\delta_{\argmax_{i\in[k]}d(m_i,x_n)}(k)$ は $0,1$ のいずれかの値しか取らなかった．この振る舞いを，
 $$
@@ -567,40 +567,7 @@ for i in range(N):
         r[:,i] = np.exp(-beta * distances) / denominator_
 ```
 
-```{python}
-#| echo: false
-#| output: false
-result = kmeans_2d(data1_2d, 3, np.array([[-3,-2],[4,2],[-2,2]]).T, 1)
-result.run_soft()
-pred = result.fetch_cluster()
-history = result.fetch_history()
-num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
-```
-
-```{python}
-#| echo: false
-#| output: false
-
-plt.figure(figsize=(8, 6))
-
-# 各点に対して軌跡をプロット
-for i in range(history.shape[2]):  # 点の数だけ繰り返し
-    x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
-    y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
-    plt.plot(x_coords, y_coords, '-o', label=f'Point {i+1}')
-
-# グラフの装飾
-plt.title('Temporal Changes of Three Points in 2D Space')
-plt.xlabel('X Coordinate')
-plt.ylabel('Y Coordinate')
-plt.legend()
-plt.grid(True)
-plt.show()
-```
-
-#### 正解率の観察
+### 正解率の観察
 
 逆温度をひとまず $\beta=1$ としてみる．@fig-1 と全く同様な初期値
 $$
@@ -611,7 +578,7 @@ $$
 ```{python}
 #| echo: false
 #| label: fig-3
-#| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果．赤い丸が初期値で，その後のクラスター中心 CoC (Center of Cluster) の推移が表現されている．
+#| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果．初期値は $(m_1,m_2,m_3)=\paren{\vctr{4}{0},\vctr{1}{4},\vctr{-1}{1}}$．赤丸で囲まれている点がクラスター中心 (CoC / Center of Cluster) の初期値で，その後の移動が図示されている．
 initial_points = np.array([[-1,1],[1,4],[4,0]])
 result = kmeans_2d(data1_2d, 3, initial_points.T, 1)
 result.run_soft()
@@ -627,10 +594,12 @@ for marker in np.unique(markers_pred):
     axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 rearrange = [2,1,0]
-for i in rearrange:  # 点の数だけ繰り返し
+default = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
     x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
     y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
-    axs[0].plot(x_coords, y_coords, '-o', label=f'CoC {3-i}', zorder=1)
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
 
 axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
@@ -681,7 +650,7 @@ print(df)
 ```{python}
 #| echo: false
 #| label: fig-4
-#| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果
+#| fig-cap: ソフト K-平均法（$\beta=1$）によるクラスタリングの結果．初期値は $(m_1',m_2,m_3)=\paren{\vctr{4}{-1},\vctr{1}{4},\vctr{-1}{1}}$．
 initial_points = np.array([[-1,1],[1,4],[4,-1]])
 result = kmeans_2d(data1_2d, 3, initial_points.T, 1)
 result.run_soft()
@@ -697,10 +666,12 @@ for marker in np.unique(markers_pred):
     axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
 rearrange = [1,0,2]
-for i in rearrange:  # 点の数だけ繰り返し
+default = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
     x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
     y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
-    axs[0].plot(x_coords, y_coords, '-o', label=f'CoC {3-i}', zorder=1)
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
 
 axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
@@ -736,7 +707,7 @@ print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: 
 #| echo: false
 center4 = history[-1, :, :]
 df = pd.DataFrame(center4, columns=['Cluster1', 'Cluster2', 'Cluster3'])
-df = df[['Cluster2', 'Cluster3', 'Cluster1']]
+df = df[['Cluster2', 'Cluster1', 'Cluster3']]
 df.index = ['x', 'y']
 df.columns = ['Cluster1', 'Cluster2', 'Cluster3']
 print(df)
@@ -744,13 +715,20 @@ print(df)
 
 $\beta=1$ の場合のソフト $K$-平均法は，この例では **クラスター中心が融合する傾向にある** ようである．
 
-#### 硬度パラメータの変化
+### 硬度パラメータに依る挙動の変化
 
-逆温度を $\beta=0.1$ としてみる．
+初期値を直前で用いた
+$$
+m_1\gets\vctr{4}{-1},\quad m_2\gets\vctr{1}{4},\quad m_3\gets\vctr{-1}{1},
+$$
+で固定とし，さらに温度を上げて，逆温度を $\beta=0.1$ としてみる．
 
 ```{python}
 #| echo: false
-result = kmeans_2d(data1_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 0.1)
+#| label: fig-5
+#| fig-cap: ソフト K-平均法（$\beta=0.1$）によるクラスタリングの結果．初期値は $(m_1',m_2,m_3)=\paren{\vctr{4}{-1},\vctr{1}{4},\vctr{-1}{1}}$．
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+result = kmeans_2d(data1_2d, 3, initial_points.T, 0.1)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
@@ -758,21 +736,22 @@ ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
     axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-rearrange = [2,1,0]
-for i in rearrange:  # 点の数だけ繰り返し
+rearrange = [1,0,2]
+default = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
     x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
     y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
-    axs[0].plot(x_coords, y_coords, '-o', label=f'CoC {3-i}', zorder=1)
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
 
 axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
-axs[0].set_title('Result of soft K-means with beta=1')
+axs[0].set_title('Result of soft K-means with beta=0.1')
 axs[0].set_xlabel('x')
 axs[0].set_ylabel('y')
 axs[0].legend()
@@ -790,17 +769,32 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
 ```
 
-全てが同じクラスターに属する結果となってしまった．温度が大変に高い状態に相当し，全てが乱雑で，３つのクラスターが一様・公平に負担率を持つようになった．そのため，関数 `argmax` が全ての $k$ に対して同じ値を返してしまっているのである．
-
-次に，逆温度を $\beta=10$ としてみる．
+反復数は減少し，全てがほとんど同じクラスターに属する結果となってしまった．
 
 ```{python}
 #| echo: false
-result = kmeans_2d(data1_2d, 3, np.array([[0,0],[2,4],[4,2]]).T, 10)
+center5 = history[-1, :, :]
+df = pd.DataFrame(center5, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+df = df[['Cluster2', 'Cluster1', 'Cluster3']]
+df.index = ['x', 'y']
+df.columns = ['Cluster1', 'Cluster2', 'Cluster3']
+print(df)
+```
+
+３つのクラスター中心の座標が小数点以下５桁の精度で一致してしまっている．温度が大変に高い状態では，全てが乱雑で，３つのクラスターが一様・公平に負担率を持つようになった．そのため，第一歩からほとんど全体の中心へと移動し，反復数が減る．加えて，関数 `argmax` が全ての $k$ に対してほとんど同じ値を返してしまっているのである．
+
+次に，温度を少し下げて，逆温度を $\beta=10$ としてみる．
+
+```{python}
+#| echo: false
+#| label: fig-6
+#| fig-cap: ソフト K-平均法（$\beta=10$）によるクラスタリングの結果．初期値は $(m_1',m_2,m_3)=\paren{\vctr{4}{-1},\vctr{1}{4},\vctr{-1}{1}}$．
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+result = kmeans_2d(data1_2d, 3, initial_points.T, 10)
 result.run_soft()
 pred = result.fetch_cluster()
 history = result.fetch_history()
@@ -808,21 +802,22 @@ ans = data1.iloc[:, 0]
 
 markers_pred = normalize(pred)
 fig, axs = plt.subplots(1, 2, figsize=(10, 4))  # 1行2列のサブプロット
-initial_points = np.array([[0,0],[2,4],[4,2]])
 
 # marker_predを使用したプロット
 for marker in np.unique(markers_pred):
     axs[0].scatter(x1[markers_pred == marker], y1[markers_pred == marker], label=f'Cluster {marker}', marker=f'${marker}$')  # markerパラメータによって形状を指定
 
-rearrange = [2,1,0]
-for i in rearrange:  # 点の数だけ繰り返し
+rearrange = [1,0,2]
+default = [0,1,2]
+markers = ['o', '^', 's']  # マーカーの形（丸、三角、正方形）
+for i,j in zip(rearrange, default):  # 点の数だけ繰り返し
     x_coords = history[:, 0, i]  # i番目の点の全時点でのx座標
     y_coords = history[:, 1, i]  # i番目の点の全時点でのy座標
-    axs[0].plot(x_coords, y_coords, '-o', label=f'CoC {3-i}', zorder=1)
+    axs[0].plot(x_coords, y_coords, linestyle='-', marker=markers[j], label=f'CoC {j+1}', zorder=1)
 
 axs[0].scatter(initial_points[:, 0], initial_points[:, 1], facecolors='none', edgecolors='red', s=100, zorder=2)
 
-axs[0].set_title('Result of soft K-means with beta=1')
+axs[0].set_title('Result of soft K-means with beta=10')
 axs[0].set_xlabel('x')
 axs[0].set_ylabel('y')
 axs[0].legend()
@@ -840,22 +835,46 @@ plt.tight_layout()
 plt.show()
 
 num_correct, accr = accuracy(ans, normalize(pred))
-print(f'正解数: {num_correct}')
-print(f'正解率: {accr*100:.1f} %')
+iteration = history.shape[0]
+print(f'正解数: {num_correct}     正解率: {accr*100:.1f} %     反復数: {iteration} 回')
 ```
 
-正答率が $\beta=1$ の場合 @fig-3 から下がっているのは（それでも @fig-2 の47.8% よりは少し高い），クラスター２の制圧範囲が広くなっているためである．^[なお，$\beta=100$ と設定しても結果は変わらなかった．]
+初めて soft $K$-means アルゴリズムを用いた場合で，３つのクラスター中心がはっきりと別れた．反復回数は，$\beta=1$ の場合と比べればやはり落ち着いている．
 
-しかしこれは，右上の島を仮に２つのクラスターに分けるならば，より理想的な分け方になっているとも捉えられる．そこで，左下の島を２つに分けさせるために，初期値を変更してみる．
-
-#### $\beta=1$ vs. $\beta=10$
+しかし，正解率は head $K$-means の場合（ @fig-2 など）と全く同じである．実は，クラスター中心も @fig-2 の最終的なクラスター中心とほとんど同じになっている．
 
 ```{python}
 #| echo: false
+center6 = history[-1, :, :]
+df1 = pd.DataFrame(center6, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+df1 = df1[['Cluster2', 'Cluster3', 'Cluster1']]
+df1.index = ['x', 'y']
+df1.columns = ['Cluster1', 'Cluster2', 'Cluster3']
+print(df1, '（今回のソフト K-平均法の最終的なクラスター中心）')
+```
+
+```{python}
+#| echo: false
+df2 = pd.DataFrame(center_2, columns=['Cluster1', 'Cluster2', 'Cluster3'])
+df2 = df2[['Cluster2', 'Cluster3', 'Cluster1']]
+df2.index = ['x', 'y']
+df2.columns = ['Cluster1', 'Cluster2', 'Cluster3']
+print(df2, '（図２のハード K-平均法の最終的なクラスター中心）')
+```
+
+以上より，ソフト $K$-平均法は温度を上げるほどクラスター数が少なくなり，温度を下げるほどクラスター数は上がり，**十分に温度を下げるとハード $K$-平均法に挙動が似通う**．
+
+### 最適な硬度の選択
+
+$\beta=1$ ではクラスターが２つに縮退し，$\beta=10$ では hard $K$-means アルゴリズムの結果とほとんど変わらなくなった．そこで，この中間の値での挙動の変化を調べる．
+
+```{python}
+#| echo: false
+#| label: fig-7
 #| fig-cap: ソフト K-平均法によるクラスタリングの結果の比較（$\beta=1$ vs. $\beta=10$）．
-initial_points = np.array([[0,0],[-1,-2],[-2,-3]])
-result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1)
-result2 = kmeans_2d(data1_2d, 3, initial_points.T, 10)
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1.1)
+result2 = kmeans_2d(data1_2d, 3, initial_points.T, 1.2)
 result1.run_soft()
 result2.run_soft()
 pred1 = result1.fetch_cluster()
@@ -916,10 +935,11 @@ $\beta=1$ の場合は，クラスター２と３が（たまたまクラスタ�
 
 ```{python}
 #| echo: false
+#| label: fig-8
 #| fig-cap: ソフト K-平均法によるクラスタリングの結果の比較（$\beta=1$ vs. $\beta=10$）．
-initial_points = np.array([[0,-3],[-1,-2],[-2,-3]])
-result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1)
-result2 = kmeans_2d(data1_2d, 3, initial_points.T, 10)
+initial_points = np.array([[-1,1],[1,4],[4,-1]])
+result1 = kmeans_2d(data1_2d, 3, initial_points.T, 1.5)
+result2 = kmeans_2d(data1_2d, 3, initial_points.T, 1.8)
 result1.run_soft()
 result2.run_soft()
 pred1 = result1.fetch_cluster()
@@ -979,5 +999,3 @@ print(f'正解率: {accr1*100:.1f} % vs. {accr2*100:.1f} %')
 ```
 
 正解率に惑わされてはいけない．やはり，温度が高い場合はクラスター中心が合流・融合してしまいやすいが，冷却することでクラスター数は大きい状態で安定する．
-
-## EM アルゴリズム
