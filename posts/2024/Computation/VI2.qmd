@@ -1,7 +1,7 @@
 ---
 title: "変分推論（２）EM アルゴリズム"
-author: "Draft Draft"
-date: 2/4/2024
+author: "司馬 博文"
+date: 2/10/2024
 categories: [Computation, Python]
 toc: true
 number-sections: true
@@ -29,3 +29,55 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 {{< include ../../../_preamble.qmd >}}
 
 [@Blei+2017]
+
+## 最尤推定
+
+クラスタリングを一度さっぱり忘れて，最尤推定を思い出してみる．
+
+::: {.callout-tip icon="false"}
+## 定義^[[@Cramer1946 p.498] によると，[@Fisher1912] が初出であるが，以前に Gauss がその特別な形を用いていた．また，[@Cramer1946 p.499] での定義はこことは違い，尤度関数の停留点（＝尤度方程式の解）と定義している．] [@Fisher1912]
+
+$\{P_\theta\}_{\theta\in\Theta}\subset\cP(\cX)$ を統計モデルで，ある共通の $\sigma$-有限測度 $\mu\in\cP(\cX)$ に関して密度 $\{p_\theta\}_{\theta\in\Theta}$ を持つとする．
+
+観測 $X_1,\cdots,X_n$ の [**最尤推定量**](https://ja.wikipedia.org/wiki/%E6%9C%80%E5%B0%A4%E6%8E%A8%E5%AE%9A) とは，モデルの対数尤度
+$$
+\log p_\theta
+$$
+を通じて定まる次の目的関数 $\ell_n:\Theta\to(-\infty,0)$ を最大化するような [$M$-推定量](https://en.wikipedia.org/wiki/M-estimator) をいう：
+$$
+\ell_n(\theta;X_1,\cdots,X_n):=\sum_{i=1}^n\log p_\theta(X_i),\qquad\theta\in\Theta.
+$$
+
+:::
+
+すなわち，最尤推定量とは最適化問題の解として定式化されるのである．
+
+しかし最大値点であるということは，停留点である必要があるから，微分が零になるという条件を通じて解析的に求まることもある．
+
+最尤推定量が解析的に求まらない場合は，代表的には欠測モデルなどがある．この場合にも最尤推定量を求めるための，MM アルゴリズム [@Sun+2016] の特殊な場合とも見れるソルバーが，[**EM アルゴリズム**](https://ja.wikipedia.org/wiki/EM%E3%82%A2%E3%83%AB%E3%82%B4%E3%83%AA%E3%82%BA%E3%83%A0) [@Dempster+1977] である．
+
+現在でも，その他の MM アルゴリズムが，種々の最適化問題に対する "problem-driven algorithm" であり続けている [@Wu-Lange2010]．
+
+## EM アルゴリズム（Gauss 有限混合モデル）
+
+欠測データ (incomplete data) とは，２つの確率変数 $(X,Y)$ について次の図式が成り立つ際の，$X$ を潜在変数として，$Y$ からの観測とみなせるデータをいう [@Dempster+1977 p.1]：
+
+![Hidden State Model](incomplete.png)
+
+::: {.callout-tip icon="false"}
+## 定義 (Gaussian finite mixture model)
+
+集合 $[K]$ 上に値を取る隠れ変数 $Z$ の確率質量関数を $(p_k)_{k=1}^K$ とする．
+$$
+p(x;(\mu_k),\sigma,(p_k))=\sum_{k=1}^K p_k\phi(x;\mu_k,\sigma)
+$$
+として定まるモデル $(p_{(\mu_k),\sigma,(p_k)})$ を **Gauss 有限混合モデル** という．
+
+ただし，$\phi(x$; $\mu$, $\sigma)$ は $\rN(\mu,\sigma^2)$ の密度とした．
+
+:::
+
+以降，$\theta:=((\mu_k),\sigma,(p_k))$ とする．
+
+### EM アルゴリズム
+
