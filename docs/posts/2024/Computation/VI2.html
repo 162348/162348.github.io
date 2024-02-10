@@ -135,9 +135,8 @@ window.Quarto = {
 <meta property="og:image" content="https://github.com/162348/docs/posts/2024/Computation/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 変分推論（２）EM アルゴリズム">
-<meta name="twitter:description" content="A Blog by a Bayesian Computation Researcher">
+<meta name="twitter:description" content="数学者のために，変分推論の基本的な考え方を説明するシリーズであるが，今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムに注目する．">
 <meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Computation/anomaths.png">
-<meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -292,13 +291,18 @@ $$
 </section>
 <section id="em-アルゴリズムgauss-有限混合モデル" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="em-アルゴリズムgauss-有限混合モデル"><span class="header-section-number">2</span> EM アルゴリズム（Gauss 有限混合モデル）</h2>
-<p>欠測データ (incomplete data) とは，２つの確率変数 <span class="math inline">\((X,Y)\)</span> について次の図式が成り立つ際の，<span class="math inline">\(X\)</span> を潜在変数として，<span class="math inline">\(Y\)</span> からの観測とみなせるデータをいう：</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="incomplete.png" class="img-fluid figure-img"></p>
-<figcaption>Hidden state model</figcaption>
+<p>欠測データ (incomplete data) とは，２つの確率変数 <span class="math inline">\((Z,X)\)</span> について次の図式が成り立つ際の，<span class="math inline">\(Z\)</span> を潜在変数として，<span class="math inline">\(X\)</span> からの観測とみなせるデータをいう <span class="citation" data-cites="Dempster+1977">(<a href="#ref-Dempster+1977" role="doc-biblioref">Dempster et al., 1977, p. 1</a>)</span>：</p>
+<div id="fig-incomplete" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-incomplete-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="incomplete.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-incomplete-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1: Hidden / Latent State Model
+</figcaption>
 </figure>
 </div>
+<p><span class="math inline">\(X\)</span> もパラメータと見た場合，これは潜在変数を持つモデルともみなせる．その簡単な例に混合モデルがある．ここでは，以下の有限混合モデルで，さらに混合される分布は正規であるものとする：</p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -309,15 +313,29 @@ $$
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>集合 <span class="math inline">\([K]\)</span> 上に値を取る隠れ変数 <span class="math inline">\(Z\)</span> の確率質量関数を <span class="math inline">\((p_k)_{k=1}^K\)</span> とする． <span class="math display">\[
+<p>集合 <span class="math inline">\([K]\)</span> 上に値を取る隠れ変数 <span class="math inline">\(Z\)</span> の確率質量関数を <span class="math inline">\((p_k)_{k=1}^K\)</span> とする． <span id="eq-1"><span class="math display">\[
 p(x;(\mu_k),\sigma,(p_k))=\sum_{k=1}^K p_k\phi(x;\mu_k,\sigma)
-\]</span> として定まるモデル <span class="math inline">\((p_{(\mu_k),\sigma,(p_k)})\)</span> を <strong>Gauss 有限混合モデル</strong> という．</p>
+\tag{1}\]</span></span> として定まるモデル <span class="math inline">\((p_{(\mu_k),\sigma,(p_k)})\)</span> を <strong>Gauss 有限混合モデル</strong> という．</p>
 <p>ただし，<span class="math inline">\(\phi(x\)</span>; <span class="math inline">\(\mu\)</span>, <span class="math inline">\(\sigma)\)</span> は <span class="math inline">\(\mathrm{N}(\mu,\sigma^2)\)</span> の密度とした．</p>
 </div>
 </div>
-<p>以降，<span class="math inline">\(\theta:=((\mu_k),\sigma,(p_k))\)</span> とする．</p>
+<p><a href="#eq-1" class="quarto-xref">式&nbsp;1</a> は <span class="math inline">\((X,Z)\)</span> 上の結合分布の族を表しており，そのパラメータは <span class="math inline">\(\theta:=((\mu_k),\sigma,(p_k))\)</span> である．以降， <a href="#fig-incomplete" class="quarto-xref">図&nbsp;1</a> に沿って， <span id="eq-2"><span class="math display">\[
+\begin{align*}
+    p(x|\theta)&amp;=\int_{[K]}p(x,z;\theta)\operatorname{P}^Z(dz)\\
+    &amp;=\sum_{k=1}^K \operatorname{P}[Z=k]\phi(x;\mu_k,\sigma)\\
+    p(x,z;\theta)&amp;:=\phi(x;\mu_k,\sigma)\\
+\end{align*}
+\tag{2}\]</span></span> と理解する．</p>
 <section id="em-アルゴリズム" class="level3" data-number="2.1">
-
+<h3 data-number="2.1" class="anchored" data-anchor-id="em-アルゴリズム"><span class="header-section-number">2.1</span> EM アルゴリズム</h3>
+<p>値域 <span class="math inline">\(\mathcal{Z}\)</span> を持つ潜在変数 <span class="math inline">\(Z\)</span> とパラメータ <span class="math inline">\(\theta\in\Theta\)</span> に関して <a href="#eq-2" class="quarto-xref">式&nbsp;2</a> で表せる尤度関数 <span class="math inline">\(p(x|\theta)\)</span> に関して，Jensen の不等式より，任意の確率密度関数 <span class="math inline">\(q:\mathcal{Z}\to\mathbb{R}_+\)</span> とパラメータ <span class="math inline">\(\theta\in\Theta\)</span> について次の評価が成り立つ：</p>
+<p><span class="math display">\[
+\begin{align*}
+    \log p(x|\theta)&amp;=\log\int_{\mathcal{Z}}p(x,z;\theta)\operatorname{P}^Z(dz)\\
+    &amp;\ge\log\int_\mathcal{Z}q(z|x,\varphi)\log\frac{p(x,z|\theta)}{q(z|x,\varphi)}\\
+    &amp;=:F(q,\varphi).
+\end{align*}
+\]</span></p>
 
 
 
@@ -325,7 +343,7 @@ p(x;(\mu_k),\sigma,(p_k))=\sum_{k=1}^K p_k\phi(x;\mu_k,\sigma)
 </section>
 
 
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">2.1 EM アルゴリズム</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
 <div id="ref-Blei+2017" class="csl-entry" role="listitem">
 Blei, D. M., Kucukelbir, A., &amp; McAuliffe, J. D. (2017). Variational inference: A review for statisticians. <em>Journal of the American Statistical Association</em>, <em>112</em>(518), 859–877. <a href="https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1285773">https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1285773</a>
 </div>
@@ -333,7 +351,7 @@ Blei, D. M., Kucukelbir, A., &amp; McAuliffe, J. D. (2017). Variational inferenc
 Carmer, H. (1946). <em>Mathematical methods of statistics</em>. Princeton University Press.
 </div>
 <div id="ref-Dempster+1977" class="csl-entry" role="listitem">
-Dempster, A. P., Laird, N. M., &amp; Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>39</em>(1), 1–22.
+Dempster, A. P., Laird, N. M., &amp; Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>39</em>(1), 1–22. <a href="https://rss.onlinelibrary.wiley.com/doi/10.1111/j.2517-6161.1977.tb01600.x">https://rss.onlinelibrary.wiley.com/doi/10.1111/j.2517-6161.1977.tb01600.x</a>
 </div>
 <div id="ref-Fisher1912" class="csl-entry" role="listitem">
 Fisher, R. A. (1912). On an absolute criterion for fitting frequency curves. <em>Messenger of Mathematics</em>, <em>41</em>, 155–160. <a href="https://www.jstor.org/stable/2246266">https://www.jstor.org/stable/2246266</a>
