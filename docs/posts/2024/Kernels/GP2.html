@@ -9,7 +9,7 @@
 <meta name="author" content="司馬 博文">
 <meta name="dcterms.date" content="2024-02-11">
 
-<title>Hirofumi Shiba - 数学者のための深層学習（１）</title>
+<title>Hirofumi Shiba - Gauss 過程を用いた統計解析（２）</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -99,14 +99,43 @@ gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
+<meta property="og:title" content="Hirofumi Shiba - Gauss 過程を用いた統計解析（２）">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
 <meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
-<meta name="twitter:description" content="数学者のために，深層学習の基礎と歴史を概観する．">
+<meta name="twitter:title" content="Hirofumi Shiba - Gauss 過程を用いた統計解析（２）">
+<meta name="twitter:description" content="数学者のために，Gauss 過程を用いた統計解析を紹介する．">
 <meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -151,8 +180,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習（１）</h1>
-            <p class="subtitle lead">導入と歴史</p>
+      <h1 class="title">Gauss 過程を用いた統計解析（２）</h1>
+            <p class="subtitle lead">理論編</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
@@ -183,7 +212,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層学習の基礎と歴史を概観する．
+      数学者のために，Gauss 過程を用いた統計解析を紹介する．
     </div>
   </div>
   
@@ -195,7 +224,12 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#歴史" id="toc-歴史" class="nav-link active" data-scroll-target="#歴史"><span class="header-section-number">1</span> 歴史</a></li>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  <li><a href="#gauss-過程回帰の理論" id="toc-gauss-過程回帰の理論" class="nav-link" data-scroll-target="#gauss-過程回帰の理論"><span class="header-section-number">2</span> Gauss 過程回帰の理論</a>
+  <ul class="collapse">
+  <li><a href="#カーネル" id="toc-カーネル" class="nav-link" data-scroll-target="#カーネル"><span class="header-section-number">2.1</span> カーネル</a></li>
+  <li><a href="#推論手法" id="toc-推論手法" class="nav-link" data-scroll-target="#推論手法"><span class="header-section-number">2.2</span> 推論手法</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -206,6 +240,9 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 
+<blockquote class="blockquote">
+<p>ガウス過程はベイズ統計の立場から見たカーネル法ということができます．<span class="citation" data-cites="持橋-大羽2019">(<a href="#ref-持橋-大羽2019" role="doc-biblioref">持橋大地 &amp; 大羽成征, 2019</a>)</span></p>
+</blockquote>
 <div class="hidden">
 $$
 <p>%%% 演算子 </p>
@@ -230,48 +267,72 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="歴史" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1</span> 歴史<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></h2>
-<p>誤差逆伝播法をニューラルネットに使うことで，表現学習がなされることの発見 <span class="citation" data-cites="Rumelhart+1986">(<a href="#ref-Rumelhart+1986" role="doc-biblioref">Rumelhart et al., 1986</a>)</span> から，深層学習の分野は次の点で変化したという：</p>
-<ul>
-<li>神経科学・生物学的なモチベーションから遊離し，より確率論的・統計学的なアプローチが主流になった <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024, p. 19</a>)</span>．</li>
-<li>多層のニューラルネットワークと高次元データに対する理論的な研究が加速した <span class="citation" data-cites="MacKay2003">(<a href="#ref-MacKay2003" role="doc-biblioref">MacKay, 2003, p. 535</a>)</span>．</li>
-</ul>
-<p>しかし，畳み込みニューラルネットワーク (CNN) <span class="citation" data-cites="LeCun1998">(<a href="#ref-LeCun1998" role="doc-biblioref">LeCun et al., 1998</a>)</span> を除いて，２層以上のニューラルネットワークの成功した応用例は殆どなかった．これは，<a href="https://ja.wikipedia.org/wiki/%E5%8B%BE%E9%85%8D%E6%B6%88%E5%A4%B1%E5%95%8F%E9%A1%8C">勾配消失</a> により，どんなに多層なニューラルネットワークを構築しても，最後の２層程度しか意味のあるパラメータを学習できなかったためである．</p>
-<p>そのために，多層のニューラルネットワークを適用したい複雑な問題に対しては，問題固有の特徴抽出技法が編み出され，一般的な解決法はなかった．</p>
-<p>多くの研究者は，カーネル法や Gauss 過程に打開策を求めていた．</p>
-<p>ImageNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> が大きなターニングポイントとなった．</p>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p>独立同分布な事前分布の下で，１層の全結合ニューラルネットワークは，隠れ素子数が無限になる極限で Gauss 過程回帰と等価である <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span>．</p>
+<p>したがって，<span class="citation" data-cites="Williams1996">(<a href="#ref-Williams1996" role="doc-biblioref">Williams, 1996</a>)</span> などの方法で対応する Gauss 過程が特定できれば，当該のニューラルネットワークと等価な Bayes 推論が可能になる．</p>
+<p>Gauss 過程との同様の対応は，多層のニューラルネットワークの間にもつけられている <span class="citation" data-cites="Lee+2018">(<a href="#ref-Lee+2018" role="doc-biblioref">Lee et al., 2018</a>)</span>．この論文では，ニューラルネットワークの性能を凌駕することが観察されている．</p>
+<p>しかし現状でニューラルネットワークが Gauss 過程を越えるのは，推論手法である誤差逆伝播法 <span class="citation" data-cites="Rumelhart+1986">(<a href="#ref-Rumelhart+1986" role="doc-biblioref">Rumelhart et al., 1986</a>)</span> においてであろう．</p>
+</section>
+<section id="gauss-過程回帰の理論" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="gauss-過程回帰の理論"><span class="header-section-number">2</span> Gauss 過程回帰の理論</h2>
+<section id="カーネル" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="カーネル"><span class="header-section-number">2.1</span> カーネル</h3>
+<section id="sec-rbf-kernel" class="level4" data-number="2.1.1">
+<h4 data-number="2.1.1" class="anchored" data-anchor-id="sec-rbf-kernel"><span class="header-section-number">2.1.1</span> 動径基底関数カーネル</h4>
+<p>動径基底関数カーネル (Radial Basis Function kernel) <span class="citation" data-cites="持橋-大羽2019">(<a href="#ref-持橋-大羽2019" role="doc-biblioref">持橋大地 &amp; 大羽成征, 2019, p. 68</a>)</span> または Squared Exponential kernel <span class="citation" data-cites="Rasmussen-Williams2006">(<a href="#ref-Rasmussen-Williams2006" role="doc-biblioref">Rasmussen &amp; Williams, 2006, p. 14</a>)</span> は <span class="math display">\[
+k(r):=\sigma^2\exp\left(-\frac{r^2}{2}\right)
+\]</span> で定まるカーネルである．<code>GPy</code> での実装は<a href="https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF">こちら</a>．</p>
+</section>
+<section id="定数カーネル" class="level4" data-number="2.1.2">
+<h4 data-number="2.1.2" class="anchored" data-anchor-id="定数カーネル"><span class="header-section-number">2.1.2</span> 定数カーネル</h4>
+</section>
+</section>
+<section id="推論手法" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="推論手法"><span class="header-section-number">2.2</span> 推論手法</h3>
+<section id="expectation-propagation-法" class="level4" data-number="2.2.1">
+<h4 data-number="2.2.1" class="anchored" data-anchor-id="expectation-propagation-法"><span class="header-section-number">2.2.1</span> Expectation Propagation 法</h4>
+<blockquote class="blockquote">
+<p>EP might not converge in some cases since quadrature is used. <a href="http://gaussianprocess.org/gpml/code/matlab/doc/"><code>GPML</code> 4.2 Documentation</a></p>
+</blockquote>
+</section>
+<section id="fitc-fully-independent-training-conditional-推論" class="level4" data-number="2.2.2">
+<h4 data-number="2.2.2" class="anchored" data-anchor-id="fitc-fully-independent-training-conditional-推論"><span class="header-section-number">2.2.2</span> FITC (Fully Independent Training Conditional) 推論</h4>
+</section>
+<section id="mcmc" class="level4" data-number="2.2.3">
+<h4 data-number="2.2.3" class="anchored" data-anchor-id="mcmc"><span class="header-section-number">2.2.3</span> MCMC</h4>
+<p>MCMC は唯一ブラックボックスとして用いることが出来ない推論手法である．また，勾配ベースの周辺尤度最適化も MCMC では不可能である．</p>
+<blockquote class="blockquote">
+<p>Inference by MCMC sampling is the only inference method that cannot be used as a black box. Also gradient-based marginal likelihood optimisation is not possible with MCMC. Please see usageSampling for a toy example illustrating the usage of the implemented samplers. <a href="http://gaussianprocess.org/gpml/code/matlab/doc/"><code>GPML</code> 4.2 Documentation</a></p>
+</blockquote>
+<p>この関門が乗り越えられたならば，Gauss 過程による機械学習の応用は大きく進展するだろう．</p>
 
 
 
 </section>
-
+</section>
+</section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Bishop-Bishop2024" class="csl-entry" role="listitem">
-Bishop, C. M., &amp; Bishop, H. (2024). <em>Deep learning: Foundations and concepts</em>. Springer Cham. <a href="https://link.springer.com/book/10.1007/978-3-031-45468-4">https://link.springer.com/book/10.1007/978-3-031-45468-4</a>
+<div id="ref-Lee+2018" class="csl-entry" role="listitem">
+Lee, J., Sohl-dickstein, J., Pennington, J., Novak, R., Schoenholz, S., &amp; Bahri, Y. (2018). Deep neural networks as gaussian processes. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=B1EA-M-0Z">https://openreview.net/forum?id=B1EA-M-0Z</a>
 </div>
-<div id="ref-Krizhevsky+2012" class="csl-entry" role="listitem">
-Krizhevsky, A., Sutskever, I., &amp; Hinton, G. E. (2012). ImageNet classification with deep convolutional neural networks. <em>Advances in Neural Information Processing Systems</em>, <em>25</em>. <a href="https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html">https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html</a>
+<div id="ref-Neal1996" class="csl-entry" role="listitem">
+Neal, R. M. (1996). <em>Bayesian learning for neural networks</em> (Vol. 118). Springer New York. <a href="https://link.springer.com/book/10.1007/978-1-4612-0745-0">https://link.springer.com/book/10.1007/978-1-4612-0745-0</a>
 </div>
-<div id="ref-LeCun1998" class="csl-entry" role="listitem">
-LeCun, Y., Bottou, L., Bengio, Y., &amp; Haffner, P. (1998). Gradient-based learning applied to document recognition. <em>Proceedings of the IEEE</em>, <em>86</em>(11), 2278–2324. <a href="https://ieeexplore.ieee.org/document/726791">https://ieeexplore.ieee.org/document/726791</a>
-</div>
-<div id="ref-MacKay2003" class="csl-entry" role="listitem">
-MacKay, D. J. C. (2003). <em>Information theory, inference and learning algorithms</em>. Cambridge University Press. <a href="https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989">https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989</a>
+<div id="ref-Rasmussen-Williams2006" class="csl-entry" role="listitem">
+Rasmussen, C. E., &amp; Williams, C. K. I. (2006). <em>Gaussian processes for machine learning</em>. The MIT Press. <a href="https://direct.mit.edu/books/book/2320/Gaussian-Processes-for-Machine-Learning">https://direct.mit.edu/books/book/2320/Gaussian-Processes-for-Machine-Learning</a>
 </div>
 <div id="ref-Rumelhart+1986" class="csl-entry" role="listitem">
 Rumelhart, D. E., Hinton, G. E., &amp; Williams, R. J. (1986). Learning representations by back-propagating errors. <em>Nature</em>, <em>323</em>, 533–536. <a href="https://www.nature.com/articles/323533a0">https://www.nature.com/articles/323533a0</a>
 </div>
-<div id="ref-Schmidhuber2015" class="csl-entry" role="listitem">
-Schmidhuber, J. (2015). Deep learning in neural networks: An overview. <em>Neural Networks</em>, <em>61</em>, 85–117. <a href="https://www.sciencedirect.com/science/article/pii/S0893608014002135">https://www.sciencedirect.com/science/article/pii/S0893608014002135</a>
+<div id="ref-Williams1996" class="csl-entry" role="listitem">
+Williams, C. K. I. (1996). Computing with infinite networks. <em>Advances in Neural Information Processing Systems 9</em>, 295–301. <a href="https://papers.nips.cc/paper_files/paper/1996/hash/ae5e3ce40e0404a45ecacaaf05e5f735-Abstract.html">https://papers.nips.cc/paper_files/paper/1996/hash/ae5e3ce40e0404a45ecacaaf05e5f735-Abstract.html</a>
 </div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="citation" data-cites="Schmidhuber2015">(<a href="#ref-Schmidhuber2015" role="doc-biblioref">Schmidhuber, 2015</a>)</span>, <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024</a>)</span> を参考．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+<div id="ref-持橋-大羽2019" class="csl-entry" role="listitem">
+持橋大地, &amp; 大羽成征. (2019). <em>ガウス過程と機械学習</em>. 講談社. <a href="https://www.kspub.co.jp/book/detail/1529267.html">https://www.kspub.co.jp/book/detail/1529267.html</a>
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
@@ -600,25 +661,66 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         }
       };
     }
-      // Attach click handler to the DT
-      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-      for (const annoteDlNode of annoteDls) {
-        annoteDlNode.addEventListener('click', (event) => {
-          const clickedEl = event.target;
-          if (clickedEl !== selectedAnnoteEl) {
-            unselectCodeLines();
-            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-            if (activeEl) {
-              activeEl.classList.remove('code-annotation-active');
-            }
-            selectCodeLines(clickedEl);
-            clickedEl.classList.add('code-annotation-active');
-          } else {
-            // Unselect the line
-            unselectCodeLines();
-            clickedEl.classList.remove('code-annotation-active');
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
           }
-        });
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
       }
   const findCites = (el) => {
     const parentEl = el.parentElement;

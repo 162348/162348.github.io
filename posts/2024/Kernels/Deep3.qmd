@@ -1,0 +1,114 @@
+---
+title: "数学者のための深層学習（３）"
+subtitle: 生成モデル
+author: "司馬 博文"
+date: 2/11/2024
+categories: [Kernel, Math Notes]
+toc: true
+number-sections: true
+code-block-bg: true
+code-block-border-left: "#5AB5BA"
+code-overflow: wrap
+code-fold: true
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+crossref:
+    sec-prefix: 節
+    eq-prefix: 式
+    def-prefix: 定義
+    def-title: 定義
+    thm-prefix: 定理
+    thm-title: 定理
+    fig-prefix: 図
+    fig-title: 図
+abstract-title: 概要
+abstract: 数学者のために，深層生成モデルを概観する．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## GAN
+
+### 導入
+
+GAN 以前の深層生成モデルは，学習の難しさから，データ生成分布にパラメトリックな仮定をおき，その中で最尤推定を行うことが一般的であった．深層 Boltzmann マシン [@Salakhutdinov-Hinton2009] もその例である．
+
+しかしこのアプローチでは典型的には尤度が解析的に計算できない．そのため，MCMC によるサンプリングによりこれを回避することを考え，その Markov 連鎖の遷移核を学習するという生成確率的ネットワーク (GSN: Generative Stochastic Network) などのアプローチ [@Bengio+2014] も提案されていた．
+
+GAN (Generative Adversarial Network) は，このような中で [@Goodfellow+2014] によって提案された深層生成モデルである．GAN も尤度の評価を必要としないが，MCMC などのサンプリング手法も用いない．
+
+同時の深層学習は，ImageNet [@Krizhevsky+2012] など，主に判別問題において大きな成功を収めていたが，生成モデルにおいては芳しくなかった．
+
+主な障壁は分布の近似が難しいことと，区分的線型な活性化関数を用いても勾配を通じた学習が難しいことであったが，GAN はこの２つの問題を回避すべく提案された．
+
+生成モデル $G$ に対して，判別モデル $D$ を対置し，加えて $(G,D)$ をセットで誤差逆伝播法とドロップアウト法 [@Hinton+2012]（当時深層判別モデルを最も成功させていた学習法）により学習可能にしたのである．
+
+### 枠組み
+
+データの空間を $x\in\cX$ とし，潜在変数の値域 $\cZ$ とその上の確率測度 $P_z\in\cP(\cZ)$，そして深層ニューラルネットワークのパラメータ空間 $\Theta_g$ を用意して，生成モデルを写像 $G:\cZ\times\Theta_g\to\cX$ とする．
+
+生成モデル $G$ は押し出しによりモデル $\{G(-,\theta_g)_*P_z\}_{\theta_g\in\Theta_g}$ を定める．
+
+このモデルの密度（尤度）の評価を回避するために，これに判別モデル $D$ を対置する．これは，パラメータ $\theta_d\in\Theta_d$ を通じて学習される写像 $D:\cX\times\Theta_d\to[0,1]$ とし，あるデータ $x\in\cX$ を観測した際に，これが $G$ から生成されたものではなく，実際の訓練データである確率を $D(x)$ によって近似することを目指す．
+
+この組 $(G,D)$ に対して，
+$$
+V(D,G):=\E[\log D(X)]+\E[\log(1-D(G(Z))]
+$$
+$$
+X\sim P_{\text{data}},\quad Z\sim P_z
+$$
+を目的関数とし，
+$$
+\min_{G\in\Hom_\Mark(\cZ\times\cG_g,\cX)}\max_{D\in\L(\cX;[0,1])}V(D,G)
+$$ {#eq-GAN}
+を解く，ミニマックスゲームを考える．^[この基準にしたがって学習すると，$G$ が外れすぎている際，$\log(1-D(G(z)))$ が殆ど $0$ になり得る．そのような場合は，$\log D(G(z))$ の最大化を代わりに考えることで，学習が進むことがある [@Goodfellow+2014 p.3]．]
+
+### 理論
+
+$G$ と $D$ が表現するモデルが十分に大きいとき，すなわち $\Theta_g,\Theta_d$ が十分に大きく，殆どノンパラメトリックモデルであるとみなせる場合には，学習基準 @eq-GAN は真の生成分布 $P_{\text{data}}$ に収束するアルゴリズムを与える．
+
+このことを示すには，$P_{\text{data}}$ が，@eq-GAN の大域的最適解であることを示せば良い．
+
+::: {.callout-tip icon="false"}
+## 定義 (Jensen-Shannon divergence)
+確率測度 $P,Q\in\cP(\cX)$ に対して，
+$$
+\JS(P,Q):=\KL\paren{P,\frac{P+Q}{2}}+\KL\paren{Q,\frac{P+Q}{2}}
+$$
+を [**Jensen-Shannon 乖離度**](https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence) という．$\sqrt{\JS}$ は距離を定める．
+:::
+
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+:::
+
+::: {.callout-tip icon="false"}
+## 命題
+$P_0,P_1\in\cP(\cX)$ を確率測度で，それぞれ密度 $p_0,p_1$ を持つとする．$X_0\sim P_0,X_1\sim P_1$ とする．このとき，
+
+
+1. 最大化問題
+$$
+L:=\sup_{D\in\L(\cX;[0,1])}\Paren{\E[\log D(X_0)]+\E[\log(1-D(X_1))]}
+$$
+の解は
+$$
+D(x)=\frac{p_0(x)}{p_0(x)+p_1(x)}
+$$
+が与える．
+
+2. $\JS(p_0,p_1)$ は $L$ と定数の差を除いて一致する．
+:::
+
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+:::
+
+### アルゴリズムとその収束
+
+## VAE
+
+VAE も GAN と同じく，深層生成モデルにもう１つの深層ニューラルネットワークを対置するが，このニューラルネットは GAN のように判別をするのではなく，近似推論を実行するエンコーダーである．
