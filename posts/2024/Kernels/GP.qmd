@@ -1,12 +1,12 @@
 ---
-title: "Gauss 過程を用いた統計解析"
+title: "Gauss 過程を用いた統計解析（１）"
+subtitle: 実践編（回帰と分類）
 author: "司馬 博文"
 date: 2/11/2024
 categories: [Kernel, Python]
 toc: true
 number-sections: true
 code-block-bg: true
-code-overflow: wrap
 code-fold: false
 code-annotations: select
 bibliography: 
@@ -23,28 +23,18 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 数学者のために，Gauss 過程を用いた統計解析を紹介する．
+abstract: 数学者のために，Gauss 過程を用いた統計解析を，回帰と分類の２例紹介する．
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-## Gauss 過程回帰（理論）
-
-### カーネル
-
-#### 動径基底関数カーネル {#sec-rbf-kernel}
-
-動径基底関数カーネル (Radial Basis Function kernel) は
-$$
-k(r):=\sigma^2\exp\paren{-\frac{r^2}{2}}
-$$
-で定まるカーネルである．`GPy` での実装は[こちら](https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF)．
+Gauss 過程を用いた推論を実行するライブラリには，Matlab パッケージである [`GPML`](http://gaussianprocess.org/gpml/code/matlab/doc/) や，Python における `GPy` がある．
 
 ## Gauss 過程回帰（実践）
 
-### 扱うデータ
+### 扱うデータ^[[Documentation for GPML Matlab Code version 4.2](http://gaussianprocess.org/gpml/code/matlab/doc/) 3c 節を参考にした．]
 
-データ $x_1,\cdots,x_{N},N=20$ として，$\rN(0,0.8^2)$ に従う乱数を用意する．これに対して，
+データ $x_1,\cdots,x_{N},N=100$ として，$\rN(0,0.8^2)$ に従う乱数を用意する．これに対して，
 $$
 y_i=\sin(3x_i)+\ep,
 $$
@@ -56,9 +46,13 @@ $$
 ```{python}
 import numpy as np
 
-x = np.random.randn(20,1) * 0.8
+N = 100
 
-y = np.sin(3*x) + np.random.randn(20,1) * 0.09
+np.random.seed(1234)
+
+x = np.random.randn(N,1) * 0.8
+
+y = np.sin(3*x) + np.random.randn(N,1) * 0.09
 
 xs = np.linspace(-3,3,61).reshape(-1,1)
 ```
@@ -75,7 +69,7 @@ class GPRegression(X, Y, kernel=None, Y_metadata=None, normalizer=None, noise_va
 
 を用いる．ソースコードは [こちら](https://gpy.readthedocs.io/en/deploy/_modules/GPy/models/gp_regression.html#GPRegression)．
 
-引数のカーネル `kernel` は `PGPy kernel` オブジェクトを取り，デフォルトは `rbf` カーネルである．我々も RBF カーネル（第[-@sec-rbf-kernel]節）を用いることとする．これは `GPy` パッケージでは `GPy.kern.src.rbf` モジュールの `RBF` クラスで提供されている：
+引数のカーネル `kernel` は `PGPy kernel` オブジェクトを取り，デフォルトは `rbf` カーネルである．我々も [RBF カーネル](GP2.qmd#sec-rbf-kernel) を用いることとする．これは `GPy` パッケージでは `GPy.kern.src.rbf` モジュールの `RBF` クラスで提供されている：
 
 ```{.python}
 class RBF(input_dim, variance=1.0, lengthscale=None, ARD=False, active_dims=None, name='rbf', useGPU=False, inv_l=False)
@@ -91,7 +85,7 @@ class RBF(input_dim, variance=1.0, lengthscale=None, ARD=False, active_dims=None
     optimize(optimizer=None, start=None, messages=False, max_iters=1000, ipython_notebook=True, clear_after_finish=False, **kwargs)
     ```
 
-    これはインスタンスの `self.log_likelihood` と `self.log_likelihood_gradient` を用いて行われる．
+    これはインスタンスの `self.log_likelihood` と `self.log_likelihood_gradient` を用いて，負の対数尤度を最小化する形で行われる．
 2. [`predict` メソッド](https://gpy.readthedocs.io/en/deploy/GPy.core.html#GPy.core.gp.GP.predict) でテスト点での予測を行う．
 
     ```{.python}
@@ -109,21 +103,35 @@ import matplotlib.pyplot as plt
 kernel = GPy.kern.RBF(input_dim=1, variance=1.0)
 model = GPy.models.GPRegression(x, y, kernel)
 
-# ハイパーパラメータの最適化
 model.optimize()
-
-# テスト点での予測
 mu, var = model.predict(xs)
 
-# テスト点での平均、95%信頼区間のプロット
-plt.fill_between(xs[:,0], (mu - 1.96*np.sqrt(var)).flatten(), (mu + 1.96*np.sqrt(var)).flatten(), color='lightgray', label='95% confidence interval')
+# テスト点での平均と95%信頼区間のプロット
+upper = mu + 1.96*np.sqrt(var)
+lower = mu - 1.96*np.sqrt(var)
+plt.fill_between(xs[:,0], lower[:,0], upper[:,0], color='lightgray', label='95% confidence interval', alpha=0.5)
 plt.plot(xs, mu, label='Predicted mean')
-plt.scatter(x, y, c='r', label='Observations')
+plt.scatter(x, y, c='r', label='Observations', s=10)
+plt.legend()
+plt.show()
+```
+
+特に $[-2,2]$ の区間において，元の関数 $\sin$ をよく復元できていることが分かる．実際，$y=\sin(3x)$ と重ねてプロットすると次の通り：
+
+```{python}
+#| echo: false
+plt.fill_between(xs[:,0], lower[:,0], upper[:,0], color='lightgray', label='95% confidence interval', alpha=0.5)
+plt.plot(xs, mu, label='Predicted mean')
+plt.plot(xs, np.sin(3*xs), '--', label='y = sin(3x)')
 plt.legend()
 plt.show()
 ```
 
 ### `scikit-learn` を用いた場合
+
+::: {.callout-caution title="補足：`scikit-learn` における Gauss 過程回帰" collapse="true" icon="false"}
+
+このような単純な解析では，`scikit-learn` と用いるとより同じ分析が実行できる．
 
 ```{python}
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -154,6 +162,8 @@ plt.legend()
 plt.show()
 ```
 
+:::
+
 ## Gauss 過程による分類^[[Documentation for GPML Matlab Code version 4.2](http://gaussianprocess.org/gpml/code/matlab/doc/) 4e 節を参考にした．]
 
 本質的には Gauss 過程回帰と変わらないが，回帰の場合と変え得る．
@@ -167,10 +177,11 @@ $$
 $$
 \Sigma_1:=\mtrx{1}{0}{0}{1},\quad\Sigma_2:=\mtrx{1}{0.95}{0.95}{1},
 $$
-とし，$\rN_2(m_1,\Sigma_1)$ から $n_1:=80$ データ，$\rN_2(m_2,\Sigma_2)$ から $n_2:=40$ データを生成する：
+とし，$\rN_2(m_1,\Sigma_1)$ から $n_1:=320$ データ，$\rN_2(m_2,\Sigma_2)$ から $n_2:=160$ データを生成する：
 
 ```{python}
-n1, n2 = 80, 40
+#| label: fig-gp-classification-true
+n1, n2 = 320, 160
 S1 = np.eye(2)
 S2 = np.array([[1, 0.95], [0.95, 1]])
 m1 = np.array([0.75, 0])
@@ -179,11 +190,19 @@ m2 = np.array([-0.75, 0])
 x1 = np.random.multivariate_normal(m1, S1, n1)
 x2 = np.random.multivariate_normal(m2, S2, n2)
 
+x = np.vstack((x1, x2))
+
+y1 = -np.ones(n1)
+y2 = np.ones(n2)   # <1>
+y = np.concatenate((y1, y2)).reshape(-1,1)
+
 plt.plot(x1[:, 0], x1[:, 1], 'o', label='Class 1')
 plt.plot(x2[:, 0], x2[:, 1], '*', label='Class 2')
 plt.legend()
 plt.show()
 ```
+
+1. クラスラベルは $\{\pm1\}$ であることに注意．
 
 $n_1:n_2=2:1$ であるから，このデータは Gauss 混合モデル
 $$
@@ -237,3 +256,79 @@ plt.show()
 ```
 
 ### モデル
+
+平均は $0$ とし，共分散関数は **関連度自動決定** (ARD: Autonatic Relevance Determination) [@MacKay1994], [@Neal1996 p.16] を用いる．
+
+これは，２つの入力 $x_1,x_2$ が異なる重要度を持つ場合，それぞれの入力に対するスケールパラメータを導入する手法である．
+
+これは，`GPy.kern.RBF` 関数のキーワード引数 `ARD=True` を通じて実装できる：
+
+```{python}
+import time
+
+start_time = time.time()
+
+meanfunc = GPy.mappings.Constant(2,1)
+kernel = GPy.kern.RBF(input_dim=2, ARD=True)
+
+model = GPy.models.GPClassification(x, y, kernel=kernel, mean_function=meanfunc)
+model.optimize()
+
+# テストデータセットに対する予済分布の計算
+y_pred, _ = model.predict(t)
+
+end_time = time.time()
+
+# 予測確率の等高線プロット
+plt.figure(figsize=(8, 6))
+plt.plot(x1[:,0], x1[:,1], 'o', label='Class 1', alpha=0.5)
+plt.plot(x2[:,0], x2[:,1], '*', label='Class 2', alpha=0.5)
+contour = plt.contour(t1, t2, y_pred.reshape(t1.shape), levels=np.linspace(0, 1, 10))
+plt.clabel(contour, inline=1, fontsize=10)
+plt.legend()
+plt.show()
+
+elapsed_time = end_time - start_time
+print(f"実行時間: {elapsed_time:.1f} 秒")
+```
+
+@fig-gp-classification-true の真の構造の特徴を捉えていることが判る．
+
+### 高速化
+
+実は上の計算は随分な時間がかかっている．
+
+```{.python}
+start_time = time.time()
+
+# 誘導点 u の生成: ここでは、入力空間上に等間隔に配置された点を使用
+u = np.meshgrid(np.linspace(-2, 2, 5), np.linspace(-2, 2, 5))
+u = np.hstack((u[0].reshape(-1, 1), u[1].reshape(-1, 1)))  # 形状を (数, 2) に変更
+
+# カーネルの定義
+kernel = GPy.kern.RBF(input_dim=2, ARD=True)
+
+# SparseGPClassification モデルの構築
+model = GPy.models.SparseGPClassification(X=x, Y=y.reshape(-1, 1), kernel=kernel, Z=u)
+
+# モデルの最適化
+model.optimize(messages=True)
+
+# 予測
+# t: テストセット
+y_pred, _ = model.predict(t)
+
+end_time = time.time()
+
+# 予測確率の等高線プロット
+plt.figure(figsize=(8, 6))
+plt.plot(x1[:,0], x1[:,1], 'o', label='Class 1', alpha=0.5)
+plt.plot(x2[:,0], x2[:,1], '*', label='Class 2', alpha=0.5)
+contour = plt.contour(t1, t2, y_pred.reshape(t1.shape), levels=np.linspace(0, 1, 10))
+plt.clabel(contour, inline=1, fontsize=10)
+plt.legend()
+plt.show()
+
+elapsed_time = end_time - start_time
+print(f"実行時間: {elapsed_time:.1f} 秒")
+```
