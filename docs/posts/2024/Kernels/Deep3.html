@@ -9,7 +9,7 @@
 <meta name="author" content="司馬 博文">
 <meta name="dcterms.date" content="2024-02-11">
 
-<title>Hirofumi Shiba - 数学者のための深層学習（１）</title>
+<title>Hirofumi Shiba - 数学者のための深層学習（３）</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -99,14 +99,43 @@ gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習（３）">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
 <meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
-<meta name="twitter:description" content="数学者のために，深層学習の基礎と歴史を概観する．">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（３）">
+<meta name="twitter:description" content="数学者のために，深層生成モデルを概観する．">
 <meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -151,8 +180,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習（１）</h1>
-            <p class="subtitle lead">導入と歴史</p>
+      <h1 class="title">数学者のための深層学習（３）</h1>
+            <p class="subtitle lead">生成モデル</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
@@ -183,7 +212,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層学習の基礎と歴史を概観する．
+      数学者のために，深層生成モデルを概観する．
     </div>
   </div>
   
@@ -195,7 +224,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#歴史" id="toc-歴史" class="nav-link active" data-scroll-target="#歴史"><span class="header-section-number">1</span> 歴史</a></li>
+  <li><a href="#gan" id="toc-gan" class="nav-link active" data-scroll-target="#gan"><span class="header-section-number">1</span> GAN</a>
+  <ul class="collapse">
+  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
+  <li><a href="#枠組み" id="toc-枠組み" class="nav-link" data-scroll-target="#枠組み"><span class="header-section-number">1.2</span> 枠組み</a></li>
+  <li><a href="#理論" id="toc-理論" class="nav-link" data-scroll-target="#理論"><span class="header-section-number">1.3</span> 理論</a></li>
+  </ul></li>
+  <li><a href="#vae" id="toc-vae" class="nav-link" data-scroll-target="#vae"><span class="header-section-number">2</span> VAE</a></li>
   </ul>
 </nav>
     </div>
@@ -230,17 +265,106 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="歴史" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1</span> 歴史<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></h2>
-<p>誤差逆伝播法をニューラルネットに使うことで，表現学習がなされることの発見 <span class="citation" data-cites="Rumelhart+1986">(<a href="#ref-Rumelhart+1986" role="doc-biblioref">Rumelhart et al., 1986</a>)</span> から，深層学習の分野は次の点で変化したという：</p>
-<ul>
-<li>神経科学・生物学的なモチベーションから遊離し，より確率論的・統計学的なアプローチが主流になった <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024, p. 19</a>)</span>．</li>
-<li>多層のニューラルネットワークと高次元データに対する理論的な研究が加速した <span class="citation" data-cites="MacKay2003">(<a href="#ref-MacKay2003" role="doc-biblioref">MacKay, 2003, p. 535</a>)</span>．</li>
-</ul>
-<p>しかし，畳み込みニューラルネットワーク (CNN) <span class="citation" data-cites="LeCun1998">(<a href="#ref-LeCun1998" role="doc-biblioref">LeCun et al., 1998</a>)</span> を除いて，２層以上のニューラルネットワークの成功した応用例は殆どなかった．これは，<a href="https://ja.wikipedia.org/wiki/%E5%8B%BE%E9%85%8D%E6%B6%88%E5%A4%B1%E5%95%8F%E9%A1%8C">勾配消失</a> により，どんなに多層なニューラルネットワークを構築しても，最後の２層程度しか意味のあるパラメータを学習できなかったためである．</p>
-<p>そのために，多層のニューラルネットワークを適用したい複雑な問題に対しては，問題固有の特徴抽出技法が編み出され，一般的な解決法はなかった．</p>
-<p>多くの研究者は，カーネル法や Gauss 過程に打開策を求めていた．</p>
-<p>ImageNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> が大きなターニングポイントとなった．</p>
+<section id="gan" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="gan"><span class="header-section-number">1</span> GAN</h2>
+<section id="導入" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
+<p>GAN 以前の深層生成モデルは，学習の難しさから，データ生成分布にパラメトリックな仮定をおき，その中で最尤推定を行うことが一般的であった．深層 Boltzmann マシン <span class="citation" data-cites="Salakhutdinov-Hinton2009">(<a href="#ref-Salakhutdinov-Hinton2009" role="doc-biblioref">Salakhutdinov &amp; Hinton, 2009</a>)</span> もその例である．</p>
+<p>しかしこのアプローチでは典型的には尤度が解析的に計算できない．そのため，MCMC によるサンプリングによりこれを回避することを考え，その Markov 連鎖の遷移核を学習するという生成確率的ネットワーク (GSN: Generative Stochastic Network) などのアプローチ <span class="citation" data-cites="Bengio+2014">(<a href="#ref-Bengio+2014" role="doc-biblioref">Bengio et al., 2014</a>)</span> も提案されていた．</p>
+<p>GAN (Generative Adversarial Network) は，このような中で <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> によって提案された深層生成モデルである．GAN も尤度の評価を必要としないが，MCMC などのサンプリング手法も用いない．</p>
+<p>同時の深層学習は，ImageNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> など，主に判別問題において大きな成功を収めていたが，生成モデルにおいては芳しくなかった．</p>
+<p>主な障壁は分布の近似が難しいことと，区分的線型な活性化関数を用いても勾配を通じた学習が難しいことであったが，GAN はこの２つの問題を回避すべく提案された．</p>
+<p>生成モデル <span class="math inline">\(G\)</span> に対して，判別モデル <span class="math inline">\(D\)</span> を対置し，加えて <span class="math inline">\((G,D)\)</span> をセットで誤差逆伝播法とドロップアウト法 <span class="citation" data-cites="Hinton+2012">(<a href="#ref-Hinton+2012" role="doc-biblioref">Hinton et al., 2012</a>)</span>（当時深層判別モデルを最も成功させていた学習法）により学習可能にしたのである．</p>
+</section>
+<section id="枠組み" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="枠組み"><span class="header-section-number">1.2</span> 枠組み</h3>
+<p>データの空間を <span class="math inline">\(x\in\mathcal{X}\)</span> とし，潜在変数の値域 <span class="math inline">\(\mathcal{Z}\)</span> とその上の確率測度 <span class="math inline">\(P_z\in\mathcal{P}(\mathcal{Z})\)</span>，そして深層ニューラルネットワークのパラメータ空間 <span class="math inline">\(\Theta_g\)</span> を用意して，生成モデルを写像 <span class="math inline">\(G:\mathcal{Z}\times\Theta_g\to\mathcal{X}\)</span> とする．</p>
+<p>生成モデル <span class="math inline">\(G\)</span> は押し出しによりモデル <span class="math inline">\(\{G(-,\theta_g)_*P_z\}_{\theta_g\in\Theta_g}\)</span> を定める．</p>
+<p>このモデルの密度（尤度）の評価を回避するために，これに判別モデル <span class="math inline">\(D\)</span> を対置する．これは，パラメータ <span class="math inline">\(\theta_d\in\Theta_d\)</span> を通じて学習される写像 <span class="math inline">\(D:\mathcal{X}\times\Theta_d\to[0,1]\)</span> とし，あるデータ <span class="math inline">\(x\in\mathcal{X}\)</span> を観測した際に，これが <span class="math inline">\(G\)</span> から生成されたものではなく，実際の訓練データである確率を <span class="math inline">\(D(x)\)</span> によって近似することを目指す．</p>
+<p>この組 <span class="math inline">\((G,D)\)</span> に対して， <span class="math display">\[
+V(D,G):=\operatorname{E}[\log D(X)]+\operatorname{E}[\log(1-D(G(Z))]
+\]</span> <span class="math display">\[
+X\sim P_{\text{data}},\quad Z\sim P_z
+\]</span> を目的関数とし， <span id="eq-GAN"><span class="math display">\[
+\min_{G\in\mathrm{Hom}_\mathrm{Mark}(\mathcal{Z}\times\mathcal{G}_g,\mathcal{X})}\max_{D\in\mathcal{L}(\mathcal{X};[0,1])}V(D,G)
+\tag{1}\]</span></span> を解く，ミニマックスゲームを考える．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+</section>
+<section id="理論" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="理論"><span class="header-section-number">1.3</span> 理論</h3>
+<p><span class="math inline">\(G\)</span> と <span class="math inline">\(D\)</span> が表現するモデルが十分に大きいとき，すなわち <span class="math inline">\(\Theta_g,\Theta_d\)</span> が十分に大きく，殆どノンパラメトリックモデルであるとみなせる場合には，学習基準 <a href="#eq-GAN" class="quarto-xref">式&nbsp;1</a> は真の生成分布 <span class="math inline">\(P_{\text{data}}\)</span> に収束するアルゴリズムを与える．このことを示す．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+定義 (Jensen-Shannon divergence)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>確率測度 <span class="math inline">\(P,Q\in\mathcal{P}(\mathcal{X})\)</span> に対して， <span class="math display">\[
+\mathop{\mathrm{JS}}(P,Q):=\mathop{\mathrm{KL}}\left(P,\frac{P+Q}{2}\right)+\mathop{\mathrm{KL}}\left(Q,\frac{P+Q}{2}\right)
+\]</span> を <a href="https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence"><strong>Jensen-Shannon 乖離度</strong></a> という．<span class="math inline">\(\sqrt{\mathop{\mathrm{JS}}}\)</span> は距離を定める．</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+証明
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(P_0,P_1\in\mathcal{P}(\mathcal{X})\)</span> を確率測度で，それぞれ密度 <span class="math inline">\(p_0,p_1\)</span> を持つとする．<span class="math inline">\(X_0\sim P_0,X_1\sim P_1\)</span> とする．このとき，</p>
+<ol type="1">
+<li><p>最大化問題 <span class="math display">\[
+L:=\sup_{D\in\mathcal{L}(\mathcal{X};[0,1])}\biggr(\operatorname{E}[\log D(X_0)]+\operatorname{E}[\log(1-D(X_1))]\biggl)
+\]</span> の解は <span class="math display">\[
+D(x)=\frac{p_0(x)}{p_0(x)+p_1(x)}
+\]</span> が与える．</p></li>
+<li><p><span class="math inline">\(\mathop{\mathrm{JS}}(p_0,p_1)\)</span> は <span class="math inline">\(L\)</span> と定数の差を除いて一致する．</p></li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+証明
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="vae" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="vae"><span class="header-section-number">2</span> VAE</h2>
+<p>VAE も GAN と同じく，深層生成モデルにもう１つの深層ニューラルネットワークを対置するが，このニューラルネットは GAN のように判別をするのではなく，近似推論を実行するエンコーダーである．</p>
 
 
 
@@ -248,28 +372,25 @@ $$
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Bishop-Bishop2024" class="csl-entry" role="listitem">
-Bishop, C. M., &amp; Bishop, H. (2024). <em>Deep learning: Foundations and concepts</em>. Springer Cham. <a href="https://link.springer.com/book/10.1007/978-3-031-45468-4">https://link.springer.com/book/10.1007/978-3-031-45468-4</a>
+<div id="ref-Bengio+2014" class="csl-entry" role="listitem">
+Bengio, Y., Laufer, E., Alain, G., &amp; Yosinski, J. (2014). Deep generative stochastic networks trainable by backprop. <em>Proceedings of the 31st International Conference on Machine Learning</em>, <em>32</em>, 226–234. <a href="https://proceedings.mlr.press/v32/bengio14.html">https://proceedings.mlr.press/v32/bengio14.html</a>
+</div>
+<div id="ref-Goodfellow+2014" class="csl-entry" role="listitem">
+Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., Courville, A., &amp; Bengio, Y. (2014). Generative adversarial nets. <em>Advances in Neural Information Processing Systems</em>, <em>27</em>, 1–9. <a href="https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html">https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html</a>
+</div>
+<div id="ref-Hinton+2012" class="csl-entry" role="listitem">
+Hinton, G. E., Srivastava, N., Krizhevsky, A., Sutskever, I., &amp; Salakhutdinov, R. R. (2012). <em>Improving neural networks by preventing co-adaptation of feature detectors</em>. <a href="https://arxiv.org/abs/1207.0580">https://arxiv.org/abs/1207.0580</a>
 </div>
 <div id="ref-Krizhevsky+2012" class="csl-entry" role="listitem">
 Krizhevsky, A., Sutskever, I., &amp; Hinton, G. E. (2012). ImageNet classification with deep convolutional neural networks. <em>Advances in Neural Information Processing Systems</em>, <em>25</em>. <a href="https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html">https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html</a>
 </div>
-<div id="ref-LeCun1998" class="csl-entry" role="listitem">
-LeCun, Y., Bottou, L., Bengio, Y., &amp; Haffner, P. (1998). Gradient-based learning applied to document recognition. <em>Proceedings of the IEEE</em>, <em>86</em>(11), 2278–2324. <a href="https://ieeexplore.ieee.org/document/726791">https://ieeexplore.ieee.org/document/726791</a>
-</div>
-<div id="ref-MacKay2003" class="csl-entry" role="listitem">
-MacKay, D. J. C. (2003). <em>Information theory, inference and learning algorithms</em>. Cambridge University Press. <a href="https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989">https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989</a>
-</div>
-<div id="ref-Rumelhart+1986" class="csl-entry" role="listitem">
-Rumelhart, D. E., Hinton, G. E., &amp; Williams, R. J. (1986). Learning representations by back-propagating errors. <em>Nature</em>, <em>323</em>, 533–536. <a href="https://www.nature.com/articles/323533a0">https://www.nature.com/articles/323533a0</a>
-</div>
-<div id="ref-Schmidhuber2015" class="csl-entry" role="listitem">
-Schmidhuber, J. (2015). Deep learning in neural networks: An overview. <em>Neural Networks</em>, <em>61</em>, 85–117. <a href="https://www.sciencedirect.com/science/article/pii/S0893608014002135">https://www.sciencedirect.com/science/article/pii/S0893608014002135</a>
+<div id="ref-Salakhutdinov-Hinton2009" class="csl-entry" role="listitem">
+Salakhutdinov, R., &amp; Hinton, G. (2009). Deep boltzmann machines. <em>Proceedings of the Twelth International Conference on Artificial Intelligence and Statistics</em>, <em>5</em>, 448–455. <a href="https://proceedings.mlr.press/v5/salakhutdinov09a.html">https://proceedings.mlr.press/v5/salakhutdinov09a.html</a>
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Schmidhuber2015">(<a href="#ref-Schmidhuber2015" role="doc-biblioref">Schmidhuber, 2015</a>)</span>, <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024</a>)</span> を参考．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>この基準にしたがって学習すると，<span class="math inline">\(G\)</span> が外れすぎている際，<span class="math inline">\(\log(1-D(G(z)))\)</span> が殆ど <span class="math inline">\(0\)</span> になり得る．そのような場合は，<span class="math inline">\(\log D(G(z))\)</span> の最大化を代わりに考えることで，学習が進むことがある <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014, p. 3</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
