@@ -1,0 +1,239 @@
+---
+title: "Gauss 過程を用いた統計解析"
+author: "司馬 博文"
+date: 2/11/2024
+categories: [Kernel, Python]
+toc: true
+number-sections: true
+code-block-bg: true
+code-overflow: wrap
+code-fold: false
+code-annotations: select
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+crossref:
+    sec-prefix: 節
+    eq-prefix: 式
+    def-prefix: 定義
+    def-title: 定義
+    thm-prefix: 定理
+    thm-title: 定理
+    fig-prefix: 図
+    fig-title: 図
+abstract-title: 概要
+abstract: 数学者のために，Gauss 過程を用いた統計解析を紹介する．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## Gauss 過程回帰（理論）
+
+### カーネル
+
+#### 動径基底関数カーネル {#sec-rbf-kernel}
+
+動径基底関数カーネル (Radial Basis Function kernel) は
+$$
+k(r):=\sigma^2\exp\paren{-\frac{r^2}{2}}
+$$
+で定まるカーネルである．`GPy` での実装は[こちら](https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF)．
+
+## Gauss 過程回帰（実践）
+
+### 扱うデータ
+
+データ $x_1,\cdots,x_{N},N=20$ として，$\rN(0,0.8^2)$ に従う乱数を用意する．これに対して，
+$$
+y_i=\sin(3x_i)+\ep,
+$$
+$$
+\ep\sim\rN(0,0.09^2),
+$$
+を通じて $y_1,\cdots,y_N$ を生成する．
+
+```{python}
+import numpy as np
+
+x = np.random.randn(20,1) * 0.8
+
+y = np.sin(3*x) + np.random.randn(20,1) * 0.09
+
+xs = np.linspace(-3,3,61).reshape(-1,1)
+```
+
+この非線型関数 $\sin$ を，Gauss 過程回帰がどこまで復元できるかが実験の主旨である．
+
+### `GPy` を用いた場合
+
+`GPy` を用いて Gauss 過程回帰を行うには，`GPy.models.gp_regression` モジュールの [`GPRegression` クラス](https://gpy.readthedocs.io/en/deploy/GPy.models.html#GPy.models.gp_regression.GPRegression)
+
+```{.python}
+class GPRegression(X, Y, kernel=None, Y_metadata=None, normalizer=None, noise_var=1.0, mean_function=None)
+```
+
+を用いる．ソースコードは [こちら](https://gpy.readthedocs.io/en/deploy/_modules/GPy/models/gp_regression.html#GPRegression)．
+
+引数のカーネル `kernel` は `PGPy kernel` オブジェクトを取り，デフォルトは `rbf` カーネルである．我々も RBF カーネル（第[-@sec-rbf-kernel]節）を用いることとする．これは `GPy` パッケージでは `GPy.kern.src.rbf` モジュールの `RBF` クラスで提供されている：
+
+```{.python}
+class RBF(input_dim, variance=1.0, lengthscale=None, ARD=False, active_dims=None, name='rbf', useGPU=False, inv_l=False)
+```
+
+ソースコードは [こちら](https://gpy.readthedocs.io/en/deploy/_modules/GPy/kern/src/rbf.html#RBF)．
+
+モデルオブジェクトを初期化した後は次のように進む
+
+1. [`optimize` メソッド](https://gpy.readthedocs.io/en/deploy/GPy.core.html#GPy.core.gp.GP.optimize) でハイパーパラメータを最適化する．
+
+    ```{.python}
+    optimize(optimizer=None, start=None, messages=False, max_iters=1000, ipython_notebook=True, clear_after_finish=False, **kwargs)
+    ```
+
+    これはインスタンスの `self.log_likelihood` と `self.log_likelihood_gradient` を用いて行われる．
+2. [`predict` メソッド](https://gpy.readthedocs.io/en/deploy/GPy.core.html#GPy.core.gp.GP.predict) でテスト点での予測を行う．
+
+    ```{.python}
+    predict(Xnew, full_cov=False, Y_metadata=None, kern=None, likelihood=None, include_likelihood=True)
+    ```
+
+    返り値は事後平均と事後分散を `numpy.ndarray` として返す．
+3. `matplotlib` を用いて予測の結果をプロットする．
+
+
+```{python}
+import GPy
+import matplotlib.pyplot as plt
+
+kernel = GPy.kern.RBF(input_dim=1, variance=1.0)
+model = GPy.models.GPRegression(x, y, kernel)
+
+# ハイパーパラメータの最適化
+model.optimize()
+
+# テスト点での予測
+mu, var = model.predict(xs)
+
+# テスト点での平均、95%信頼区間のプロット
+plt.fill_between(xs[:,0], (mu - 1.96*np.sqrt(var)).flatten(), (mu + 1.96*np.sqrt(var)).flatten(), color='lightgray', label='95% confidence interval')
+plt.plot(xs, mu, label='Predicted mean')
+plt.scatter(x, y, c='r', label='Observations')
+plt.legend()
+plt.show()
+```
+
+### `scikit-learn` を用いた場合
+
+```{python}
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+import numpy as np
+import matplotlib.pyplot as plt
+
+# データの準備（前の例で使用したx, y, xsを使用）
+# x, y, xsは前のステップで定義されているものとします。
+
+# カーネル（共分散関数）の定義
+kernel = C(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
+
+# ガウス過程回帰モデルの初期化
+gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10, alpha=0.1)
+
+# モデルの学習
+gp.fit(x, y.ravel())
+
+# テスト点での予測
+mu, s2 = gp.predict(xs, return_std=True)
+
+# テスト点での平均、95%信頼区間のプロット
+plt.fill_between(xs.ravel(), mu - 1.96 * s2, mu + 1.96 * s2, color='lightgray', label='95% confidence interval')
+plt.plot(xs, mu, label='Predicted mean')
+plt.scatter(x, y, c='r', label='Observations')
+plt.legend()
+plt.show()
+```
+
+## Gauss 過程による分類^[[Documentation for GPML Matlab Code version 4.2](http://gaussianprocess.org/gpml/code/matlab/doc/) 4e 節を参考にした．]
+
+本質的には Gauss 過程回帰と変わらないが，回帰の場合と変え得る．
+
+### 扱うデータ
+
+ここでは，
+$$
+m_1:=\vctr{3/4}{0},\quad m_2:=\vctr{-3/4}{0},
+$$
+$$
+\Sigma_1:=\mtrx{1}{0}{0}{1},\quad\Sigma_2:=\mtrx{1}{0.95}{0.95}{1},
+$$
+とし，$\rN_2(m_1,\Sigma_1)$ から $n_1:=80$ データ，$\rN_2(m_2,\Sigma_2)$ から $n_2:=40$ データを生成する：
+
+```{python}
+n1, n2 = 80, 40
+S1 = np.eye(2)
+S2 = np.array([[1, 0.95], [0.95, 1]])
+m1 = np.array([0.75, 0])
+m2 = np.array([-0.75, 0])
+
+x1 = np.random.multivariate_normal(m1, S1, n1)
+x2 = np.random.multivariate_normal(m2, S2, n2)
+
+plt.plot(x1[:, 0], x1[:, 1], 'o', label='Class 1')
+plt.plot(x2[:, 0], x2[:, 1], '*', label='Class 2')
+plt.legend()
+plt.show()
+```
+
+$n_1:n_2=2:1$ であるから，このデータは Gauss 混合モデル
+$$
+\frac{2}{3}\phi(x;m_1,\Sigma_1)+\frac{1}{3}\phi(x;m_2,\Sigma_2)
+$$ {#eq-mixture}
+からのデータと見れる．ただし，$\phi(x;m,\Sigma)$ は $\rN_2(\mu,\Sigma)$ の密度関数とした．
+
+サンプリング点は $[-4,4]^2$ 内の幅 $0.1$ の格子点とする：
+```{python}
+t1, t2 = np.meshgrid(np.arange(-4, 4.1, 0.1), np.arange(-4, 4.1, 0.1))
+t = np.column_stack([t1.flat, t2.flat])
+```
+
+点 $x$ でモデル [-@eq-mixture] からのデータが観測されたとき，これがクラス $1,2$ からのものである確率 $p_1,p_2$ は
+$$
+\begin{align*}
+    p_1&=\frac{n_1}{n_1+n_2}\phi(x;m_1,\Sigma_1)\\
+    &=\frac{1}{2\pi(n_1+n_2)}\cdot n_1\frac{e^{-\frac{1}{2}(x-m_1)^\top\Sigma_1^{-1}(x-m_1)}}{\sqrt{\det\Sigma_1}}
+\end{align*}
+$$
+$$
+p_2= \frac{1}{2\pi(n_1+n_2)}\cdot n_2\frac{e^{-\frac{1}{2}(x-m_2)^\top\Sigma_2^{-1}(x-m_2)}}{\sqrt{\det\Sigma_2}}
+$$
+である．
+
+よって，$x\in[-4,4]^2$ がクラス $2$ からのものである確率を，等高線 (contour) としてプロットすると，次の通りになる：
+
+```{python}
+invS1 = np.linalg.inv(S1)
+invS2 = np.linalg.inv(S2)
+detS1 = np.linalg.det(S1)
+detS2 = np.linalg.det(S2)
+
+tmm1 = t - m1
+p1 = n1 * np.exp(-0.5 * np.sum(tmm1.dot(invS1) * tmm1, axis=1)) / np.sqrt(detS1)
+
+tmm2 = t - m2
+p2 = n2 * np.exp(-0.5 * np.sum(tmm2.dot(invS2) * tmm2, axis=1)) / np.sqrt(detS2)
+
+posterior = p2 / (p1 + p2)
+
+# 等確率等高線のプロット
+contour_levels = np.arange(0.1, 1, 0.1)
+plt.contour(t1, t2, posterior.reshape(t1.shape), levels=contour_levels)
+
+# データポイントのプロット
+plt.plot(x1[:, 0], x1[:, 1], 'o', label='Class 1', alpha=0.5)
+plt.plot(x2[:, 0], x2[:, 1], '*', label='Class 2', alpha=0.5)
+plt.legend()
+plt.show()
+```
+
+### モデル
