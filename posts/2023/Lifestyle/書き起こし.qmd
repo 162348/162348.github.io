@@ -1,5 +1,5 @@
 ---
-title: "Whispter APIを通じて日本語音声を書き起こす方法"
+title: "Whispter API を通じて日本語音声を書き起こす方法"
 author: "Hirofumi Shiba"
 date: "11/23/2023"
 categories: [Lifestyle, Python]
@@ -11,29 +11,31 @@ code-block-bg: true
 code-block-border-left: "#5AB5BA"
 code-overflow: wrap
 abstract-title: 概要
-abstract: Whispter APIは25MBまでの音声ファイルしか書き起こししてくれないので，長時間の音声ファイルを一度に書き起こしてもらうには工夫が必要．
+abstract: Whispter API は25MBまでの音声ファイルしか書き起こししてくれないので，長時間の音声ファイルを一度に書き起こしてもらうには工夫が必要．
 ---
 
-![Whispter](書き起こし.png)
+[![Whispter](書き起こし.png)](https://github.com/openai/whisper)
 
-## Whispterのダウンロード
+## Whispter のダウンロード
 
-まずWhisperを[OpenAIのGitHub](https://github.com/openai/whisper)からダウンロードします．
+まず Whisper を [OpenAI の GitHub](https://github.com/openai/whisper) からダウンロードします．
 
 ```bash
-!pip install git+https://github.com/openai/whisper.git
+pip install git+https://github.com/openai/whisper.git
 ```
 
-さらに，内部で `ffmpeg` が必要になるので，これもダウンロードしておく必要があります．MacOSの場合は次のコマンドでインストールできます．^[それ以外のOSの場合は[こちら](https://github.com/openai/whisper)の`README.md`にやり方が書いてあります．]
+さらに，内部で `ffmpeg` が必要になるので，これもダウンロードしておく必要があります．MacOS の場合は次のコマンドでインストールできます．^[それ以外の OS の場合は [こちら](https://github.com/openai/whisper) の `README.md` にやり方が書いてあります．]
 ```bash
 brew install ffmpeg
 ```
 
-ローカル環境ではなくとも，[Google Colaboratory](https://colab.research.google.com/?hl=ja)を用いてブラウザ上で実行することもできます．その場合の詳しいやり方は，[こちらのサイト](https://aismiley.co.jp/ai_news/what-is-whisper/)が参考になります．
+ローカル環境ではなくとも，[Google Colaboratory](https://colab.research.google.com/?hl=ja) を用いてブラウザ上で実行することもできます．その場合の詳しいやり方は，[こちらのサイト](https://aismiley.co.jp/ai_news/what-is-whisper/) が参考になります．
 
 ## ファイルの分割
 
-Whispterはどんなに大きな音声ファイルを渡しても25MB時点までしか書き起こしてくれません．そのため，ファイルを分割してWhispterに渡すこととします．次のコードは大きなファイルを分割するための関数を定義しています． `duration=240` で，何秒間でファイルを区切るかを指定します．筆者の経験上240秒（4分）がうまくいきます．
+Whispter はどんなに大きな音声ファイルを渡しても 25MB 時点までしか書き起こしてくれません．そのため，ファイルを分割して Whispter に渡すこととします．次のコードは大きなファイルを分割するための関数を定義しています． `duration=240` で，何秒間でファイルを区切るかを指定します．筆者の経験上 240 秒（４分）がうまくいきます．
+
+### `.wav` ファイルの場合
 
 ```python
 import wave
@@ -66,9 +68,46 @@ def split_wav_file(filename, duration=240):
 split_wav_file('［あなたの手元のファイル名］.wav')
 ```
 
+### `.mp3` ファイルの場合
+
+```python
+from pydub import AudioSegment
+
+def split_audio_file(filename, duration=240000):  # durationはミリ秒単位
+    # ファイル形式を拡張子から判断
+    extension = filename.split('.')[-1].lower()
+    
+    # AudioSegmentを使用してオーディオファイルを読み込む
+    if extension == "wav":
+        audio = AudioSegment.from_wav(filename)
+    elif extension == "mp3":
+        audio = AudioSegment.from_mp3(filename)
+    else:
+        raise ValueError("Unsupported file format")
+    
+    # 分割してファイルに書き込む
+    start = 0
+    part = 1
+    while start < len(audio):
+        # 新しいファイル名
+        new_file = f'split_{part}.{extension}'
+        # セグメントを切り出して保存
+        segment = audio[start:start+duration]
+        segment.export(new_file, format=extension)
+        
+        start += duration
+        part += 1
+```
+
+ただし，目的となるファイルが存在するディレクトリで
+```python
+split_audio_file("［あなたの手元のファイル名］.mp3")
+```
+と使うようにしてください．
+
 ## 書き起こし
 
-続いて，細かく分けたファイル `split_n.wav` たちを順にWhisperに渡して書き起こしてもらい，結果を1つのテキストファイル `書き起こし.txt` にまとめてもらいます．
+続いて，細かく分けたファイル `split_n.wav` たちを順に Whisper に渡して書き起こしてもらい，結果を１つのテキストファイル `書き起こし.txt` にまとめてもらいます．
 
 ```python
 import whisper
