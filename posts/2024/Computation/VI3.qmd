@@ -34,3 +34,86 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 変分法自体は，多くの応用先に古くから用いられている．統計学 [@Rustagi1976]，統計力学 [@Parisi1988]，量子力学 [@Sakurai1985]，有限要素解析 [@Bathe1996] などの教科書で扱われている．
 
 いずれの場面でも，変分法は困難な問題を，自由度を分解する (decoupling of the degrees of freedom) ことで，簡単な問題に分解する方法として用いられている [@Jordan+1999 p.198]．典型的には，変分パラメータ (variational parameter) という追加の変数を導入する手続きを伴う．
+
+## 変分 Bayes 推論
+
+潜在変数を持つグラフィカルモデルの文脈では，EM アルゴリズムのような点推定によるパラメータ推定では汎化性能が伸びず，事後分布を導出したいが，その計算は困難である．これを打開すべく提案されたのが変分 Bayes 推定である [@Attias1999]．
+
+### 変分 EM アルゴリズム
+
+実は，$E$-ステップを変分推論アルゴリズムに置換することで，より一般的な **変分 EM アルゴリズム** が導出できる [@Wainwright-Jordan2008 p.154]．
+
+### Bayes 推論の観点
+
+変分 EM アルゴリズムは，$\theta$ の事前分布としてデルタ分布を置いていた場合の変分 Bayes アルゴリズムとみなせる [@Wainwright-Jordan2008 p.164]．
+
+モデル[-@fig-incomplete]において，$\theta$ にも事前分布を考え，尤度は結合分布 $p(x,z,\theta)$ から
+$$
+p(x)=\int_\Theta\int_\cZ p(x,z,\theta)\,dzd\theta
+$$
+と与えられていると理解する．このとき，対数尤度の下界は
+$$
+\begin{align*}
+    &\log p(x)\\
+    =&\log\int_\Theta\int_\cZ q(z,\theta|x)\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
+    \ge&\int_\Theta\int_\cZ q(z,\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
+    =:&F(q)
+\end{align*}
+$$
+と表せる．
+
+ここで追加の仮定
+$$
+q(z,\theta|x)=q(z|x)q(\theta|x)
+$$ {#eq-4}
+
+をおくことで，
+$$
+F(q)=\int_\Theta\int_\cZ q(z|x)q(\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta
+$$
+の表示を得る．この下界を逐次最大化する手続きを，変分 Bayes アルゴリズムという．
+
+$$
+\log p(x)-F(q)=\KL(q(z,\theta),p(z,\theta|x))
+$$
+より，やはりこれは KL-乖離度の最小化に等価．
+
+### 変分 Bayes アルゴリズム
+
+#### VB-$E$ ステップ
+
+まず，$q(z)$ について最大化することを考える．$F$ の $q(z)$ に関する最大化は，
+$$
+L:=F(q)+\lambda\paren{\int_\cZ q(z)\,dz-1}
+$$
+の最大化と同値である．
+
+$$
+\begin{align*}
+    \frac{\delta L}{\delta q(z)}\\
+    =&(q(\theta)|\log p(x,z|\theta))-\log q(z)+\lambda+\const.
+\end{align*}
+$$
+と計算できるから，これは
+$$
+q(z)\propto e^{(q(\theta)|\log p(x,z|\theta))}
+$$
+にて最大化される．これが変分 Bayes アルゴリズムの $E$-ステップである．
+
+$q(\theta)=\delta(\varphi)$ であるとき，
+$$
+q(z)\propto p(x,z|\varphi)\propto p(z|x,\varphi)
+$$ {#eq-5}
+であることに注意．
+
+#### VB-$M$ ステップ
+
+全く同様にして，
+$$
+q(\theta)\propto p(\theta)e^{(q(z)|\log p(x,z|\theta))}
+$$
+で最大化される．
+
+#### 自動正則化
+
+また，この枠組みは過学習を防ぐ正則化が暗黙のうちに盛り込まれているともみなせる．
