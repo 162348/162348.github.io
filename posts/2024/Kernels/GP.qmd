@@ -1,7 +1,7 @@
 ---
 title: "Gauss 過程を用いた統計解析（１）"
 subtitle: 実践編（回帰と分類）
-author: "司馬 博文"
+author: "司馬博文"
 date: 2/11/2024
 categories: [Kernel, Python]
 toc: true
@@ -139,25 +139,19 @@ from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
 import numpy as np
 import matplotlib.pyplot as plt
 
-# データの準備（前の例で使用したx, y, xsを使用）
-# x, y, xsは前のステップで定義されているものとします。
-
-# カーネル（共分散関数）の定義
 kernel = C(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
 
-# ガウス過程回帰モデルの初期化
 gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10, alpha=0.1)
 
 # モデルの学習
 gp.fit(x, y.ravel())
 
-# テスト点での予測
 mu, s2 = gp.predict(xs, return_std=True)
 
-# テスト点での平均、95%信頼区間のプロット
-plt.fill_between(xs.ravel(), mu - 1.96 * s2, mu + 1.96 * s2, color='lightgray', label='95% confidence interval')
+# テスト点での平均と95%信頼区間のプロット
+plt.fill_between(xs.ravel(), mu - 1.96 * s2, mu + 1.96 * s2, color='lightgray', label='95% confidence interval', alpha=0.5)
 plt.plot(xs, mu, label='Predicted mean')
-plt.scatter(x, y, c='r', label='Observations')
+plt.scatter(x, y, c='r', label='Observations', s=10)
 plt.legend()
 plt.show()
 ```
@@ -294,41 +288,3 @@ print(f"実行時間: {elapsed_time:.1f} 秒")
 
 @fig-gp-classification-true の真の構造の特徴を捉えていることが判る．
 
-### 高速化
-
-実は上の計算は随分な時間がかかっている．
-
-```{.python}
-start_time = time.time()
-
-# 誘導点 u の生成: ここでは、入力空間上に等間隔に配置された点を使用
-u = np.meshgrid(np.linspace(-2, 2, 5), np.linspace(-2, 2, 5))
-u = np.hstack((u[0].reshape(-1, 1), u[1].reshape(-1, 1)))  # 形状を (数, 2) に変更
-
-# カーネルの定義
-kernel = GPy.kern.RBF(input_dim=2, ARD=True)
-
-# SparseGPClassification モデルの構築
-model = GPy.models.SparseGPClassification(X=x, Y=y.reshape(-1, 1), kernel=kernel, Z=u)
-
-# モデルの最適化
-model.optimize(messages=True)
-
-# 予測
-# t: テストセット
-y_pred, _ = model.predict(t)
-
-end_time = time.time()
-
-# 予測確率の等高線プロット
-plt.figure(figsize=(8, 6))
-plt.plot(x1[:,0], x1[:,1], 'o', label='Class 1', alpha=0.5)
-plt.plot(x2[:,0], x2[:,1], '*', label='Class 2', alpha=0.5)
-contour = plt.contour(t1, t2, y_pred.reshape(t1.shape), levels=np.linspace(0, 1, 10))
-plt.clabel(contour, inline=1, fontsize=10)
-plt.legend()
-plt.show()
-
-elapsed_time = end_time - start_time
-print(f"実行時間: {elapsed_time:.1f} 秒")
-```

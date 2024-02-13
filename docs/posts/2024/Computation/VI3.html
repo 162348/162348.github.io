@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-11">
+<meta name="dcterms.date" content="2024-02-12">
 
-<title>Hirofumi Shiba - 数学者のための深層学習（１）</title>
+<title>Hirofumi Shiba - 変分推論（３）</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,27 +22,7 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for citations */
-div.csl-bib-body { }
-div.csl-entry {
-  clear: both;
-  margin-bottom: 0em;
-}
-.hanging-indent div.csl-entry {
-  margin-left:2em;
-  text-indent:-2em;
-}
-div.csl-left-margin {
-  min-width:2em;
-  float:left;
-}
-div.csl-right-inline {
-  margin-left:2em;
-  padding-left:1em;
-}
-div.csl-indent {
-  margin-left: 2em;
-}</style>
+</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -101,13 +81,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
+<meta property="og:title" content="Hirofumi Shiba - 変分推論（３）">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
-<meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
+<meta property="og:image" content="https://github.com/162348/docs/posts/2024/Computation/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（１）">
-<meta name="twitter:description" content="数学者のために，深層学習の基礎と歴史を概観する．">
-<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
+<meta name="twitter:title" content="Hirofumi Shiba - 変分推論（３）">
+<meta name="twitter:description" content="数学者のために，変分推論の基本的な考え方を説明するシリーズであるが，今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムに注目する．">
+<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Computation/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -151,11 +131,11 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習（１）</h1>
-            <p class="subtitle lead">導入と歴史</p>
+      <h1 class="title">変分推論（３）</h1>
+            <p class="subtitle lead">変分ベイズ推論</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Kernel</div>
-                <div class="quarto-category">Math Notes</div>
+                <div class="quarto-category">Computation</div>
+                <div class="quarto-category">Python</div>
               </div>
                   </div>
   </div>
@@ -173,7 +153,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 11, 2024</p>
+        <p class="date">February 12, 2024</p>
       </div>
     </div>
     
@@ -183,7 +163,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層学習の基礎と歴史を概観する．
+      数学者のために，変分推論の基本的な考え方を説明するシリーズであるが，今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムに注目する．
     </div>
   </div>
   
@@ -191,13 +171,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">On this page</h2>
-   
-  <ul>
-  <li><a href="#歴史" id="toc-歴史" class="nav-link active" data-scroll-target="#歴史"><span class="header-section-number">1</span> 歴史</a></li>
-  </ul>
-</nav>
+        
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -230,48 +204,10 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="歴史" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1</span> 歴史<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></h2>
-<p>誤差逆伝播法をニューラルネットに使うことで，表現学習がなされることの発見 <span class="citation" data-cites="Rumelhart+1986">(<a href="#ref-Rumelhart+1986" role="doc-biblioref">Rumelhart et al., 1986</a>)</span> から，深層学習の分野は次の点で変化したという：</p>
-<ul>
-<li>神経科学・生物学的なモチベーションから遊離し，より確率論的・統計学的なアプローチが主流になった <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024, p. 19</a>)</span>．</li>
-<li>多層のニューラルネットワークと高次元データに対する理論的な研究が加速した <span class="citation" data-cites="MacKay2003">(<a href="#ref-MacKay2003" role="doc-biblioref">MacKay, 2003, p. 535</a>)</span>．</li>
-</ul>
-<p>しかし，畳み込みニューラルネットワーク (CNN) <span class="citation" data-cites="LeCun1998">(<a href="#ref-LeCun1998" role="doc-biblioref">LeCun et al., 1998</a>)</span> を除いて，２層以上のニューラルネットワークの成功した応用例は殆どなかった．これは，<a href="https://ja.wikipedia.org/wiki/%E5%8B%BE%E9%85%8D%E6%B6%88%E5%A4%B1%E5%95%8F%E9%A1%8C">勾配消失</a> により，どんなに多層なニューラルネットワークを構築しても，最後の２層程度しか意味のあるパラメータを学習できなかったためである．</p>
-<p>そのために，多層のニューラルネットワークを適用したい複雑な問題に対しては，問題固有の特徴抽出技法が編み出され，一般的な解決法はなかった．</p>
-<p>多くの研究者は，カーネル法や Gauss 過程に打開策を求めていた．</p>
-<p>ImageNet データベースを用いた判別コンテスト ILSVRC (the ImageNet Large Scale Visual Recognition Challenge) で，ダントツで優勝した AlexNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> が大きなターニングポイントとなった．</p>
 
 
 
-</section>
-
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Bishop-Bishop2024" class="csl-entry" role="listitem">
-Bishop, C. M., &amp; Bishop, H. (2024). <em>Deep learning: Foundations and concepts</em>. Springer Cham. <a href="https://link.springer.com/book/10.1007/978-3-031-45468-4">https://link.springer.com/book/10.1007/978-3-031-45468-4</a>
-</div>
-<div id="ref-Krizhevsky+2012" class="csl-entry" role="listitem">
-Krizhevsky, A., Sutskever, I., &amp; Hinton, G. E. (2012). ImageNet classification with deep convolutional neural networks. <em>Advances in Neural Information Processing Systems</em>, <em>25</em>. <a href="https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html">https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html</a>
-</div>
-<div id="ref-LeCun1998" class="csl-entry" role="listitem">
-LeCun, Y., Bottou, L., Bengio, Y., &amp; Haffner, P. (1998). Gradient-based learning applied to document recognition. <em>Proceedings of the IEEE</em>, <em>86</em>(11), 2278–2324. <a href="https://ieeexplore.ieee.org/document/726791">https://ieeexplore.ieee.org/document/726791</a>
-</div>
-<div id="ref-MacKay2003" class="csl-entry" role="listitem">
-MacKay, D. J. C. (2003). <em>Information theory, inference and learning algorithms</em>. Cambridge University Press. <a href="https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989">https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989</a>
-</div>
-<div id="ref-Rumelhart+1986" class="csl-entry" role="listitem">
-Rumelhart, D. E., Hinton, G. E., &amp; Williams, R. J. (1986). Learning representations by back-propagating errors. <em>Nature</em>, <em>323</em>, 533–536. <a href="https://www.nature.com/articles/323533a0">https://www.nature.com/articles/323533a0</a>
-</div>
-<div id="ref-Schmidhuber2015" class="csl-entry" role="listitem">
-Schmidhuber, J. (2015). Deep learning in neural networks: An overview. <em>Neural Networks</em>, <em>61</em>, 85–117. <a href="https://www.sciencedirect.com/science/article/pii/S0893608014002135">https://www.sciencedirect.com/science/article/pii/S0893608014002135</a>
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="citation" data-cites="Schmidhuber2015">(<a href="#ref-Schmidhuber2015" role="doc-biblioref">Schmidhuber, 2015</a>)</span>, <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop &amp; Bishop, 2024</a>)</span> を参考．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
@@ -600,25 +536,66 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         }
       };
     }
-      // Attach click handler to the DT
-      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-      for (const annoteDlNode of annoteDls) {
-        annoteDlNode.addEventListener('click', (event) => {
-          const clickedEl = event.target;
-          if (clickedEl !== selectedAnnoteEl) {
-            unselectCodeLines();
-            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-            if (activeEl) {
-              activeEl.classList.remove('code-annotation-active');
-            }
-            selectCodeLines(clickedEl);
-            clickedEl.classList.add('code-annotation-active');
-          } else {
-            // Unselect the line
-            unselectCodeLines();
-            clickedEl.classList.remove('code-annotation-active');
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
           }
-        });
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
       }
   const findCites = (el) => {
     const parentEl = el.parentElement;
