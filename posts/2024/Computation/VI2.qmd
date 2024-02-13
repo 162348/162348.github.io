@@ -31,7 +31,11 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 
 ::: {.callout-important icon="false" title="要約"}
 
-EM アルゴリズムとは，部分的に観測されたグラフィカルモデルにおいて，最尤推定量を求めるためのアルゴリズムである．このようなモデルでは，（対数）尤度に関して下からの評価を与える代理関数で，特に振る舞いのようものが見つかるため（ @eq-3 ），代わりにこれを逐次的に最大化することが出来る．この手続きは変分 Bayes 法の特別な場合にあたる．
+EM アルゴリズムとは，目的関数が
+$$
+h(x)=\E[H(x,Z)]
+$$
+と表せる場合に対する MM アルゴリズムである．欠測モデルや混合モデルにおいて，最尤推定量を求める用途等の応用がある．このような状況では，（対数）尤度に関して下からの評価を与える代理関数で，特に振る舞いのようものが見つかるため（ @eq-3 ），代わりにこれを逐次的に最大化することが出来るのである．この手続きは変分 Bayes 法の特別な場合にあたる．
 
 :::
 
@@ -41,8 +45,7 @@ EM アルゴリズムとは，部分的に観測されたグラフィカルモ�
 
 クラスタリングを一度さっぱり忘れて，最尤推定を思い出してみる．
 
-::: {.callout-tip icon="false"}
-## 定義^[[@Cramer1946 p.498] によると，[@Fisher1912] が初出であるが，以前に Gauss がその特別な形を用いていた．また，[@Cramer1946 p.499] での定義はこことは違い，尤度関数の停留点（＝尤度方程式の解）と定義している．] [@Fisher1912]
+::: {.callout-tip icon="false" title="定義^[[@Cramer1946 p.498] によると，[@Fisher1912] が初出であるが，以前に Gauss がその特別な形を用いていた．また，[@Cramer1946 p.499] での定義はこことは違い，尤度関数の停留点（＝尤度方程式の解）と定義している．] [@Fisher1912]"}
 
 $\{P_\theta\}_{\theta\in\Theta}\subset\cP(\cX)$ を統計モデルで，ある共通の $\sigma$-有限測度 $\mu\in\cP(\cX)$ に関して密度 $\{p_\theta\}_{\theta\in\Theta}$ を持つとする．
 
@@ -67,14 +70,31 @@ $$
 
 ## EM アルゴリズム（Gauss 有限混合モデル）
 
+EM アルゴリズムは，混合モデルに対する最尤推定アルゴリズムである．一般に，目的関数が
+$$
+h(x)=\E[H(x,Z)]
+$$
+と表せる場合に対する MM アルゴリズムである．^[[@Robert-Casella2004 p.174] 式(5.8)．]
+
+### 欠測データと混合モデル
+
 欠測データ (incomplete data) とは，２つの確率変数 $(Z,X)$ について次の図式が成り立つ際の，$Z$ を潜在変数として，$X$ からの観測とみなせるデータをいう [@Dempster+1977 p.1]：
 
-![Hidden / Latent State Model](incomplete.png){#fig-incomplete}
+![Missing Data Model / Latent State Model / Completed Model for $X$](incomplete.png){#fig-incomplete}
 
-$X$ もパラメータと見た場合，これは潜在変数を持つモデルともみなせる．その簡単な例に混合モデルがある．ここでは，以下の有限混合モデルで，さらに混合される分布は正規であるものとする：
+$Z$ もパラメータと見た場合，これは潜在変数 $Z$ を持つモデルともみなせる．また，$X$ に対する混合モデルともみなせる．
 
-::: {.callout-tip icon="false"}
-## 定義 (Gaussian finite mixture model)
+このように，$X$ の分布を，潜在変数 $Z$ を追加して理解することを，モデルの **完備化** (completion) または **脱周辺化** (demarginalization) ともいう．^[[@Robert2007 p.330]，[@Robert-Casella2004 p.176]．]
+
+これは，
+$$
+p(x|\theta)=\int_{\cZ}p(x,z|\theta)\,dz
+$$ {#eq-2}
+という形の尤度を持つモデルである．^[[@Robert-Casella2004 p.174] 式(5.7)．$p$ を完備化された尤度 (completed likelihood) ともいう．]
+
+ここでは，以下の，有限な混合モデルで，さらに混合される分布は正規であるものを考える：
+
+::: {.callout-tip icon="false" title="定義 (Gaussian finite mixture model)"}
 
 集合 $[K]$ 上に値を取る隠れ変数 $Z$ の確率質量関数を $(p_k)_{k=1}^K$ とする．
 $$
@@ -86,15 +106,16 @@ $$ {#eq-1}
 
 :::
 
-@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),\sigma,(p_k))$ である．以降， @fig-incomplete に沿って，
+@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),\sigma,(p_k))$ である．
+
+尤度は，@eq-2 の $\cZ=[K]$，
 $$
 \begin{align*}
-    p(x|\theta)&=\int_{[K]}p(x,z;\theta)\P^Z(dz)\\
-    &=\sum_{k=1}^K \P[Z=k]\phi(x;\mu_k,\sigma)\\
-    p(x,z;\theta)&:=\phi(x;\mu_k,\sigma)\\
+    p(x|\theta)&=\sum_{k=1}^K \P[Z=k]\phi(x|\mu_k,\sigma)\\
+    p(x,z|\theta)&=\phi(x|\mu_k,\sigma)
 \end{align*}
-$$ {#eq-2}
-と理解する．
+$$
+に当たる場合である．
 
 ### EM アルゴリズム
 
@@ -102,10 +123,153 @@ $$ {#eq-2}
 
 $$
 \begin{align*}
-    \log p(x|\theta)&=\log\int_{\cZ}p(x,z;\theta)\P^Z(dz)\\
-    &\ge\log\int_\cZ q(z|x,\varphi)\log\frac{p(x,z|\theta)}{q(z|x,\varphi)}\\
+    \log p(x|\theta)&=\log\int_{\cZ}p(x,z|\theta)\,dz\\
+    &\ge\int_\cZ q(z|x,\varphi)\log\frac{p(x,z|\theta)}{q(z|x,\varphi)}\,dz\\
     &=:F(q,\theta).
 \end{align*}
 $$ {#eq-3}
 
 この事実に基づき，$F$ を代理関数として，これを２つの変数 $q,\theta$ について交互に最大化するという手続きを，**EM アルゴリズム** という．
+
+1. $E$-ステップ：$F$ を $q$ について最大化する．
+$$
+\begin{align*}
+    F(q,\theta)&=\int_\cZ q(z|x,\varphi)\log\frac{p(z|x,\theta)p(x|\theta)}{q(z|x,\varphi)}\,dz\\
+    &=\log p(x|\theta)-\KL(q_\varphi,p_\theta).
+\end{align*}
+$$
+より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．通常，$q=p$ を取るから，この $E$-ステップは，単に $Q(\theta)$ を計算する，というステップになる．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998]．@eq-5 も参照．]
+2. $M$-ステップ：$F$ を $\theta$ について最大化する．
+$$
+\begin{align*}
+    F(q,\theta)&=\int_{\cZ}q(z|x,\varphi)\log p(x,z|\theta)\,dz\\
+    &\qquad-\int_\cZ q(z|x,\varphi)\log q(z|x,\varphi)\,dz\\
+    &=\underbrace{(q_\varphi|\log p_\theta)}_{=:Q(\theta)}+H(q_\varphi)
+\end{align*}
+$$
+より，$Q$ の停留点で最大化される．
+
+総じて，EM アルゴリズムは $p,q$ の KL 乖離度を逐次的に最小化している．
+
+### EM アルゴリズムの有効性
+
+::: {.callout-tip icon="false" title="命題：尤度は単調減少する [@Dempster+1977]^[[@Robert-Casella2004 p.177] 定理5.15，[@Robert2007 p.334] 演習6.52．]"}
+
+$\{\wh{\theta}_{(j)}\}\subset\Theta$ を EM アルゴリズムの $M$-ステップでの出力列とする．このとき，
+
+$$
+L(\wh{\theta}_{(j+1)}|x)\ge L(\wh{\theta}_{(j)}|x).
+$$
+等号成立は
+$$
+Q(\wh{\theta}_{(j+1)}|\wh{\theta}_{(j)},x)=Q(\wh{\theta}_{(j)}|\wh{\theta}_{(j)},x)
+$$
+の場合のみ．
+
+:::
+
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+:::
+
+::: {.callout-tip icon="false" title="命題：局所解への収束 [@Boyles1983]-[@Wu1983]^[[@Robert-Casella2004 p.178] 定理5.16．]"}
+
+$$
+Q(\theta|\theta_0,x):=\int_\cZ p(z|\theta,x)\log p(\theta|x,z)\,dz
+$$
+は $\theta,\theta_0\in\Theta$ について連続であるとする．このとき，EM アルゴリズムの出力 $\{\wh{\theta}_(j)\}$ は尤度 $p(\theta|x)$ の停留点に単調に収束する．
+
+:::
+
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+:::
+
+よって，EM アルゴリズムは局所解には収束する．
+
+しかし，常に尤度が単調増加するという性質上，局所解に囚われてしまった場合，そこから逃れることはないことになる．
+
+大域解に収束することを保証したい場合は，異なる初期値で複数回 EM アルゴリズムを実行するか，擬似アニーリングなどの別の手法を用いることを考える必要がある [@Finch+1989]．
+
+## 変分 Bayes 推論
+
+潜在変数を持つグラフィカルモデルの文脈では，EM アルゴリズムのような点推定によるパラメータ推定では汎化性能が伸びず，事後分布を導出したいが，その計算は困難である．これを打開すべく提案されたのが変分 Bayes 推定である [@Attias1999]．
+
+### 変分 EM アルゴリズム
+
+実は，$E$-ステップを変分推論アルゴリズムに置換することで，より一般的な **変分 EM アルゴリズム** が導出できる [@Wainwright-Jordan2008 p.154]．
+
+### Bayes 推論の観点
+
+変分 EM アルゴリズムは，$\theta$ の事前分布としてデルタ分布を置いていた場合の変分 Bayes アルゴリズムとみなせる [@Wainwright-Jordan2008 p.164]．
+
+モデル[-@fig-incomplete]において，$\theta$ にも事前分布を考え，尤度は
+$$
+p(x)=\int_\Theta\int_\cZ p(x,z,\theta)\,dzd\theta
+$$
+と与えられていると理解する．このとき @eq-3 は
+$$
+\begin{align*}
+    &\log p(x)\\
+    =&\log\int_\Theta\int_\cZ q(z,\theta|x)\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
+    \ge&\int_\Theta\int_\cZ q(z,\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
+    =&=:F(q)
+\end{align*}
+$$
+と変化する．
+
+ここで追加の仮定
+$$
+q(z,\theta|x)=q(z|x)q(\theta|x)
+$$ {#eq-4}
+
+をおくことで，
+$$
+F(q)=\int_\Theta\int_\cZ q(z|x)q(\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta
+$$
+の表示を得る．この下界を逐次最大化する手続きを，変分 Bayes アルゴリズムという．
+
+$$
+\log p(x)-F(q)=\KL(q(z,\theta),p(z,\theta|x))
+$$
+より，やはりこれは KL-乖離度の最小化に等価．
+
+### 変分 Bayes アルゴリズム
+
+#### VB-$E$ ステップ
+
+まず，$q(z)$ について最大化することを考える．$F$ の $q(z)$ に関する最大化は，
+$$
+L:=F(q)+\lambda\paren{\int_\cZ q(z)\,dz-1}
+$$
+の最大化と同値である．
+
+$$
+\begin{align*}
+    \frac{\delta L}{\delta q(z)}\\
+    =&(q(\theta)|\log p(x,z|\theta))-\log q(z)+\lambda+\const.
+\end{align*}
+$$
+と計算できるから，これは
+$$
+q(z)\propto e^{(q(\theta)|\log p(x,z|\theta))}
+$$
+にて最大化される．これが変分 Bayes アルゴリズムの $E$-ステップである．
+
+$q(\theta)=\delta(\varphi)$ であるとき，
+$$
+q(z)\propto p(x,z|\varphi)\propto p(z|x,\varphi)
+$$ {#eq-5}
+であることに注意．
+
+#### VB-$M$ ステップ
+
+全く同様にして，
+$$
+q(\theta)\propto p(\theta)e^{(q(z)|\log p(x,z|\theta))}
+$$
+で最大化される．
+
+#### 自動正則化
+
+また，この枠組みは過学習を防ぐ正則化が暗黙のうちに盛り込まれているともみなせる．
