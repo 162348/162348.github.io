@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 <meta name="dcterms.date" content="2024-02-11">
 
 <title>Hirofumi Shiba - 数学者のための深層学習（３）</title>
@@ -135,7 +135,7 @@ window.Quarto = {
 <meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（３）">
-<meta name="twitter:description" content="数学者のために，深層生成モデルを概観する．">
+<meta name="twitter:description" content="数学者のために，深層生成モデルの先駆けである GAN を概観する．">
 <meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -181,7 +181,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">数学者のための深層学習（３）</h1>
-            <p class="subtitle lead">生成モデル</p>
+            <p class="subtitle lead">生成モデル GAN</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
@@ -195,7 +195,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -206,13 +206,19 @@ window.Quarto = {
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">February 13, 2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層生成モデルを概観する．
+      数学者のために，深層生成モデルの先駆けである GAN を概観する．
     </div>
   </div>
   
@@ -224,15 +230,22 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#gan" id="toc-gan" class="nav-link active" data-scroll-target="#gan"><span class="header-section-number">1</span> GAN</a>
+  <li><a href="#gan-goodfellow2014" id="toc-gan-goodfellow2014" class="nav-link active" data-scroll-target="#gan-goodfellow2014"><span class="header-section-number">1</span> GAN <span class="citation" data-cites="Goodfellow+2014">(Goodfellow et al., 2014)</span></a>
   <ul class="collapse">
   <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
   <li><a href="#枠組み" id="toc-枠組み" class="nav-link" data-scroll-target="#枠組み"><span class="header-section-number">1.2</span> 枠組み</a></li>
   <li><a href="#理論" id="toc-理論" class="nav-link" data-scroll-target="#理論"><span class="header-section-number">1.3</span> 理論</a></li>
   <li><a href="#アルゴリズムとその収束" id="toc-アルゴリズムとその収束" class="nav-link" data-scroll-target="#アルゴリズムとその収束"><span class="header-section-number">1.4</span> アルゴリズムとその収束</a></li>
-  <li><a href="#補遺jensen-shannon-乖離度のその他の性質" id="toc-補遺jensen-shannon-乖離度のその他の性質" class="nav-link" data-scroll-target="#補遺jensen-shannon-乖離度のその他の性質"><span class="header-section-number">1.5</span> 補遺：Jensen-Shannon 乖離度のその他の性質</a></li>
+  <li><a href="#補遺jensen-shannon-乖離度のその他の性質" id="toc-補遺jensen-shannon-乖離度のその他の性質" class="nav-link" data-scroll-target="#補遺jensen-shannon-乖離度のその他の性質"><span class="header-section-number">1.5</span> 補遺：Jensen-Shannon 乖離度のその他の性質</a>
+  <ul class="collapse">
+  <li><a href="#情報理論からの導入" id="toc-情報理論からの導入" class="nav-link" data-scroll-target="#情報理論からの導入"><span class="header-section-number">1.5.1</span> 情報理論からの導入</a></li>
+  <li><a href="#js-乖離度が定める距離" id="toc-js-乖離度が定める距離" class="nav-link" data-scroll-target="#js-乖離度が定める距離"><span class="header-section-number">1.5.2</span> JS 乖離度が定める距離</a></li>
+  <li><a href="#変分問題としての特徴付け" id="toc-変分問題としての特徴付け" class="nav-link" data-scroll-target="#変分問題としての特徴付け"><span class="header-section-number">1.5.3</span> 変分問題としての特徴付け</a></li>
+  <li><a href="#有界な距離である" id="toc-有界な距離である" class="nav-link" data-scroll-target="#有界な距離である"><span class="header-section-number">1.5.4</span> 有界な距離である</a></li>
+  <li><a href="#chi2-距離に漸近する-endres-schindelin2003-p.1859" id="toc-chi2-距離に漸近する-endres-schindelin2003-p.1859" class="nav-link" data-scroll-target="#chi2-距離に漸近する-endres-schindelin2003-p.1859"><span class="header-section-number">1.5.5</span> <span class="math inline">\(\chi^2\)</span>-距離に漸近する <span class="citation" data-cites="Endres-Schindelin2003">(Endres &amp; Schindelin, 2003, p. 1859)</span></a></li>
+  <li><a href="#f-乖離度の例である" id="toc-f-乖離度の例である" class="nav-link" data-scroll-target="#f-乖離度の例である"><span class="header-section-number">1.5.6</span> <span class="math inline">\(f\)</span>-乖離度の例である</a></li>
   </ul></li>
-  <li><a href="#vae" id="toc-vae" class="nav-link" data-scroll-target="#vae"><span class="header-section-number">2</span> VAE</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -267,25 +280,30 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="gan" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="gan"><span class="header-section-number">1</span> GAN</h2>
+<section id="gan-goodfellow2014" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> GAN <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span></h1>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="GAN.png" class="img-fluid figure-img"></p>
 <figcaption>Samples from a GAN Taken from <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014, p. 7</a>)</span> Figure 2</figcaption>
 </figure>
 </div>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p>GAN 以前の深層生成モデルは，学習の難しさから，データ生成分布にパラメトリックな仮定をおき，その中で最尤推定を行うことが一般的であった．深層 Boltzmann マシン <span class="citation" data-cites="Salakhutdinov-Hinton2009">(<a href="#ref-Salakhutdinov-Hinton2009" role="doc-biblioref">Salakhutdinov &amp; Hinton, 2009</a>)</span> もその例である．</p>
-<p>しかしこのアプローチでは典型的には尤度が解析的に計算できない．そのため，MCMC によるサンプリングによりこれを回避することを考え，その Markov 連鎖の遷移核を学習するという生成確率的ネットワーク (GSN: Generative Stochastic Network) などのアプローチ <span class="citation" data-cites="Bengio+2014">(<a href="#ref-Bengio+2014" role="doc-biblioref">Bengio et al., 2014</a>)</span> も提案されていた．</p>
-<p>GAN (Generative Adversarial Network) は，このような中で <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> によって提案された深層生成モデルである．GAN も尤度の評価を必要としないが，MCMC などのサンプリング手法も用いない．</p>
-<p>同時の深層学習は，ImageNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> など，主に判別問題において大きな成功を収めていたが，生成モデルにおいては芳しくなかった．</p>
-<p>主な障壁は分布の近似が難しいことと，区分的線型な活性化関数を用いても勾配を通じた学習が難しいことであったが，GAN はこの２つの問題を回避すべく提案された．</p>
-<p>生成モデル <span class="math inline">\(G\)</span> に対して，判別モデル <span class="math inline">\(D\)</span> を対置し，加えて <span class="math inline">\((G,D)\)</span> をセットで誤差逆伝播法とドロップアウト法 <span class="citation" data-cites="Hinton+2012">(<a href="#ref-Hinton+2012" role="doc-biblioref">Hinton et al., 2012</a>)</span>（当時深層判別モデルを最も成功させていた学習法）により学習可能にしたのである．</p>
+<section id="導入" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h2>
+<p>GAN 以前の深層生成モデルは，学習の難しさから，データ生成分布にパラメトリックな仮定をおき，その中で <strong>最尤推定</strong> を行うことが一般的であった．深層 Boltzmann マシン <span class="citation" data-cites="Salakhutdinov-Hinton2009">(<a href="#ref-Salakhutdinov-Hinton2009" role="doc-biblioref">Salakhutdinov &amp; Hinton, 2009</a>)</span> もその例である．</p>
+<p>複雑なモデルで尤度を解析的に計算することは困難である．そのために，MCMC によるサンプリングによりこれを回避することを考え，その Markov 連鎖の遷移核を学習するという生成確率的ネットワーク (GSN: Generative Stochastic Network) などのアプローチ <span class="citation" data-cites="Bengio+2014">(<a href="#ref-Bengio+2014" role="doc-biblioref">Bengio et al., 2014</a>)</span> も提案されていた．</p>
+<p>GAN (Generative Adversarial Network) は，このような中で <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> によって提案された深層生成モデルである．GAN も尤度の評価を必要としないが，MCMC などのサンプリング手法も用いず，ただ誤差逆伝播法のみによって学習が可能である．</p>
+<p>同時の深層学習は，ImageNet コンペティションにおいて大成功を収めた AlexNet <span class="citation" data-cites="Krizhevsky+2012">(<a href="#ref-Krizhevsky+2012" role="doc-biblioref">Krizhevsky et al., 2012</a>)</span> など，主に識別のタスクにおいて大きな成功を収めていたが，生成モデルにおいては芳しくなかった．</p>
+<p>主な障壁は</p>
+<ol type="1">
+<li>分布の近似が難しいこと</li>
+<li>区分的線型な活性化関数を用いても勾配を通じた学習が難しいこと</li>
+</ol>
+<p>の２点であったが，GAN はこの２つの問題を回避すべく提案された．</p>
+<p>生成モデル <span class="math inline">\(G\)</span> に対して，判別モデル <span class="math inline">\(D\)</span> を対置し，加えて <span class="math inline">\((G,D)\)</span> をセットで誤差逆伝播法とドロップアウト法 <span class="citation" data-cites="Hinton+2012">(<a href="#ref-Hinton+2012" role="doc-biblioref">Hinton et al., 2012</a>)</span>（当時深層識別モデルを最も成功させていた学習法）により学習可能にしたのである．</p>
 </section>
-<section id="枠組み" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="枠組み"><span class="header-section-number">1.2</span> 枠組み</h3>
+<section id="枠組み" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="枠組み"><span class="header-section-number">1.2</span> 枠組み</h2>
 <p>データの空間を <span class="math inline">\(x\in\mathcal{X}\)</span> とし，潜在変数の値域 <span class="math inline">\(\mathcal{Z}\)</span> とその上の確率測度 <span class="math inline">\(P_z\in\mathcal{P}(\mathcal{Z})\)</span>，そして深層ニューラルネットワークのパラメータ空間 <span class="math inline">\(\Theta_g\)</span> を用意して，生成モデルを写像 <span class="math inline">\(G:\mathcal{Z}\times\Theta_g\to\mathcal{X}\)</span> とする．</p>
 <p>生成モデル <span class="math inline">\(G\)</span> は押し出しによりモデル <span class="math inline">\(\{G(-,\theta_g)_*P_z\}_{\theta_g\in\Theta_g}\)</span> を定める．</p>
 <p>このモデルの密度（尤度）の評価を回避するために，これに判別モデル <span class="math inline">\(D\)</span> を対置する．これは，パラメータ <span class="math inline">\(\theta_d\in\Theta_d\)</span> を通じて学習される写像 <span class="math inline">\(D:\mathcal{X}\times\Theta_d\to[0,1]\)</span> とし，あるデータ <span class="math inline">\(x\in\mathcal{X}\)</span> を観測した際に，これが <span class="math inline">\(G\)</span> から生成されたものではなく，実際の訓練データである確率を <span class="math inline">\(D(x)\)</span> によって近似することを目指す．</p>
@@ -297,8 +315,8 @@ X\sim P_{\text{data}},\quad Z\sim P_z
 \min_{G\in\mathrm{Hom}_\mathrm{Mark}(\mathcal{Z}\times\mathcal{G}_g,\mathcal{X})}\max_{D\in\mathcal{L}(\mathcal{X};[0,1])}V(D,G)
 \tag{1}\]</span></span> を解く，ミニマックスゲームを考える．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 </section>
-<section id="理論" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="理論"><span class="header-section-number">1.3</span> 理論</h3>
+<section id="理論" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="理論"><span class="header-section-number">1.3</span> 理論</h2>
 <p><span class="math inline">\(G\)</span> と <span class="math inline">\(D\)</span> が表現するモデルが十分に大きいとき，すなわち <span class="math inline">\(\Theta_g,\Theta_d\)</span> が十分に大きく，殆どノンパラメトリックモデルであるとみなせる場合には，学習基準 <a href="#eq-GAN" class="quarto-xref">式&nbsp;1</a> は真の生成分布 <span class="math inline">\(P_{\text{data}}\)</span> に収束するアルゴリズムを与える．</p>
 <p>このことを示すには，<span class="math inline">\(P_{\text{data}}\)</span> が，<a href="#eq-GAN" class="quarto-xref">式&nbsp;1</a> の大域的最適解であることを示せば良い．</p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義 (Jensen-Shannon divergence)">
@@ -412,7 +430,7 @@ p&lt;q\quad\Leftrightarrow\quad\beta&gt;1
 \]</span> <span class="math display">\[
 \lim_{x\to1\mp}g(x)=\pm1
 \]</span> と併せると，<span class="math inline">\(g((0,1))\subset(0,1)\)</span>，<span class="math inline">\(g((1,\infty))\subset(-1,0)\)</span> である．特に <span class="math inline">\(\lvert g\rvert&lt;1\)</span>．</p>
-<div id="967a53c9" class="cell" data-execution_count="2">
+<div id="246f7558" class="cell" data-execution_count="2">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -487,8 +505,8 @@ L&amp;=\operatorname{E}[\log D^*(X_0)]+\operatorname{E}[\log(1-D^*(X_1))]\\
 </div>
 <p>これより，訓練基準 <a href="#eq-GAN" class="quarto-xref">式&nbsp;1</a> はただ一つの大域的な最適解を持ち，これは <span class="math inline">\(P_{\text{data}}=G_*P_z\)</span> かつ <span class="math inline">\(D^*=\frac{1}{2}\)</span> のときに最小値 <span class="math inline">\(-2\log2\)</span> を取るということが判る．</p>
 </section>
-<section id="アルゴリズムとその収束" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="アルゴリズムとその収束"><span class="header-section-number">1.4</span> アルゴリズムとその収束</h3>
+<section id="アルゴリズムとその収束" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="アルゴリズムとその収束"><span class="header-section-number">1.4</span> アルゴリズムとその収束</h2>
 <p>組 <span class="math inline">\((G,D)\)</span> を勾配降下法により同時に学習するには，</p>
 <ol type="1">
 <li>判別器 <span class="math inline">\(D\)</span> の最大化ステップ
@@ -506,7 +524,7 @@ D_{\theta_g}\sum_{i=1}^m\log\biggr(1-D(G(z^i))\biggl)
 \]</span> の減少方向にパラメータ <span class="math inline">\(\theta_g\)</span> を更新する．</li>
 </ol></li>
 </ol>
-<p>というアルゴリズムを実行すれば良い．<span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a> p.)</span> の数値実験ではモーメンタム法が用いられている．</p>
+<p>というアルゴリズムを実行すれば良い．<span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a> p.)</span> の数値実験ではモーメンタム法 <span class="citation" data-cites="Rumelhart+1987">(<a href="#ref-Rumelhart+1987" role="doc-biblioref">Rumelhart et al., 1987, p. 330</a>)</span> が用いられている．</p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題 [@Goodfellow+2014 p.5]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -526,24 +544,26 @@ D_{\theta_g}\sum_{i=1}^m\log\biggr(1-D(G(z^i))\biggl)
 </div>
 </div>
 <p>実際は，<span class="math inline">\(G\)</span> はパラメトリックモデル <span class="math inline">\(\{G_*P_z(\theta,-)\}_{\theta\in\Theta_g}\)</span> であるから，その分の誤差は残ることになる．</p>
+<p>また，<span class="math inline">\(D\)</span> が最適化されていない状況で <span class="math inline">\(G\)</span> が学習されすぎると，多くの <span class="math inline">\(z\in\mathcal{Z}\)</span> の値を <span class="math inline">\(D\)</span> が不得意な判別点 <span class="math inline">\(x\in\mathcal{X}\)</span> に対応させすぎてしまうことがあり得る．</p>
+<p><span class="math inline">\(P_{\text{data}}\)</span> が強い多峰性を持つ場合でも効率よく学習することができる．これは同じ確率分布からのサンプリング手法として，MCMC にはない美点になり得る <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014, p. 6</a>)</span>．</p>
 </section>
-<section id="補遺jensen-shannon-乖離度のその他の性質" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="補遺jensen-shannon-乖離度のその他の性質"><span class="header-section-number">1.5</span> 補遺：Jensen-Shannon 乖離度のその他の性質</h3>
-<section id="情報理論からの導入" class="level4" data-number="1.5.1">
-<h4 data-number="1.5.1" class="anchored" data-anchor-id="情報理論からの導入"><span class="header-section-number">1.5.1</span> 情報理論からの導入</h4>
+<section id="補遺jensen-shannon-乖離度のその他の性質" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="補遺jensen-shannon-乖離度のその他の性質"><span class="header-section-number">1.5</span> 補遺：Jensen-Shannon 乖離度のその他の性質</h2>
+<section id="情報理論からの導入" class="level3" data-number="1.5.1">
+<h3 data-number="1.5.1" class="anchored" data-anchor-id="情報理論からの導入"><span class="header-section-number">1.5.1</span> 情報理論からの導入</h3>
 <p>乖離度としての Jensen-Shannon 乖離度は <span class="citation" data-cites="Lin1991">(<a href="#ref-Lin1991" role="doc-biblioref">Lin, 1991</a>)</span> で最初に導入されたようである．</p>
 <p>が，その以前から， <span class="math display">\[
 \mathop{\mathrm{JS}}(P,Q)=2H\left(\frac{P+Q}{2}\right)-H(P)-H(Q)
 \]</span> という関係を通じて，<span class="citation" data-cites="Rao1982">(<a href="#ref-Rao1982" role="doc-biblioref">Rao, 1982, p. 25</a>)</span> などは右辺を Jensen 差分 (difference) と呼んでいたようである．<span class="citation" data-cites="Rao1987">(<a href="#ref-Rao1987" role="doc-biblioref">Rao, 1987, p. 222</a>)</span> は，<span class="math inline">\(H\)</span> が Shannon のエントロピーではなくとも，有用な性質を持つことを情報幾何学の立場から議論している．</p>
 </section>
-<section id="js-乖離度が定める距離" class="level4" data-number="1.5.2">
-<h4 data-number="1.5.2" class="anchored" data-anchor-id="js-乖離度が定める距離"><span class="header-section-number">1.5.2</span> JS 乖離度が定める距離</h4>
+<section id="js-乖離度が定める距離" class="level3" data-number="1.5.2">
+<h3 data-number="1.5.2" class="anchored" data-anchor-id="js-乖離度が定める距離"><span class="header-section-number">1.5.2</span> JS 乖離度が定める距離</h3>
 <p><span class="math display">\[
 \biggr(\mathop{\mathrm{JS}}(P,Q)\biggl)^\alpha
 \]</span> が <span class="math inline">\(\alpha=\frac{1}{2}\)</span> において距離をなすことを示したが，実は一般の <span class="math inline">\(\alpha\in(0,1/2]\)</span> に関して距離をなす <span class="citation" data-cites="Osan+2018">(<a href="#ref-Osan+2018" role="doc-biblioref">Osán et al., 2018</a>)</span>．</p>
 </section>
-<section id="変分問題としての特徴付け" class="level4" data-number="1.5.3">
-<h4 data-number="1.5.3" class="anchored" data-anchor-id="変分問題としての特徴付け"><span class="header-section-number">1.5.3</span> 変分問題としての特徴付け</h4>
+<section id="変分問題としての特徴付け" class="level3" data-number="1.5.3">
+<h3 data-number="1.5.3" class="anchored" data-anchor-id="変分問題としての特徴付け"><span class="header-section-number">1.5.3</span> 変分問題としての特徴付け</h3>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題 [@Nielsen2021 p.6]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -561,8 +581,8 @@ D_{\theta_g}\sum_{i=1}^m\log\biggr(1-D(G(z^i))\biggl)
 </div>
 </div>
 </section>
-<section id="有界な距離である" class="level4" data-number="1.5.4">
-<h4 data-number="1.5.4" class="anchored" data-anchor-id="有界な距離である"><span class="header-section-number">1.5.4</span> 有界な距離である</h4>
+<section id="有界な距離である" class="level3" data-number="1.5.4">
+<h3 data-number="1.5.4" class="anchored" data-anchor-id="有界な距離である"><span class="header-section-number">1.5.4</span> 有界な距離である</h3>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題 [@Endres-Schindelin2003 p.1859]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -577,11 +597,11 @@ D_{\theta_g}\sum_{i=1}^m\log\biggr(1-D(G(z^i))\biggl)
 </div>
 </div>
 </section>
-<section id="chi2-距離に漸近する-endres-schindelin2003-p.1859" class="level4" data-number="1.5.5">
-<h4 data-number="1.5.5" class="anchored" data-anchor-id="chi2-距離に漸近する-endres-schindelin2003-p.1859"><span class="header-section-number">1.5.5</span> <span class="math inline">\(\chi^2\)</span>-距離に漸近する <span class="citation" data-cites="Endres-Schindelin2003">(<a href="#ref-Endres-Schindelin2003" role="doc-biblioref">Endres &amp; Schindelin, 2003, p. 1859</a>)</span></h4>
+<section id="chi2-距離に漸近する-endres-schindelin2003-p.1859" class="level3" data-number="1.5.5">
+<h3 data-number="1.5.5" class="anchored" data-anchor-id="chi2-距離に漸近する-endres-schindelin2003-p.1859"><span class="header-section-number">1.5.5</span> <span class="math inline">\(\chi^2\)</span>-距離に漸近する <span class="citation" data-cites="Endres-Schindelin2003">(<a href="#ref-Endres-Schindelin2003" role="doc-biblioref">Endres &amp; Schindelin, 2003, p. 1859</a>)</span></h3>
 </section>
-<section id="f-乖離度の例である" class="level4" data-number="1.5.6">
-<h4 data-number="1.5.6" class="anchored" data-anchor-id="f-乖離度の例である"><span class="header-section-number">1.5.6</span> <span class="math inline">\(f\)</span>-乖離度の例である</h4>
+<section id="f-乖離度の例である" class="level3" data-number="1.5.6">
+<h3 data-number="1.5.6" class="anchored" data-anchor-id="f-乖離度の例である"><span class="header-section-number">1.5.6</span> <span class="math inline">\(f\)</span>-乖離度の例である</h3>
 <p><span class="math inline">\(f\)</span>-乖離度の考え方は <span class="citation" data-cites="Renyi1961">(<a href="#ref-Renyi1961" role="doc-biblioref">Rényi, 1961, p. 561</a>)</span> で導入された．他，<span class="citation" data-cites="Csiszar1963">(<a href="#ref-Csiszar1963" role="doc-biblioref">Csiszár, 1963</a>)</span>, <span class="citation" data-cites="Morimoto1963">(<a href="#ref-Morimoto1963" role="doc-biblioref">Morimoto, 1963</a>)</span>, <span class="citation" data-cites="Ali-Silvey1966">(<a href="#ref-Ali-Silvey1966" role="doc-biblioref">Ali &amp; Silvey, 1966</a>)</span> なども独立に導入している．</p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義 ($f$-divergence)">
 <div class="callout-header d-flex align-content-center">
@@ -607,16 +627,11 @@ f(x)=x\log\frac{2x}{x+1}+\log\frac{2}{x+1}
 <p>全変動ノルムも <span class="math display">\[
 f(x)=\lvert x-1\rvert
 \]</span> に関する <span class="math inline">\(f\)</span>-乖離度である．</p>
-</section>
-</section>
-</section>
-<section id="vae" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="vae"><span class="header-section-number">2</span> VAE</h2>
-<p>Variational Autoencoder <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span> も GAN と同じく，深層生成モデルにもう１つの深層ニューラルネットワークを対置するが，このニューラルネットは GAN のように判別をするのではなく，近似推論を実行するエンコーダーである．</p>
-<p>この深層グラフィカルモデルと近似推論器とを，同時に確率勾配降下法によって学習する <span class="citation" data-cites="Kingma-Welling2019">(<a href="#ref-Kingma-Welling2019" role="doc-biblioref">Kingma &amp; Welling, 2019</a>)</span>．</p>
 
 
 
+</section>
+</section>
 </section>
 
 
@@ -638,12 +653,6 @@ Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S
 </div>
 <div id="ref-Hinton+2012" class="csl-entry" role="listitem">
 Hinton, G. E., Srivastava, N., Krizhevsky, A., Sutskever, I., &amp; Salakhutdinov, R. R. (2012). <em>Improving neural networks by preventing co-adaptation of feature detectors</em>. <a href="https://arxiv.org/abs/1207.0580">https://arxiv.org/abs/1207.0580</a>
-</div>
-<div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2014). Auto-encoding variational bayes. <em>International Conference on Learning Representations</em>, <em>2</em>. <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">https://openreview.net/forum?id=33X9fd2-9FyZd</a>
-</div>
-<div id="ref-Kingma-Welling2019" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2019). An introduction to variational autoencoders. <em>Foundations and Treands in Machine Learning</em>, <em>12</em>(4), 307–392. <a href="https://www.nowpublishers.com/article/Details/MAL-056">https://www.nowpublishers.com/article/Details/MAL-056</a>
 </div>
 <div id="ref-Krizhevsky+2012" class="csl-entry" role="listitem">
 Krizhevsky, A., Sutskever, I., &amp; Hinton, G. E. (2012). ImageNet classification with deep convolutional neural networks. <em>Advances in Neural Information Processing Systems</em>, <em>25</em>. <a href="https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html">https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html</a>
@@ -668,6 +677,9 @@ Rao, C. R. (1987). Differential metrics in probability spaces. <em>IMS Lecture N
 </div>
 <div id="ref-Renyi1961" class="csl-entry" role="listitem">
 Rényi, A. (1961). On measures of entropy and information. <em>Proceedings of the Fourth Berkeley Symposium on Mathematical Statistics and Probability</em>, <em>1</em>, 547–561. <a href="https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/On-Measures-of-Entropy-and-Information/bsmsp/1200512181">https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/On-Measures-of-Entropy-and-Information/bsmsp/1200512181</a>
+</div>
+<div id="ref-Rumelhart+1987" class="csl-entry" role="listitem">
+Rumelhart, D. E., Hinton, G. E., &amp; Williams, R. J. (1987). <em>Parallel distributed processing: Explorations in the microstructure of cognition: foundations</em> (D. E. Rumelhart &amp; J. L. McClelland, Eds.; pp. 318–362). MIT Press. <a href="https://mitpress.mit.edu/9780262680530/parallel-distributed-processing/">https://mitpress.mit.edu/9780262680530/parallel-distributed-processing/</a>
 </div>
 <div id="ref-Salakhutdinov-Hinton2009" class="csl-entry" role="listitem">
 Salakhutdinov, R., &amp; Hinton, G. (2009). Deep boltzmann machines. <em>Proceedings of the Twelth International Conference on Artificial Intelligence and Statistics</em>, <em>5</em>, 448–455. <a href="https://proceedings.mlr.press/v5/salakhutdinov09a.html">https://proceedings.mlr.press/v5/salakhutdinov09a.html</a>
