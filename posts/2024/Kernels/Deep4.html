@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-13">
+<meta name="dcterms.date" content="2024-02-14">
 
-<title>Hirofumi Shiba - ベイズ機械学習</title>
+<title>Hirofumi Shiba - 数学者のための深層学習（４）</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -101,13 +101,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - ベイズ機械学習">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習（４）">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
-<meta property="og:image" content="https://github.com/162348/docs/posts/2024/AI/anomaths.png">
+<meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - ベイズ機械学習">
-<meta name="twitter:description" content="数学者のために，深層生成モデルを概観する．">
-<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/AI/anomaths.png">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習（４）">
+<meta name="twitter:description" content="数学者のために，深層生成モデルの１つ VAE を概観する．">
+<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -151,10 +151,10 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">ベイズ機械学習</h1>
-            <p class="subtitle lead">ドロップアウト</p>
+      <h1 class="title">数学者のための深層学習（４）</h1>
+            <p class="subtitle lead">生成モデル VAE</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Bayes</div>
+                <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
               </div>
                   </div>
@@ -173,7 +173,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 13, 2024</p>
+        <p class="date">February 14, 2024</p>
       </div>
     </div>
     
@@ -183,7 +183,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層生成モデルを概観する．
+      数学者のために，深層生成モデルの１つ VAE を概観する．
     </div>
   </div>
   
@@ -191,7 +191,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#vae-kingma-welling2014" id="toc-vae-kingma-welling2014" class="nav-link active" data-scroll-target="#vae-kingma-welling2014"><span class="header-section-number">1</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(Kingma &amp; Welling, 2014)</span></a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -224,28 +230,26 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<p><span class="citation" data-cites="Hinton+2012">(<a href="#ref-Hinton+2012" role="doc-biblioref">Hinton et al., 2012</a>)</span>, <span class="citation" data-cites="Srivastava+2014">(<a href="#ref-Srivastava+2014" role="doc-biblioref">Srivastava et al., 2014</a>)</span> による，ミニバッチごとに確率的に使わない結合を決定するという正則化の技法である．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<section id="vae-kingma-welling2014" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="vae-kingma-welling2014"><span class="header-section-number">1</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span></h2>
+<p>Variational Autoencoder <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>, <span class="citation" data-cites="Rezende+2014">(<a href="#ref-Rezende+2014" role="doc-biblioref">Rezende et al., 2014</a>)</span> も GAN と同じく，深層生成モデルにもう１つの深層ニューラルネットワークを対置するが，このニューラルネットは GAN のように判別をするのではなく，近似推論を実行する <strong>認識モデル</strong> (recognition model) である．</p>
+<p>この深層グラフィカルモデルと近似推論器とを，同時に確率勾配降下法によって学習する <span class="citation" data-cites="Kingma-Welling2019">(<a href="#ref-Kingma-Welling2019" role="doc-biblioref">Kingma &amp; Welling, 2019</a>)</span>．</p>
 
 
 
-
+</section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Goodfellow+2014" class="csl-entry" role="listitem">
-Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., Courville, A., &amp; Bengio, Y. (2014). Generative adversarial nets. <em>Advances in Neural Information Processing Systems</em>, <em>27</em>, 1–9. <a href="https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html">https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html</a>
+<div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
+Kingma, D. P., &amp; Welling, M. (2014). Auto-encoding variational bayes. <em>International Conference on Learning Representations</em>, <em>2</em>. <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">https://openreview.net/forum?id=33X9fd2-9FyZd</a>
 </div>
-<div id="ref-Hinton+2012" class="csl-entry" role="listitem">
-Hinton, G. E., Srivastava, N., Krizhevsky, A., Sutskever, I., &amp; Salakhutdinov, R. R. (2012). <em>Improving neural networks by preventing co-adaptation of feature detectors</em>. <a href="https://arxiv.org/abs/1207.0580">https://arxiv.org/abs/1207.0580</a>
+<div id="ref-Kingma-Welling2019" class="csl-entry" role="listitem">
+Kingma, D. P., &amp; Welling, M. (2019). An introduction to variational autoencoders. <em>Foundations and Treands in Machine Learning</em>, <em>12</em>(4), 307–392. <a href="https://www.nowpublishers.com/article/Details/MAL-056">https://www.nowpublishers.com/article/Details/MAL-056</a>
 </div>
-<div id="ref-Srivastava+2014" class="csl-entry" role="listitem">
-Srivastava, N., Hinton, G. E., Krizhevsky, A., Sutskever, I., &amp; Salakhutdinov, R. (2014). Dropout: A simple way to prevent neural networks from overfitting. <em>The Journal of Machine Learning Research</em>, <em>15</em>(56), 1929–1958. <a href="https://jmlr.org/papers/v15/srivastava14a.html">https://jmlr.org/papers/v15/srivastava14a.html</a>
+<div id="ref-Rezende+2014" class="csl-entry" role="listitem">
+Rezende, D. J., Mohamed, S., &amp; Wierstra, D. (2014). Approximate inference in deep generative models. <em>Proceedings of the 31st International Conference on Machine Learning</em>, <em>32</em>, 1278–1286. <a href="https://proceedings.mlr.press/v32/rezende14.html">https://proceedings.mlr.press/v32/rezende14.html</a>
 </div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p>GAN の数値実験 <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014, p. 6</a>)</span> にも，判別器を訓練するのに用いられている．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
