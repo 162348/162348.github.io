@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-14">
+<meta name="dcterms.date" content="2024-02-16">
 
-<title>Hirofumi Shiba - 数学者のための深層学習５</title>
+<title>Hirofumi Shiba - 数学者のための深層学習７</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,7 +22,27 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -81,12 +101,12 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習５">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習７">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
 <meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習５">
-<meta name="twitter:description" content="数学者のために，深層生成モデルの１つ VAE を概観する．">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習７">
+<meta name="twitter:description" content="深層学習の学習における確率最適化アルゴリズムに関して概説する．">
 <meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -131,8 +151,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習５</h1>
-            <p class="subtitle lead">拡散モデル</p>
+      <h1 class="title">数学者のための深層学習７</h1>
+            <p class="subtitle lead">確率的最適化</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
@@ -153,7 +173,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 14, 2024</p>
+        <p class="date">February 16, 2024</p>
       </div>
     </div>
     
@@ -163,7 +183,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      数学者のために，深層生成モデルの１つ VAE を概観する．
+      深層学習の学習における確率最適化アルゴリズムに関して概説する．
     </div>
   </div>
   
@@ -171,7 +191,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -204,10 +230,30 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p>確率的最適化は，はじめは統計学の文脈で <span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951</a>)</span> によってオンラインの最尤推定を題材に考察された．</p>
+<p>これを基に <span class="citation" data-cites="Kiefer-Wolfowitz1952">(<a href="#ref-Kiefer-Wolfowitz1952" role="doc-biblioref">Kiefer &amp; Wolfowitz, 1952</a>)</span> は <a href="https://ja.wikipedia.org/wiki/%E7%A2%BA%E7%8E%87%E7%9A%84%E5%8B%BE%E9%85%8D%E9%99%8D%E4%B8%8B%E6%B3%95"><strong>確率的勾配降下法</strong></a> (SGD) を提案した．</p>
+<p>SGD を拡張し，適応的に学習率を調整する手法としては，Adagrad <span class="citation" data-cites="Duchi+2011">(<a href="#ref-Duchi+2011" role="doc-biblioref">Duchi et al., 2011</a>)</span> や RMSprop <span class="citation" data-cites="Tieleman-Hinton2012">(<a href="#ref-Tieleman-Hinton2012" role="doc-biblioref">Tieleman &amp; Hinton, 2012</a>)</span> が提案された．</p>
 
 
 
-</main> <!-- /main -->
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-Duchi+2011" class="csl-entry" role="listitem">
+Duchi, J., Hazan, E., &amp; Singer, Y. (2011). Adaptive subgradient methods for online learning and stochastic optimization. <em>Journal of Machine Learning Research</em>, <em>12</em>, 2121–2159. <a href="https://jmlr.org/papers/v12/duchi11a.html">https://jmlr.org/papers/v12/duchi11a.html</a>
+</div>
+<div id="ref-Kiefer-Wolfowitz1952" class="csl-entry" role="listitem">
+Kiefer, J., &amp; Wolfowitz, J. (1952). Stochastic estimation of the maximum of a regression function. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 462–466. <a href="https://www.jstor.org/stable/2236690">https://www.jstor.org/stable/2236690</a>
+</div>
+<div id="ref-Robbins-Monro1951" class="csl-entry" role="listitem">
+Robbins, H., &amp; Monro, S. (1951). A stochastic approximation method. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 400–407. <a href="https://www.jstor.org/stable/2236626">https://www.jstor.org/stable/2236626</a>
+</div>
+<div id="ref-Tieleman-Hinton2012" class="csl-entry" role="listitem">
+Tieleman, T., &amp; Hinton, G. (2012). <em>Neural networks for machine learning. Lecture 6.5: Divide the gradient by a running average of its recent magnitude</em>. <a href="https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf">https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf</a>
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
