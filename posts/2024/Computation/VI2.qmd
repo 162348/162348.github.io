@@ -1,5 +1,5 @@
 ---
-title: "変分推論（２）"
+title: "変分推論２"
 subtitle: "EM アルゴリズム"
 author: "司馬 博文"
 date: 2/10/2024
@@ -86,7 +86,9 @@ $$
 
 $Z$ もパラメータと見た場合，これは潜在変数 $Z$ を持つモデルともみなせる．また，$X$ に対する混合モデルともみなせる．
 
-このように，$X$ の分布を，潜在変数 $Z$ を追加して理解することを，モデルの **完備化** (completion) または **脱周辺化** (demarginalization) ともいう．^[[@Robert2007 p.330]，[@Robert-Casella2004 p.176]．]
+[隠れ Markov モデル](../../2023/Surveys/SSM.qmd) はこの良い例である．^[特に，状態空間モデルの文脈では，EM アルゴリズムは Baum-Welch アルゴリズムとも呼ばれる．]
+
+このように，$X$ の分布を，潜在変数 $Z$ を追加して理解することを，モデルの **完備化** (completion) または **脱周辺化** (demarginalization)，またはデータの拡張 (data augmentation) ともいう．^[それぞれ，[@Robert2007 p.330]，[@Robert-Casella2004 p.176]，[@Hastie-Tibshirani-Friedman2009 p.276]，]
 
 これは，
 $$
@@ -94,7 +96,7 @@ p(x|\theta)=\int_{\cZ}p(x,z|\theta)\,dz
 $$ {#eq-2}
 という形の尤度を持つモデルである．^[[@Robert-Casella2004 p.174] 式(5.7)．$p$ を完備化された尤度 (completed likelihood) ともいう．]
 
-### EM アルゴリズム
+### EM アルゴリズム {#sec-EM}
 
 値域 $\cZ$ を持つ潜在変数 $Z$ とパラメータ $\theta\in\Theta$ に関して @eq-2 で表せる尤度関数 $p(x|\theta)$ に関して，Jensen の不等式より，任意の $x,\theta$ で添字づけられた確率密度関数 $q:\cZ\to\R_+$^[正確には確率核 $Q:\cX\times\Theta\to\cZ$．] とパラメータ $\theta\in\Theta$ について次の評価が成り立つ：
 
@@ -115,16 +117,16 @@ $$
     &=\log p(x|\theta)-\KL(q_\varphi,p_\theta).
 \end{align*}
 $$
-より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．通常，$q=p$ を取るから，この $E$-ステップは，単に $Q(\theta)$ を計算する，というステップになる．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998]．@eq-5 も参照．]
-2. $M$-ステップ：$F$ を $\theta$ について最大化する．
+より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．この $E$-ステップは，単に $q=p$ を代入して $Q(\theta)$ を計算する，とも説明される．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998], [@Hastie-Tibshirani-Friedman2009 p.277]．]
+1. $M$-ステップ：$F$ を $\theta$ について最大化する．
 $$
 \begin{align*}
     F(q,\theta)&=\int_{\cZ}q(z|x,\varphi)\log p(x,z|\theta)\,dz\\
     &\qquad-\int_\cZ q(z|x,\varphi)\log q(z|x,\varphi)\,dz\\
-    &=\underbrace{(q_\varphi|\log p_\theta)}_{=:Q(\theta)}+H(q_\varphi)
+    &=\underbrace{(q_\varphi dz\,|\log p_\theta)}_{=:Q(\theta|\varphi,x)}+H(q_\varphi)
 \end{align*}
 $$
-より，$Q$ の停留点で最大化される．
+より，$Q$ の停留点で最大化される．^[これは典型的には微分を伴う．これを回避し，「最大化」とは限らないが，「現状よりは大きくする」アルゴリズムを用いた場合，これを GEM (Generalized EM) ともいう [@Hastie-Tibshirani-Friedman2009 p.277]．]
 
 総じて，EM アルゴリズムは $p,q$ の KL 乖離度を逐次的に最小化している．
 
@@ -171,6 +173,10 @@ $$
 
 ## EM アルゴリズムの実装
 
+負担率にもモデルを置いた場合，$K$-平均アルゴリズムは EM アルゴリズムになる．
+
+EM アルゴリズムは一般に多峰性に弱いことをここで示す．^[[@Robert-Casella2004] も参照．]
+
 ### Guass 有限混合モデル
 
 ここでは，以下の，有限な混合モデルで，さらに混合される分布は正規であるものを考える：
@@ -197,4 +203,41 @@ $$
 \end{align*}
 $$
 に当たる場合である．
+
+## Monte Carlo 法による解決
+
+混合モデルにおける Bayes 推論が Gibbs サンプラーによって実行できる [@Robert1996] 上に，初期値依存性や局所解へのトラップが懸念されるという EM アルゴリズムの問題点を，MCMC はいずれも持ち合わせていない．
+
+さらに，混合数 $K$ に関する検定も構成できる [@Mengersen-Robert1996]．
+
+### Gibbs サンプリング
+
+高次元な確率変数 $(U_1,\cdots,U_K)$ のシミュレーションを行いたい場合，直接行うのではなく，条件付き分布 $p(U_k|U_{-k})$ からのサンプリングを繰り返すことでこれを行うことが出来る．^[$U_{-k}:=U_{1:(k-1),(k+1):K}$ とした．]
+
+1. 任意の初期値 $U_1^{(0)},\cdots,U_K^{(0)}$ を与える．
+2. 各 $k\in[K]$ について，
+$$
+U_k^{(t)}\sim p(U_k|U_{-k}^{(t-1)})
+$$
+をサンプリングする．
+1. 十分時間が経過した際，アルゴリズムの出力 $(U^{(t)}_1,\cdots,U^{(t)}_K)$ は $(U_1,\cdots,U_K)$ と同分布になる．
+
+### 確率的 EM アルゴリズム
+
+Gibbs サンプリングアルゴリズムは，EM アルゴリズム[-@sec-EM]の変形とみなせる：
+
+1. $E$-ステップ：EM アルゴリズムでは
+$$
+Q(\theta|\vartheta,x):=(p_\vartheta dz\,|\log p_\theta)
+$$
+を評価するところであったが，Gibbs サンプリングでは，$p(z|x,\theta)$ のサンプリングを行う．
+2. $M$-ステップ：EM アルゴリズムでは
+$$
+\argmax_{\vartheta\in\Theta}Q(\vartheta|\theta,x)=(p_\theta dz\,|\log p_\vartheta)
+$$
+を求めるところであったが，Gibbs サンプリングでは，$p(\theta|z,x)$ のサンプリングを行う．
+
+これは $E$-ステップでの $Q$ 関数の評価が困難であるとき，$p(z|x,\theta)$ からのサンプリングでこれを回避できるという美点もある．
+
+この美点のみを用いて，Gibbs サンプリングを用いないまでも，$E$-ステップのみをサンプリング法で代替した EM 法を MCEM (Monte Carlo EM) という [@Wei-Tanner1990], [@Wei-Tanner1990+]．
 
