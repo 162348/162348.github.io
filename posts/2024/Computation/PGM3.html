@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-14">
+<meta name="dcterms.date" content="2024-02-17">
 
-<title>Hirofumi Shiba - 数学者のための深層学習４</title>
+<title>Hirofumi Shiba - 数学者のための確率的グラフィカルモデル３</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -130,13 +130,17 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習４">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための確率的グラフィカルモデル３">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
-<meta property="og:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
+<meta property="og:image" content="https://github.com/162348/docs/posts/2024/Computation/PGM.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習４">
-<meta name="twitter:description" content="深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．">
-<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Kernels/anomaths.png">
+<meta property="og:image:height" content="134">
+<meta property="og:image:width" content="393">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための確率的グラフィカルモデル３">
+<meta name="twitter:description" content="数学者のために，PGM (Probabilistic Graphical Model) の代表的な推論手法を紹介する．">
+<meta name="twitter:image" content="https://github.com/162348/docs/posts/2024/Computation/PGM.png">
+<meta name="twitter:image-height" content="134">
+<meta name="twitter:image-width" content="393">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -180,10 +184,10 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習４</h1>
-            <p class="subtitle lead">生成モデル VAE</p>
+      <h1 class="title">数学者のための確率的グラフィカルモデル３</h1>
+            <p class="subtitle lead">グラフィカルモデルを用いた推論</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Kernel</div>
+                <div class="quarto-category">Computation</div>
                 <div class="quarto-category">Math Notes</div>
               </div>
                   </div>
@@ -202,7 +206,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 14, 2024</p>
+        <p class="date">February 17, 2024</p>
       </div>
     </div>
     
@@ -212,7 +216,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．
+      数学者のために，PGM (Probabilistic Graphical Model) の代表的な推論手法を紹介する．
     </div>
   </div>
   
@@ -224,17 +228,7 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#確率的勾配降下法による変分ベイズ-sgvb" id="toc-確率的勾配降下法による変分ベイズ-sgvb" class="nav-link active" data-scroll-target="#確率的勾配降下法による変分ベイズ-sgvb"><span class="header-section-number">1</span> 確率的勾配降下法による変分ベイズ (SGVB)</a>
-  <ul class="collapse">
-  <li><a href="#sgvb-のアイデア勾配の-monte-carlo-推定" id="toc-sgvb-のアイデア勾配の-monte-carlo-推定" class="nav-link" data-scroll-target="#sgvb-のアイデア勾配の-monte-carlo-推定"><span class="header-section-number">1.1</span> SGVB のアイデア：勾配の Monte Carlo 推定</a></li>
-  <li><a href="#変分下界の復習" id="toc-変分下界の復習" class="nav-link" data-scroll-target="#変分下界の復習"><span class="header-section-number">1.2</span> 変分下界の復習</a></li>
-  <li><a href="#sgvb-推定量" id="toc-sgvb-推定量" class="nav-link" data-scroll-target="#sgvb-推定量"><span class="header-section-number">1.3</span> SGVB 推定量</a></li>
-  </ul></li>
-  <li><a href="#sec-VAE" id="toc-sec-VAE" class="nav-link" data-scroll-target="#sec-VAE"><span class="header-section-number">2</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(Kingma &amp; Welling, 2014)</span></a>
-  <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">2.1</span> 導入</a></li>
-  <li><a href="#vq-vae" id="toc-vq-vae" class="nav-link" data-scroll-target="#vq-vae"><span class="header-section-number">2.2</span> VQ-VAE</a></li>
-  </ul></li>
+  <li><a href="#laplace-近似" id="toc-laplace-近似" class="nav-link active" data-scroll-target="#laplace-近似"><span class="header-section-number">1</span> Laplace 近似</a></li>
   </ul>
 </nav>
     </div>
@@ -269,115 +263,27 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="確率的勾配降下法による変分ベイズ-sgvb" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="確率的勾配降下法による変分ベイズ-sgvb"><span class="header-section-number">1</span> 確率的勾配降下法による変分ベイズ (SGVB)</h2>
-<p>変分自己符号化器 (Variational Auto-encoder) の説明に入る前に，変分ベイズ法において勾配を用いた最適化を実行するための汎用手法である <strong>SGVB (Stochastic Gradient Variational Bayes)</strong> について説明する．</p>
-<p>VAE は元々この SGVB という要素技術とセットで提案された <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>．</p>
-<p>変分近似をする分布族 <span class="math inline">\(\{q_\phi\}\)</span> としてニューラルネットを用いた場合が，VAE であり，広く SGVB は，一般の連続な潜在変数を持った（有向）グラフィカルモデルに適用できる．</p>
-<section id="sgvb-のアイデア勾配の-monte-carlo-推定" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="sgvb-のアイデア勾配の-monte-carlo-推定"><span class="header-section-number">1.1</span> SGVB のアイデア：勾配の Monte Carlo 推定</h3>
-<p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> 同様，生成モデリングは，潜在空間 <span class="math inline">\(Z\)</span> で条件付けた際の分布 <span class="math inline">\(p(x|z)\)</span> をモデリングすることに等しい．GAN は <span class="math inline">\(p(x|z)\)</span> を明示的に評価することを回避することで複雑な生成モデリングを達成していた．</p>
-<p>一方で，（周辺）尤度の評価を完全に回避せずとも，<a href="../../../posts/2024/Computation/VI3.html">変分 Bayes 法</a> によるアプローチが可能である．<span class="math inline">\(p(x|z)\)</span> に分布族 <span class="math inline">\(q_\phi(x|z)\)</span> を導入し，真の分布 <span class="math inline">\(p\)</span> との KL-距離を最小にする <span class="math inline">\(\phi\in\Phi\)</span> を選ぶのである．</p>
-<p>変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 <span class="math inline">\(\{q_\phi\}\)</span> を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>そこで，一般の分布族 <span class="math inline">\(\{q_\phi\}\)</span> に対して勾配情報を用いた最適化が実施できるように，変分下界 <span class="math inline">\(F(p_\theta,q_\phi)\)</span> 対する Monte Carlo 推定量を開発するのである．これが SGVB 推定量である．</p>
-</section>
-<section id="変分下界の復習" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="変分下界の復習"><span class="header-section-number">1.2</span> 変分下界の復習</h3>
-<p>データ <span class="math inline">\(X\)</span> の生成過程に，モデル <span class="math inline">\(p_\theta(z)p_\theta(x|z)\)</span> を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度 <span class="math display">\[
-p_\theta(x)=\int_\mathcal{Z}p_\theta(z)p_\theta(x|z)\,dz
-\]</span> や事後分布 <span class="math inline">\(p_\theta(z|x)\)</span> の評価は容易でない．</p>
-<p>そこで，<span class="math inline">\(p_\theta(z|x)\)</span> に対して，認識モデル <span class="math inline">\(\{q_\phi(z|x)\}_{\phi\in\Phi}\)</span> を導入する．VAE <a href="#sec-VAE" class="quarto-xref">2</a> では，これもニューラルネットワークとし，<span class="math inline">\((\theta,\phi)\in\Theta\times\Phi\)</span> を同時に SGD により学習することを考える．</p>
-<p>潜在変数 <span class="math inline">\(Z\)</span> を情報源と見て，<span class="math inline">\(q_\theta(z|x)\)</span> を <strong>符号化器</strong> (encoder) と呼び，<span class="math inline">\(p_\theta(x|z)\)</span> を <strong>復号器</strong> (decoder) とも呼ぶ．</p>
-<p>このとき，対数周辺尤度の変分下界は次のように表せるのであった：<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> <span class="math display">\[
-\begin{align*}
-    \log p_\theta(x)&amp;=\log\int_\mathcal{Z}p_\theta(x,z)\,dz\\
-    &amp;=\log\int_\mathcal{Z}q_\phi(z)\frac{p_\theta(x,z)}{q_\phi(z)}\,dz\\
-    &amp;\ge\int_\mathcal{Z}q_\phi(z)\log\frac{q_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
-    &amp;=-\mathop{\mathrm{KL}}(q_\phi,p_\theta)+\int_\mathcal{Z}q_\phi(z)\log p_\theta(x|z)\,dz\\
-    &amp;=:F(\theta,\phi;x)
-\end{align*}
+<div class="hidden">
+<p><span class="math display">\[
+\DeclareMathOperator{\des}{des}
+\DeclareMathOperator{\nd}{nd}
+\DeclareMathOperator{\dsep}{d-sep}
+\DeclareMathOperator{\sep}{sep}
 \]</span></p>
-<p>この <span class="math inline">\(F\)</span> を <span class="math inline">\(\theta,\phi\)</span> に関して逐次的に最大化するのが変分 Bayes である．これを実行するために <span class="math inline">\(q_\phi\)</span> に平均場近似などをするのが旧来手法であるが，これ以上の近似をせずとも，<span class="math inline">\(F\)</span> の勾配の推定量を用いて，<span class="math inline">\(p_\theta,q_\phi\)</span> を同時に学習することが出来るというのである．</p>
-</section>
-<section id="sgvb-推定量" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sgvb-推定量"><span class="header-section-number">1.3</span> SGVB 推定量</h3>
-<p>例えば <span class="math inline">\(F\)</span> を <span class="math inline">\(\phi\)</span> に関して勾配情報から最大化する際に，勾配 <span class="math inline">\(D_\phi F\)</span> の Monte Carlo 推定量が利用できる．しかし，単に <span class="math inline">\(q_\phi(z|x)\)</span> からのサンプルを用いた crude Monte Carlo では，この推定量の分散は非常に大きい <span class="citation" data-cites="Paisley+2012">(<a href="#ref-Paisley+2012" role="doc-biblioref">Paisley et al., 2012</a>)</span>．</p>
-<p>これを <strong>重点サンプリングの考え方により解決した</strong> のが <span class="math inline">\(D_\phi F,D_\theta F\)</span> に対する SGVB 推定量である．<span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span> では reparameterization trick と呼んでいる．</p>
-<p>ある分布 <span class="math inline">\(P\in\mathcal{P}(E)\)</span> と可微分同相 <span class="math inline">\(g_\phi:E\times\mathcal{X}\to\mathcal{Z}\)</span> であって <span class="math display">\[
-g_\phi(\epsilon,x)\sim q_\phi(z,x)\quad(\epsilon\sim P)
-\]</span> を満たすものを見つけることができて，この <span class="math inline">\(P\)</span> を提案分布とする重点サンプリング推定量 <span class="math display">\[
-\begin{align*}
-    \operatorname{E}_{q_\phi}[f(Z)]&amp;=\operatorname{E}_{P}[f(g_\phi(\epsilon,x))]\\
-    &amp;\simeq\frac{1}{M}\sum_{i=1}^Mf(g_\phi(\epsilon^i,x))
-\end{align*}
-\]</span> により，Monte Carlo 推定量の分散を減らすことができる．<span class="math inline">\(f=F\)</span> と取ることで SGVB 推定量を得る．</p>
-<p>さらに，<span class="math inline">\(\mathcal{Z}\)</span> 上のモデル <span class="math inline">\(q_\phi(z),p_\theta(z)\)</span> とが <span class="math inline">\(d\)</span>-次元の正規分布であった場合， <span class="math display">\[
--\mathop{\mathrm{KL}}(q_\phi,p_\theta)=\frac{1}{2}\sum_{j=1}^d\biggr(1+\log(\sigma_j^2)-\mu_j^2-\sigma_j^2\biggl)
-\]</span> と解析的に解けるので，結局 Monte Carlo 近似が必要なのは，再構成誤差を表す <span class="math display">\[
-\int_\mathcal{Z}q_\phi(z)\log p_\theta(x|z)\,dz
-\]</span> の部分だけである．</p>
-<p>このような理由で，<span class="math inline">\(q_\phi(z),p_\theta(z)\)</span> は典型的には正規分布としてモデリングされる．</p>
-</section>
-</section>
-<section id="sec-VAE" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="sec-VAE"><span class="header-section-number">2</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span></h2>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="VAE.png" class="img-fluid figure-img"></p>
-<figcaption>Samples from a VQ-VAE Taken from Figure 6 <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019, p. 8</a>)</span></figcaption>
-</figure>
 </div>
-<section id="導入" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">2.1</span> 導入</h3>
-<p>Variational Auto-encoder <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>, <span class="citation" data-cites="Rezende+2014">(<a href="#ref-Rezende+2014" role="doc-biblioref">Rezende et al., 2014</a>)</span> も GAN と同じく，深層生成モデル <span class="math inline">\(p_\theta\)</span> にもう１つの深層ニューラルネットワーク <span class="math inline">\(q_\phi\)</span> を対置するが，このニューラルネット <span class="math inline">\(q_\phi\)</span> は GAN のように判別をするのではなく，近似推論によってデータ生成源を再構成しようとする <strong>認識モデル</strong> (recognition model) である．<span class="math inline">\(q_\phi\)</span> はエンコーダーとも呼ばれる．</p>
-<p>この深層生成モデル <span class="math inline">\(p_\theta\)</span> と近似推論器 <span class="math inline">\(q_\phi\)</span> とを，同時に確率勾配降下法によって学習する <span class="citation" data-cites="Kingma-Welling2019">(<a href="#ref-Kingma-Welling2019" role="doc-biblioref">Kingma &amp; Welling, 2019</a>)</span>．</p>
-<p>VAE のエンコーダー <span class="math inline">\(q_\phi\)</span> は動画データの圧縮表現の学習 <span class="citation" data-cites="Brooks+2024">(<a href="#ref-Brooks+2024" role="doc-biblioref">Brooks et al., 2024</a>)</span> など，その他の生成モデルの構成要素としても用いられる．</p>
-</section>
-<section id="vq-vae" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="vq-vae"><span class="header-section-number">2.2</span> VQ-VAE</h3>
-<p>VAE は画像データの生成にも応用されている．</p>
-<p>VQ-VAE <span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span>, <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019</a>)</span> は，自己符号化器の中間表現にベクトル量子化を施し，JPEG <span class="citation" data-cites="Wallace1992">(<a href="#ref-Wallace1992" role="doc-biblioref">Wallace, 1992</a>)</span> のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．</p>
-<p>実際，元データの 30 分の 1 以下のサイズで学習を行い，最終的にデコーダーを用いて殆ど歪みなく再構成できるという．</p>
-<p>GAN は元データのうち，尤度が低い部分が無視され，サンプルの多様性が失われがちであったが，VQ-VAE はこの問題を解決している．また，GAN にはないようなモデル評価の指標が複数提案されている．</p>
+<section id="laplace-近似" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="laplace-近似"><span class="header-section-number">1</span> Laplace 近似</h2>
+<p><span class="citation" data-cites="MacKay2003">(<a href="#ref-MacKay2003" role="doc-biblioref">MacKay, 2003</a>)</span></p>
 
 
 
 </section>
-</section>
-
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Brooks+2024" class="csl-entry" role="listitem">
-Brooks, T., Peebles, B., Holmes, C., DePue, W., Guo, Y., Jing, L., Schnurr, D., Taylor, J., Luhman, T., Luhman, E., Ng, C. W. Y., Wang, R., &amp; Ramesh, A. (2024). <em>Video generation models as world simulators</em>. OpenAI. <a href="https://openai.com/research/video-generation-models-as-world-simulators">https://openai.com/research/video-generation-models-as-world-simulators</a>
+<div id="ref-MacKay2003" class="csl-entry" role="listitem">
+MacKay, D. J. C. (2003). <em>Information theory, inference and learning algorithms</em>. Cambridge University Press. <a href="https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989">https://www.cambridge.org/gb/universitypress/subjects/computer-science/pattern-recognition-and-machine-learning/information-theory-inference-and-learning-algorithms?format=HB&amp;isbn=9780521642989</a>
 </div>
-<div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2014). Auto-encoding variational bayes. <em>International Conference on Learning Representations</em>, <em>2</em>. <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">https://openreview.net/forum?id=33X9fd2-9FyZd</a>
-</div>
-<div id="ref-Kingma-Welling2019" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2019). An introduction to variational autoencoders. <em>Foundations and Treands in Machine Learning</em>, <em>12</em>(4), 307–392. <a href="https://www.nowpublishers.com/article/Details/MAL-056">https://www.nowpublishers.com/article/Details/MAL-056</a>
-</div>
-<div id="ref-Paisley+2012" class="csl-entry" role="listitem">
-Paisley, J., Blei, D. M., &amp; Jordan, M. I. (2012). Variational bayesian inference with stochastic search. <em>Proceedings of the 29th International Conference on Machine Learning</em>, 1363–1370. <a href="https://dl.acm.org/doi/10.5555/3042573.3042748">https://dl.acm.org/doi/10.5555/3042573.3042748</a>
-</div>
-<div id="ref-Razavi+2019" class="csl-entry" role="listitem">
-Razavi, A., van&nbsp;den&nbsp;Oord, A., &amp; Vinyals, O. (2019). Generating diverse high-fidelity images with VQ-VAE-2. <em>Advances in Neural Information Processing Systems</em>, <em>32</em>. <a href="https://papers.nips.cc/paper_files/paper/2019/hash/5f8e2fa1718d1bbcadf1cd9c7a54fb8c-Abstract.html">https://papers.nips.cc/paper_files/paper/2019/hash/5f8e2fa1718d1bbcadf1cd9c7a54fb8c-Abstract.html</a>
-</div>
-<div id="ref-Rezende+2014" class="csl-entry" role="listitem">
-Rezende, D. J., Mohamed, S., &amp; Wierstra, D. (2014). Approximate inference in deep generative models. <em>Proceedings of the 31st International Conference on Machine Learning</em>, <em>32</em>, 1278–1286. <a href="https://proceedings.mlr.press/v32/rezende14.html">https://proceedings.mlr.press/v32/rezende14.html</a>
-</div>
-<div id="ref-vandenOord+2017" class="csl-entry" role="listitem">
-van&nbsp;den&nbsp;Oord, A., Vinyals, O., &amp; Kavukcuoglu, K. (2017). Neural discrete representation learning. <em>Advances in Neural Information Processing Systems</em>, <em>30</em>. <a href="https://papers.nips.cc/paper_files/paper/2017/hash/7a98af17e63a0ac09ce2e96d03992fbc-Abstract.html">https://papers.nips.cc/paper_files/paper/2017/hash/7a98af17e63a0ac09ce2e96d03992fbc-Abstract.html</a>
-</div>
-<div id="ref-Wallace1992" class="csl-entry" role="listitem">
-Wallace, G. K. (1992). The JPEG still picture compression standard. <em>IEEE Transactions on Consumer Electronics</em>, <em>38</em>, 1. <a href="https://ieeexplore.ieee.org/document/125072">https://ieeexplore.ieee.org/document/125072</a>
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p>なお，平均場近似も極めて困難な解析的計算を必要とする <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><a href="../../../posts/2024/Computation/VI3.html#sec-ELBO">前稿</a> も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
