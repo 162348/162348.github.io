@@ -179,7 +179,7 @@ $$
 
 EM アルゴリズムは一般に多峰性に弱いことをここで示す．^[[@Robert-Casella2004] も参照．]
 
-### Guass 有限混合モデル
+### Guass 有限混合モデル {#sec-Gaussian-finite-mixture-model}
 
 ここでは，以下の，有限な混合モデルで，さらに混合される分布は正規であるものを考える：
 
@@ -202,7 +202,7 @@ $$ {#eq-1}
 
 @sec-EM での議論を，今回の Gauss 有限混合モデルに当てはめてみる．
 
-対数尤度は
+対数周辺尤度は
 
 $$
 \begin{align*}
@@ -212,26 +212,27 @@ $$
 \end{align*}
 $$
 
-という下界を持つ．これに対して，混合 Gauss モデルに対する EM アルゴリズムは次の２段階を繰り返す：
+という下界を持つ．
+
+これに基づき，観測 $\{x^{(n)}\}_{n=1}^N$ と混合 Gauss モデル [-@sec-Gaussian-finite-mixture-model] に対する EM アルゴリズムは次の２段階を繰り返す：
 
 1. $E$-ステップ：
     $$
     \begin{align*}
-        q_k&\gets\P[Z=k|x,\theta]\\
-        &=\frac{p_k\phi(x|\theta_k)}{\sum_{j=1}^Kp_j\phi(x|\theta_j)}
+        r_k^{(n)}&\gets\P[Z=k|x^{(n)},\theta]\\
+        &=\frac{p_k\phi(x^{(n)}|\theta_k)}{\sum_{j=1}^Kp_j\phi(x^{(n)}|\theta_j)}
     \end{align*}
     $$
     を計算して，$F$ に代入する．
 2. $M$-ステップ：$F$ を $\theta$ について最大化する．これは，次の値を計算することに等しい：
-    1. $$r_{kn}\gets\P[Z=k|x_n,\theta]$$
-    2.  $$
-    \mu_k\gets\frac{\sum_{n=1}^Nr_{nk}x_n}{\sum_{n=1}^Nr_{nk}}
+    1. $$
+    \mu_k\gets\frac{\sum_{n=1}^Nr_k^{(n)}x^{(n)}}{\sum_{n=1}^Nr_k^{(n)}}
+    $$
+    2. $$
+    \Sigma_k\gets\frac{\sum_{n=1}^Nr_{k}^{(n)}(x^{(n)}-\mu_k)(x^{(n)}-\mu_k)^\top}{\sum_{n=1}^Nr_{k}^{(n)}}
     $$
     3. $$
-    \Sigma_k\gets\frac{\sum_{n=1}^Nr_{nk}(x_n-\mu_k)(x_n-\mu_k)^\top}{\sum_{n=1}^Nr_{nk}}
-    $$
-    4. $$
-    p_k\gets\frac{\sum_{n=1}^Nr_{nk}}{N}
+    p_k\gets\frac{\sum_{n=1}^Nr_{k}^{(n)}}{N}
     $$
 
 ::: {.callout-note icon="false" collapse="true" title="$E$-ステップの導出"}
@@ -244,7 +245,12 @@ $$
     &=\frac{p_k\phi(x|\theta_k)}{\sum_{j=1}^Kp_j\phi(x|\theta_j)}.
 \end{align*}
 $$
-の計算に帰着する．これが[負担率](VI.qmd#sec-soft-k-means) $r_{kn}$ である．
+の計算に帰着する．$\{p_k\}$ が一様で，$\sigma_k=\sigma$ も一様であるとき，これはソフト $K$-平均法における [負担率](VI.qmd#sec-soft-k-means) $r_{kn}$ に他ならない．このとき，
+$$
+\beta=\frac{1}{2\sigma^2}.
+$$
+
+こうして，負担率とは，「データ点がそのクラスターに属するという事後確率」としての意味も持つことが判った．
 
 :::
 
@@ -273,6 +279,239 @@ $$
 J(r,\mu):=\sum_{n=1}^N\sum_{k=1}^Kr_{nk}\norm{x_n-\mu_k}^2
 $$
 を $r,\mu$ のそれぞれについて逐次的に最小化する手法とも見れる．^[[@Bishop2006 p.424]．]
+
+### Gauss 混合モデルの場合^[[@Robert-Casella2004 pp.181-182] 例5.19 も参照．]
+
+$K=2$ での Gauss 混合分布
+$$
+p\rN(\mu_1,\sigma^2)+(1-p)\rN(\mu_2,\sigma^2),
+$$ {#eq-Gaussian-mixture-model}
+$$
+p=0.7,\quad\sigma=1,
+$$
+を考える．未知パラメータは $\theta:=(\mu_1,\mu_2)$ である．
+
+実は，混合モデルでは，ここまで単純な例でさえ，尤度は多峰性を持つ．
+
+試しに，$(\mu_1,\mu_2)=(0,3.1)$ として 500 個のデータを生成し，モデル [-@eq-Gaussian-mixture-model] が定める尤度をプロットしてみると，次の通りになる：
+
+```{python}
+#| echo: false
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+# パラメータ
+p = 0.7
+sigma = 1
+mu1_true = 0
+mu2_true = 3.1
+n_samples = 500
+
+# 観測データの生成
+np.random.seed(42)  # 結果の再現性のため
+samples = np.concatenate([
+    np.random.normal(mu1_true, sigma, int(p * n_samples)),
+    np.random.normal(mu2_true, sigma, n_samples - int(p * n_samples))
+])
+
+# ガウス混合分布のPDF
+def gaussian_mixture_pdf(x, mu1, mu2, sigma):
+    return p * norm.pdf(x, mu1, sigma) + (1 - p) * norm.pdf(x, mu2, sigma)
+
+# 対数尤度関数
+def log_likelihood(samples, mu1, mu2, sigma):
+    return np.sum(np.log(gaussian_mixture_pdf(samples, mu1, mu2, sigma)))
+
+# mu1とmu2の範囲
+mu1_grid_values = np.linspace(-3, 5, 100)
+mu2_grid_values = np.linspace(-3, 5, 100)
+mu1_grid, mu2_grid = np.meshgrid(mu1_grid_values, mu2_grid_values)
+
+# 対数尤度の計算
+log_likelihood_grid = np.zeros(mu1_grid.shape)
+for i in range(mu1_grid.shape[0]):
+    for j in range(mu1_grid.shape[1]):
+        log_likelihood_grid[i, j] = log_likelihood(samples, mu1_grid[i, j], mu2_grid[i, j], sigma)
+
+# ヒートマップとして対数尤度をプロット
+plt.figure(figsize=(8, 6))
+contour = plt.contourf(mu1_grid, mu2_grid, log_likelihood_grid, levels=75, cmap='viridis')
+plt.colorbar(contour)
+plt.title('Log Likelihood for 500 Observations with $(\mu_1,\mu_2)=(0,3.1)$')
+plt.xlabel('$\mu_1$')
+plt.ylabel('$\mu_2$')
+plt.plot(mu1_true, mu2_true, 'r*', markersize=15, label='True values')
+plt.legend()
+plt.show()
+```
+
+真値 $(\mu_1,\mu_2)=(0,3.1)$ で確かに最大になるが，$(\mu_1,\mu_2)=(2,-0.5)$ 付近で極大値を取っていることがわかる．
+
+### EM アルゴリズムの初期値依存性
+
+EM アルゴリズムはその初期値依存性からランダムな初期値から複数回実行してみる必要がある．モデル [-@eq-Gaussian-mixture-model] の場合，その結果は次のようになる：
+
+```{python}
+class EM_1d:
+    """
+    Gauss 有限混合モデルに対する EM アルゴリズム
+
+    Parameters:
+    - K (int): 混合成分の数．デフォルトは2．
+    - max_iter (int): アルゴリズムの最大反復回数．デフォルトは100．
+    - tol (float): 収束の閾値．連続する反復での対数尤度の差がこの値以下になった場合，アルゴリズムは収束したと見なされる．デフォルトは1e-4．
+    """
+
+    def __init__(self, K=2, init=None, max_iter=100, tol=1e-4):
+        self.K = K
+        self.max_iter = max_iter
+        self.tol = tol
+
+        self.means = None
+        self.variances = None
+        self.mixing_coefficients = None
+        self.log_likelihood_history = []
+        self.mean_history = []
+        self.initial_value = init
+
+    def expectation(self, X):
+        """
+        E ステップ
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        N = X.shape[0]
+        r = np.zeros((N, self.K))
+        for k in range(self.K):
+            pdf = norm.pdf(X, self.means[k], np.sqrt(self.variances[k]))
+            r[:, k] = self.mixing_coefficients[k] * pdf
+        r /= r.sum(axis=1, keepdims=True)
+        return r
+
+    def maximization(self, X, r):
+        """
+        M ステップ
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        - r (ndarray): 負担率．
+        """
+        N = X.shape[0]
+        Nk = r.sum(axis=0)
+        self.means = (X.T @ r / Nk).T
+        self.variances = np.zeros(self.K)
+        for k in range(self.K):
+            diff = X - self.means[k]
+            self.variances[k] = (r[:, k] @ (diff ** 2)) / Nk[k]
+        self.mixing_coefficients = Nk / N
+
+    def compute_log_likelihood(self, X):
+        """
+        対数尤度の計算
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        log_likelihood = 0
+        for x in X:
+            log_likelihood += np.log(np.sum([self.mixing_coefficients[k] * norm.pdf(x, self.means[k], np.sqrt(self.variances[k])) for k in range(self.K)]))
+        return log_likelihood
+    
+    def fit(self, X):
+        """
+        EM アルゴリズムの実行
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        N = X.shape[0]
+        np.random.seed(42)
+
+        if self.initial_value is None:
+            random_indeces = np.random.choice(N, self.K, replace=False)
+            self.initial_value = X[random_indeces]
+        self.means = self.initial_value
+        self.initial_value = self.means
+        self.variances = np.ones(self.K)
+        self.mixing_coefficients = np.ones(self.K) / self.K
+
+        # 反復
+        for _ in range(self.max_iter):
+            r = self.expectation(X)
+            self.maximization(X, r)
+            log_likelihood = self.compute_log_likelihood(X)
+            self.log_likelihood_history.append(log_likelihood)
+            self.mean_history.append(self.means)
+
+            if len(self.log_likelihood_history) >= 2 and np.abs(self.log_likelihood_history[-1] - self.log_likelihood_history[-2]) < self.tol:
+                break
+        
+        return self
+```
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+
+initial_values = np.array([0,-0.8])
+em = EM_1d(K=2, init=initial_values)
+em.fit(samples)
+em.mean_history.insert(0,em.initial_value)
+
+initial_values = np.array([2,2.5])
+em2 = EM_1d(K=2, init=initial_values)
+em2.fit(samples)
+em2.mean_history.insert(0,em2.initial_value)
+
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+
+# 対数尤度の推移をプロット
+axs[0].plot(em.log_likelihood_history, '-o', label='Run 1')
+axs[0].plot(em2.log_likelihood_history, '-o', label='Run 2')
+axs[0].set_title('Log Likelihood Progress')
+axs[0].set_xlabel('Iteration')
+axs[0].set_ylabel('Log Likelihood')
+axs[0].legend()
+
+# (mu1, mu2) の推移をプロット
+# em.mean_history から mu1 と mu2 の値を抽出
+mu1_values = [means[0] for means in em.mean_history]
+mu2_values = [means[1] for means in em.mean_history]
+mu1_values2 = [means[0] for means in em2.mean_history]
+mu2_values2 = [means[1] for means in em2.mean_history]
+
+axs[1].plot(mu1_values, mu2_values, '-o', label='Run 1')
+axs[1].plot(mu1_values2, mu2_values2, '-o', label='Run 2')
+axs[1].set_title('Mean Values Progress ($\mu_1,\mu_2$)')
+axs[1].set_xlabel('$\mu_1$')
+axs[1].set_ylabel('$\mu_2$')
+axs[1].legend()
+
+# mu1とmu2の範囲
+mu1_grid_values = np.linspace(-1, 3.5, 100)
+mu2_grid_values = np.linspace(-1, 3.5, 100)
+mu1_grid, mu2_grid = np.meshgrid(mu1_grid_values, mu2_grid_values)
+
+# 対数尤度の計算
+log_likelihood_grid = np.zeros(mu1_grid.shape)
+for i in range(mu1_grid.shape[0]):
+    for j in range(mu1_grid.shape[1]):
+        log_likelihood_grid[i, j] = log_likelihood(samples, mu1_grid[i, j], mu2_grid[i, j], sigma)
+
+# ヒートマップとして対数尤度をプロット
+contour = axs[1].contourf(mu1_grid, mu2_grid, log_likelihood_grid, levels=75, cmap='viridis')
+fig.colorbar(contour, ax=axs[1])
+
+mu1_true, mu2_true = 0, 3.1
+axs[1].plot(mu1_true, mu2_true, 'r*', markersize=15, label='True values')
+
+plt.tight_layout()
+plt.show()
+```
+
+
 
 ## Monte Carlo 法による解決
 
