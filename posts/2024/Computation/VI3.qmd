@@ -3,7 +3,7 @@ title: "変分推論３"
 subtitle: "変分ベイズ推論"
 author: "司馬 博文"
 date: 2/12/2024
-categories: [Computation, Python]
+categories: [Bayesian, Computation, Python]
 toc: true
 number-sections: true
 code-block-bg: true
@@ -24,85 +24,112 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 数学者のために，変分推論の基本的な考え方を説明するシリーズ．今回はグラフィカルモデルの汎用推論手法である変分 Bayes アルゴリズムを解説する．
+abstract: グラフィカルモデルの汎用推論手法である変分 Bayes アルゴリズムを解説する．変分 Bayes 推論とは，事後分布を指定した分布族の中で，KL-距離が最も小さくなるように近似する手法をいう．この分布族に，種々のパラメトリック分布を仮定したり，平均場近似を採用したりすることで，種々の変分 Bayes アルゴリズムが得られる．
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
 ## 導入
 
-変分法自体は，多くの応用先に古くから用いられている．統計学 [@Rustagi1976]，統計力学 [@Parisi1988]，量子力学 [@Sakurai1985]，有限要素解析 [@Bathe1996] などの教科書で扱われている．
+### 変分 Bayes 推論の立ち位置
+
+Bayes 推論を実行するにあたって，サンプリング法は exact な方法であると言われる．これは十分な計算量を等価することで，任意の精度で事後分布を近似できるためである．
+
+この性質は肝要であるが，真に厳密な近似を得ることよりも，ある程度の誤差を許容しながらも計算のコストを下げる方が重要である場面も多い．これを叶えてくれる，極めて自然な決定論的な近似手法が，変分推論である．
+
+Bayes 事後分布に簡単な分布族を想定し，その中で KL 距離の意味で最も近い分布を，変分最適化によって探すのである．
+
+どれくらい実行し続けていれば欲しい精度が出るのか分かりにくい MCMC よりも，KL 距離という（実は訳のわかっていない）尺度が大切ということにして，これが目に見えて減少していく方がアルゴリズムとして達成感があるというのである．
+
+### 変分法の歴史
+
+変分法とは，関数空間上での微分法をいう．
+
+変分法自体は，多くの応用先に古くから用いられている．統計学 [@Rustagi1976]，統計力学 [@Parisi1988]，量子力学 [@Sakurai1985]，有限要素解析 [@Schwarz1988], [@Bathe1996] などの教科書で触れられている．最大エントロピー法 [@Kapur1989]，最小作用の原理 [@Fenyman+1964] も変分法の例である．
 
 いずれの場面でも，変分法は困難な問題を，自由度を分解する (decoupling of the degrees of freedom) ことで，簡単な問題に分解する方法として用いられている [@Jordan+1999 p.198]．典型的には，変分パラメータ (variational parameter) という追加の変数を導入する手続きを伴う．
 
-## 変分 Bayes 推論
+## 変分 Bayes のアルゴリズム {#sec-VB}
 
 潜在変数を持つグラフィカルモデルの文脈では，EM アルゴリズムのような点推定によるパラメータ推定では汎化性能が伸びず，事後分布を導出したいが，その計算は困難である．これを打開すべく提案されたのが変分 Bayes 推定である [@Attias1999]．
 
-### 変分 EM アルゴリズム
+### アルゴリズムの前提 {#sec-ELBO}
 
-実は，$E$-ステップを変分推論アルゴリズムに置換することで，より一般的な **変分 EM アルゴリズム** が導出できる [@Wainwright-Jordan2008 p.154]．
+変分 EM アルゴリズムは，$\theta$ の事前分布としてデルタ分布を置いていた場合の変分 Bayes アルゴリズムとみなせる．^[[@Wainwright-Jordan2008 p.164] も参照．]
 
-### Bayes 推論の観点
-
-変分 EM アルゴリズムは，$\theta$ の事前分布としてデルタ分布を置いていた場合の変分 Bayes アルゴリズムとみなせる [@Wainwright-Jordan2008 p.164]．
-
-モデル[-@fig-incomplete]において，$\theta$ にも事前分布を考え，尤度は結合分布 $p(x,z,\theta)$ から
+モデルのパラメータや潜在変数を全て含めて $z$ とし，尤度が
 $$
-p(x)=\int_\Theta\int_\cZ p(x,z,\theta)\,dzd\theta
+p(x)=\int_\cZ p(x,z)\,dz
 $$
-と与えられていると理解する．このとき，対数尤度の下界は
+と与えられている解する．このとき，対数尤度の下界は
 $$
 \begin{align*}
-    &\log p(x)\\
-    =&\log\int_\Theta\int_\cZ q(z,\theta|x)\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
-    \ge&\int_\Theta\int_\cZ q(z,\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta\\
-    =:&F(q)
+    \log p(x)&=\log\int_\cZ p(x,z)\,dz\\
+    &\ge\int_\cZ q(z|x)\log\frac{p(x,z)}{q(z|x)}\,dz\\
+    &=\int_\cZ q(z|x)\log\frac{p(z|x)p(x)}{q(z|x)}\,dz\\
+    &=\log p(x)-\KL(q,p)=:F(q).
 \end{align*}
 $$
-と表せる．
+と表せるのであった．^[EM アルゴリズムに関する [前稿](VI2.qmd#sec-EM) も参照．]
 
-ここで追加の仮定
+この $F$ を変分下界または [ELBO](https://en.wikipedia.org/wiki/Evidence_lower_bound) (Evidence Lower Bound) という．$F$ を変分自由エネルギーともいう．
+
+無制約下では，$F$ は $q=p$ のときに最大となる．これが EM アルゴリズムの E-ステップなのであった．しかし，このステップは難しい場面も多い．
+
+そのような場合，まず $p$ にニューラルネットワークなどのパラメトリックモデルをおき，そのパラメータを KL-距離を最適化することで求めることが考えられる．こうしてパラメトリックな変分 Bayes アルゴリズムを得る．
+
+### 平均場近似
+
+関数形ではなく，次のような仮定をおくことでも，変分 Bayes アルゴリズムが得られる．
+
 $$
-q(z,\theta|x)=q(z|x)q(\theta|x)
+q(z|x)=q(z_1|x)q(z_2|x)
 $$ {#eq-4}
 
-をおくことで，
+と仮定すると
 $$
-F(q)=\int_\Theta\int_\cZ q(z|x)q(\theta|x)\log\frac{p(x,z,\theta)}{q(z,\theta|x)}\,dzd\theta
+F(q)=\int_\cZ q(z_1|x)q(z_2|x)\log\frac{p(x,z)}{q(z_1|x)q(z_2|x)}\,dz
 $$
-の表示を得る．この下界を逐次最大化する手続きを，変分 Bayes アルゴリズムという．
+の表示を得る．このような仮定は平均場近似とも呼ばれる．^[[@Bishop2006 p.465]．]
 
-$$
-\log p(x)-F(q)=\KL(q(z,\theta),p(z,\theta|x))
-$$
-より，やはりこれは KL-乖離度の最小化に等価．
+実は，この表示ならば，$q(z_1|x)$ と $q(z_2|x)$ について逐次的に最大化していくための解析的な公式が求まる．
 
-### 変分 Bayes アルゴリズム
+さらに，$F$ は各因子 $q(z_1|x),q(z_2|x)$ に関して凸になるので，こうして得るアルゴリズムの収束も保証される．^[[@Bishop2006 p.466]．]
 
 #### VB-$E$ ステップ
 
-まず，$q(z)$ について最大化することを考える．$F$ の $q(z)$ に関する最大化は，
+$F$ の $q(z_1|x)$ に関する最大値は
 $$
-L:=F(q)+\lambda\paren{\int_\cZ q(z)\,dz-1}
+q(z_1)\propto e^{(q(z_2)dz_2\,|\log p(x,z_2|z_1))}
 $$
-の最大化と同値である．
+が与える．
+
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+まず，$q(z_1|x)$ について最大化することを考える．$F$ の $q(z_1|x)$ に関する最大化は，
+$$
+L:=F(q)+\lambda\paren{\int_\cZ q(z_1)\,dz_1-1}
+$$
+の $\lambda$ との同時最大化と同値である．これが [Lagrange の未定乗数法](https://ja.wikipedia.org/wiki/%E3%83%A9%E3%82%B0%E3%83%A9%E3%83%B3%E3%82%B8%E3%83%A5%E3%81%AE%E6%9C%AA%E5%AE%9A%E4%B9%97%E6%95%B0%E6%B3%95) である．
 
 $$
 \begin{align*}
-    \frac{\delta L}{\delta q(z)}\\
-    =&(q(\theta)|\log p(x,z|\theta))-\log q(z)+\lambda+\const.
+    \frac{\delta L}{\delta q(z_1|x)}&(q(z_2|x)dz_2|\log p(x,z_1|z_2))-\log q(z_1)+\lambda+\const
 \end{align*}
 $$
 と計算できるから，これは
 $$
-q(z)\propto e^{(q(\theta)|\log p(x,z|\theta))}
+q(z_1)\propto e^{(q(z_2)dz_2\,|\log p(x,z_2|z_1))}
 $$
 にて最大化される．これが変分 Bayes アルゴリズムの $E$-ステップである．
 
-$q(\theta)=\delta(\varphi)$ であるとき，
+[@Bishop2006 p.465] はまた違った議論を提供している．
+
+:::
+
+$q(z_2)=\delta(\varphi)$ であるとき，
 $$
-q(z)\propto p(x,z|\varphi)\propto p(z|x,\varphi)
+q(z_1)\propto p(x,z_1|\varphi)\propto p(z_1|x,\varphi)
 $$ {#eq-5}
 であることに注意．
 
@@ -110,10 +137,63 @@ $$ {#eq-5}
 
 全く同様にして，
 $$
-q(\theta)\propto p(\theta)e^{(q(z)|\log p(x,z|\theta))}
+q(z_2)\propto p(z_2)e^{(q(z_1)dz_2\,|\log p(x,z_1|z_2))}
 $$
 で最大化される．
 
-#### 自動正則化
+::: {.callout-note icon="false" collapse="true" title="証明"}
+
+:::
+
+#### 自動正則化 {#sec-VB-regularization}
 
 また，この枠組みは過学習を防ぐ正則化が暗黙のうちに盛り込まれているともみなせる．
+
+$$
+\begin{align*}
+    F(q)&=\int_\cZ q(z_1|x)q(z_2|x)\log\frac{p(x,z)}{q(z_1|x)q(z_2|x)}\,dz\\
+    &=\int_\cZ q(z_1|x)q(z_2|x)\log\frac{p(x,z_1|z_2)p(z_2)}{q(z_1|x)q(z_2|x)}\,dz\\
+    &=\int_\cZ q(z_1|x)q(z_2|x)\log\frac{p(x,z_1|z_2)}{q(z_1|x)}dz\\
+    &\qquad-\KL(q(-|x),p(-)).
+\end{align*}
+$$
+
+### 平均場近似の問題点 {#sec-VB-problem}
+
+いわば $q$ の全ての周辺分布を「独立」だと解釈しているため，実際には変数間に強い相関があった際に，分散を過小評価する嫌いがある．
+
+## 期待値伝播法
+
+### 導入
+
+@sec-VB では $\KL(q,p)$ を最小化する $q$ を探索したが，逆に $\KL(p,q)$ を最小化すると考えるのが期待値伝播法 (EP: Expectation Propagation) [@Minka2001b], [@Minka2001] である．
+
+### $\al$-乖離度 {#sec-alpha-divergence}
+
+期待値伝播法と変分 Bayes 推論との振る舞いの違いは，$\al$-乖離度の振る舞いの変化によって理解できる．
+
+::: {.callout-tip icon="false" title="定義（$\alpha$-divergence）[@Amari1985 p.85], [@Cichocki+2008 p.1434]"}
+
+$\al\in\R\setminus\{\pm1\}$ に関して，
+$$
+D_\al(p,q):=\frac{4}{1-\al^2}\paren{1-\int_\cX p(x)^{\frac{1+\al}{2}}q(x)^{\frac{1-\al}{2}}\,dx}
+$$
+を **$\al$-乖離度** という．^[関連する乖離度に，[Rényi の $\al$-乖離度](https://en.wikipedia.org/wiki/Rényi_entropy#Rényi_divergence) がある．]
+
+:::
+
+$\al\to1$ の極限では $\KL(p,q)$ に収束し，$\al\to-1$ の極限では $\KL(q,p)$ に収束する．いわば，この２つの量を補間する量である．
+
+$\al=0$ の場合を，Hellinger 距離（の自乗）という．
+
+$\al\le-1$ の場合は $D_\al$ は $\frac{q}{p}$ を含むため，$p$ が零ならば $q$ も零になるようになる．実際，変分近似は分散を過小評価しがちである @sec-VB-problem．
+
+一方で $\al\ge1$ の場合は $D_\al$ は $\frac{p}{q}$ を含むため，$p$ の台を $q$ の台が含むようになる．
+
+こうして EP は，変分 Bayes よりも，複数の峰がある分布を平均したように，裾の広い近似を与えるという対照的な性質を持つ．
+
+### Power-EP
+
+一般の $\al$-乖離度を最小化する手法が Power-EP [@Minka2004] である．
+
+多くのメッセージ伝播アルゴリズムもこの枠組みで導出できる [@Minka2005]．^[[@Bishop2006 p.517] も参照．]

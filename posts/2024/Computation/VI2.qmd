@@ -119,7 +119,7 @@ $$
     &=\log p(x|\theta)-\KL(q_\varphi,p_\theta).
 \end{align*}
 $$
-より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[式変形は [@Bishop2006 p.450] も参照．この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．この $E$-ステップは，単に $q=p$ を代入して $Q(\theta)$ を計算する，とも説明される．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998], [@Hastie-Tibshirani-Friedman2009 p.277]．よって，この $E$-ステップも，GEM のように，必ずしも完全な最大化を達成する必要はないことがわかる [@Neal-Hinton1998], [@Bishop2006 p.454]．]
+より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[式変形は [@Bishop2006 p.450] も参照．この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．この $E$-ステップは，単に $q=p$ を代入して $Q(\theta)$ を計算する，とも説明される．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998], [@Hastie-Tibshirani-Friedman2009 p.277]．よって，この $E$-ステップも，GEM のように，必ずしも完全な最大化を達成する必要はないことがわかる [@Neal-Hinton1998], [@Bishop2006 p.454]．例えば変分近似を行った場合，変分 EM アルゴリズムができあがる [@Wainwright-Jordan2008 p.154]．]
 1. $M$-ステップ：$F$ を $\theta$ について最大化する．
 $$
 \begin{align*}
@@ -175,7 +175,7 @@ $$
 
 ## EM アルゴリズムの実装（Gauss 有限混合モデルの場合）
 
-負担率に確率モデルを置いた場合，$K$-平均アルゴリズム [@Lloyd1982] は EM アルゴリズムになる．
+負担率に確率モデルを置いた場合，[ソフト $K$-平均アルゴリズム](VI.qmd#sec-soft-k-means) は EM アルゴリズムになる．
 
 EM アルゴリズムは一般に多峰性に弱いことをここで示す．^[[@Robert-Casella2004] も参照．]
 
@@ -195,11 +195,78 @@ $$ {#eq-1}
 
 :::
 
-@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),(\Sigma_k),(p_k))$ である．
+@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),(\Sigma_k),(p_k))$ である．さらに，$\theta_k:=(\mu_k,\Sigma_k)$ と定める．
 
 
+### Gauss 有限混合モデルでの EM アルゴリズム
 
-### $K$-平均アルゴリズムとの対応
+@sec-EM での議論を，今回の Gauss 有限混合モデルに当てはめてみる．
+
+対数尤度は
+
+$$
+\begin{align*}
+    \log p(x|\theta)&=\log\paren{\sum_{k=1}^K q_k\frac{p_k\phi(x|\theta_k)}{q_k}}\\
+    &\ge\sum_{k=1}^Kq_k\log\paren{\frac{p_k\phi(x|\theta_k)}{q_k}}\\
+    &=:F(q_k,\theta).
+\end{align*}
+$$
+
+という下界を持つ．これに対して，混合 Gauss モデルに対する EM アルゴリズムは次の２段階を繰り返す：
+
+1. $E$-ステップ：
+    $$
+    \begin{align*}
+        q_k&\gets\P[Z=k|x,\theta]\\
+        &=\frac{p_k\phi(x|\theta_k)}{\sum_{j=1}^Kp_j\phi(x|\theta_j)}
+    \end{align*}
+    $$
+    を計算して，$F$ に代入する．
+2. $M$-ステップ：$F$ を $\theta$ について最大化する．これは，次の値を計算することに等しい：
+    1. $$r_{kn}\gets\P[Z=k|x_n,\theta]$$
+    2.  $$
+    \mu_k\gets\frac{\sum_{n=1}^Nr_{nk}x_n}{\sum_{n=1}^Nr_{nk}}
+    $$
+    3. $$
+    \Sigma_k\gets\frac{\sum_{n=1}^Nr_{nk}(x_n-\mu_k)(x_n-\mu_k)^\top}{\sum_{n=1}^Nr_{nk}}
+    $$
+    4. $$
+    p_k\gets\frac{\sum_{n=1}^Nr_{nk}}{N}
+    $$
+
+::: {.callout-note icon="false" collapse="true" title="$E$-ステップの導出"}
+
+最初のステップは Bayes の定理から，
+
+$$
+\begin{align*}
+    \P[Z=k|x,\theta]&=\frac{p(x|z=k,\theta)p(z=k|\theta)}{p(x|\theta)}\\
+    &=\frac{p_k\phi(x|\theta_k)}{\sum_{j=1}^Kp_j\phi(x|\theta_j)}.
+\end{align*}
+$$
+の計算に帰着する．これが[負担率](VI.qmd#sec-soft-k-means) $r_{kn}$ である．
+
+:::
+
+::: {.callout-note icon="false" collapse="true" title="$M$-ステップの導出^[[@Bishop2006 pp.436-439] も参照．]"}
+2,3,4 はそれぞれ条件
+$$
+\pp{}{\mu_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+$$
+\pp{}{\Sigma_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+$$
+\pp{}{p_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+から出る．
+
+最大化に Newton-Raphson 法を用いたとも捉えられる．^[[@MacKay2003 p.303]．]
+:::
+
+### $K$-平均アルゴリズムとの対応 {#sec-EM-and-K-means}
+
+$E$-ステップが assignment ステップ，$M$-ステップが update ステップに対応する．
 
 ハード $K$-平均法は，歪み尺度 (distortion measure)
 $$
@@ -222,7 +289,11 @@ $$
 
 加えて，初期値依存性や局所解へのトラップが懸念されるという EM アルゴリズムの問題点を，MCMC はいずれも持ち合わせていない．
 
-さらに，混合数 $K$ に関する検定も構成できる [@Mengersen-Robert1996]．
+さらに，混合数 $K$ に関する検定も構成できる [@Mengersen-Robert1996] など，Gibbs サンプラーひとつで確率モデルに関する種々の情報を取り出せる．
+
+最尤推定の代わりに Bayes 推定を行なっているため，データ数が少なくとも，過学習の問題が起こりにくいという利点もある．
+
+Bayes 階層モデルは複雑なモデルに対する表現力が高く，地球科学をはじめとして多くの応用分野で使われている [@Hrafnkelsson2023]．
 
 ### Gibbs サンプリング
 
@@ -259,7 +330,7 @@ $$
 
 これは $E$-ステップでの $Q$ 関数の評価が困難であるとき，$p(z|x,\theta)$ からのサンプリングでこれを回避できるという美点もある．
 
-この美点のみを用いて，Gibbs サンプリングを用いないまでも，$E$-ステップのみをサンプリング法で代替した EM 法を MCEM (Monte Carlo EM) という [@Wei-Tanner1990], [@Wei-Tanner1990+]．
+この美点のみを用いて，Gibbs サンプリングを用いないまでも，$E$-ステップのみをサンプリング法で代替した EM 法を MCEM (Monte Carlo EM) という [@Wei-Tanner1990], [@Wei-Tanner1990b]．
 
 ### 諸言
 
