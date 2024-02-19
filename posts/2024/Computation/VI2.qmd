@@ -39,8 +39,6 @@ $$
 
 :::
 
-[@Blei+2017]
-
 ## 最尤推定
 
 クラスタリングを一度さっぱり忘れて，最尤推定を思い出してみる．
@@ -64,7 +62,7 @@ $$
 
 最大値点であるということは，停留点である必要があるから，微分が零になるという条件を通じて解析的に求まることもある．この $Z$-推定量としての特徴付けは [@Cramer1946 p.498] による．
 
-また，計算機的な方法では，[Iterative Propertional Fittting](https://en.wikipedia.org/wiki/Iterative_proportional_fitting) や勾配に基づく最適化手法を用いることも考えられる [@Fletcher1987]．
+また，計算機的な方法では，[Iterative Propertional Fittting](https://en.wikipedia.org/wiki/Iterative_proportional_fitting) や勾配に基づく最適化手法を用いることも考えられる [@Robbins-Monro1951], [@Fletcher1987]．
 
 最尤推定量が解析的に求まらない場面には，代表的には欠測モデルなどがある．欠測モデルは，観測される確率変数 $X$ の他に，観測されない確率変数 $Z$ も想定し，その同時分布を考えるモデルである．これにより，$(X,Z)$ 全体には単純な仮定しか置かずとも，$X$ に対して複雑な分布を想定することが可能になるのである．
 
@@ -72,7 +70,7 @@ $$
 
 現在でも，その他の MM アルゴリズムが，種々の最適化問題に対する "problem-driven algorithm" であり続けている [@Wu-Lange2010]．
 
-## EM アルゴリズム
+## EM アルゴリズム {#sec-EM0}
 
 EM アルゴリズムは，混合モデルに対する最尤推定アルゴリズムである．一般に，目的関数が
 $$
@@ -119,8 +117,8 @@ $$
     &=\log p(x|\theta)-\KL(q_\varphi,p_\theta).
 \end{align*}
 $$
-より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[式変形は [@Bishop2006 p.450] も参照．この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．この $E$-ステップは，単に $q=p$ を代入して $Q(\theta)$ を計算する，とも説明される．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998], [@Hastie-Tibshirani-Friedman2009 p.277]．よって，この $E$-ステップも，GEM のように，必ずしも完全な最大化を達成する必要はないことがわかる [@Neal-Hinton1998], [@Bishop2006 p.454]．]
-1. $M$-ステップ：$F$ を $\theta$ について最大化する．
+より，$q(z|x,\varphi)=p(z|x,\theta)$ で最大化される．^[式変形は [@Bishop2006 p.450] も参照．この $p(z|x,\theta)$ は観測 $x$ の下での，潜在変数 $z$ の条件付き分布である．しかし，このように双方を最大化ステップと見る変分法的な見方が出来るのである [@Wainwright-Jordan2008 pp.153-154], [@Neal-Hinton1998], [@Hastie-Tibshirani-Friedman2009 p.277]．よって，この $E$-ステップも，GEM のように，必ずしも完全な最大化を達成する必要はないことがわかる [@Neal-Hinton1998], [@Bishop2006 p.454]．例えば変分近似を行った場合，変分 EM アルゴリズムができあがる [@Wainwright-Jordan2008 p.154]．]
+2. $M$-ステップ：$F$ を $\theta$ について最大化する．
 $$
 \begin{align*}
     F(q,\theta)&=\int_{\cZ}q(z|x,\varphi)\log p(x,z|\theta)\,dz\\
@@ -128,9 +126,23 @@ $$
     &=\underbrace{(q_\varphi dz\,|\log p_\theta)}_{=:Q(\theta|\varphi,x)}+H(q_\varphi)
 \end{align*}
 $$
-より，$Q$ の停留点で最大化される．^[これは典型的には微分を伴う．これを回避し，「最大化」とは限らないが，「現状よりは大きくする」アルゴリズムを用いた場合，これを GEM (Generalized EM) ともいう [@Bishop2006 p.454], [@Hastie-Tibshirani-Friedman2009 p.277]．例えば ECM (Expectation Conditional Maximization) などがその例である [@Meng-Rubin1993]．]
+より，$Q$ の停留点で最大化される．^[これは典型的には微分を伴う．これを回避し，「最大化」とは限らないが，「現状よりは大きくする」アルゴリズムを用いた場合，これを GEM (Generalized EM) ともいう [@Bishop2006 p.454], [@Hastie-Tibshirani-Friedman2009 p.277]．例えば ECM (Expectation Conditional Maximization) などがその例である [@Meng-Rubin1991], [@Meng-Rubin1993]．[@Robert-Casella2004 p.200] も参照．]
 
 総じて，EM アルゴリズムは $p,q$ の KL 乖離度を逐次的に最小化している．
+
+### $E$-ステップの変形
+
+$M$-ステップにおける $F$ の $\theta$ における最大化は $Q$ の $\theta$ による最大化に等価であるから，$E$-ステップは結局，事後分布 $p(z|x,\theta)$ を計算し，これに関する積分である
+$$
+Q(\theta|\varphi,x)=\int_\cZ p(z|x,\theta)\log p(x,z|\theta)\,dz
+$$
+を計算する，というステップになる．
+
+モデル $\{p_\theta\}$ を複雑にしすぎた場合，この $Q$ の計算は困難で実行不可能になってしまう．解析的に $E$-ステップを実行したい場合，典型的には指数型分布族を仮定する．
+
+そこで，$Q$ を Monte Carlo 推定量で代替して，それを最大化した場合の EM アルゴリズムを MCEM (Monte Carlo EM) という [@Wei-Tanner1990], [@Wei-Tanner1990b]．
+
+また，この $E$-ステップで必ずしも完全な最大化を達成する必要はない [@Neal-Hinton1998], [@Bishop2006 p.454]．従って，$p(z|x,\theta)$ が複雑すぎる場合，十分近い $q$ を選択してこれに関する積分として $Q$ を近似することが考えられる．特に $p$ を [変分近似](VI3.qmd) した場合，変分 EM アルゴリズムという [@Wainwright-Jordan2008 p.154]．
 
 ### EM アルゴリズムの有効性
 
@@ -175,11 +187,11 @@ $$
 
 ## EM アルゴリズムの実装（Gauss 有限混合モデルの場合）
 
-負担率に確率モデルを置いた場合，$K$-平均アルゴリズム [@Lloyd1982] は EM アルゴリズムになる．
+負担率に確率モデルを置いた場合，[ソフト $K$-平均アルゴリズム](VI.qmd#sec-soft-k-means) は EM アルゴリズムになる．
 
 EM アルゴリズムは一般に多峰性に弱いことをここで示す．^[[@Robert-Casella2004] も参照．]
 
-### Guass 有限混合モデル
+### Guass 有限混合モデル {#sec-Gaussian-finite-mixture-model}
 
 ここでは，以下の，有限な混合モデルで，さらに混合される分布は正規であるものを考える：
 
@@ -195,17 +207,323 @@ $$ {#eq-1}
 
 :::
 
-@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),(\Sigma_k),(p_k))$ である．
+@eq-1 は $(X,Z)$ 上の結合分布の族を表しており，そのパラメータは $\theta:=((\mu_k),(\Sigma_k),(p_k))$ である．さらに，$\theta_k:=(\mu_k,\Sigma_k)$ と定める．
 
 
+### Gauss 有限混合モデルでの EM アルゴリズム
 
-### $K$-平均アルゴリズムとの対応
+@sec-EM での議論を，今回の Gauss 有限混合モデルに当てはめてみる．
+
+対数周辺尤度は
+
+$$
+\begin{align*}
+    \log p(x|\theta)&=\log\paren{\sum_{k=1}^K q_k\frac{p_k\phi(x|\theta_k)}{q_k}}\\
+    &\ge\sum_{k=1}^Kq_k\log\paren{\frac{p_k\phi(x|\theta_k)}{q_k}}\\
+    &=:F(q_k,\theta).
+\end{align*}
+$$
+
+という下界を持つ．
+
+これに基づき，観測 $\{x^{(n)}\}_{n=1}^N$ と混合 Gauss モデル [-@sec-Gaussian-finite-mixture-model] に対する EM アルゴリズムは次の２段階を繰り返す：
+
+1. $E$-ステップ：
+    $$
+    \begin{align*}
+        r_k^{(n)}&\gets\P[Z=k|x^{(n)},\theta]\\
+        &=\frac{p_k\phi(x^{(n)}|\theta_k)}{\sum_{j=1}^Kp_j\phi(x^{(n)}|\theta_j)}
+    \end{align*}
+    $$
+    を計算して，$F$ に代入する．
+2. $M$-ステップ：$F$ を $\theta$ について最大化する．これは，次の値を計算することに等しい：
+    1. $$
+    \mu_k\gets\frac{\sum_{n=1}^Nr_k^{(n)}x^{(n)}}{\sum_{n=1}^Nr_k^{(n)}}
+    $$
+    2. $$
+    \Sigma_k\gets\frac{\sum_{n=1}^Nr_{k}^{(n)}(x^{(n)}-\mu_k)(x^{(n)}-\mu_k)^\top}{\sum_{n=1}^Nr_{k}^{(n)}}
+    $$
+    3. $$
+    p_k\gets\frac{\sum_{n=1}^Nr_{k}^{(n)}}{N}
+    $$
+
+::: {.callout-note icon="false" collapse="true" title="$E$-ステップの導出"}
+
+最初のステップは Bayes の定理から，
+
+$$
+\begin{align*}
+    \P[Z=k|x,\theta]&=\frac{p(x|z=k,\theta)p(z=k|\theta)}{p(x|\theta)}\\
+    &=\frac{p_k\phi(x|\theta_k)}{\sum_{j=1}^Kp_j\phi(x|\theta_j)}.
+\end{align*}
+$$
+の計算に帰着する．$\{p_k\}$ が一様で，$\sigma_k=\sigma$ も一様であるとき，これはソフト $K$-平均法における [負担率](VI.qmd#sec-soft-k-means) $r_{kn}$ に他ならない．このとき，
+$$
+\beta=\frac{1}{2\sigma^2}.
+$$
+
+こうして，負担率とは，「データ点がそのクラスターに属するという事後確率」としての意味も持つことが判った．
+
+:::
+
+::: {.callout-note icon="false" collapse="true" title="$M$-ステップの導出^[[@Bishop2006 pp.436-439] も参照．]"}
+2,3,4 はそれぞれ条件
+$$
+\pp{}{\mu_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+$$
+\pp{}{\Sigma_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+$$
+\pp{}{p_k}\sum_{n=1}^N\log p(x_n|\theta)=0
+$$
+から出る．
+
+最大化に Newton-Raphson 法を用いたとも捉えられる．^[[@MacKay2003 p.303]．]
+:::
+
+### $K$-平均アルゴリズムとの対応 {#sec-EM-and-K-means}
+
+$E$-ステップが assignment ステップ，$M$-ステップが update ステップに対応する．
 
 ハード $K$-平均法は，歪み尺度 (distortion measure)
 $$
 J(r,\mu):=\sum_{n=1}^N\sum_{k=1}^Kr_{nk}\norm{x_n-\mu_k}^2
 $$
 を $r,\mu$ のそれぞれについて逐次的に最小化する手法とも見れる．^[[@Bishop2006 p.424]．]
+
+### Gauss 混合モデルの場合^[[@Robert-Casella2004 pp.181-182] 例5.19 も参照．]
+
+$K=2$ での Gauss 混合分布
+$$
+p\rN(\mu_1,\sigma^2)+(1-p)\rN(\mu_2,\sigma^2),
+$$ {#eq-Gaussian-mixture-model}
+$$
+p=0.7,\quad\sigma=1,
+$$
+を考える．未知パラメータは $\theta:=(\mu_1,\mu_2)$ である．
+
+実は，混合モデルでは，ここまで単純な例でさえ，尤度は多峰性を持つ．
+
+試しに，$(\mu_1,\mu_2)=(0,3.1)$ として 500 個のデータを生成し，モデル [-@eq-Gaussian-mixture-model] が定める尤度をプロットしてみると，次の通りになる：
+
+```{python}
+#| echo: false
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+# パラメータ
+p = 0.7
+sigma = 1
+mu1_true = 0
+mu2_true = 3.1
+n_samples = 500
+
+# 観測データの生成
+np.random.seed(42)  # 結果の再現性のため
+samples = np.concatenate([
+    np.random.normal(mu1_true, sigma, int(p * n_samples)),
+    np.random.normal(mu2_true, sigma, n_samples - int(p * n_samples))
+])
+
+# ガウス混合分布のPDF
+def gaussian_mixture_pdf(x, mu1, mu2, sigma):
+    return p * norm.pdf(x, mu1, sigma) + (1 - p) * norm.pdf(x, mu2, sigma)
+
+# 対数尤度関数
+def log_likelihood(samples, mu1, mu2, sigma):
+    return np.sum(np.log(gaussian_mixture_pdf(samples, mu1, mu2, sigma)))
+
+# mu1とmu2の範囲
+mu1_grid_values = np.linspace(-3, 5, 100)
+mu2_grid_values = np.linspace(-3, 5, 100)
+mu1_grid, mu2_grid = np.meshgrid(mu1_grid_values, mu2_grid_values)
+
+# 対数尤度の計算
+log_likelihood_grid = np.zeros(mu1_grid.shape)
+for i in range(mu1_grid.shape[0]):
+    for j in range(mu1_grid.shape[1]):
+        log_likelihood_grid[i, j] = log_likelihood(samples, mu1_grid[i, j], mu2_grid[i, j], sigma)
+
+# ヒートマップとして対数尤度をプロット
+plt.figure(figsize=(8, 6))
+contour = plt.contourf(mu1_grid, mu2_grid, log_likelihood_grid, levels=75, cmap='viridis')
+plt.colorbar(contour)
+plt.title('Log Likelihood for 500 Observations with $(\mu_1,\mu_2)=(0,3.1)$')
+plt.xlabel('$\mu_1$')
+plt.ylabel('$\mu_2$')
+plt.plot(mu1_true, mu2_true, 'r*', markersize=15, label='True values')
+plt.legend()
+plt.show()
+```
+
+真値 $(\mu_1,\mu_2)=(0,3.1)$ で確かに最大になるが，$(\mu_1,\mu_2)=(2,-0.5)$ 付近で極大値を取っていることがわかる．
+
+### EM アルゴリズムの初期値依存性
+
+EM アルゴリズムはその初期値依存性からランダムな初期値から複数回実行してみる必要がある．モデル [-@eq-Gaussian-mixture-model] の場合，その結果は次のようになる：
+
+```{python}
+class EM_1d:
+    """
+    Gauss 有限混合モデルに対する EM アルゴリズム
+
+    Parameters:
+    - K (int): 混合成分の数．デフォルトは2．
+    - max_iter (int): アルゴリズムの最大反復回数．デフォルトは100．
+    - tol (float): 収束の閾値．連続する反復での対数尤度の差がこの値以下になった場合，アルゴリズムは収束したと見なされる．デフォルトは1e-4．
+    """
+
+    def __init__(self, K=2, init=None, max_iter=100, tol=1e-4):
+        self.K = K
+        self.max_iter = max_iter
+        self.tol = tol
+
+        self.means = None
+        self.variances = None
+        self.mixing_coefficients = None
+        self.log_likelihood_history = []
+        self.mean_history = []
+        self.initial_value = init
+
+    def expectation(self, X):
+        """
+        E ステップ
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        N = X.shape[0]
+        r = np.zeros((N, self.K))
+        for k in range(self.K):
+            pdf = norm.pdf(X, self.means[k], np.sqrt(self.variances[k]))
+            r[:, k] = self.mixing_coefficients[k] * pdf
+        r /= r.sum(axis=1, keepdims=True)
+        return r
+
+    def maximization(self, X, r):
+        """
+        M ステップ
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        - r (ndarray): 負担率．
+        """
+        N = X.shape[0]
+        Nk = r.sum(axis=0)
+        self.means = (X.T @ r / Nk).T
+        self.variances = np.zeros(self.K)
+        for k in range(self.K):
+            diff = X - self.means[k]
+            self.variances[k] = (r[:, k] @ (diff ** 2)) / Nk[k]
+        self.mixing_coefficients = Nk / N
+
+    def compute_log_likelihood(self, X):
+        """
+        対数尤度の計算
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        log_likelihood = 0
+        for x in X:
+            log_likelihood += np.log(np.sum([self.mixing_coefficients[k] * norm.pdf(x, self.means[k], np.sqrt(self.variances[k])) for k in range(self.K)]))
+        return log_likelihood
+    
+    def fit(self, X):
+        """
+        EM アルゴリズムの実行
+
+        Parameters:
+        - X (ndarray): 観測データ．
+        """
+        N = X.shape[0]
+        np.random.seed(42)
+
+        if self.initial_value is None:
+            random_indeces = np.random.choice(N, self.K, replace=False)
+            self.initial_value = X[random_indeces]
+        self.means = self.initial_value
+        self.initial_value = self.means
+        self.variances = np.ones(self.K)
+        self.mixing_coefficients = np.ones(self.K) / self.K
+
+        # 反復
+        for _ in range(self.max_iter):
+            r = self.expectation(X)
+            self.maximization(X, r)
+            log_likelihood = self.compute_log_likelihood(X)
+            self.log_likelihood_history.append(log_likelihood)
+            self.mean_history.append(self.means)
+
+            if len(self.log_likelihood_history) >= 2 and np.abs(self.log_likelihood_history[-1] - self.log_likelihood_history[-2]) < self.tol:
+                break
+        
+        return self
+```
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+
+initial_values = np.array([0,-0.8])
+em = EM_1d(K=2, init=initial_values)
+em.fit(samples)
+em.mean_history.insert(0,em.initial_value)
+
+initial_values = np.array([2,2.5])
+em2 = EM_1d(K=2, init=initial_values)
+em2.fit(samples)
+em2.mean_history.insert(0,em2.initial_value)
+
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+
+# 対数尤度の推移をプロット
+axs[0].plot(em.log_likelihood_history, '-o', label='Run 1')
+axs[0].plot(em2.log_likelihood_history, '-o', label='Run 2')
+axs[0].set_title('Log Likelihood Progress')
+axs[0].set_xlabel('Iteration')
+axs[0].set_ylabel('Log Likelihood')
+axs[0].legend()
+
+# (mu1, mu2) の推移をプロット
+# em.mean_history から mu1 と mu2 の値を抽出
+mu1_values = [means[0] for means in em.mean_history]
+mu2_values = [means[1] for means in em.mean_history]
+mu1_values2 = [means[0] for means in em2.mean_history]
+mu2_values2 = [means[1] for means in em2.mean_history]
+
+axs[1].plot(mu1_values, mu2_values, '-o', label='Run 1')
+axs[1].plot(mu1_values2, mu2_values2, '-o', label='Run 2')
+axs[1].set_title('Mean Values Progress ($\mu_1,\mu_2$)')
+axs[1].set_xlabel('$\mu_1$')
+axs[1].set_ylabel('$\mu_2$')
+axs[1].legend()
+
+# mu1とmu2の範囲
+mu1_grid_values = np.linspace(-1, 3.5, 100)
+mu2_grid_values = np.linspace(-1, 3.5, 100)
+mu1_grid, mu2_grid = np.meshgrid(mu1_grid_values, mu2_grid_values)
+
+# 対数尤度の計算
+log_likelihood_grid = np.zeros(mu1_grid.shape)
+for i in range(mu1_grid.shape[0]):
+    for j in range(mu1_grid.shape[1]):
+        log_likelihood_grid[i, j] = log_likelihood(samples, mu1_grid[i, j], mu2_grid[i, j], sigma)
+
+# ヒートマップとして対数尤度をプロット
+contour = axs[1].contourf(mu1_grid, mu2_grid, log_likelihood_grid, levels=75, cmap='viridis')
+fig.colorbar(contour, ax=axs[1])
+
+mu1_true, mu2_true = 0, 3.1
+axs[1].plot(mu1_true, mu2_true, 'r*', markersize=15, label='True values')
+
+plt.tight_layout()
+plt.show()
+```
+
+
 
 ## Monte Carlo 法による解決
 
@@ -222,7 +540,11 @@ $$
 
 加えて，初期値依存性や局所解へのトラップが懸念されるという EM アルゴリズムの問題点を，MCMC はいずれも持ち合わせていない．
 
-さらに，混合数 $K$ に関する検定も構成できる [@Mengersen-Robert1996]．
+さらに，混合数 $K$ に関する検定も構成できる [@Mengersen-Robert1996] など，Gibbs サンプラーひとつで確率モデルに関する種々の情報を取り出せる．
+
+最尤推定の代わりに Bayes 推定を行なっているため，データ数が少なくとも，過学習の問題が起こりにくいという利点もある．
+
+Bayes 階層モデルは複雑なモデルに対する表現力が高く，地球科学をはじめとして多くの応用分野で使われている [@Hrafnkelsson2023]．
 
 ### Gibbs サンプリング
 
@@ -259,7 +581,21 @@ $$
 
 これは $E$-ステップでの $Q$ 関数の評価が困難であるとき，$p(z|x,\theta)$ からのサンプリングでこれを回避できるという美点もある．
 
-この美点のみを用いて，Gibbs サンプリングを用いないまでも，$E$-ステップのみをサンプリング法で代替した EM 法を MCEM (Monte Carlo EM) という [@Wei-Tanner1990], [@Wei-Tanner1990+]．
+#### EM アルゴリズムへの部分的な適用：$E$-ステップ
+
+またこの美点のみを用いて，$p(z|x,\theta)$ からサンプリングをして $Q$ の Monte Carlo 推定量
+$$
+Q(\theta)=\frac{1}{M}\sum_{m=1}^M\log p(x,z^{(m)}|\theta)
+$$
+を計算し，$M$-ステップとしてこれを最大化して $\{\wh{\theta}_j\}$ を得るという **確率的 EM アルゴリズム** (Stochastic EM) も考えられる [@Celeux-Diebolt1985]．^[[@Robert-Casella2004 p.200] 5.5.1 節も参照．]
+
+この場合，$\{\wh{\theta}_j\}$ は多くの場合エルゴード的な Markov 連鎖を定めるが，これがどこに収束するかの特定が難しい [@Diebolt-Ip1996]．
+
+#### EM アルゴリズムへの部分的な適用：$M$-ステップ
+
+Gibbs サンプリングの考え方を $M$-ステップにのみ導入し，$M$-ステップを完全に最大化するのではなく「条件付き最大化」に置き換えても，EM アルゴリズム本来の収束性は保たれる．$\theta=(\theta_1,\theta_2)$ と分解できる際に，いずれか片方ずつのみを最大化する，などである．これを ECM (Expectation Conditional Maximization) アルゴリズムという [@Meng-Rubin1991], [@Meng-Rubin1993]．
+
+$M$-ステップのみを確率的にすることで，EM アルゴリズムの局所解へのトラップを改善することができる．そのような手法の例に，SAME (State Augmentation for Marginal Estimation) [@Doucet+2002] などがある．
 
 ### 諸言
 

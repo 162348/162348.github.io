@@ -1,8 +1,8 @@
 ---
 title: "数学者のための深層学習４"
 subtitle: 生成モデル VAE
-author: "司馬 博文"
-date: 2/14/2024
+author: "司馬博文"
+date: 2/18/2024
 categories: [Kernel, Math Notes]
 toc: true
 number-sections: true
@@ -24,13 +24,103 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 数学者のために，深層生成モデルの１つ VAE を概観する．
+abstract: 深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-## VAE [@Kingma-Welling2014]
+## 確率的勾配降下法による変分ベイズ (SGVB)
 
-Variational Autoencoder [@Kingma-Welling2014], [@Rezende+2014] も GAN と同じく，深層生成モデルにもう１つの深層ニューラルネットワークを対置するが，このニューラルネットは GAN のように判別をするのではなく，近似推論を実行する **認識モデル** (recognition model) である．
+変分自己符号化器 (Variational Auto-encoder) の説明に入る前に，変分ベイズ法において勾配を用いた最適化を実行するための汎用手法である **SGVB (Stochastic Gradient Variational Bayes)** について説明する．
 
-この深層グラフィカルモデルと近似推論器とを，同時に確率勾配降下法によって学習する [@Kingma-Welling2019]．
+VAE は元々この SGVB という要素技術とセットで提案された [@Kingma-Welling2014]．
+
+変分近似をする分布族 $\{q_\phi\}$ としてニューラルネットを用いた場合が，VAE であり，広く SGVB は，一般の連続な潜在変数を持った（有向）グラフィカルモデルに適用できる．
+
+### SGVB のアイデア：勾配の Monte Carlo 推定
+
+[GAN](Deep3.qmd) 同様，生成モデリングは，潜在空間 $Z$ で条件付けた際の分布 $p(x|z)$ をモデリングすることに等しい．GAN は $p(x|z)$ を明示的に評価することを回避することで複雑な生成モデリングを達成していた．
+
+一方で，（周辺）尤度の評価を完全に回避せずとも，[変分 Bayes 法](../Computation/VI3.qmd) によるアプローチが可能である．$p(x|z)$ に分布族 $q_\phi(x|z)$ を導入し，真の分布 $p$ との KL-距離を最小にする $\phi\in\Phi$ を選ぶのである．
+
+変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 $\{q_\phi\}$ を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．^[なお，平均場近似も極めて困難な解析的計算を必要とする [@Kingma-Welling2014]．]
+
+そこで，一般の分布族 $\{q_\phi\}$ に対して勾配情報を用いた最適化が実施できるように，変分下界 $F(p_\theta,q_\phi)$ 対する Monte Carlo 推定量を開発するのである．これが SGVB 推定量である．
+
+### 変分下界の復習
+
+データ $X$ の生成過程に，モデル $p_\theta(z)p_\theta(x|z)$ を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度
+$$
+p_\theta(x)=\int_\cZ p_\theta(z)p_\theta(x|z)\,dz
+$$
+や事後分布 $p_\theta(z|x)$ の評価は容易でない．
+
+そこで，$p_\theta(z|x)$ に対して，認識モデル $\{q_\phi(z|x)\}_{\phi\in\Phi}$ を導入する．VAE [-@sec-VAE] では，これもニューラルネットワークとし，$(\theta,\phi)\in\Theta\times\Phi$ を同時に SGD により学習することを考える．
+
+潜在変数 $Z$ を情報源と見て，$q_\theta(z|x)$ を **符号化器** (encoder) と呼び，$p_\theta(x|z)$ を **復号器** (decoder) とも呼ぶ．
+
+このとき，対数周辺尤度の変分下界は次のように表せるのであった：^[[前稿](../Computation/VI3.qmd#sec-ELBO) も参照．]
+$$
+\begin{align*}
+    \log p_\theta(x)&=\log\int_\cZ p_\theta(x,z)\,dz\\
+    &=\log\int_\cZ q_\phi(z)\frac{p_\theta(x,z)}{q_\phi(z)}\,dz\\
+    &\ge\int_\cZ q_\phi(z)\log\frac{q_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
+    &=-\KL(q_\phi,p_\theta)+\int_\cZ q_\phi(z)\log p_\theta(x|z)\,dz\\
+    &=:F(\theta,\phi;x)
+\end{align*}
+$$
+
+この $F$ を $\theta,\phi$ に関して逐次的に最大化するのが変分 Bayes である．これを実行するために $q_\phi$ に平均場近似などをするのが旧来手法であるが，これ以上の近似をせずとも，$F$ の勾配の推定量を用いて，$p_\theta,q_\phi$ を同時に学習することが出来るというのである．
+
+### SGVB 推定量
+
+例えば $F$ を $\phi$ に関して勾配情報から最大化する際に，勾配 $D_\phi F$ の Monte Carlo 推定量が利用できる．しかし，単に $q_\phi(z|x)$ からのサンプルを用いた crude Monte Carlo では，この推定量の分散は非常に大きい [@Paisley+2012]．
+
+これを **重点サンプリングの考え方により解決した** のが $D_\phi F,D_\theta F$ に対する SGVB 推定量である．^[最適化の文脈において，目的関数の評価が困難であるとき，Monte Carlo 推定量でこれを代替する際，重点サンプリングを用いると良いことは従来提案されている [@Geyer1996]．[@Robert-Casella2004 p.203] も参照．] [@Kingma-Welling2014] では reparameterization trick と呼んでいる．
+
+ある分布 $P\in\cP(E)$ と可微分同相 $g_\phi:E\times\cX\to\cZ$ であって
+$$
+g_\phi(\ep,x)\sim q_\phi(z,x)\quad(\ep\sim P)
+$$
+を満たすものを見つけることができて，この $P$ を提案分布とする重点サンプリング推定量
+$$
+\begin{align*}
+    \E_{q_\phi}[f(Z)]&=\E_{P}[f(g_\phi(\ep,x))]\\
+    &\simeq\frac{1}{M}\sum_{i=1}^Mf(g_\phi(\ep^i,x))
+\end{align*}
+$$
+により，Monte Carlo 推定量の分散を減らすことができる．$f=F$ と取ることで SGVB 推定量を得る．
+
+さらに，$\cZ$ 上のモデル $q_\phi(z),p_\theta(z)$ とが $d$-次元の正規分布であった場合，
+$$
+-\KL(q_\phi,p_\theta)=\frac{1}{2}\sum_{j=1}^d\Paren{1+\log(\sigma_j^2)-\mu_j^2-\sigma_j^2}
+$$
+と解析的に解けるので，結局 Monte Carlo 近似が必要なのは，再構成誤差を表す
+$$
+\int_\cZ q_\phi(z)\log p_\theta(x|z)\,dz
+$$
+の部分だけである．
+
+このような理由で，$q_\phi(z),p_\theta(z)$ は典型的には正規分布としてモデリングされる．
+
+## VAE [@Kingma-Welling2014] {#sec-VAE}
+
+![Samples from a VQ-VAE Taken from Figure 6 [@Razavi+2019 p.8]](VAE.png)
+
+### 導入
+
+Variational Auto-encoder [@Kingma-Welling2014], [@Rezende+2014] も GAN と同じく，深層生成モデル $p_\theta$ にもう１つの深層ニューラルネットワーク $q_\phi$ を対置するが，このニューラルネット $q_\phi$ は GAN のように判別をするのではなく，近似推論によってデータ生成源を再構成しようとする **認識モデル** (recognition model) である．$q_\phi$ はエンコーダーとも呼ばれる．
+
+この深層生成モデル $p_\theta$ と近似推論器 $q_\phi$ とを，同時に確率勾配降下法によって学習する [@Kingma-Welling2019]．
+
+VAE のエンコーダー $q_\phi$ は動画データの圧縮表現の学習 [@Brooks+2024] など，その他の生成モデルの構成要素としても用いられる．
+
+### VQ-VAE
+
+VAE は画像データの生成にも応用されている．
+
+VQ-VAE [@vandenOord+2017], [@Razavi+2019] は，自己符号化器の中間表現にベクトル量子化を施し，JPEG [@Wallace1992] のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．
+
+実際，元データの 30 分の 1 以下のサイズで学習を行い，最終的にデコーダーを用いて殆ど歪みなく再構成できるという．
+
+GAN は元データのうち，尤度が低い部分が無視され，サンプルの多様性が失われがちであったが，VQ-VAE はこの問題を解決している．また，GAN にはないようなモデル評価の指標が複数提案されている．
