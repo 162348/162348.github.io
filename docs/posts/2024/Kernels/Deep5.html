@@ -22,7 +22,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -72,6 +91,8 @@ gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <link rel="stylesheet" href="../../../styles.css">
 <meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習５">
@@ -162,7 +183,23 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
+  <ul class="collapse">
+  <li><a href="#歴史" id="toc-歴史" class="nav-link" data-scroll-target="#歴史"><span class="header-section-number">1.1</span> 歴史</a></li>
+  <li><a href="#拡散モデルの例" id="toc-拡散モデルの例" class="nav-link" data-scroll-target="#拡散モデルの例"><span class="header-section-number">1.2</span> 拡散モデルの例</a></li>
+  <li><a href="#アイデア" id="toc-アイデア" class="nav-link" data-scroll-target="#アイデア"><span class="header-section-number">1.3</span> アイデア</a></li>
+  </ul></li>
+  <li><a href="#前向き方向符号化器" id="toc-前向き方向符号化器" class="nav-link" data-scroll-target="#前向き方向符号化器"><span class="header-section-number">2</span> 前向き方向符号化器</a></li>
+  <li><a href="#後ろ向き復号化器" id="toc-後ろ向き復号化器" class="nav-link" data-scroll-target="#後ろ向き復号化器"><span class="header-section-number">3</span> 後ろ向き復号化器</a></li>
+  <li><a href="#スコアマッチング" id="toc-スコアマッチング" class="nav-link" data-scroll-target="#スコアマッチング"><span class="header-section-number">4</span> スコアマッチング</a></li>
+  <li><a href="#誘導付き拡散モデル" id="toc-誘導付き拡散モデル" class="nav-link" data-scroll-target="#誘導付き拡散モデル"><span class="header-section-number">5</span> 誘導付き拡散モデル</a></li>
+  <li><a href="#確率微分方程式との関係" id="toc-確率微分方程式との関係" class="nav-link" data-scroll-target="#確率微分方程式との関係"><span class="header-section-number">6</span> 確率微分方程式との関係</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -194,10 +231,119 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p><span class="citation" data-cites="Luo2022">(<a href="#ref-Luo2022" role="doc-biblioref">Luo, 2022</a>)</span></p>
+<section id="歴史" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1.1</span> 歴史</h3>
+<p>拡散モデルによる画像生成は，初め <span class="citation" data-cites="Dickstein+2015">(<a href="#ref-Dickstein+2015" role="doc-biblioref">Sohl-Dickstein et al., 2015</a>)</span> で提案された．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>これをスコアマッチングの手法 <span class="citation" data-cites="Hyvarinen2005">(<a href="#ref-Hyvarinen2005" role="doc-biblioref">Hyvärinen, 2005</a>)</span>, <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> と組み合わせたのが NCSN (Noise Conditioned Score Network) <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Song &amp; Ermon, 2020</a>)</span> や DDPM (Denoising Diffusion Probabilistic Model) <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> である．</p>
+<p>この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．</p>
+</section>
+<section id="拡散モデルの例" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="拡散モデルの例"><span class="header-section-number">1.2</span> 拡散モデルの例</h3>
+<p>ADM (Ablated Diffusion Model) <span class="citation" data-cites="Dhariwal-Nichol2021">(<a href="#ref-Dhariwal-Nichol2021" role="doc-biblioref">Dhariwal &amp; Nichol, 2021</a>)</span> は ImageNet データの判別において当時の最先端であった BigGAN <span class="citation" data-cites="Brock+2019">(<a href="#ref-Brock+2019" role="doc-biblioref">Brock et al., 2019</a>)</span> の性能を凌駕した．</p>
+<p>OpenAI の <a href="https://github.com/openai/glide-text2im">GLIDE</a> (Guided Language to Image Diffusion for Generation and Editing) <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span> は，<a href="https://openai.com/research/clip">CLIP</a> という画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．</p>
+<p>Google も <a href="https://imagen.research.google/">Imagen</a> <span class="citation" data-cites="Saharia+2022">(<a href="#ref-Saharia+2022" role="doc-biblioref">Saharia et al., 2022</a>)</span> という拡散モデルを開発している．</p>
+<p><span class="citation" data-cites="Yang+2023">(<a href="#ref-Yang+2023" role="doc-biblioref">Yang et al., 2023</a>)</span> は動画生成に応用している．</p>
+</section>
+<section id="アイデア" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="アイデア"><span class="header-section-number">1.3</span> アイデア</h3>
+<p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a>，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a>，<a href="../../../posts/2024/Kernels/Deep6.html">正規化流</a> などの生成モデルでは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> からデータの空間 <span class="math inline">\(\mathcal{X}\)</span> への確率核を深層ニューラルネットワークで学習するのであった．</p>
+<p>ニューラルネットワークの表現力は十分高いので，<span class="math inline">\(\mathcal{Z}\)</span> 上の事前分布は典型的には正規分布が用いられる．</p>
+<p>拡散モデルも，全くこの枠組みから逸脱するものではない．</p>
+<p>まず訓練データを，完全な Gauss 分布になるような変換を行う．これを複数段階に分けて提示し，この逆過程を学習する．画像においては，<a href="../../../posts/2024/Kernels/Deep.html#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> が典型的に用いられる．</p>
+<p>並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．</p>
+<p><a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> や <a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．</p>
+<p>一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを <strong>潜在拡散モデル</strong> (latent diffusion model) <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span> という．これが <a href="https://ja.stability.ai/stable-diffusion">Stable Diffusion</a> の元となっている．</p>
+</section>
+</section>
+<section id="前向き方向符号化器" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="前向き方向符号化器"><span class="header-section-number">2</span> 前向き方向符号化器</h2>
+</section>
+<section id="後ろ向き復号化器" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="後ろ向き復号化器"><span class="header-section-number">3</span> 後ろ向き復号化器</h2>
+</section>
+<section id="スコアマッチング" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="スコアマッチング"><span class="header-section-number">4</span> スコアマッチング</h2>
+<p><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Song, Durkan, et al., 2021</a>)</span></p>
+</section>
+<section id="誘導付き拡散モデル" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="誘導付き拡散モデル"><span class="header-section-number">5</span> 誘導付き拡散モデル</h2>
+</section>
+<section id="確率微分方程式との関係" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="確率微分方程式との関係"><span class="header-section-number">6</span> 確率微分方程式との関係</h2>
+<p>連続時間極限を取ることで，拡散過程が現れる <span class="citation" data-cites="Tzen-Raginsky2019">(<a href="#ref-Tzen-Raginsky2019" role="doc-biblioref">Tzen &amp; Raginsky, 2019</a>)</span>, <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Song, Sohl-Dickstein, et al., 2021</a>)</span>．</p>
 
 
 
-</main> <!-- /main -->
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-line-spacing="2" role="list">
+<div id="ref-Brock+2019" class="csl-entry" role="listitem">
+Brock, A., Donahue, J., &amp; Simonyan, K. (2019). <em>Large scale GAN training for high fidelity natural image synthesis</em>. <a href="https://arxiv.org/abs/1809.11096">https://arxiv.org/abs/1809.11096</a>
+</div>
+<div id="ref-Dhariwal-Nichol2021" class="csl-entry" role="listitem">
+Dhariwal, P., &amp; Nichol, A. Q. (2021). Diffusion models beat <span>GAN</span>s on image synthesis. In A. Beygelzimer, Y. Dauphin, P. Liang, &amp; J. W. Vaughan (Eds.), <em>Advances in neural information processing systems</em>. <a href="https://openreview.net/forum?id=AAWuCvzaVt">https://openreview.net/forum?id=AAWuCvzaVt</a>
+</div>
+<div id="ref-Ho+2020" class="csl-entry" role="listitem">
+Ho, J., Jain, A., &amp; Abbeel, P. (2020). Denoising diffusion probabilistic models. <em>Advances in Neural Information Processing Systems</em>, <em>33</em>. <a href="https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html">https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html</a>
+</div>
+<div id="ref-Huang+2021" class="csl-entry" role="listitem">
+Huang, C.-W., Lim, J. H., &amp; Courville, A. (2021). A variational perspective on diffusion-based generative models and score matching. In A. Beygelzimer, Y. Dauphin, P. Liang, &amp; J. W. Vaughan (Eds.), <em>Advances in neural information processing systems</em>. <a href="https://openreview.net/forum?id=bXehDYUjjXi">https://openreview.net/forum?id=bXehDYUjjXi</a>
+</div>
+<div id="ref-Hyvarinen2005" class="csl-entry" role="listitem">
+Hyvärinen, A. (2005). Estimation of non-normalized statistical models by score matching. <em>Journal of Machine Learning Research</em>, <em>6</em>(24), 695–709. <a href="https://jmlr.org/papers/v6/hyvarinen05a.html">https://jmlr.org/papers/v6/hyvarinen05a.html</a>
+</div>
+<div id="ref-Luo2022" class="csl-entry" role="listitem">
+Luo, C. (2022). <em>Understanding diffusion models: A unified perspective</em>. <a href="https://arxiv.org/abs/2208.11970">https://arxiv.org/abs/2208.11970</a>
+</div>
+<div id="ref-Nichol+2022" class="csl-entry" role="listitem">
+Nichol, A. Q., Dhariwal, P., Ramesh, A., Shyam, P., Mishkin, P., Mcgrew, B., Sutskever, I., &amp; Chen, M. (2022). <span>GLIDE</span>: Towards photorealistic image generation and editing with text-guided diffusion models. In K. Chaudhuri, S. Jegelka, L. Song, C. Szepesvari, G. Niu, &amp; S. Sabato (Eds.), <em>Proceedings of the 39th international conference on machine learning</em> (Vol. 162, pp. 16784–16804). PMLR. <a href="https://proceedings.mlr.press/v162/nichol22a.html">https://proceedings.mlr.press/v162/nichol22a.html</a>
+</div>
+<div id="ref-Ramesh+2022" class="csl-entry" role="listitem">
+Ramesh, A., Dhariwal, P., Nichol, A., Chu, C., &amp; Chen, M. (2022). <em>Hierarchical text-conditional image generation with CLIP latents</em>. <a href="https://arxiv.org/abs/2204.06125">https://arxiv.org/abs/2204.06125</a>
+</div>
+<div id="ref-Rombach+2022" class="csl-entry" role="listitem">
+Rombach, R., Blattmann, A., Lorenz, D., Esser, P., &amp; Ommer, B. (2022). High-resolution image systhesis with latent diffusion models. <em>Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)</em>, 10684–10695. <a href="https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html">https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html</a>
+</div>
+<div id="ref-Ronneberger+2015" class="csl-entry" role="listitem">
+Ronneberger, O., Fischer, P., &amp; Brox, T. (2015). U-net: Convolutional networks for biomedical image segmentation. In N. Navab, J. Hornegger, W. M. Wells, &amp; A. F. Frangi (Eds.), <em>Medical image computing and computer-assisted intervention – MICCAI 2015</em> (pp. 234–241). Springer International Publishing. <a href="https://link.springer.com/chapter/10.1007/978-3-319-24574-4_28">https://link.springer.com/chapter/10.1007/978-3-319-24574-4_28</a>
+</div>
+<div id="ref-Saharia+2022" class="csl-entry" role="listitem">
+Saharia, C., Chan, W., Saxena, S., Li, L., Whang, J., Denton, E., Ghasemipour, S. K. S., Gontijo-Lopes, R., Ayan‎, B. K., Salimans, T., Ho, J., Fleet, D. J., &amp; Norouzi, M. (2022). Photorealistic text-to-image diffusion models with deep language understanding. In A. H. Oh, A. Agarwal, D. Belgrave, &amp; K. Cho (Eds.), <em>Advances in neural information processing systems</em>. <a href="https://openreview.net/forum?id=08Yk-n5l2Al">https://openreview.net/forum?id=08Yk-n5l2Al</a>
+</div>
+<div id="ref-Dickstein+2015" class="csl-entry" role="listitem">
+Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., &amp; Ganguli, S. (2015). Deep unsupervised learning using nonequilibrium thermodynamics. In F. Bach &amp; D. Blei (Eds.), <em>Proceedings of the 32nd international conference on machine learning</em> (Vol. 37, pp. 2256–2265). PMLR. <a href="https://proceedings.mlr.press/v37/sohl-dickstein15.html">https://proceedings.mlr.press/v37/sohl-dickstein15.html</a>
+</div>
+<div id="ref-Song+2021NeurIPS" class="csl-entry" role="listitem">
+Song, Y., Durkan, C., Murray, I., &amp; Ermon, S. (2021). Maximum likelihood training of score-based diffusion models. <em>Advances in Neural Information Processing Systems</em>, <em>34</em>. <a href="https://2021">2021</a>
+</div>
+<div id="ref-Song-Ermon2020" class="csl-entry" role="listitem">
+Song, Y., &amp; Ermon, S. (2020). Improved techniques for training score-based generative models. <em>Advances in Neural Information Processing Systems</em>, <em>33</em>. <a href="https://proceedings.neurips.cc/paper/2020/hash/92c3b916311a5517d9290576e3ea37ad-Abstract.html">https://proceedings.neurips.cc/paper/2020/hash/92c3b916311a5517d9290576e3ea37ad-Abstract.html</a>
+</div>
+<div id="ref-Song+2021ICLR" class="csl-entry" role="listitem">
+Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., &amp; Poole, B. (2021). Score-based generative modeling through stochastic differential equations. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=PxTIG12RRHS">https://openreview.net/forum?id=PxTIG12RRHS</a>
+</div>
+<div id="ref-Tzen-Raginsky2019" class="csl-entry" role="listitem">
+Tzen, B., &amp; Raginsky, M. (2019). <em>Neural stochastic differential equations: Deep latent gaussian models in the diffusion limit</em>. <a href="https://arxiv.org/abs/1905.09883">https://arxiv.org/abs/1905.09883</a>
+</div>
+<div id="ref-Vincent2011" class="csl-entry" role="listitem">
+Vincent, P. (2011). A connection between score matching and denoising autoencoders. <em>Neural Computation</em>, <em>23</em>(7), 1661–1674. <a href="https://ieeexplore.ieee.org/document/6795935">https://ieeexplore.ieee.org/document/6795935</a>
+</div>
+<div id="ref-Yan+2021" class="csl-entry" role="listitem">
+Yan, W., Zhang, Y., Abbeel, P., &amp; Srinivas, A. (2021). <em>VideoGPT: Video generation using VQ-VAE and transformers</em>. <a href="https://arxiv.org/abs/2104.10157">https://arxiv.org/abs/2104.10157</a>
+</div>
+<div id="ref-Yang+2023" class="csl-entry" role="listitem">
+Yang, R., Srivastava, P., &amp; Mandt, S. (2023). Diffusion probabilistic modeling for video generation. <em>Entropy</em>, <em>25</em>(10). <a href="https://www.mdpi.com/1099-4300/25/10/1469">https://www.mdpi.com/1099-4300/25/10/1469</a>
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>VideoGPT の論文 <span class="citation" data-cites="Yan+2021">(<a href="#ref-Yan+2021" role="doc-biblioref">Yan et al., 2021</a>)</span> や，DALL-E2 の論文 <span class="citation" data-cites="Ramesh+2022">(<a href="#ref-Ramesh+2022" role="doc-biblioref">Ramesh et al., 2022</a>)</span>，GLIDE の論文 <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span> でも引用されている．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
