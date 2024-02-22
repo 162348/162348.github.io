@@ -1,8 +1,8 @@
 ---
 title: "数学者のための深層学習２"
 subtitle: トランスフォーマー
-author: "司馬 博文"
-date: 2/11/2024
+author: "司馬博文"
+date: 2/20/2024
 categories: [Kernel, Math Notes]
 toc: true
 number-sections: true
@@ -88,13 +88,15 @@ a^n_m=\frac{e^{\frac{\paren{x^n_{(Q)}}^\top x^m_{(K)}}{\sqrt{D_K}}}}{\sum_{k=1}^
 $$
 とする．これを最終的な **自己注意機構** (scaled dot-product self-attention mechanism) という．
 
+### トランスフォーマーの全体
+
 #### 多頭注意
 
 以上の自己注意機構を１単位として，これを複数独立に訓練し，最終的にはこれらの線型結合を採用する仕組みを **多頭注意** (multi-head attention) という．
 
 これにより，種々の文脈をより頑健に読み取ることが出来るようである．
 
-#### トランスフォーマーの全体
+#### 残差結合と正規化
 
 更に勾配消失を回避するために，[残差結合](Deep.qmd#sec-ResNet) を導入し，訓練の高速化のために正規化 [@Ba+2016] が導入される．
 
@@ -102,17 +104,25 @@ $$
 
 注意機構は線型性が高いため，多頭注意の層の間に，通常の多層パーセプトロンもスタックして，ネットワークの表現能力を保つ工夫もされる．
 
+#### 正規化
+
+レイヤー正則化 (layer normalization) [@Ba+2016] は，バッチ正規化 (batch normalization) [@Ioffe-Szegedy2015] が RNN にも適するようにした修正として提案された．
+
+バッチ正規化は，ニューラルネットワークの内部層の学習が，手前の層のパラメータが時事刻々と変化するために安定した学習が出来ないという **内部共変量シフト** (internal covariate shift) にあると突き止め，これをモデルアーキテクチャに正規化層を取り入れることで解決したものである．
+
+正規化層は，ニューラルネットワークへの入力を，平均が零で分散が $1$ になるように変換する．元々，ニューラルネットワークの入力を正規化してから学習させることで学習が効率化されることは知られていた [@LeCun+2012] が，バッチ正規化は，これをバッチごとに，かつ，モデルの内部にも取り込んだものである．
+
+バッチ正規化は精度の上昇と訓練の加速をもたらす．これはバッチ正規化により大きな学習率で訓練しても活性化が発散せず，これにより訓練時間の短縮と，局所解に囚われにくく汎化性能の向上がもたらされているようである [@Bjorck+2018]．
+
 ## 言語トランスフォーマー
 
 言語モデルをニューラルネットワークによって作ることは早くから試みられていた [@Bengio+2000]．
 
-トランスフォーマーの登場まで，これには RNN が主に用いられていた．
-
-
+トランスフォーマーの登場まで，これには RNN が主に用いられていた．しかし，RNN は長い系列に対しては勾配消失が起こりやすく，また，並列化が難しいという問題があった．
 
 ### 言語の取り扱い
 
-#### 単語の埋め込み
+#### 単語の分散表現
 
 言語をそのまま扱うのではなく，トークン $x^n\in\R^D$ の形に符号化する必要がある．
 
@@ -143,7 +153,39 @@ $$
 $$
 を新たな符号とする．
 
-### デコーダーのみの言語モデル
+### 従来の言語モデル
+
+文章をトークン列 $\{x^n\}_{n=1}^N\subset\R^D$ に置き換えたあとに，この上の結合分布 $p(x^1,\cdots,x^N)$ をモデリングすることが，**言語モデル** の目標である．
+
+#### $n$-gram
+
+$L\ge1$ とし，$x_n=0\;(n\le0)$ として，
+$$
+p(x_1,\cdots,x_N)=\prod_{n=1}^Np_{\theta_n}(x_n|x_{n-L},\cdots,x_{n-1})
+$$
+という形で $p$ をモデリングする，自己回帰性を加味したモデルは古くから使われる．
+
+これは $L$-gram モデルと呼ばれるが，文章の長さ $N$ が大きくなると，必要なパラメータ $\theta_n$ の数が増加する．
+
+これに対処する方法としては，[隠れ Markov モデル](../../2023/Surveys/SSM.qmd) を用いることが考えられる．
+
+#### RNN
+
+言語モデルをニューラルネットワークによって表現することが，[@Mikolov+2010] によって試みられた．
+
+これは通常のニューラルネットワーク (FFN: Feed-Forward Network と呼ばれる) に出力の一部を次の入力に使うという回帰的な流れを追加することで，隠れ Markov モデルのように次に持ち越される内部状態を持つことを可能にしたモデルである．
+
+しかしこれは学習が困難である．誤差の逆伝播を時間に対しても逆方向に繰り返す必要がある (Backpropagation through time) ので，長い系列に対しては逆伝播しなければいけない距離が長く，勾配消失・爆発が起こりやすい．これは長期的な依存関係を学習しにくいということももたらす．^[勾配の爆発に対しては gradient clipping などの対症療法が用いられる．] また，並列化も難しい．
+
+これに対処するために，モデルの構造を変えて過去の情報を流用しやすくする方法も種々提案された．LSTM (Long short-term memory) [@Hochreiter-Schmidhuber1997] や GRU (Gated Recurrent Unit) [@Cho+2014] などがその例である．
+
+### トランスフォーマーによる言語モデル
+
+1. BERT (Bidirectional Encoder Representations from Transformers) [@Devlin+2019] は，双方向エンコーダーである．
+2. GPT (Generative Pre-trained Transformer) [@Radford+2018] は，単方向デコーダーである．
+3. BART (Bidirectional and Auto-Regressive Transformer) [@Lewis+2020-BART] は，双方向エンコーダーと単方向デコーダーの両方を持つ．
+
+#### デコーダーのみの言語モデル
 
 GPT などの生成モデルは，デコーダー部分のトランスフォーマーの機能を主に用いている．
 
@@ -154,23 +196,76 @@ GPT などの生成モデルは，デコーダー部分のトランスフォー�
 
 の２段階で行われる．こうして $(x^n)_{n=1}^N$ を得たら，次は $x^{N+1}$ を生成し，文章が終わるまでこれを続けることで，最終的な生成を完遂する．
 
-#### 条件付き分布の表現
+##### 条件付き分布の表現
 
 大規模なデータセットの上で，文章を途中まで読み，次のトークンを推測する，という自己教師あり学習を行うことで，トークン上の条件付き分布を学習する．
 
-### エンコーダーのみの言語モデル
+この際に，先のトークンの情報は使わないように，注意機構を工夫 (masked / causal attention) して訓練する．
 
-BERT [@Devlin+2019] などの言語理解モデルは，エンコーダ部分のトランスフォーマーの機能を主に用いている．
+##### 条件付き分布からのサンプリング
+
+仮に最も確率の高いトークンを毎回選択する場合，出力は決定論的であり，同じ表現を繰り返すことが多くみられる．
+
+実は，より人間らしい表現は，確率の低いトークンもかなら頻繁に採用される [@Holtzman+2020]．
+
+かと言って，純粋なサンプリングをしたのでは，文章全体から見て意味をなさない場合も多い．
+
+これを解決したのが top-$p$ sampling / nucleus sampling [@Holtzman+2020] である．
+
+[GPT-2 にも実装されている](https://github.com/openai/gpt-2-output-dataset/issues/5) ようである．
+
+#### エンコーダーのみの言語モデル
+
+BERT (bidirectional encoder representations from transformers) [@Devlin+2019] などの言語理解モデルは，エンコーダ部分のトランスフォーマーの機能を主に用いている．その結果，生成は出来ない．
+
+訓練は，データセットから単語を確率的に脱落させ，これを補完するように訓練する．結果として，文章の前後両方 (bidirectional) の文脈を考慮するようになるのである．
+
+実際に使う際は，例えば感情の判別などでは，文章の冒頭に `[class]` などの特殊なトークンを置き，これをエンコーダーに通してトークンが何に置き換わるかを見ることで，判別を実行することができる．
+
+#### エンコーダー・デコーダーの言語モデル
+
+トランスフォーマーは原論文 [@Vaswani+2017] では，エンコーダーとデコーダーがセットになったモデルとして提案された．
+
+これは機械翻訳を念頭に置いていたため，RNN の構造を引き継いだ形で提案されたためである．この場合，次のようにしてモデルは使われる
+
+1. 入力 $X$ をエンコーダーに通し，内部表現 $Z$ を得る．
+2. この内部表現 $Z$ を元に，デコードした結果 $Y$ を出力する．
+3. 唯一，$Z$ をデコーダーに渡す部分での注意機構層では，鍵と値としては $Z$ を使うが，クエリとしては $Y$ を使う．
+
+３の機構を **エンコーダー・デコーダーの注意機構** (encoder-decoder / corss attention mechanism) といい，これによって $Z$ と $Y$ のトークンの間の類似度をモデルに取り入れる．
+
+### 近年の進展
+
+状態空間モデルを中間層に用いるモデルが注目されている．
+
+しかし，特に長期的な依存関係の処理を苦手とするため，言語においては注意機構ほど性能が出ず，トランスフォーマーに比べて並列計算が難しいために実行速度が遅くなる，という問題があるが，これらは解決可能で，トランスフォーマーの性能を凌駕する可能性があるとされている [@Gu+2022], [@Fu+2023]．
 
 ## 大規模言語モデル
 
 ### 名前の由来と背景
 
-自然言語処理にトランスフォーマーを応用した例は大きな成功を見ている．GPT-2 [@Radford+2019], GPT-3 [@Brown+2020], GPT-4 [@OpenAI2023] のシリーズはその代表であり，特に GPT-4 は AGI の実現に向けた重要な一歩とも評されている [@Bubeck+2023]．
+自然言語処理にトランスフォーマーを応用した例は大きな成功を見ている．GPT [@Radford+2018], [GPT-2](https://openai.com/research/gpt-2-1-5b-release) [@Radford+2019], GPT-3 [@Brown+2020], [GPT-4](https://openai.com/research/gpt-4) [@OpenAI2023] のシリーズはその代表であり，特に GPT-4 は AGI の実現に向けた重要な一歩とも評されている [@Bubeck+2023]．
 
-その成功は，言語モデルとして優れているという点よりもむしろ，並列化が可能であり GPU などの計算資源を効率的に使えるという点にあり，モデルの改良よりも計算資源の増強が最終的に大きな進歩をもたらすという側面が大きい，という認識が優勢になっている [@Sutton2019]．これはスケーリング則として理論的にも理解が試みられている [@Kaplan+2020]．
+その成功は，言語モデルとして優れているという点よりもむしろ，並列化が可能であり GPU などの計算資源を効率的に使える [@Weng-Brockman2022] という点にあり，モデルの改良よりも計算資源の増強が最終的に大きな進歩をもたらすという側面が大きい，という認識が優勢になっている [@Sutton2019]．これはスケーリング則として理論的にも理解が試みられている [@Kaplan+2020]．
 
 この観点から，トランスフォーマーを用いた事前学習済みの言語モデルが，種々のタスクをほとんど例示なし (few-shot / zero-shot) で解ける能力を創発する程度に大きい場合，その規模が意味を持つことを強調して，**大規模言語モデル** (LLM: Large Language Model) とも呼ぶ [@Zhao+2023]．
+
+::: {.callout-caution icon="false" collapse="true" title="種々の LLM とマルチモーダル化"}
+
+Google の [GShard](https://research.google/pubs/gshard-scaling-giant-models-with-conditional-computation-and-automatic-sharding/) [@Lepikhin+2021]，[PaML](https://japan.googleblog.com/2023/05/palm-2.html) [@Chowdhery+2022]，M4 [@Aharoni+2019]，Google Brain の Switch Transformers [@Fedus+2022]，Google DeepMind の [Gopher](https://deepmind.google/discover/blog/language-modelling-at-scale-gopher-ethical-considerations-and-retrieval/) [@Rae+2021] などがある．
+
+最近のものでは，
+
+* Google の [LaMDA](https://blog.google/technology/ai/lamda/) [@Thoppilan+2022] は会話に特化した LLM である．
+* Google から 12/6/2023 に Gemini [@Geminiteam+2023] が発表され，[2/16/2024](https://japan.googleblog.com/2024/02/gemini-15.html) には Gemini 1.5 が発表された．
+  * これに伴い，Bard と Duet AI はいずれも Gemini に名称変更された．
+  * [GShard](https://research.google/pubs/gshard-scaling-giant-models-with-conditional-computation-and-automatic-sharding/) [@Lepikhin+2021] 同様，トランスフォーマーに加えて，新しいアーキテクチャである Sparsely-Gated MoE [@Shazeer+2017] が用いられている．これはモデルのパラメータを分割し（それぞれを専門家 expert という），１つの入力にはその一部分しか使わないようにすることでメモリを節約し並列化を可能にする手法である．
+  * 文書から高精度にテキストを抽出する LMDX (Language Model-based Document Information Extraction and Localization) [@Perot+2023] も用いられている．
+* OpenAI から 9/5/2023 に GPT-4V [@OpenAI2023-GPT4V] が発表され，ChatGPT にも実装された．
+  * Microsoft の研究者も，GPT-4V の出来ること関する考察 [@Yang+2023] を発表している．
+
+
+:::
 
 ### 「基盤モデル」と事後調整 {#sec-foundation-model}
 
@@ -182,7 +277,7 @@ GPT の P とは Pre-trained である．自己教師あり学習によって [�
 
 これは，事後調整に有効な内的次元は実際には小さく [@Aghajanyan+2021]，これに有効にアクセスし，効率的な事後調整を行うことが出来るという．
 
-事後調整には，他にも，ChatGPT のようなサービスを展開するために必要なユーザー体験の改善を目的としたものも含まれる．GPT-4 では [人間のフィードバックによる強化学習](https://ja.wikipedia.org/wiki/%E4%BA%BA%E9%96%93%E3%81%AE%E3%83%95%E3%82%A3%E3%83%BC%E3%83%89%E3%83%90%E3%83%83%E3%82%AF%E3%81%AB%E3%82%88%E3%82%8B%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92) (RLHF: Reinforcement Learning through Human Feedback) [@Christiano+2017] が用いられている [@OpenAI2023 p.2]．
+事後調整には，他にも，ChatGPT のようなサービスを展開するために必要なユーザー体験の改善を目的としたものも含まれる．GPT-4 では [人間のフィードバックによる強化学習](https://ja.wikipedia.org/wiki/%E4%BA%BA%E9%96%93%E3%81%AE%E3%83%95%E3%82%A3%E3%83%BC%E3%83%89%E3%83%90%E3%83%83%E3%82%AF%E3%81%AB%E3%82%88%E3%82%8B%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92) (RLHF: Reinforcement Learning through Human Feedback) [@Christiano+2017] が用いられている [@OpenAI2023 p.2]（第 [-@sec-alignment] 節）．
 
 ### プロンプトエンジニアリング
 
@@ -190,7 +285,212 @@ GPT の P とは Pre-trained である．自己教師あり学習によって [�
 
 その結果，プロンプト内で新たなタスクを定義するだけで，これが解けてしまうこともわかっており，これを few-shot learning という．これも大規模言語モデルの大きな特徴である．
 
+### RAG
 
-## 画像トランスフォーマー
+LLM は世界に関する正確な知識も持っており，知識ベースとしての利用も期待されている [@Petroni+2019]．^[パラメトリックな知識ベースとしての利用については [@Raffel+2020]，[@Roberts+2020] など．一方で [@Marcus2020] などは，hallucination などの欠点を補う形で，古典的な知識ベースと連結したハイブリット型での使用を提案している．] しかし，知識を正確に・信頼出来る形で引き出すことが難しい．特に，出典を示すことや，最新の知識のアップデートなどが難題として待っている．
+
+そこで，LLM に（自由に外部情報を探索できるという意味で）ノンパラメトリックな知識ベースを接続することで解決するのが RAG (Retrieval-Augmented Generation) モデル [@Lewis+2020] である．
+
+DPR (Dense Passage Retriever) [@Karpukhin+2020] は文書を密に符号化する手法を開発し，これを用いて文書検索をすることで Q&A タスクを効率的に解く手法を提案した．このような文書の符号化器は **検索器** (retriever) と呼ばれる．
+
+RAG [@Lewis+2020] はこの検索器を BART [@Lewis+2020-BART] に接続した．
+
+REALM (Retrieval-Augmented Language Model) [@Guu+2020] も同時期に提案されている．
+
+Meta での研究 [@Yasunaga+2023] はこの検索器を Text-to-Image トランスフォーマー である CM3 [@Aghajanyan+2022] と結合することで，初めて言語と画像の両方を扱える RAG モデル RA-CM3 (retrieval-augmented CM3) を構成した．
+
+[WebGPT](https://openai.com/research/webgpt) [@Nakano+2022] は，RAG や REAML が文書検索をしているところを，Web 検索を実行できるようにした GPT-3 [@Brown+2020] の事後調整である．
+
+### アラインメント {#sec-alignment}
+
+LLM などの機械学習モデルを訓練する際の目的関数は，そのままでは人間社会が要請するものとずれがあることが多い．これを修正するような試みを **アラインメント** (alignment) という．
+
+代表的な手法が [人間のフィードバックによる強化学習](https://ja.wikipedia.org/wiki/%E4%BA%BA%E9%96%93%E3%81%AE%E3%83%95%E3%82%A3%E3%83%BC%E3%83%89%E3%83%90%E3%83%83%E3%82%AF%E3%81%AB%E3%82%88%E3%82%8B%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92) (RLHF: Reinforcement Learning through Human Feedback) [@Christiano+2017] である．
+
+[InstructGPT](https://openai.com/research/instruction-following) [@Ouyang+2022] は OpenAI API を通じて寄せられたフィードバックを用いて，[PPO](https://openai.com/research/openai-baselines-ppo) (Proximal Policy Optimization) アルゴリズム [@Schulman+2017] による強化学習により事後調整をしたものである．
+
+近接ポリシー最適化 (PPO: Proximal Policy Optimization) アルゴリズム [@Schulman+2017] は 信頼領域ポリシー最適化 (TRPO: Trust Region Policy Optimization) [@Schulman+2015] の洗練化として提案されたもので，現在の RLHF においても最も広く使われている手法である [@Zheng+2023]．
+
+InstructGPT が ChatGPT の前身となっている．
 
 ## 多相トランスフォーマー {#sec-multimodal-transformer}
+
+トランスフォーマーは自然言語処理の文脈で開発されたが，画像や動画，音声 [@Radford+2023]，さらにはプログラミング言語 [@Chen+2021] にも適用されている．
+
+動画はまだしも画像には，直感的には時系列構造がないように思えるが，トランスフォーマーはもはや汎用のニューラルネットワークアーキテクチャとして使用できることが解りつつある．
+
+それぞれの応用分野で **モデルの構造は殆ど差異がなく**，トークン化の手法などに差異があるのみのように見受けられる．^[モデルの比較は [@Raffel+2020] などが行っている．]
+
+### 画像認識トランスフォーマー (ViT)
+
+画像の分類問題を解くためのエンコーダ・トランスフォーマーは ViT (Vision Transformer) [@Dosovitskiy+2021] と呼ばれており，ILSVRC (the ImageNet Large Scale Visual Recognition Challenge) では未だ [ResNet](Deep.qmd#sec-ResNet) 系のモデルが優勢であった 2021 年に，これを超える性能を示した．
+
+実はモデルは殆どトランスフォーマーそのままであり，肝要であったのは画像をトークン化である．ピクセルをそのまま用いるのではなく，ある程度大きなピクセルの集合である **パッチ** (patch) を用いることで，計算量を下げる．[@Dosovitskiy+2021] では $16\times16$ サイズなどが採用された．
+
+一方で，画像を恣意的に系列化しているため，幾何学的な構造は１から学ぶ必要があり，最初からモデルに組み込まれている [CNN](Deep.qmd#sec-CNN) よりは一般に多くの訓練データを必要とする．だが，これにより帰納バイアスが弱いということでもある．^[トークン化に小規模な CNN を用いてデータ圧縮を行うこともある．]
+
+ViT はその後，動画も扱える ViViT [@Arnab+2021], あらゆるアスペクト比に対応する NaViT (Native Resolution ViT) [@Dehghani+2023] などの拡張が続いた．
+
+DeepMind の [Perceiver](https://deepmind.google/discover/blog/perceiver-ar-general-purpose-long-context-autoregressive-generation/) [@Jaegle+2021] は画像，動画，音声のいずれのメディアの分類問題にも対応可能な，非対称な注意機構を持つトランスフォーマーである．
+
+### 画像生成トランスフォーマー
+
+一方でデコーダートランスフォーマーを用いて，画像の生成モデリングを行った最初の例は [ImageGPT](https://openai.com/research/image-gpt) [@Chen+2020] である．
+
+なお，自己回帰的な生成モデルを通じて画像の生成を試みることは，CNN [@vandenOord+2016b] や RNN [@vandenOord+2016] でも行われていた．
+
+この際に判明したことには，画像の分類タスクでは連続表現が役に立っても，生成タスクでは高い解像度を持った画像の生成が難しく，離散表現が有効であることが知られている．しかしこれではデータ量が増えてしまうため，画像の [ベクトル量子化](../Computation/VI.qmd#sec-history) が行われることが多い．
+
+そこで，[ImageGPT](https://openai.com/research/image-gpt) [@Chen+2020] でも $K$-平均法によるクラスタリングが行われており，さらに [VQ-VAE](Deep4.qmd#sec-VQ-VAE) を用いたデータ圧縮も行われている．
+
+[ImageGPT](https://openai.com/research/image-gpt) [@Chen+2020] では最終的に各ピクセルを one-hot 表現にまで落とし込み，これを GPT-2 モデル [@Radford+2019] につなげている．
+
+[MUSE](https://muse-model.github.io/) [@Chang+2023] も，トランスフォーマーを用いた画像生成モデルの例である．
+
+#### 拡散モデルとの邂逅
+
+[潜在拡散モデル](Deep5.qmd#sec-idea) で [U-Net](Deep.qmd#sec-U-net) [@Ronneberger+2015] を用いていたところをトランスフォーマーに置換した **拡散トランスフォーマー** (DiT: Diffusion Transformer) [@Peebles-Xie2023] が発表された．
+
+その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) [@Ma+2024] が発表された．
+
+### Text-to-Image トランスフォーマー
+
+この分野は [@Reed+2016] 以来，初めは GAN によるアプローチが試みられていた．
+
+GPT-3 [@Brown+2020] と [ImageGPT](https://openai.com/research/image-gpt) [@Chen+2020] とは殆ど同じモデルを用いている．これらを組み合わせたデコーダー型のトランスフォーマーが [DALL-E](https://openai.com/research/dall-e) [@Ramesh+2021] である．^[すなわち，DALL-E は GPT-3 のマルチモーダルな実装である [@Tamkin+2021 p.4]．]
+
+トークン化して仕舞えば，言語も画像も等価に扱えるというのである．Google の [Parti](https://sites.research.google/parti/) [@Yu+2022] も同様のアプローチである．
+
+Meta の CM3 [@Aghajanyan+2022] と [CM3leon](https://ai.meta.com/blog/generative-ai-text-images-cm3leon/) [@Yu+2023] は画像と言語を両方含んだ HTML ドキュメントから学習している． 
+
+Google DeepMind の [Flamingo](https://deepmind.google/discover/blog/tackling-multiple-tasks-with-a-single-visual-language-model/) [@Alayrac+2022] は画像から言語を生成する．
+
+### Image-to-Text トランスフォーマー
+
+OpenAI の [CLIP](https://openai.com/research/clip) (Contrastive Language-Image Pre-training) [@Radford+2021] は画像の表現学習をする視覚モデルである．これは [DALL-E](https://openai.com/research/dall-e) [@Ramesh+2021] と同時に開発された重要な構成要素である．
+
+一方で [DALL-E2](https://openai.com/dall-e-2) [@Ramesh+2022] では，CLIP により画像を潜在空間にエンコードし，拡散モデルによってデコードする．
+
+[DALL-E3](https://openai.com/research/dall-e-3-system-card) [@OpenAI2023DallE3] もその改良である．
+
+### 動画生成トランスフォーマー
+
+動画を画像の連続と見てトランスフォーマーを応用するアプローチは Latte (Latent Diffusion Transformer) [@Rakhimov+2020] に始まる．
+
+[VideoGPT](https://wilson1yan.github.io/videogpt/index.html) [@Yan+2021] では動画を 3D の CNN でデータ圧縮，VQ-VAE で量子化して離散的な潜在表現を得た後，GPT と殆ど似たトランスフォーマーに通して学習する．
+
+[Wayve](https://wayve.ai/company/) の [GAIA-1](https://wayve.ai/thinking/introducing-gaia1/) (Generative AI for Autonomy) [@Hu+2023] も同様の手法で動画を生成しているが，その動画を用いて自動運転の強化学習に応用する点が画期的である．
+
+OpenAI は 2/15/2024 に [Sora](https://openai.com/sora) [@Brooks+2024] を発表した．これも [潜在拡散モデル](Deep5.qmd#sec-idea) [@Rombach+2022] 同様，自己符号化器による動画の潜在表現を得た上でパッチに分割し，この上で拡散トランスフォーマー [@Peebles-Xie2023] の学習を行う．
+
+### 世界モデルとしてのトランスフォーマー
+
+トランスフォーマーを世界モデルとして用いて，シミュレーションを行い動画を生成し，これをモデルベースの強化学習 [@Sutton-Barto2018] の材料とすることが広く提案されている．これは learning in imagination [@Racaniere+2017] と呼ばれる．^[[@Ha-Schmidthuber2018] は RNN により世界モデルを構築している．[@Kaiser+2020] は動画から Atari を学習している．[@Hafner+2021] はさらに性能が良い．]
+
+IRIS (Imagination with auto-Regression over an Inner Speech) [@Micheli+2023] はこれに初めてトランスフォーマーを用いた世界モデルから動画生成をした．
+
+[GAIA-1](https://wayve.ai/thinking/introducing-gaia1/) (Generative AI for Autonomy) [@Hu+2023] は自動運転に特化した世界モデルを，トランスフォーマーを用いて構築している．
+
+他にも，動画生成を強化学習に応用する例としては，OpenAI による [VPT (Video Pre-Training)](https://openai.com/research/vpt) [@Baker+2022] がある．
+
+### 音声生成トランスフォーマー
+
+OpenAI の [Jukebox](https://openai.com/research/jukebox) [@Dhariwal+2020] は，[VQ-VAE](Deep4.qmd#sec-VQ-VAE) を用いて音声データを圧縮・量子化し，トランスフォーマーに通したものである．
+
+このトランスフォーマーは [Sparse Transformer](https://openai.com/research/sparse-transformer) [@Child+2019] という，注意機構の計算効率を改良したモデルを用いている．
+
+### Text-to-Speech トランスフォーマー
+
+Microsoft Research の [VALL-E](https://www.microsoft.com/en-us/research/project/vall-e-x/) [@Wang+2023] は，音声データをベクトル量子化によって言語データと全く同等に扱うことで，トランスフォーマーを用いて音声生成を行っている．
+
+### Speach to Text トランスフォーマー
+
+OpenAI の [Whisper](https://openai.com/research/whisper) [@Radford+2023-Whisper] は encoder-decoder 型のトランスフォーマーを用いている．
+
+## 近年の動向
+
+### LLaMA の一般公開とその影響
+
+Meta AI が [7/18/2023](https://about.fb.com/ja/news/2023/07/meta-and-microsoft-introduce-the-next-generation-of-llama/) に LLM [LLaMA](https://llama.meta.com/) [@Touvron+2023] を公開した．そして API を通じて利用する形ではなく，そのモデルのウェイトが公開されたため，Stanford 大学の [Alpaca](https://github.com/tatsu-lab/stanford_alpaca) など，モデルの改良と研究が促進されている．
+
+[Alpaca](https://github.com/tatsu-lab/stanford_alpaca) では Self-Instruct [@Wang+2023] による効率的な alignment 技術が採用されている．
+
+産業界でも影響は大きい．[ELYZA](https://elyza.ai/) は [12/27/2023](https://elyza.ai/news/2023/12/27/130%E5%84%84%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%81%AE%E5%95%86%E7%94%A8%E5%88%A9%E7%94%A8%E5%8F%AF%E8%83%BD%E3%81%AA%E6%97%A5%E6%9C%AC%E8%AA%9Ellmelyza-j) に日本語に特化した LLM である ELYZA-japanese-Llama-2-13b を公開している．[Stockmark](https://stockmark.co.jp/) も [10/27/2023](https://stockmark.co.jp/news/20231027) に Stockmark-13b を公開している．
+
+いずれも，開発費と開発時間が大幅に圧縮されたという．^[[日経新聞 (2/19/2024)](https://www.nikkei.com/article/DGXZQOUC268J80W3A221C2000000/)]
+
+IBM は [9/12/2023](https://jp.newsroom.ibm.com/2023-09-12-Blog-Building-AI-for-business-IBM-Granite-foundation-models) に LLM Granite を発表している．加えて，プラットフォーム `watsonx` も提供しており，その上で RAG など独自の事後調整を可能にしている．
+
+IBM と Meta の２社が発起人となり，[12/5/2023](https://www.ibm.com/blogs/solutions/jp-ja/the-ai-alliance/) に AI Alliance が発足し，オープンイノベーションを推進している．
+
+[Stable Diffusion](https://ja.stability.ai/stable-diffusion) [@Rombach+2022] もソースコードとウェイトが [一般公開](https://github.com/Stability-AI/stablediffusion) されている．
+
+### LLM の経済的影響
+
+[@Tamkin+2021] は早い段階での OpenAI と Stanford 大学 [HAI](https://hai.stanford.edu/) (Human-centered AI) との対談録である．
+
+OpenAI はコード生成能力の経済的な影響を重要なアジェンダとしている [@Manning+2022]．
+
+Open AI の [Codex](https://openai.com/blog/openai-codex) [@Chen+2021] はプログラム言語を扱うトランスフォーマーであり，[GitHub Copilot](https://github.com/features/copilot) の元となっている．これが社会に与える影響も，新たな評価フレームワークと共に提案されている [@Khlaaf+2022]．
+
+LLM の労働市場へのインパクトも推定している [@Eloundou+2023]．これによると，アメリカの労働者の 80% が，LLM の導入により少なくとも仕事の 10% に影響が生じるとしている．さらに全体の 20% は仕事の半分以上が影響を受けるとしている．
+
+### 種々の下流タスクの発見
+
+#### Bayesian AI
+
+意思決定の場面において AI を活用するには，不確実性の定量化が必要不可欠である．
+
+GPT-3 を Bayesian にし，自身の確証度合いを言表するように事後調整する研究が OpenAI で行われている [@Lin+2022]．
+
+#### 社会行動シミュレーターとしての LLM
+
+社会的なシミュレーションを LLM 内で行うことで，社会科学やビジネスの場面での意思決定を支援することが期待されている．
+
+[@Leng-Yuan2023] など．
+
+### LLM と経済安全保障
+
+#### 偽情報対策
+
+生成 AI は，一国の政府が特定のプロパガンダを流布するための効果的な手段として選ばれることになる．その際の考え得る使用例と，それに対する対策が考えられてる [@Goldstein+2023]．
+
+#### 開発規制
+
+[@Anderljung+2023] は先端的な AI を [Frontier AI](https://www.cnas.org/publications/commentary/frontier-ai-regulation-managing-emerging-risks-to-public-safety) と呼び，これの開発過程におけるあるべき規制を模索している．監督当局に執行権を付与することやフロンティアAIモデルのライセンス制度などが議論されている．
+
+[@Shoker+2023] は LLM と国家安全保障との関係を議論している．信頼構築措置 (CBMs: Confidence-Building Measures) とは，国家間の敵意を減少させることで，衝突のリスクを減らす措置の全般をいう．元々は冷戦時代に提案された概念であるが，これを LLM 開発に適用することが具体的に提案されている．
+
+#### 生物学的脅威
+
+LLM の登場により個人がエンパワーメントを受けており，生物学的脅威を作る障壁が低下していることは間違いない．
+
+[@Patwardhan+2024] では，生物学的リスクに焦点を当てて，AI による安全リスク評価の手法と事前警鐘システムを模索している．この研究では，LLM によりリスクが増加するという統計的に有意義な証拠は得られていないが，この方面の研究の草分けとなっている．
+
+### アラインメント
+
+DALL-E2 では訓練前の緩和策も取られている [@Nichol2022]．
+
+#### プログラムの支援
+
+遺伝的プログラムの改良の過程を模倣できる [@Lehman+2024] として，ソフトウェア開発やロボット開発分野での，プログラムの漸次的改良への応用が考えられている．
+
+困難なタスクに対して AI がアシストするという研究もある [@Saunders+2022]．これは最終的に，AI のアラインメントにおいても重要な技術になるとしている．
+
+#### 超アラインメント問題
+
+これは，OpenAI のアラインメント研究が次の３本の柱であることが背景にある [@Leike+2022]
+
+1. 人間のフィードバックによる AI の強化学習
+2. AI の支援を通じて人間のフィードバックを正確にする
+3. AI を通じてアラインメントの研究を促進する
+
+の３つである．
+
+第３の柱として，GPT-4 [@OpenAI2023] によるシミュレーションを通じて，特定のニューロンがどのような出力に対応しているかを解明する手法を提案している [@Leike+2023]．これにより，人間が直接調べる行為が自動化され，アラインメントの研究が効率化され，スケーラブルな手法になるということである．
+
+さらに，将来的なアラインメントは RLHF では出来なくなっていく．人智を超えた超知能 (superintelligence) をアラインメントすることを，超アラインメントと呼び，OpenAI は 2023 年の暮れに [超アラインメントチーム](https://openai.com/blog/introducing-superalignment) を創設し，人間が「弱い監督者」となってしまった状況でもどのように超アラインメントを実行すれば良いかを研究するとしている．
+
+#### AI エージェントへの道
+
+OpenAI は能動的 AI システム (Agentic AI system) の構築に向けて，安全な運用と責任のある管理を目指す白書 [@Shavit+2023] を発表した．
