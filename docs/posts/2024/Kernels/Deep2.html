@@ -229,7 +229,12 @@ window.Quarto = {
   <li><a href="#名前の由来と背景" id="toc-名前の由来と背景" class="nav-link" data-scroll-target="#名前の由来と背景"><span class="header-section-number">1.1</span> 名前の由来と背景</a></li>
   <li><a href="#注意機構" id="toc-注意機構" class="nav-link" data-scroll-target="#注意機構"><span class="header-section-number">1.2</span> 注意機構</a></li>
   </ul></li>
-  <li><a href="#言語トランスフォーマー" id="toc-言語トランスフォーマー" class="nav-link" data-scroll-target="#言語トランスフォーマー"><span class="header-section-number">2</span> 言語トランスフォーマー</a></li>
+  <li><a href="#言語トランスフォーマー" id="toc-言語トランスフォーマー" class="nav-link" data-scroll-target="#言語トランスフォーマー"><span class="header-section-number">2</span> 言語トランスフォーマー</a>
+  <ul class="collapse">
+  <li><a href="#言語の取り扱い" id="toc-言語の取り扱い" class="nav-link" data-scroll-target="#言語の取り扱い"><span class="header-section-number">2.1</span> 言語の取り扱い</a></li>
+  <li><a href="#デコーダーのみの言語モデル" id="toc-デコーダーのみの言語モデル" class="nav-link" data-scroll-target="#デコーダーのみの言語モデル"><span class="header-section-number">2.2</span> デコーダーのみの言語モデル</a></li>
+  <li><a href="#エンコーダーのみの言語モデル" id="toc-エンコーダーのみの言語モデル" class="nav-link" data-scroll-target="#エンコーダーのみの言語モデル"><span class="header-section-number">2.3</span> エンコーダーのみの言語モデル</a></li>
+  </ul></li>
   <li><a href="#大規模言語モデル" id="toc-大規模言語モデル" class="nav-link" data-scroll-target="#大規模言語モデル"><span class="header-section-number">3</span> 大規模言語モデル</a>
   <ul class="collapse">
   <li><a href="#名前の由来と背景-1" id="toc-名前の由来と背景-1" class="nav-link" data-scroll-target="#名前の由来と背景-1"><span class="header-section-number">3.1</span> 名前の由来と背景</a></li>
@@ -315,13 +320,71 @@ x_{(\Lambda)}^n:=XW_{(\Lambda)}
 \]</span> を持たせ，この <span class="math inline">\(W_{(\Lambda)}\)</span> を誤差逆伝播法により同時に学習することとする．</p>
 <p>こうして得るのが，内積による自己注意機構 (dot-product self-attention mechanism) である．このとき，<span class="math inline">\(D_{(K)}=D_{(Q)}\)</span> は必要だが，<span class="math inline">\(y^n\in\mathbb{R}^{D_{(V)}}\)</span> は，元の次元 <span class="math inline">\(D\)</span> と異なっても良いことに注意．</p>
 <p>最後に，ソフトマックス関数の適用において，勾配消失を回避するために，次元 <span class="math inline">\(D_{(K)}\)</span> に応じたスケーリングを介して <span class="math display">\[
-a^n_m=\frac{e^{\frac{\left(x^n_{(Q)}\right)^\top x^m_{(K)}}{\sqrt{D_K}}}}{\sum_{k=1}^Ne^{\frac{(x^n_{(Q)})^\top x^k_{(K)}}{\sqrt{D_K}}}}
+a^n_m=\frac{e^{\frac{\left(x^n_{(Q)}\right)^\top x^m_{(K)}}{\sqrt{D_K}}}}{\sum_{k=1}^Ne^{\frac{\left(x^n_{(Q)}\right)^\top x^k_{(K)}}{\sqrt{D_K}}}}
 \]</span> とする．これを最終的な <strong>自己注意機構</strong> (scaled dot-product self-attention mechanism) という．</p>
+</section>
+<section id="多頭注意" class="level4" data-number="1.2.4">
+<h4 data-number="1.2.4" class="anchored" data-anchor-id="多頭注意"><span class="header-section-number">1.2.4</span> 多頭注意</h4>
+<p>以上の自己注意機構を１単位として，これを複数独立に訓練し，最終的にはこれらの線型結合を採用する仕組みを <strong>多頭注意</strong> (multi-head attention) という．</p>
+<p>これにより，種々の文脈をより頑健に読み取ることが出来るようである．</p>
+</section>
+<section id="トランスフォーマーの全体" class="level4" data-number="1.2.5">
+<h4 data-number="1.2.5" class="anchored" data-anchor-id="トランスフォーマーの全体"><span class="header-section-number">1.2.5</span> トランスフォーマーの全体</h4>
+<p>更に勾配消失を回避するために，<a href="../../../posts/2024/Kernels/Deep.html#sec-ResNet">残差結合</a> を導入し，訓練の高速化のために正規化 <span class="citation" data-cites="Ba+2016">(<a href="#ref-Ba+2016" role="doc-biblioref">Ba et al., 2016</a>)</span> が導入される．</p>
+<p>そして，モデルを大規模化していくには，この「多頭注意＋残差結合と正規化」のブロックを積み重ねる．</p>
+<p>注意機構は線型性が高いため，多頭注意の層の間に，通常の多層パーセプトロンもスタックして，ネットワークの表現能力を保つ工夫もされる．</p>
 </section>
 </section>
 </section>
 <section id="言語トランスフォーマー" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="言語トランスフォーマー"><span class="header-section-number">2</span> 言語トランスフォーマー</h2>
+<p>言語モデルをニューラルネットワークによって作ることは早くから試みられていた <span class="citation" data-cites="Bengio+2000">(<a href="#ref-Bengio+2000" role="doc-biblioref">Bengio et al., 2000</a>)</span>．</p>
+<p>トランスフォーマーの登場まで，これには RNN が主に用いられていた．</p>
+<section id="言語の取り扱い" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="言語の取り扱い"><span class="header-section-number">2.1</span> 言語の取り扱い</h3>
+<section id="単語の埋め込み" class="level4" data-number="2.1.1">
+<h4 data-number="2.1.1" class="anchored" data-anchor-id="単語の埋め込み"><span class="header-section-number">2.1.1</span> 単語の埋め込み</h4>
+<p>言語をそのまま扱うのではなく，トークン <span class="math inline">\(x^n\in\mathbb{R}^D\)</span> の形に符号化する必要がある．</p>
+<p>言語には他にも改行や数式，コンピューターコードがあるが，まずは単語の表現を考える．</p>
+<p>単語を Euclid 空間内に埋め込んだものを <strong>分散表現</strong> (distributed representation) という．これを２層のニューラルネットワークで行う技術が <code>word2vec</code> である <span class="citation" data-cites="Mikolov2013">(<a href="#ref-Mikolov2013" role="doc-biblioref">Mikolov et al., 2013</a>)</span>．</p>
+<p>その訓練法には２つあり，窓の幅を <span class="math inline">\(M=5\)</span> などとすると，</p>
+<ul>
+<li>CBOW (Continuous Bag of Words)：前後 <span class="math inline">\(M\)</span> 語のみを見せて，中央の語を予測する．</li>
+<li>Continuous Skip-gram：中央の語を見せて，前後 <span class="math inline">\(M\)</span> 語を予測する．</li>
+</ul>
+<p>という，いずれも教師なしの方法によって学習される．</p>
+</section>
+<section id="トークン化" class="level4" data-number="2.1.2">
+<h4 data-number="2.1.2" class="anchored" data-anchor-id="トークン化"><span class="header-section-number">2.1.2</span> トークン化</h4>
+<p>バイトペア符号化 (BPE: Byte Pair Encoding) <span class="citation" data-cites="Sennrich+2016">(<a href="#ref-Sennrich+2016" role="doc-biblioref">Sennrich et al., 2016</a>)</span> は，データ圧縮の手法であるが，単語に限らず種々のデータを含んだ文字列を符号化するのにも用いられる．</p>
+</section>
+<section id="位置情報符号化" class="level4" data-number="2.1.3">
+<h4 data-number="2.1.3" class="anchored" data-anchor-id="位置情報符号化"><span class="header-section-number">2.1.3</span> 位置情報符号化</h4>
+<p>トランスフォーマーはそのままではトークンの順番を考慮しないため，トークンの順番の情報も符号化時に含める必要がある．これを <strong>位置情報符号化</strong> (positional encoding) という <span class="citation" data-cites="Dufter+2021">(<a href="#ref-Dufter+2021" role="doc-biblioref">Dufter et al., 2021</a>)</span>．</p>
+<p>このようにして，位置情報はトランスフォーマーのモデル構造を修正して組み込むのではなく，符号化の段階で組み込み，トランスフォーマーはそのまま使うのである．</p>
+<p>これは，位置情報をトークンと同じ空間に埋め込んだ表現 <span class="math inline">\(r^n\)</span> を学習し， <span class="math display">\[
+\widetilde{x}^n:=x^n+r^n
+\]</span> を新たな符号とする．</p>
+</section>
+</section>
+<section id="デコーダーのみの言語モデル" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="デコーダーのみの言語モデル"><span class="header-section-number">2.2</span> デコーダーのみの言語モデル</h3>
+<p>GPT などの生成モデルは，デコーダー部分のトランスフォーマーの機能を主に用いている．</p>
+<p>これはまず，</p>
+<ol type="1">
+<li>トークン列 <span class="math inline">\((x^n)_{n=1}^{N-1}\)</span> を入力し，条件付き分布 <span class="math inline">\(p(x^N|x_1,\cdots,x^{N-1})\)</span> を得る．</li>
+<li>分布 <span class="math inline">\(p(x^N|x_1,\cdots,x^{N-1})\)</span> からサンプリングをする．</li>
+</ol>
+<p>の２段階で行われる．こうして <span class="math inline">\((x^n)_{n=1}^N\)</span> を得たら，次は <span class="math inline">\(x^{N+1}\)</span> を生成し，文章が終わるまでこれを続けることで，最終的な生成を完遂する．</p>
+<section id="条件付き分布の表現" class="level4" data-number="2.2.1">
+<h4 data-number="2.2.1" class="anchored" data-anchor-id="条件付き分布の表現"><span class="header-section-number">2.2.1</span> 条件付き分布の表現</h4>
+<p>大規模なデータセットの上で，文章を途中まで読み，次のトークンを推測する，という自己教師あり学習を行うことで，トークン上の条件付き分布を学習する．</p>
+</section>
+</section>
+<section id="エンコーダーのみの言語モデル" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="エンコーダーのみの言語モデル"><span class="header-section-number">2.3</span> エンコーダーのみの言語モデル</h3>
+<p>BERT <span class="citation" data-cites="Devlin+2019">(<a href="#ref-Devlin+2019" role="doc-biblioref">Devlin et al., 2019</a>)</span> などの言語理解モデルは，エンコーダ部分のトランスフォーマーの機能を主に用いている．</p>
+</section>
 </section>
 <section id="大規模言語モデル" class="level2" data-number="3">
 <h2 data-number="3" class="anchored" data-anchor-id="大規模言語モデル"><span class="header-section-number">3</span> 大規模言語モデル</h2>
@@ -329,7 +392,7 @@ a^n_m=\frac{e^{\frac{\left(x^n_{(Q)}\right)^\top x^m_{(K)}}{\sqrt{D_K}}}}{\sum_{
 <h3 data-number="3.1" class="anchored" data-anchor-id="名前の由来と背景-1"><span class="header-section-number">3.1</span> 名前の由来と背景</h3>
 <p>自然言語処理にトランスフォーマーを応用した例は大きな成功を見ている．GPT-2 <span class="citation" data-cites="Radford+2019">(<a href="#ref-Radford+2019" role="doc-biblioref">Radford et al., 2019</a>)</span>, GPT-3 <span class="citation" data-cites="Brown+2020">(<a href="#ref-Brown+2020" role="doc-biblioref">Brown et al., 2020</a>)</span>, GPT-4 <span class="citation" data-cites="OpenAI2023">(<a href="#ref-OpenAI2023" role="doc-biblioref">OpenAI, 2023</a>)</span> のシリーズはその代表であり，特に GPT-4 は AGI の実現に向けた重要な一歩とも評されている <span class="citation" data-cites="Bubeck+2023">(<a href="#ref-Bubeck+2023" role="doc-biblioref">Bubeck et al., 2023</a>)</span>．</p>
 <p>その成功は，言語モデルとして優れているという点よりもむしろ，並列化が可能であり GPU などの計算資源を効率的に使えるという点にあり，モデルの改良よりも計算資源の増強が最終的に大きな進歩をもたらすという側面が大きい，という認識が優勢になっている <span class="citation" data-cites="Sutton2019">(<a href="#ref-Sutton2019" role="doc-biblioref">Sutton, 2019</a>)</span>．これはスケーリング則として理論的にも理解が試みられている <span class="citation" data-cites="Kaplan+2020">(<a href="#ref-Kaplan+2020" role="doc-biblioref">Kaplan et al., 2020</a>)</span>．</p>
-<p>この観点から，トランスフォーマーを用いた言語モデルを，その規模が意味を持つことを強調して，<strong>大規模言語モデル</strong> (LLM: Large Language Model) とも呼ぶ．</p>
+<p>この観点から，トランスフォーマーを用いた事前学習済みの言語モデルが，種々のタスクをほとんど例示なし (few-shot / zero-shot) で解ける能力を創発する程度に大きい場合，その規模が意味を持つことを強調して，<strong>大規模言語モデル</strong> (LLM: Large Language Model) とも呼ぶ <span class="citation" data-cites="Zhao+2023">(<a href="#ref-Zhao+2023" role="doc-biblioref">Zhao et al., 2023</a>)</span>．</p>
 </section>
 <section id="sec-foundation-model" class="level3" data-number="3.2">
 <h3 data-number="3.2" class="anchored" data-anchor-id="sec-foundation-model"><span class="header-section-number">3.2</span> 「基盤モデル」と事後調整</h3>
@@ -359,8 +422,14 @@ a^n_m=\frac{e^{\frac{\left(x^n_{(Q)}\right)^\top x^m_{(K)}}{\sqrt{D_K}}}}{\sum_{
 <div id="ref-Aghajanyan+2021" class="csl-entry" role="listitem">
 Aghajanyan, A., Gupta, S., &amp; Zettlemoyer, L. (2021). Intrinsic dimensionality explains the effectiveness of language model fine-tuning. <em>Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing</em>, <em>1</em>, 7319–7328. <a href="https://aclanthology.org/2021.acl-long.568/">https://aclanthology.org/2021.acl-long.568/</a>
 </div>
+<div id="ref-Ba+2016" class="csl-entry" role="listitem">
+Ba, J. L., Kiros, J. R., &amp; Hinton, G. E. (2016). <em>Layer normalization</em>. <a href="https://arxiv.org/abs/1607.06450">https://arxiv.org/abs/1607.06450</a>
+</div>
 <div id="ref-Bahdanau+2015" class="csl-entry" role="listitem">
 Bahdanau, D., Cho, K., &amp; Bengio, Y. (2015). <em>Neural machine translation by jointly learning to align and translate</em>. <a href="https://arxiv.org/abs/1409.0473">https://arxiv.org/abs/1409.0473</a>
+</div>
+<div id="ref-Bengio+2000" class="csl-entry" role="listitem">
+Bengio, Y., Ducharme, R., &amp; Vincent, P. (2000). A neural probabilistic language model. <em>Advances in Neural Information Processing Systems</em>, <em>13</em>. <a href="https://papers.nips.cc/paper_files/paper/2000/hash/728f206c2a01bf572b5940d7d9a8fa4c-Abstract.html">https://papers.nips.cc/paper_files/paper/2000/hash/728f206c2a01bf572b5940d7d9a8fa4c-Abstract.html</a>
 </div>
 <div id="ref-Bommasani+2021" class="csl-entry" role="listitem">
 Bommasani, R., Hudson, D. A., Adeli, E., Altman, R., Arora, S., Arx, S. von, Bernstein, M. S., Bohg, J., Bosselut, A., Brunskill, E., Brynjolfsson, E., Buch, S., Card, D., Castellon, R., Chatterji, N. S., Chen, A. S., Creel, K. A., Davis, J., Demszky, D., … Liang, P. (2021). On the opportunities and risks of foundation models. <em>ArXiv</em>. <a href="https://crfm.stanford.edu/report.html">https://crfm.stanford.edu/report.html</a>
@@ -374,6 +443,12 @@ Bubeck, S., Chandrasekaran, V., Eldan, R., Gehrke, J., Horvitz, E., Kamar, E., L
 <div id="ref-Christiano+2017" class="csl-entry" role="listitem">
 Christiano, P. F., Leike, J., Brown, T., Martic, M., Legg, S., &amp; Amodei, D. (2017). Deep reinforcement learning from human preferences. <em>Advances in Neural Information Processing Systems</em>, <em>30</em>. <a href="https://papers.nips.cc/paper_files/paper/2017/hash/d5e2c0adad503c91f91df240d0cd4e49-Abstract.html">https://papers.nips.cc/paper_files/paper/2017/hash/d5e2c0adad503c91f91df240d0cd4e49-Abstract.html</a>
 </div>
+<div id="ref-Devlin+2019" class="csl-entry" role="listitem">
+Devlin, J., Chang, M.-W., Lee, K., &amp; Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. <em>Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies</em>, <em>1</em>, 4171–4186. <a href="https://aclanthology.org/N19-1423/">https://aclanthology.org/N19-1423/</a>
+</div>
+<div id="ref-Dufter+2021" class="csl-entry" role="listitem">
+Dufter, P., Schmitt, M., &amp; Schütze, H. (2021). <em>Position information in transformers: An overview</em>. <a href="https://arxiv.org/abs/2102.11090">https://arxiv.org/abs/2102.11090</a>
+</div>
 <div id="ref-Hu+2021" class="csl-entry" role="listitem">
 Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., &amp; Chen, W. (2021). <em>LoRA: Low-rank adaptation of large language models</em>. <a href="https://arxiv.org/abs/2106.09685">https://arxiv.org/abs/2106.09685</a>
 </div>
@@ -383,17 +458,26 @@ Kaplan, J., McCandlish, S., Henighan, T., Brown, T. B., Chess, B., Child, R., Gr
 <div id="ref-Liu+2023" class="csl-entry" role="listitem">
 Liu, P., Yuan, W., Fu, J., Jiang, Z., Hayashi, H., &amp; Neubig, G. (2023). Pre-train, prompt, and predict: A systematic survey of prompting methods in natural language processing. <em>ACM Computing Surveys</em>, <em>55</em>(9), 1–35. <a href="https://dl.acm.org/doi/full/10.1145/3560815">https://dl.acm.org/doi/full/10.1145/3560815</a>
 </div>
+<div id="ref-Mikolov2013" class="csl-entry" role="listitem">
+Mikolov, T., Chen, K., Corrado, G., &amp; Dean, J. (2013). <em>Efficient estimation of word representations in vector space</em>. <a href="https://arxiv.org/abs/1301.3781">https://arxiv.org/abs/1301.3781</a>
+</div>
 <div id="ref-OpenAI2023" class="csl-entry" role="listitem">
 OpenAI. (2023). <em>GPT-4 technical report</em>. <a href="https://arxiv.org/abs/2303.08774">https://arxiv.org/abs/2303.08774</a>
 </div>
 <div id="ref-Radford+2019" class="csl-entry" role="listitem">
 Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., &amp; Sutskever, I. (2019). <em>Language models are unsupervised multitask learners</em>. <a href="https://github.com/openai/gpt-2?tab=readme-ov-file">https://github.com/openai/gpt-2?tab=readme-ov-file</a>
 </div>
+<div id="ref-Sennrich+2016" class="csl-entry" role="listitem">
+Sennrich, R., Haddow, B., &amp; Birch, A. (2016). Neural machine translation of rare words with subword units. <em>Proceedings of the 54th Annual Meetings of the Association for Computational Linguistics</em>, <em>1</em>, 1715–1725. <a href="https://aclanthology.org/P16-1162/">https://aclanthology.org/P16-1162/</a>
+</div>
 <div id="ref-Sutton2019" class="csl-entry" role="listitem">
 Sutton, R. (2019). <em>The bitter lesson</em>. <a href="http://www.incompleteideas.net/IncIdeas/BitterLesson.html">http://www.incompleteideas.net/IncIdeas/BitterLesson.html</a>
 </div>
 <div id="ref-Vaswani+2017" class="csl-entry" role="listitem">
 Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., &amp; Polosukhin, I. (2017). Attention is all you need. <em>Advances in Neural Information Processing Systems</em>, <em>30</em>. <a href="https://papers.nips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html">https://papers.nips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html</a>
+</div>
+<div id="ref-Zhao+2023" class="csl-entry" role="listitem">
+Zhao, W. X., Zhou, K., Li, J., Tang, T., Wang, X., Hou, Y., Min, Y., Zhang, B., Zhang, J., Dong, Z., Du, Y., Yang, C., Chen, Y., Chen, Z., Jiang, J., Ren, R., Li, Y., Tang, X., Liu, Z., … Wen, J.-R. (2023). <em>A survey of large language models</em>. <a href="https://arxiv.org/abs/2303.18223">https://arxiv.org/abs/2303.18223</a>
 </div>
 </div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
