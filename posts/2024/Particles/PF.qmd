@@ -25,12 +25,14 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: Abstract
-abstract: aa
+abstract: Recently developments in continuous-time MCMC algorithms have emerged as a promising direction for scalable Bayesian computation. This poster explores their SMC counterparts. A new finding about a continuous-time limit of particle filter is discussed.
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-This is a detailed version of the poster presented at [MLSS2024](../../../static/Sessions.qmd#sec-MLSS2024), S3-41, March 8 (Fri) 18:00-19:30.
+[![A Recent Development of Particle Filter (Tap the image to view PDF)](../../../static/Posters/MLSS2024.jpg){width=200}](../../../static/Posters/MLSS2024.pdf)
+
+The following is a detailed version of the poster presented at [MLSS2024](../../../static/Sessions.qmd#sec-MLSS2024), S3-41, March 8 (Fri) 18:00-19:30.
 
 Japanese version is available [here](PFja.qmd).
 
@@ -38,15 +40,115 @@ Japanese version is available [here](PFja.qmd).
 
 _Particle filters_, also known as _Sequential Monte Carlo_ methods (SMCs), were invented in [@Kitagawa1993] and [@Gordon+1993] independently as an simulation-based algorithm which performs filtering in non-Gaussian and non-linear state space models, overcoming the weeknesses of then-standard Kalman-based filtering methods.
 
-In particle-based approaches, a filtering distribution is approximated by a cloud of weighted samples, hence giving rise to the term 'particle methods'. The samples are propagated to approximate the next distribution, leading to efficient sequential estimation in dynamic settings.
-
-## Resampling: The Key to Effective Particle Filtering
-
-The _resampling step_ is the key difference from sequential importance sampling methods. Particle filters incorporate a resampling step to occasionally reset the weights of the samples, while maintaining the overall distribution they represent, in order to prevent the effective number of particles participating in the estimation from becoming too small--a situation also called _weight degeneracy_.
-
-## Expanding Applications of Particle Filters
+In particle-based approaches, a filtering distribution is approximated by a cloud of weighted samples, hence giving rise to the term 'particle filter'. The samples are propagated to approximate the next distribution, leading to efficient sequential estimation in dynamic settings.
 
 Recent developments have highlithgted the capability of particle filters as general-purpose samplers, extending their applicability beyond the traditional realm of temporal graphical models to a broader range of statistical inference problems. This versatility has earned them the alternative name 'SMC', a term reminiscent of 'MCMC'. This poster trys to be another contribution in this direction.
 
-## A Generi Particle Filter: An Algorithmic Description
+## MCMC vs. SMC
 
+PDMPs (Piecewise Deterministic Markov Processes) [@Davis1984], a type of continuous-time Markov processes with jumps as their only random components, play a complementary role to diffusion processes in stochastic modelling.
+
+In [@Peters-deWith2012], a PDMP was identified through the continuous limit of the MCMC, Metropolis-Hastings algorithm. The PDMP was further investigated and termed _Bouncy Particle Sampler_ (BPS) in [@Bouchard-Cote+2018-BPS].
+
+```{r}
+library(RZigZag)
+library(ggplot2)
+V <- matrix(c(3,1,1,3),nrow=2)
+mu <- c(2,2)
+x0 <- c(0,0)
+result <- BPSGaussian(V, mu, n_iter = 100, x0 = x0)
+ggplot() +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   labs(x="", y="", title="Bouncy Particle Sampler") +
+   theme_void() +
+   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
+```
+
+Also, other types of continuous-time MCMC algorithms have been developed, such as the _Zig-Zag_ sampler [@Bierkens+2019-ZigZag]:
+
+```{r}
+V <- matrix(c(3,1,1,3),nrow=2)
+mu <- c(2,2)
+result <- ZigZagGaussian(V, mu, 100)
+ggplot() +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   labs(x="", y="", title="Zig-Zag Sampler") +
+   theme_void() +
+   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
+```
+
+Enpirical evidence suggests that continuous-time MCMCs are more efficient than their discrete-time counterparts.
+
+> Interestingly, continuous-time algorithms seem particularly well suited to Bayesian analysis in big-data settings as **they need only access a small sub-set of data points at each iteration**, and yet are still guaranteed to target the true posterior distribution. [@Fearnhead+2018-PDMC]
+
+## Inquiry for Continuous-time SMC
+
+Despite the success of continuous-time MCMC, the continuous-time limit of SMC has not been fully explored. The continuous-time limit of SMC is expected to be a jump process, which is similar to PDMP, but is more diffusion-like.
+
+MCMC has now taken a step ahead; it is time for SMC to explore its continuous-time limit!
+
+### A Generic Particle Filter: An Algorithmic Description
+
+![Procedure of a generic step of a particle filter at time $t$](PF.svg)
+
+1. **Resampling Step**
+
+    Particles with high weights are duplicated, and those with the lowest weights are discarded.
+
+2. **Movement Step**
+
+    Subsequently, a MCMC move is executed from the resampled particles.
+
+The _resampling step_ is the key difference from sequential importance sampling methods. Particle filters incorporate a resampling step to occasionally reset the weights of the samples, while maintaining the overall distribution they represent, in order to prevent the effective number of particles participating in the estimation from becoming too small--a situation also called _weight degeneracy_.
+
+### A Necessary Condition: Resampling Stability
+
+In order to have a time-step $\Delta\to0$ limit, resampling events must occur with (at most linearly) decreasing frequency as $\Delta\to0$.
+
+Only the most efficient resampling schemes satisfy this property.
+
+![Root mean squared errors of marginal likelihood estimates [@Chopin+2022]](box2_filtering_512.svg)
+
+## The Continuous-time Limit Process
+
+The continuous-time limit process, if it exists, is characterized by a **Feller-Dynkin process**, whose infinitesimal generator is given by:
+
+$$
+\begin{align*}
+    \L f(x)&:=\sum_{n=1}^N\sum_{i=1}^db_i(x^n)\pp{f}{x^n_i}(x)\\
+    &\qquad+\sum_{n=1}^N\frac{1}{2}\sum_{i,j=1}^d(\sigma\sigma^\top)_{ij}(x^n)\pp{^2f}{x^n_i\partial x^n_j}(x)\\
+    &\qquad+\sum_{a\ne1:N}\ov{\iota}(V(x),a)\Paren{f(x^{a(1:N)})-f(x^{1:N})}
+\end{align*}
+$$
+$$
+(f\in C_c^2(\R^{dN}),x\in\R^{dN},x^n\in\R^d)
+$$
+
+when the latent process $(X_t)$ is an **Itô process** given by the generator:
+
+$$
+\begin{align*}
+    Lf(x)&=\sum_{i=1}^db_i(x)\pp{f}{x_i}(x)\\
+    &\qquad+\frac{1}{2}\sum_{i,j=1}^d(\sigma\sigma^\top)_{ij}(x)\pp{^2f}{x_i\partial x_j}(x)
+\end{align*}
+$$
+$$
+(f\in C_c^2(\R^d),x\in\R^d)
+$$
+
+For details, please consult [@Chopin+2022 p.3206], Theorem 19.
+
+## Conclusions
+
+::: {.callout-important}
+SMC with efficient resampling schemes possess a continuous-time limit $\Delta\to0$,
+which turns out to be a Feller-Dynkin process, a diffusion process with jumps, when $(X_t)$ is a diffusion.
+:::
+
+## Forthcoming Research
+
+* What are the **properties of this limit jump process**, and how do they change with modifications to the underlying latent process?
+* How does the **timing of resampling** affect overall efficiency? Can insights be gained from the perspective of continuous-time limits?
+* Does the continuous-time limit process improve SMC efficiency when used for **particle propagation**?
