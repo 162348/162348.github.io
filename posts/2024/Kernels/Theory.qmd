@@ -3,7 +3,7 @@ title: "統計的学習理論１"
 subtitle: "PAC 学習"
 author: "司馬博文"
 date: 1/10/2024
-date-modified: 3/2/2024
+date-modified: 3/3/2024
 categories: [Kernel, Math Notes]
 toc: true
 image: Theory.png
@@ -25,29 +25,31 @@ crossref:
     def-title: 定義
     thm-prefix: 定理
     thm-title: 定理
+    lem-title: 補題
+    lem-prefix: 補題
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
 機械学習と統計学に別を設けるならば，いずれもデータから構造を発見することを目標とするとしても，前者は明示的なプログラムを伴わない「自動化」を念頭におくものであると言える．この人間による介入をなるべく少なくしたいという志向が「学習」の名前に表れている．
 
-それ故，機械学習の理論としては，統計的決定理論の枠組みとは違った枠組みが存在する．これを，径数模型の教師あり学習の場合に関して述べる．
+それ故，機械学習の理論としては，通常の統計的決定理論の枠組みよりも，汎化性能に力点を置いたものとなっている．これを，径数模型の教師あり学習の場合に関して述べる．
 
-## 枠組み
+## 機械学習の形式化
 
-### 記法と用語^[[@Mohri+2018 pp.9-10] と [@Shalev-Shwartz-Ben-David2014 pp.13-14] を参考にした．]
+### 記法と用語^[[@Mohri+2018 pp.9-10] と [@Shalev-Shwartz-Ben-David2014 pp.13-14], [@Alquier2024] を参考にした．]
 
-* データサイズ $n\in\N^+$ を固定するのが特徴である．^[これを **不可知論的** (agnostical) setting という．]
+* データサイズを $n\in\N^+$ で表す．
 
-* データ (sample) の全体を $S_n=\{z_i\}_{i=1}^n\subset\cX\times\cY$ と表す．^[これは訓練セット (training set) ともいう [@Shalev-Shwartz-Ben-David2014 p.14]．] $\cX$ を入力空間，$\cY$ を出力空間と呼ぶ．^[[@Bousquet-Elisseeff2002] の用語に一致する．[@Alquier2021 p.2] では，$\cX$ を object set，$\cY$ を label set と呼んでいる．[@Shalev-Shwartz-Ben-David2014 pp.13-14] は $\cX$ を domain set，$\cY$ を label set と呼ぶ．]
+* 訓練データ (sample) の全体を $S_n=\{z_i\}_{i=1}^n\subset\cX\times\cY$ と表す．^[これは訓練セット (training set) ともいう [@Shalev-Shwartz-Ben-David2014 p.14]．] $\cX$ を入力空間，$\cY$ を出力空間と呼ぶ．^[[@Bousquet-Elisseeff2002] の用語に一致する．[@Alquier2024 p.2] では，$\cX$ を object set，$\cY$ を label set と呼んでいる．[@Shalev-Shwartz-Ben-David2014 pp.13-14] は $\cX$ を domain set，$\cY$ を label set と呼ぶ．]
 
-* $\cX,\cY$ はいずれも可測空間とし，可測関数 $f\in\L(\cX,\cY)$ を推定量，部分集合 $\H\subset\L(\cX;\cY)$ を **仮設集合** (hypothesis set) という．^[[@Valiant1984] では，$\cY=2$ の場合，元 $h\in\cH$ を **概念** (concept) ともいう．その他の場合を predicate とも呼んでいる．[@Shalev-Shwartz-Ben-David2014 p.14] では **predictor**, predictino rule, classifier とも呼ぶとしている．]
+* $\cX,\cY$ はいずれも可測空間とし，可測関数 $h\in\L(\cX,\cY)$ を **推定量**，部分集合 $\H\subset\L(\cX;\cY)$ を **仮説集合** (hypothesis set) という．^[[@Valiant1984] では，$\cY=2$ の場合，元 $h\in\cH$ を **概念** (concept) ともいう．その他の場合を predicate とも呼んでいる．[@Shalev-Shwartz-Ben-David2014 p.14] では **predictor**, predictino rule, classifier とも呼ぶとしている．]
 
-* $l(\Delta_\cY)=\{0\}$ を満たす関数 $l:\cY^2\to\R_+$ を **損失関数** という．
+* $l(\Delta_\cY)=\{0\}$ を満たす関数 $l:\cY^2\to\R_+$ を **損失関数** という．^[[@Alquier2024 p.177] を参考にした．$\Delta_\cY:=\Brace{(y',y)\in\cY^2\mid y=y'}$ を対角集合とした．]
 
 * 写像 $A:(\cX\times\cY)^n\to\H$ を（機械学習） **アルゴリズム** または学習者という．
 
-以降，データはある真の分布 $\bP\in\cP(\cX\times\cY)$ に従うものとし，$(X,Y)\sim\bP$ と表す．サンプル $S_n=\{z_i\}_{i=1}^n$ は $(X,Y)$ の独立同分布な複製と仮定する．
+以降，データはある真の分布 $\bP\in\cP(\cX\times\cY)$ に従うものとし，$(X,Y)\sim\bP$ と表す．サンプル $S_n=\{z_i\}_{i=1}^n$ は $(X,Y)\sim\bP$ の独立同分布な複製と仮定する．^[[@Alquier2024] 第4章ではこの i.i.d. 仮定を外している．]
 
 ::: {.callout-caution icon="false" collapse="true" title="損失関数の例"}
 
@@ -62,18 +64,18 @@ $$
 
 ### 汎化ギャップ
 
-::: {.callout-tip icon="false" title="(generalization) error, training error^[[@Alquier2021 p.4], [@Mohri+2018 p.10]，[@金森敬文2015 p.7] を参考にした．[@Shalev-Shwartz-Ben-David2014 p.14] でも，generalization error, risk, error，さらには loss のいずれの名前でも呼ぶし，training error と empirical error /risk とも交換可能に使う，としている．]"}
+::: {.callout-tip icon="false" title="(generalization) error, training error^[[@Alquier2024 p.4], [@Mohri+2018 p.10]，[@金森敬文2015 p.7] を参考にした．[@Shalev-Shwartz-Ben-David2014 p.14] でも，generalization error, risk, error，さらには loss のいずれの名前でも呼ぶし，training error と empirical error /risk とも交換可能に使う，としている．]"}
 ::: {#def-loss}
 
 $l:\cY^2\to\R_+$ を損失関数とする．
 
-1. 仮設 $h\in\cH$ の **（汎化）誤差** または **危険** または **予測損失** とは，
+1. 仮説 $h\in\cH$ の **（汎化）誤差** または **危険** または **予測損失** とは，
 $$
 R(h):=\bE[l(h(X),Y)]
 $$
 をいう．
 
-2. 仮設 $h\in\cH$ のサンプル $S_n=\{(x_i,y_i)\}_{i=1}^n$ に関する **訓練誤差** または **経験損失** とは，
+2. 仮説 $h\in\cH$ のサンプル $S_n=\{(x_i,y_i)\}_{i=1}^n$ に関する **訓練誤差** または **経験損失** とは，
 $$
 \wh{R}_n(h):=\frac{1}{n}\sum_{i=1}^n l(h(x_i),y_i)
 $$
@@ -86,13 +88,15 @@ $$
 
 アルゴリズム $A$ にとって，汎化誤差は不可知であるが，訓練誤差は計算可能である．データが独立同分布に従うとする場合，経験損失は予測損失の不偏推定量であり，^[[@Mohri+2018 pp.10-11], [@金森敬文2015 p.8] など．] $n\to\infty$ の漸近論もすでに準備が出来ている．
 
-不可知である予測損失の最小化の代わりに，経験損失を最小化する予測器
+従って，不可知である予測損失の最小化の代わりに，経験損失を最小化する予測器
 $$
 \operatorname{ERM}_\cH(S_n)\in\argmin_{h\in\cH}R_n(h)
 $$
-を構成する枠組みを **経験リスク最小化 (Empirical Risk Minimization)** という．PAC 学習は，枠組みがどれほどの意味で正しいかの定量的な検証になっている．
+を構成すれば良い，という指針があり得る．この枠組みを **経験リスク最小化 (Empirical Risk Minimization)** といい，PAC 学習は，この ERM の枠組みがどれほどの意味で正しいかの定量的な検証になっている．
 
-一見，これでは過学習の問題が生じる．
+### 経験リスク最小化の問題
+
+ERM は一見，過学習の問題を孕んでいるように思える．
 
 そこで，あらかじめ学習者 $A$ の値域 $\cH\subset\L(\cX;\cY)$ を制限することを考える．これを **帰納バイアス** といい，正則化などの方法によって達成される．
 
@@ -105,7 +109,7 @@ $$
 
 この下で，$\wh{R}(h_{S_n})$ と $R(h_{S_n})$ の関係を考える．
 
-::: {.callout-caution icon="false" collapse="true" title="loss と error の区別"}
+::: {.callout-caution icon="false" collapse="true" title="損失と誤差の区別"}
 
 [@金森敬文2015 p.13] では，（決定論的な）仮説 $h\in\cH$ に関して，$R(h)$ を損失，データから決まる仮説 $h_{S_n}=A(S_n)$ に関して，$\E[R(h_{S_n})]$ をリスクと呼び分けている．
 
@@ -114,13 +118,12 @@ $$
 l=1_{\Delta_\cY^\comp}
 $$
 
-^[$\Delta_\cY:=\Brace{(y',y)\in\cY^2\mid y=y'}$ を対角集合とした．]
 に関するものを誤差といい，この２語は殆ど交換可能な形で使う．その期待値をリスクと言う，という使い分けは一つ筋が通りそうである．
 
-ただし，[@Alquier2021], [@Bousquet-Elisseeff2002] はいずれもリスクと誤差を並列している．
+ただし，[@Alquier2024], [@Bousquet-Elisseeff2002], [@Shalev-Shwartz-Ben-David2014] はいずれもリスクと誤差を交換可能な概念としている．
 :::
 
-### PAC学習
+### PAC 学習
 
 機械学習を形式化する数理的枠組みのうち，**PAC 学習** とは，
 
@@ -128,9 +131,7 @@ $$
 
 の略であり，[@Valiant1984] によって提案されたものである．
 
-PAC 学習とは，分布 $\bP\in\cP(\cX\times\cY)$ に依らない汎化ギャップの評価を，確率論的に与えることを目的としており，Probably Approximately Correct の名前はその様子を端的に表現している．
-
-[@Haussler-Warmuth1993 p.292] によれば，PAC 学習の枠組みにより，計算効率性の研究者が，機械学習のアルゴリズムにも目を向け，協業を始めるきっかけになったとしている．
+機械学習における哲学的な問題として，「そもそも不可知なリスク $R(h)$ を最小化できるのか？」「できるとしたら，どのような場合においてか？」というものがあった．^[[@Haussler-Warmuth1993 p.263] にある Valiant 本人による解説に，その哲学的なモチベーションがよく表れている．]
 
 ::: {.callout-tip icon="false" title="agnostically PAC Learnable^[[@Shalev-Shwartz-Ben-David2014 p.25] 定義3.3，[@Mohri+2018 p.22] 定義2.14 など．元々の [@Valiant1984] の定義では，$m$ と計算時間の増加レートは $1/\ep,1/\delta$ の多項式以下であるという制限もあった．]"}
 ::: {#def-PAC-learnable}
@@ -145,16 +146,103 @@ A:(\cX\times\cY)^{<\om}\to\cH
 $$
 が存在して，任意の $\ep,\delta\in(0,1)$ と $\bP\in\cP(\cX\times\cY)$ に対して，$m_\cH(\ep,\delta)$ よりも多くの i.i.d. サンプルが存在すれば，$1-\delta$ 以上の確率で，
 $$
-R(A(S_m))\le\ep+\min_{h\in\cH}R(h)\quad(m\ge m_\cH(\ep,\delta))
+R(A(S_m))\le\min_{h\in\cH}R(h)+\ep\quad(m\ge m_\cH(\ep,\delta))
 $$
 が成り立つことをいう．
 
 :::
 :::
 
+PAC 学習とは，分布 $\bP\in\cP(\cX\times\cY)$ に依らない真の誤差の評価を，確率論的に与えることを目的としており，Probably Approximately Correct の名前はその様子を端的に表現している．
+
+[@Valiant1984] による PAC 学習可能性の定義には，計算量と計算時間の制約も入っていた．^[[@Shalev-Shwartz-Ben-David2014 p.28] も参照．] [@Haussler-Warmuth1993 p.292] によれば，PAC 学習の枠組みにより，計算効率性の研究者が，機械学習のアルゴリズムにも目を向け，協業を始めるきっかけになったとしている．
+
+::: {.callout-tip icon="false" title="agnostically PAC Learnable^[[@Shalev-Shwartz-Ben-David2014 p.34] 系4.6 など．]"}
+::: {#thm-PAC-learnable}
+
+仮説集合 $\cH\subset\L(\cX;\cY)$ が有限ならば，（不可知論的な意味で）PAC 学習可能である．
+
+:::
+:::
+
+### @thm-PAC-learnable の証明
+
+仮説集合 $\cH$ が **一様収束性** を持つことを示せば良い，というように議論する．
+
+PAC 学習可能性（ @def-PAC-learnable ）は純粋に真の誤差の議論であるが，訓練誤差との関係に注目して示すのである．
+
+::: {.callout-tip icon="false" title="$\epsilon$-representative, uniform convergence property^[[@Shalev-Shwartz-Ben-David2014 pp.31-32] 定義3.1 と 定義3.3．]"}
+::: {#def-uniform-convergence}
+
+* 訓練データ $S_n=\{x_i\}_{i=1}^n$ が **$\ep$-代表的** であるとは，次を満たすことをいう：
+$$
+\abs{\wh{R}_n(h)-R(h)}\le\ep\quad(h\in\cH).
+$$
+* 仮説集合 $\cH$ が **一様収束性** を持つとは，任意の $\ep,\delta\in(0,1)$ と $\bP\in\cP(\cX\times\cY)$ について，十分大きな訓練データ $S_m$ を取れば，$1-\delta$ 以上の確率で $S_m$ は $\ep$-代表的であることをいう．
+* このときのサンプル数の増加の速さを $m_\cH^{\mathrm{UC}}(\ep,\delta)$ と書く．
+
+:::
+::: {#lem-uniform-convergence}
+
+訓練データ $S_n$ が $\ep/2$-代表的ならば，任意の経験リスク最小化学習器
+$$
+h_{S_n}\in\argmin_{h\in\cH}\wh{R}_n(h)
+$$
+は
+$$
+R(h_{S_n})\le\min_{h\in\cH}R(h)+\ep
+$$
+を満たす．
+
+特に，$m_\cH^{\mathrm{UC}}(\ep,\delta)$ に関して一様収束性を持つならば，$m_\cH(\ep/2,\delta)\le m_\cH^{\mathrm{UC}}(\ep,\delta)$ に関して（不可知論的な意味で）PAC 学習可能である．
+
+:::
+:::
+
+::: {.callout-note icon="false" title="証明" collapse="true"}
+
+$h_{S_n}$ の最小性に注意して，
+
+$$
+\begin{align*}
+    R(h_{S_n})&\le\wh{R}_n(h_{S_n})+\frac{\ep}{2}\\
+    &\le\wh{R}_n(h)+\frac{\ep}{2}\\
+    &\le R(h)+\ep.
+\end{align*}
+$$
+
+:::
+
+こうして，PAC 学習の枠組みは，（今回のケースでは）ERM の枠組みを肯定する結果を導いている．
+
+これは，一様収束性が成り立つ仮説集合 $\cH$ については，経験リスクは真のリスクに十分近いことを意味している．このような $\cH$ を **Glivenko-Cantelli クラス** [@Glivenko1933], [@Cantelli1933] ともいう．^[[@Shalev-Shwartz-Ben-David2014 p.35] など．]
+
+こうして，
+
+### PAC 学習の基本定理
+
+実は，分類問題においては，一様収束性は，PAC 学習可能性を特徴付ける．
+
+この証明は，VC 次元 [@Vapnik-Chervonenkis71] の概念による．
+
+しかし，一般の学習問題においても同じ状況というわけではない [@Shalev-Shwartz2010]．
+
+::: {.callout-tip icon="false" title="Fundamental Theorem of Statistical Machine Learning^[[@Shalev-Shwartz-Ben-David2014 p.48] 定理6.7 など．]"}
+::: {#thm-PAC}
+
+
+分類問題 $\cY=2$ を 0-1 損失 $l=1_{\Delta_\cY^\comp}$ で考えるとする．仮説集合 $\cH\subset\L(\cX;\cY)$ について，次は同値：
+
+1. $\cH$ は一様収束性を持つ．
+2. $\cH$ は（不可知論的な意味で）PAC 学習可能である．
+3. $\cH$ は有限な VC 次元を持つ．
+
+:::
+:::
+
 ### Bayes ルール
 
-::: {.callout-tip icon="false" title="Bayes error, Bayes rule^[[@金森敬文2015 p.9] を参考．], excess risk / regret"}
+::: {.callout-tip icon="false" title="Bayes error, Bayes rule^[[@Mohri+2018 p.22] 定義2.15，[@金森敬文2015 p.9] を参考．], excess risk / regret"}
 ::: {#def-Bayes-loss}
 
 損失関数 $l$ に対して，
@@ -205,10 +293,12 @@ $$
 
 ## PAC bound
 
-::: {.callout-tip icon="false" title="PAC bound^[[@Alquier2021 p.7] 定理1.2 など．]"}
+### 定理
+
+::: {.callout-tip icon="false" title="PAC bound^[[@Alquier2024 p.7] 定理1.2 など．]"}
 ::: {#thm-1}
 
-仮設集合 $\cH$ が有限であるとする：$\#\cH=:M<\infty$．
+仮説集合 $\cH$ が有限であるとする：$\#\cH=:M<\infty$．
 このとき，任意の $\ep\in(0,1)$ について，
 $$
 \bP\Square{\forall_{h\in\cH}\;R(h)-\wh{R}(h)\le C\sqrt{\frac{\log\frac{M}{\ep}}{2n}}}\ge1-\ep.
@@ -224,9 +314,9 @@ $$
 
 ### $\ABs{\wh{R}_n(\ov{h})-R(\ov{h})}$ の評価
 
-### その後の発展^[[@Devroye+1996] 第11, 12章 参照．[@Vapnik1998]．]
+### 定理の一般化^[[@Devroye+1996] 第11, 12章 参照．[@Vapnik1998]．]
 
-* 一般の $\cH\subset\L(\cX;\cY)$ への拡張は，VC次元の理論を用いて行われた．
+* 一般の $\cH\subset\L(\cX;\cY)$ への拡張は，VC次元の理論を用いて行われる（ @thm-PAC など）．
 
 * バウンドの変形に，Rademacher 複雑性も使われる．
 

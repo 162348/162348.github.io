@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-16">
+<meta name="dcterms.date" content="2024-03-02">
 
-<title>Hirofumi Shiba - 数学者のための深層学習７</title>
+<title>Hirofumi Shiba - 統計的学習理論３</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -95,12 +95,18 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習７">
+<meta property="og:title" content="Hirofumi Shiba - 統計的学習理論３">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/Theory.png">
 <meta property="og:site-name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習７">
-<meta name="twitter:description" content="深層学習の学習における確率最適化アルゴリズムに関して概説する．">
-<meta name="twitter:card" content="summary">
+<meta property="og:image:height" content="162">
+<meta property="og:image:width" content="857">
+<meta name="twitter:title" content="Hirofumi Shiba - 統計的学習理論３">
+<meta name="twitter:description" content="統計的機械学習には，「汎化」に価値を置く，独特の決定理論的な枠組みが存在する．特に，現状では経験リスク最小化と正則化とを組み合わせた「構造的リスク最小化」が最もよく見られる．この枠組みから，各手法の優越を評価することとなる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/Theory.png">
+<meta name="twitter:image-height" content="162">
+<meta name="twitter:image-width" content="857">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-fixed">
@@ -143,8 +149,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習７</h1>
-            <p class="subtitle lead">確率的最適化</p>
+      <h1 class="title">統計的学習理論３</h1>
+            <p class="subtitle lead">構造的リスク最小化</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
                 <div class="quarto-category">Math Notes</div>
@@ -165,7 +171,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 16, 2024</p>
+        <p class="date">March 2, 2024</p>
       </div>
     </div>
     
@@ -175,7 +181,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="abstract-title">概要</div>
-      深層学習の学習における確率最適化アルゴリズムに関して概説する．
+      統計的機械学習には，「汎化」に価値を置く，独特の決定理論的な枠組みが存在する．特に，現状では経験リスク最小化と正則化とを組み合わせた「構造的リスク最小化」が最もよく見られる．この枠組みから，各手法の優越を評価することとなる．
     </div>
   </div>
   
@@ -187,15 +193,14 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#確率的最適化の概観" id="toc-確率的最適化の概観" class="nav-link active" data-scroll-target="#確率的最適化の概観"><span class="header-section-number">1</span> 確率的最適化の概観</a>
+  <li><a href="#正則化と汎化の関係" id="toc-正則化と汎化の関係" class="nav-link active" data-scroll-target="#正則化と汎化の関係"><span class="header-section-number">1</span> 正則化と汎化の関係</a>
   <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
-  <li><a href="#確率的最適化の歴史" id="toc-確率的最適化の歴史" class="nav-link" data-scroll-target="#確率的最適化の歴史"><span class="header-section-number">1.2</span> 確率的最適化の歴史</a></li>
-  <li><a href="#sgd-の振る舞い" id="toc-sgd-の振る舞い" class="nav-link" data-scroll-target="#sgd-の振る舞い"><span class="header-section-number">1.3</span> SGD の振る舞い</a></li>
-  </ul></li>
-  <li><a href="#確率的最適化アルゴリズム" id="toc-確率的最適化アルゴリズム" class="nav-link" data-scroll-target="#確率的最適化アルゴリズム"><span class="header-section-number">2</span> 確率的最適化アルゴリズム</a>
-  <ul class="collapse">
-  <li><a href="#robbins-monro1951" id="toc-robbins-monro1951" class="nav-link" data-scroll-target="#robbins-monro1951"><span class="header-section-number">2.1</span> <span class="citation" data-cites="Robbins-Monro1951">(Robbins &amp; Monro, 1951)</span></a></li>
+  <li><a href="#非一様性" id="toc-非一様性" class="nav-link" data-scroll-target="#非一様性"><span class="header-section-number">1.1</span> 非一様性</a></li>
+  <li><a href="#構造的リスク最小化" id="toc-構造的リスク最小化" class="nav-link" data-scroll-target="#構造的リスク最小化"><span class="header-section-number">1.2</span> 構造的リスク最小化</a></li>
+  <li><a href="#枠組みアルゴリズムに目を向ける" id="toc-枠組みアルゴリズムに目を向ける" class="nav-link" data-scroll-target="#枠組みアルゴリズムに目を向ける"><span class="header-section-number">1.3</span> 枠組み：アルゴリズムに目を向ける</a></li>
+  <li><a href="#安定性" id="toc-安定性" class="nav-link" data-scroll-target="#安定性"><span class="header-section-number">1.4</span> 安定性</a></li>
+  <li><a href="#主結果" id="toc-主結果" class="nav-link" data-scroll-target="#主結果"><span class="header-section-number">1.5</span> 主結果</a></li>
+  <li><a href="#アルゴリズムの安定性" id="toc-アルゴリズムの安定性" class="nav-link" data-scroll-target="#アルゴリズムの安定性"><span class="header-section-number">1.6</span> アルゴリズムの安定性</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -230,79 +235,121 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<p>非斉次 Markov 過程とも見れる？ <span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert &amp; Casella, 2004, p. 162</a>)</span>．</p>
-<section id="確率的最適化の概観" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="確率的最適化の概観"><span class="header-section-number">1</span> 確率的最適化の概観</h2>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p>ニューラルネットワークの訓練に関して，目的関数の勾配を上るようにパラメータを更新する手法が取られている．</p>
-<p>一度に全てのデータを使って勾配を計算する場合を <strong>バッチ学習</strong> (batch method) と呼び，これが勾配降下法または最急降下法にあたる．</p>
-<p>一方で，データを分割して逐次的に勾配を計算し最適化を実施する手法を オンライン学習 (online learning) といい，これを <strong>確率的勾配降下法</strong> (stochastic gradient descent, SGD) または逐次的勾配降下法 (sequential gradient descent) と呼ぶ．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-</section>
-<section id="確率的最適化の歴史" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="確率的最適化の歴史"><span class="header-section-number">1.2</span> 確率的最適化の歴史</h3>
-<p>確率的最適化は，はじめは統計学の文脈で <span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951</a>)</span> によってオンラインの最尤推定を題材に考察された．</p>
-<p>これを一般化する形で <span class="citation" data-cites="Kiefer-Wolfowitz1952">(<a href="#ref-Kiefer-Wolfowitz1952" role="doc-biblioref">Kiefer &amp; Wolfowitz, 1952</a>)</span> は <a href="https://ja.wikipedia.org/wiki/%E7%A2%BA%E7%8E%87%E7%9A%84%E5%8B%BE%E9%85%8D%E9%99%8D%E4%B8%8B%E6%B3%95"><strong>確率的勾配降下法</strong></a> (SGD) を提案した．</p>
-<p>SGD を拡張し，適応的に学習率を調整する手法としては，Adagrad <span class="citation" data-cites="Duchi+2011">(<a href="#ref-Duchi+2011" role="doc-biblioref">Duchi et al., 2011</a>)</span> や RMSprop <span class="citation" data-cites="Tieleman-Hinton2012">(<a href="#ref-Tieleman-Hinton2012" role="doc-biblioref">Tieleman &amp; Hinton, 2012</a>)</span> が提案された．</p>
-</section>
-<section id="sgd-の振る舞い" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sgd-の振る舞い"><span class="header-section-number">1.3</span> SGD の振る舞い</h3>
-<p>ニューラルネットワークの訓練において，SGD は特に良い性質を示しているが，その理由は未だ十分に解明されていない．</p>
-<p>例えば，正則化に寄与している（<strong>暗黙的正則化</strong> implicit regularization）ということが明らかになりつつある．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-<p><span class="citation" data-cites="Smith-Le2018">(<a href="#ref-Smith-Le2018" role="doc-biblioref">Smith &amp; Le, 2018</a>)</span> によると，鋭い谷 (sharp minima) に捕まりにくく，広い谷 (flat minima) に入りやすいという性質が汎化性能に寄与しているという．<span class="citation" data-cites="Imaizumi-SchmidtHieber2023">(<a href="#ref-Imaizumi-SchmidtHieber2023" role="doc-biblioref">Imaizumi &amp; Schmidt-Hieber, 2023</a>)</span> は理論的な説明を与えた．</p>
-</section>
-</section>
-<section id="確率的最適化アルゴリズム" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="確率的最適化アルゴリズム"><span class="header-section-number">2</span> 確率的最適化アルゴリズム</h2>
-<section id="robbins-monro1951" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="robbins-monro1951"><span class="header-section-number">2.1</span> <span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951</a>)</span></h3>
-<p>目的関数が <span class="math display">\[
-h(x)=\operatorname{E}[H(x,Z)]
-\]</span> の形で与えられるとする．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
-<p><span class="math inline">\(h(x)=\beta\)</span> の解 <span class="math inline">\(x=\theta\)</span> を求める問題を考える．のちに <span class="math inline">\(\max_{x\in\mathcal{X}}h(x)\)</span> を求める問題に拡張したのが <span class="citation" data-cites="Kiefer-Wolfowitz1952">(<a href="#ref-Kiefer-Wolfowitz1952" role="doc-biblioref">Kiefer &amp; Wolfowitz, 1952</a>)</span> である．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定理（Robbins-Monro アルゴリズム）^[[@Bouleau-Lepingle1993]，[@Robert-Casella2004 p.202] 定理5.24．]">
+<section id="正則化と汎化の関係" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="正則化と汎化の関係"><span class="header-section-number">1</span> 正則化と汎化の関係</h2>
+<section id="非一様性" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="非一様性"><span class="header-section-number">1.1</span> 非一様性<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></h3>
+<p><a href="../../../posts/2024/Kernels/Theory.html#def-PAC-learnable">PAC 学習</a> の枠組みは，分布 <span class="math inline">\(\mathbb{P}\in\mathcal{P}(\mathcal{X}\times\mathcal{Y})\)</span> に依らない一様な評価を要請している．</p>
+<p>その結果，分類問題でも，PAC 学習可能であるためには仮設集合 <span class="math inline">\(\mathcal{H}\)</span> には VC 次元の有限性が必要十分となるのであった（<a href="../../../posts/2024/Kernels/Theory.html#thm-PAC">統計的機械学習の基本定理</a>）．</p>
+<p>これは多くの場合強すぎる．</p>
+<p>そこで，必要な訓練データ数が，分布 <span class="math inline">\(\mathbb{P}\in\mathcal{P}(\mathcal{X}\times\mathcal{Y})\)</span> に依存することも許すことを考える．この緩めた学習可能性は，<span class="math inline">\(\mathcal{H}\)</span> が有限 VC 次元集合の有限合併であることに同値になる．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="nonuniformly learnable^[[@Shalev-Shwartz-Ben-David2014 p.59] 定義7.1．]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-定理（Robbins-Monro アルゴリズム）<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>
+nonuniformly learnable<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(Z_j\overset{\text{iid}}{\sim}p(z|X_j)\)</span> とし， <span class="math display">\[
-X_{j+1}=X_j+\gamma_j\biggr(\beta-H(Z_j,X_j)\biggl)
-\]</span> によって Markov 連鎖 <span class="math inline">\(\{X_j\}\)</span> を定める．</p>
-<p>このとき，<span class="math inline">\(\{\gamma_n\}\subset\mathbb{R}^+\)</span> が次の３条件を満たすならば，<span class="math inline">\(X_j\xrightarrow{\;\text{a.s.}}\theta\)</span> が成り立つ．</p>
-<ol type="1">
-<li><span class="math display">\[
-\|\gamma\|_1=\infty,\quad\|\gamma\|_2&lt;\infty
-\]</span></li>
-<li><span class="math inline">\(\{X_j\}\)</span> は有界 <span class="math inline">\(\sup_{j\in\mathbb{N}}\lvert X_j\rvert&lt;\infty\)</span> で <span class="math display">\[
-\operatorname{E}[H(X_j,Z_j)|Z_j]=h(X_j)
-\]</span></li>
-<li>ある <span class="math inline">\(\theta\in\mathcal{X}\)</span> が存在して，任意の <span class="math inline">\(\delta\in(0,1)\)</span> について <span class="math display">\[
-\inf_{\delta\le\lvert\theta-x\rvert\le1/\delta}(x-\theta)(h(x)-\beta)&gt;0
-\]</span></li>
-</ol>
+<div id="def-nonuniformly-learnable" class="theorem definition">
+<p><span class="theorem-title"><strong>定義 1 </strong></span>仮説集合 <span class="math inline">\(\mathcal{H}\subset\mathcal{L}(\mathcal{X};\mathcal{Y})\)</span> が <strong>非一様に学習可能</strong> であるとは，あるアルゴリズム <span class="math inline">\(A\)</span> とある <span class="math inline">\(h\in\mathcal{H}\)</span> に依存しても良い関数 <span class="math display">\[
+m^{\mathrm{NUL}}:(0,1)^2\times\mathcal{H}\to\mathbb{N}
+\]</span> が存在して，任意の <span class="math inline">\(\epsilon,\delta\in(0,1)\)</span> と <span class="math inline">\(h\in\mathcal{H}\)</span> と <span class="math inline">\(\mathbb{P}\in\mathcal{P}(\mathcal{X}\times\mathcal{Y})\)</span> について，<span class="math inline">\(m\ge m^{\mathrm{NUL}}(\epsilon,\delta,h)\)</span> ならば確率 <span class="math inline">\(1-\delta\)</span> 以上で <span class="math display">\[
+R(A(S_m))\le R(h)+\epsilon
+\]</span> を満たすことをいう．</p>
 </div>
 </div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+</div>
+<p>論理的な構造は <a href="../../../posts/2024/Kernels/Theory.html#def-PAC-learnable">PAC 学習可能性</a> と非常に似ているが，確かに真に弱い条件になっている．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="Characterization of Nonuniform Learnability^[[@Shalev-Shwartz-Ben-David2014 p.59] 定理7.2 など．]">
+<div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-証明
+Characterization of Nonuniform Learnability<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>
 </div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p><span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951, pp. 401–402</a>)</span> の結果を拡張した形になっている．</p>
+<div id="thm-nonuniform" class="theorem">
+<p><span class="theorem-title"><strong>定理 1 </strong></span>分類問題 <span class="math inline">\(\mathcal{Y}=2\)</span> を 0-1 損失 <span class="math inline">\(l=1_{\Delta_\mathcal{Y}^\complement}\)</span> で考えるとする．仮説集合 <span class="math inline">\(\mathcal{H}\subset\mathcal{L}(\mathcal{X};\mathcal{Y})\)</span> について，次は同値：</p>
+<ol type="1">
+<li><span class="math inline">\(\mathcal{H}\)</span> は非一様に学習可能である．</li>
+<li><span class="math inline">\(\mathcal{H}\)</span> は有限 VC 次元集合の可算合併で表せる．</li>
+</ol>
 </div>
 </div>
 </div>
+</section>
+<section id="構造的リスク最小化" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="構造的リスク最小化"><span class="header-section-number">1.2</span> 構造的リスク最小化</h3>
+<p><a href="../../../posts/2024/Kernels/Theory.html#thm-1">PAC バウンド</a> の証明からも判る通り，推定誤差と近似誤差のトレードオフが存在する．</p>
+<p>すなわち，仮説の複雑性には代償がある．</p>
+<p>そこで，仮説集合 <span class="math inline">\(\mathcal{H}\)</span> を小さくする代わりに，アルゴリズム <span class="math inline">\(A:(\mathcal{X}\times\mathcal{Y})^n\to\mathcal{H}\)</span> が探索する範囲を小さいものにし，実質的な仮説空間のサイズを抑えることも考えられる．これを <strong>正則化</strong> という．</p>
+<p>実際，深層学習も暗黙的正則化によりよい汎化性能を出していることが徐々に明らかになりつつある．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>すなわち，真に汎化性能を上げたい場合は，経験誤差を最小化するだけでは十分ではなく，<strong>経験誤差を小さくしながら，関数が滑らかになるように帰納バイアスを入れる必要がある</strong>．</p>
+<p>この枠組みを経験リスク最小化の代わりに，<a href="https://en.wikipedia.org/wiki/Structural_risk_minimization">構造リスク最小化</a> といい，<span class="citation" data-cites="Vapnik-Chervonenkis1974">(<a href="#ref-Vapnik-Chervonenkis1974" role="doc-biblioref">Vapnik &amp; Chervonenkis, 1974</a>)</span> により提案された．</p>
+<p>この方向の研究の源流は，<span class="citation" data-cites="Bousquet-Elisseeff2002">(<a href="#ref-Bousquet-Elisseeff2002" role="doc-biblioref">Bousquet &amp; Elisseeff, 2002</a>)</span> らの <strong>安定性</strong> の理論であった．これは「実質的な仮説空間」という考え方を導入することで，機械学習モデルの予測精度理論の精緻化も生んだ．</p>
+</section>
+<section id="枠組みアルゴリズムに目を向ける" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="枠組みアルゴリズムに目を向ける"><span class="header-section-number">1.3</span> 枠組み：アルゴリズムに目を向ける</h3>
+<p>リスクを <span class="math display">\[
+R(A,S):=\operatorname{E}[l(A(S)(X),YT)]
+\]</span> 経験リスクと <span class="math display">\[
+\widehat{R}(A,S_n):=\frac{1}{n}\sum_{i=1}^nl(A(S_n)(x_i),y_i)
+\]</span> として，アルゴリズム <span class="math inline">\(A:(\mathcal{X}\times\mathcal{Y})^n\to\mathcal{H}\)</span> の関数とみる．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>この場合，仮説空間 <span class="math inline">\(\mathcal{H}\)</span> 上の一様な評価は，そもそも目指さない．</p>
+</section>
+<section id="安定性" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="安定性"><span class="header-section-number">1.4</span> 安定性</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div id="def-stability" class="theorem definition">
+<p><span class="theorem-title"><strong>定義 2 (安定性<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a>) </strong></span>アルゴリズム <span class="math inline">\(A:(\mathcal{X}\times\mathcal{Y})^n\to\mathcal{H}\)</span> が，損失関数 <span class="math inline">\(l\)</span> に関して <strong><span class="math inline">\(\beta\in(0,1)\)</span>-安定</strong> であるとは，任意の <span class="math inline">\(S\subset(\mathcal{X}\times\mathcal{Y})^n\)</span> に対して， <span class="math display">\[
+\begin{align*}
+    &amp;\max_{i\in[n]}\operatorname{E}\biggl[\biggl|l(A(S)(x_i),y_i)\\
+    &amp;\qquad-l(A(S\setminus\{z_i\})(x_i),y_i)\biggr|\biggr]\le\beta
+\end{align*}
+\]</span> が成り立つことをいう．</p>
+</div>
+</div>
+</div>
+<p>すなわち，学習データを１つ減らしたときの損失の変化が，ある一定以下であることをいう．</p>
+<p>これは感度分析的な考え方であるが，実は正則化により，アルゴリズムは安定的な挙動をするようになり，安定性が汎化誤差の上界を与える！</p>
+</section>
+<section id="主結果" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="主結果"><span class="header-section-number">1.5</span> 主結果</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div id="thm-2" class="theorem">
+<p><span class="theorem-title"><strong>定理 2 (安定なアルゴリズムに対する汎化バウンド<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>) </strong></span><span class="math inline">\(A\)</span> を <span class="math inline">\(\beta_1\)</span>-安定で，損失関数 <span class="math inline">\(l\)</span> は上界 <span class="math inline">\(M&gt;0\)</span> を持つとする．このとき，<span class="math inline">\(1-\delta\)</span> の確率で <span class="math display">\[
+R(A,S)\le\widehat{R}(A,S_n)+2\beta+(4n\beta+M)\sqrt{\frac{\log1/\delta}{2n}}.
+\]</span></p>
+</div>
+</div>
+</div>
+</section>
+<section id="アルゴリズムの安定性" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="アルゴリズムの安定性"><span class="header-section-number">1.6</span> アルゴリズムの安定性</h3>
+<p>一方で，アルゴリズムの安定性を示すことは難しく，通常 admissibility と Bregman divergence を通じて議論されるようである．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
 
 
 
@@ -311,43 +358,29 @@ X_{j+1}=X_j+\gamma_j\biggr(\beta-H(Z_j,X_j)\biggl)
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-line-spacing="2" role="list">
-<div id="ref-Bishop2006" class="csl-entry" role="listitem">
-Bishop, C. M. (2006). <em>Pattern recognition and machine learning</em>. Springer New York. <a href="https://link.springer.com/book/9780387310732">https://link.springer.com/book/9780387310732</a>
-</div>
-<div id="ref-Bouleau-Lepingle1993" class="csl-entry" role="listitem">
-Bouleau, N., &amp; Lépingle, D. (1993). <em>Numerical methods for stochastic processes</em>. Wiley. <a href="https://www.wiley.com/en-ca/Numerical+Methods+for+Stochastic+Processes-p-9780471546412">https://www.wiley.com/en-ca/Numerical+Methods+for+Stochastic+Processes-p-9780471546412</a>
-</div>
-<div id="ref-Duchi+2011" class="csl-entry" role="listitem">
-Duchi, J., Hazan, E., &amp; Singer, Y. (2011). Adaptive subgradient methods for online learning and stochastic optimization. <em>Journal of Machine Learning Research</em>, <em>12</em>, 2121–2159. <a href="https://jmlr.org/papers/v12/duchi11a.html">https://jmlr.org/papers/v12/duchi11a.html</a>
-</div>
-<div id="ref-Imaizumi-SchmidtHieber2023" class="csl-entry" role="listitem">
-Imaizumi, M., &amp; Schmidt-Hieber, J. (2023). On generalization bounds for deep networks based on loss surface implicit regularization. <em>IEEE Transactions on Information Theory</em>, <em>69</em>(2), 1203–1223. <a href="https://doi.org/10.1109/TIT.2022.3215088">https://doi.org/10.1109/TIT.2022.3215088</a>
-</div>
-<div id="ref-Kiefer-Wolfowitz1952" class="csl-entry" role="listitem">
-Kiefer, J., &amp; Wolfowitz, J. (1952). Stochastic estimation of the maximum of a regression function. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 462–466. <a href="https://www.jstor.org/stable/2236690">https://www.jstor.org/stable/2236690</a>
+<div id="ref-Bousquet-Elisseeff2002" class="csl-entry" role="listitem">
+Bousquet, O., &amp; Elisseeff, A. (2002). Stability and generalization. <em>Journal of Machine Learning Research</em>, <em>2</em>, 499–526. <a href="https://jmlr.org/papers/v2/bousquet02a.html">https://jmlr.org/papers/v2/bousquet02a.html</a>
 </div>
 <div id="ref-Murphy2022" class="csl-entry" role="listitem">
 Murphy, K. P. (2022). <em>Probabilistic machine learning: An introduction</em>. MIT Press. <a href="https://probml.github.io/pml-book/book1.html">https://probml.github.io/pml-book/book1.html</a>
 </div>
-<div id="ref-Robbins-Monro1951" class="csl-entry" role="listitem">
-Robbins, H., &amp; Monro, S. (1951). A stochastic approximation method. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 400–407. <a href="https://www.jstor.org/stable/2236626">https://www.jstor.org/stable/2236626</a>
+<div id="ref-Shalev-Shwartz-Ben-David2014" class="csl-entry" role="listitem">
+Shalev-Shwartz, S., &amp; Ben-David, S. (2014). <em>Understanding machine learning: From theory to algorithms</em>. Cambridge University Press. <a href="https://doi.org/10.1017/CBO9781107298019">https://doi.org/10.1017/CBO9781107298019</a>
 </div>
-<div id="ref-Robert-Casella2004" class="csl-entry" role="listitem">
-Robert, C. P., &amp; Casella, G. (2004). <em>Monte carlo statistical methods</em> (2nd ed.). Springer New York.
-</div>
-<div id="ref-Smith-Le2018" class="csl-entry" role="listitem">
-Smith, S. L., &amp; Le, Q. V. (2018). A bayesian perspective on generalization and stochastic gradient descent. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=BJij4yg0Z">https://openreview.net/forum?id=BJij4yg0Z</a>
-</div>
-<div id="ref-Tieleman-Hinton2012" class="csl-entry" role="listitem">
-Tieleman, T., &amp; Hinton, G. (2012). <em>Neural networks for machine learning. Lecture 6.5: Divide the gradient by a running average of its recent magnitude</em>. <a href="https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf">https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf</a>
+<div id="ref-Vapnik-Chervonenkis1974" class="csl-entry" role="listitem">
+Vapnik, V. N., &amp; Chervonenkis, A. Ya. (1974). <em><a href="">Teoriya raspoznavaniya obrazov (theory of pattern recognition)</a></em>. Nauka, Moscow.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Bishop2006">(<a href="#ref-Bishop2006" role="doc-biblioref">Bishop, 2006, p. 240</a>)</span> 5.2.4節．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Murphy2022">(<a href="#ref-Murphy2022" role="doc-biblioref">Murphy, 2022, p. 455</a>)</span> も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>この <a href="../../../posts/2024/Computation/VI2.html#sec-EM0">稿</a> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><span class="citation" data-cites="Bouleau-Lepingle1993">(<a href="#ref-Bouleau-Lepingle1993" role="doc-biblioref">Bouleau &amp; Lépingle, 1993</a>)</span>，<span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert &amp; Casella, 2004, p. 202</a>)</span> 定理5.24．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p><span class="citation" data-cites="Shalev-Shwartz-Ben-David2014">(<a href="#ref-Shalev-Shwartz-Ben-David2014" role="doc-biblioref">Shalev-Shwartz &amp; Ben-David, 2014, p. 58</a>)</span> 第７章 も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Shalev-Shwartz-Ben-David2014">(<a href="#ref-Shalev-Shwartz-Ben-David2014" role="doc-biblioref">Shalev-Shwartz &amp; Ben-David, 2014, p. 59</a>)</span> 定義7.1．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="Shalev-Shwartz-Ben-David2014">(<a href="#ref-Shalev-Shwartz-Ben-David2014" role="doc-biblioref">Shalev-Shwartz &amp; Ben-David, 2014, p. 59</a>)</span> 定理7.2 など．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Murphy2022">(<a href="#ref-Murphy2022" role="doc-biblioref">Murphy, 2022, p. 455</a>)</span> も参照．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Bousquet-Elisseeff2002">(<a href="#ref-Bousquet-Elisseeff2002" role="doc-biblioref">Bousquet &amp; Elisseeff, 2002, p. 502</a>)</span>．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Bousquet-Elisseeff2002">(<a href="#ref-Bousquet-Elisseeff2002" role="doc-biblioref">Bousquet &amp; Elisseeff, 2002, p. 503</a>)</span>．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><span class="citation" data-cites="Bousquet-Elisseeff2002">(<a href="#ref-Bousquet-Elisseeff2002" role="doc-biblioref">Bousquet &amp; Elisseeff, 2002, p. 507</a>)</span> Theorem 12．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Bousquet-Elisseeff2002">(<a href="#ref-Bousquet-Elisseeff2002" role="doc-biblioref">Bousquet &amp; Elisseeff, 2002</a>)</span> 第５節．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

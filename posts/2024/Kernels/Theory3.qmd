@@ -2,7 +2,7 @@
 title: "統計的学習理論３"
 subtitle: "構造的リスク最小化"
 author: "司馬 博文"
-date: 3/2/2024
+date: 3/3/2024
 categories: [Kernel, Math Notes]
 toc: true
 image: Theory.png
@@ -30,17 +30,59 @@ crossref:
 
 ## 正則化と汎化の関係
 
-### 導入
+### 非一様性^[[@Shalev-Shwartz-Ben-David2014 p.58] 第７章 も参照．]
 
-定理 @thm-1 の証明からも判る通り，推定誤差と近似誤差のトレードオフが存在する．
+[PAC 学習](Theory.qmd#def-PAC-learnable) の枠組みは，分布 $\bP\in\cP(\cX\times\cY)$ に依らない一様な評価を要請している．
 
-これを踏まえて，機械学習モデルの根本的な設計思想として [構造リスク最小化](https://en.wikipedia.org/wiki/Structural_risk_minimization) が提案された [@Vapnik-Chervonenkis1974]．これは近似誤差をある一定以下に抑え，その中で仮設空間の複雑さをなるべく落とす，という設計方針である．
+その結果，分類問題でも，PAC 学習可能であるためには仮設集合 $\cH$ には VC 次元の有限性が必要十分となるのであった（[統計的機械学習の基本定理](Theory.qmd#thm-PAC)）．
 
-一方で，仮設集合 $\cH$ を小さくする代わりに，アルゴリズム $A:(\cX\times\cY)^n\to\cH$ が探索する範囲を小さいものにし，実質的な仮設空間のサイズを抑えることも考えられる．これを **正則化** という．
+これは多くの場合強すぎる．
 
-この方向の研究の源流は，[@Bousquet-Elisseeff2002] らの **安定性** の理論であった．
+そこで，必要な訓練データ数が，分布 $\bP\in\cP(\cX\times\cY)$ に依存することも許すことを考える．この緩めた学習可能性は，$\cH$ が有限 VC 次元集合の有限合併であることに同値になる．
 
-これは「実質的な仮設空間」という考え方を導入することで，@sec-1 の機械学習モデルの予測精度理論の精緻化も生んだ．
+::: {.callout-tip icon="false" title="nonuniformly learnable^[[@Shalev-Shwartz-Ben-David2014 p.59] 定義7.1．]"}
+::: {#def-nonuniformly-learnable}
+仮説集合 $\cH\subset\L(\cX;\cY)$ が **非一様に学習可能** であるとは，あるアルゴリズム $A$ とある $h\in\cH$ に依存しても良い関数
+$$
+m^{\mathrm{NUL}}:(0,1)^2\times\cH\to\N
+$$
+が存在して，任意の $\ep,\delta\in(0,1)$ と $h\in\cH$ と $\bP\in\cP(\cX\times\cY)$ について，$m\ge m^{\mathrm{NUL}}(\ep,\delta,h)$ ならば確率 $1-\delta$ 以上で
+$$
+R(A(S_m))\le R(h)+\ep
+$$
+を満たすことをいう．
+:::
+:::
+
+論理的な構造は [PAC 学習可能性](Theory.qmd#def-PAC-learnable) と非常に似ているが，確かに真に弱い条件になっている．
+
+::: {.callout-tip icon="false" title="Characterization of Nonuniform Learnability^[[@Shalev-Shwartz-Ben-David2014 p.59] 定理7.2 など．]"}
+::: {#thm-nonuniform}
+
+
+分類問題 $\cY=2$ を 0-1 損失 $l=1_{\Delta_\cY^\comp}$ で考えるとする．仮説集合 $\cH\subset\L(\cX;\cY)$ について，次は同値：
+
+1. $\cH$ は非一様に学習可能である．
+2. $\cH$ は有限 VC 次元集合の可算合併で表せる．
+
+:::
+:::
+
+### 構造的リスク最小化
+
+[PAC バウンド](Theory.qmd#thm-1)  の証明からも判る通り，推定誤差と近似誤差のトレードオフが存在する．
+
+すなわち，仮説の複雑性には代償がある．
+
+そこで，仮説集合 $\cH$ を小さくする代わりに，アルゴリズム $A:(\cX\times\cY)^n\to\cH$ が探索する範囲を小さいものにし，実質的な仮説空間のサイズを抑えることも考えられる．これを **正則化** という．
+
+実際，深層学習も暗黙的正則化によりよい汎化性能を出していることが徐々に明らかになりつつある．^[[@Murphy2022 p.455] も参照．]
+
+すなわち，真に汎化性能を上げたい場合は，経験誤差を最小化するだけでは十分ではなく，**経験誤差を小さくしながら，関数が滑らかになるように帰納バイアスを入れる必要がある**．
+
+この枠組みを経験リスク最小化の代わりに，[構造リスク最小化](https://en.wikipedia.org/wiki/Structural_risk_minimization) といい，[@Vapnik-Chervonenkis1974] により提案された．
+
+この方向の研究の源流は，[@Bousquet-Elisseeff2002] らの **安定性** の理論であった．これは「実質的な仮説空間」という考え方を導入することで，機械学習モデルの予測精度理論の精緻化も生んだ．
 
 ### 枠組み：アルゴリズムに目を向ける
 
@@ -54,7 +96,7 @@ $$
 $$
 として，アルゴリズム $A:(\cX\times\cY)^n\to\cH$ の関数とみる．^[[@Bousquet-Elisseeff2002 p.502]．]
 
-この場合，仮設空間 $\cH$ 上の一様な評価は，そもそも目指さない．
+この場合，仮説空間 $\cH$ 上の一様な評価は，そもそも目指さない．
 
 ### 安定性
 
