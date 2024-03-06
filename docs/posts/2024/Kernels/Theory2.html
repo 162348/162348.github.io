@@ -102,7 +102,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <meta property="og:image:height" content="162">
 <meta property="og:image:width" content="857">
 <meta name="twitter:title" content="Hirofumi Shiba - 統計的学習理論２">
-<meta name="twitter:description" content="統計的機械学習には，「汎化」に価値を置く，独特の決定理論的な枠組みが存在する．特に，現状では経験リスク最小化と正則化とを組み合わせた「構造的リスク最小化」が最もよく見られる．この枠組みから，各手法の優越を評価することとなる．">
+<meta name="twitter:description" content="PAC-Bayes は現実的に有用な鋭い PAC bound を得る新たな技術である．最適化の問題に帰着する点が研究を盛り上げている．Vapnik-Chervonenkis 理論の一般化であり，推定量上の確率分布を返すようなより一般的なアルゴリズムに対しても適用できる．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/Theory.png">
 <meta name="twitter:image-height" content="162">
 <meta name="twitter:image-width" content="857">
@@ -175,13 +175,19 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">March 6, 2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="abstract-title">概要</div>
-      統計的機械学習には，「汎化」に価値を置く，独特の決定理論的な枠組みが存在する．特に，現状では経験リスク最小化と正則化とを組み合わせた「構造的リスク最小化」が最もよく見られる．この枠組みから，各手法の優越を評価することとなる．
+      PAC-Bayes は現実的に有用な鋭い PAC bound を得る新たな技術である．最適化の問題に帰着する点が研究を盛り上げている．Vapnik-Chervonenkis 理論の一般化であり，推定量上の確率分布を返すようなより一般的なアルゴリズムに対しても適用できる．
     </div>
   </div>
   
@@ -197,6 +203,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <ul class="collapse">
   <li><a href="#枠組み" id="toc-枠組み" class="nav-link" data-scroll-target="#枠組み"><span class="header-section-number">1.1</span> 枠組み</a></li>
   <li><a href="#kl-乖離度" id="toc-kl-乖離度" class="nav-link" data-scroll-target="#kl-乖離度"><span class="header-section-number">1.2</span> KL-乖離度</a></li>
+  <li><a href="#mcallester-バウンド" id="toc-mcallester-バウンド" class="nav-link" data-scroll-target="#mcallester-バウンド"><span class="header-section-number">1.3</span> McAllester バウンド</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -234,8 +241,7 @@ $$
 <section id="pac-bayes" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="pac-bayes"><span class="header-section-number">1</span> PAC-Bayes</h2>
 <p>通常の機械学習の枠組みでは，仮説集合 <span class="math inline">\(\mathcal{H}\subset\mathcal{L}(\mathcal{X};\mathcal{Y})\)</span> を固定し，この中で最適な推定量 <span class="math inline">\(\overline{h}\in\mathcal{H}\)</span> を探すことに集中する．</p>
-<p>一方で，PAC-Bayes では，仮説集合 <span class="math inline">\(\mathcal{H}\)</span> 上の確率分布を学習し，最終的に 投票 (vote) などの確率的な操作によって決めることを考え，これにも対応する理論を構築する．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>これは，従来の PAC 学習は最悪評価をしていたとして相対化するような試みであり，より実際の機械学習アルゴリズムへの応用可能性が意識されている．</p>
+<p>一方で，PAC-Bayes では，仮説集合 <span class="math inline">\(\mathcal{H}\)</span> 上の確率分布を学習し，最終的に投票 (vote) などの確率的な操作によって決めることを考え，これにも対応する理論を構築する．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <p>これは <span class="citation" data-cites="Shawe-Taylor-Williamson1997">(<a href="#ref-Shawe-Taylor-Williamson1997" role="doc-biblioref">Shawe-Taylor &amp; Williamson, 1997</a>)</span> によって創始され， <span class="citation" data-cites="McAllester1999">(<a href="#ref-McAllester1999" role="doc-biblioref">McAllester, 1999</a>)</span> によって最初の定理が示された．<span class="citation" data-cites="Seeger2002">(<a href="#ref-Seeger2002" role="doc-biblioref">Seeger, 2002</a>)</span>, <span class="citation" data-cites="Catoni2007">(<a href="#ref-Catoni2007" role="doc-biblioref">Catoni, 2007</a>)</span> も金字塔であり，後者は情報統計力学との関連を推し進めている．</p>
 <section id="枠組み" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="枠組み"><span class="header-section-number">1.1</span> 枠組み</h3>
@@ -243,10 +249,15 @@ $$
 \widehat{\rho}:(\mathcal{X}\times\mathcal{Y})^n\to\mathcal{P}(\mathcal{H})
 \]</span> を考え，推定量をランダムに <span class="math inline">\(\widetilde{h}\sim\widehat{\rho}\)</span> とサンプリングする．これを <strong>ランダム推定量</strong> (randomized estimator) という．</p>
 <p>例えば <span class="math inline">\(\mathcal{Y}=2\)</span> においては，Gibbs 判別器と呼ばれる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-<p>また，最終的な推定量を <span class="math display">\[
-h_{\widehat{\rho}}:=\widehat{\rho}(h)
+<p>また，最終的な推定量を積分により <span class="math display">\[
+h_{\widehat{\rho}}:=(\widehat{\rho}|h)
 \]</span> と決定しても良い．これを <strong>集合推定量</strong> (aggregated predictor) という．</p>
-<p>これらのリスク <span class="math inline">\(R(\widehat{h}),R(h_{\widehat{\rho}})\)</span> を調べるのが PAC-Bayes である．</p>
+<p>これらの</p>
+<ul>
+<li>経験バウンド (empirical bound)：<span class="math inline">\(R(\widehat{h})-\widehat{R}_n(h^*)\)</span></li>
+<li>超過リスクバウンド (excess risk / oracle PAC bound)：<span class="math inline">\(R(h_{\widehat{\rho}})-R(h^*)\)</span></li>
+</ul>
+<p>を調べるのが PAC-Bayes である．</p>
 </section>
 <section id="kl-乖離度" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="kl-乖離度"><span class="header-section-number">1.2</span> KL-乖離度</h3>
@@ -271,9 +282,23 @@ h_{\widehat{\rho}}:=\widehat{\rho}(h)
 </div>
 </div>
 </div>
+</section>
+<section id="mcallester-バウンド" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="mcallester-バウンド"><span class="header-section-number">1.3</span> McAllester バウンド</h3>
+<section id="応用" class="level4" data-number="1.3.1">
+<h4 data-number="1.3.1" class="anchored" data-anchor-id="応用"><span class="header-section-number">1.3.1</span> 応用</h4>
+<p>SGD で訓練されたニューラルネットワークに対しても適用されている <span class="citation" data-cites="Clerico+2023">(<a href="#ref-Clerico+2023" role="doc-biblioref">Clerico et al., 2023</a>)</span>．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/PAC-Neural.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">PAC-Bayes による汎化バウンド <span class="citation" data-cites="Dziugaite-Roy2017">(<a href="#ref-Dziugaite-Roy2017" role="doc-biblioref">Dziugaite &amp; Roy, 2017</a>)</span></figcaption>
+</figure>
+</div>
+<p>事後分布からサンプリングをすることで鋭い評価を得ている <span class="citation" data-cites="Ujvary+2023">(<a href="#ref-Ujvary+2023" role="doc-biblioref">Ujváry et al., 2023</a>)</span>．</p>
 
 
 
+</section>
 </section>
 </section>
 
@@ -284,6 +309,12 @@ Alquier, P. (2024). User-friendly introduction to PAC-bayes bounds. <em>Foundati
 </div>
 <div id="ref-Catoni2007" class="csl-entry" role="listitem">
 Catoni, O. (2007). <em>PAC-bayesian supervised classification: The thermodynamics of statistical learning</em> (Vol. 56). Institute of Mathematical Statistics. <a href="https://projecteuclid.org/ebooks/institute-of-mathematical-statistics-lecture-notes-monograph-series/Pac-Bayesian-Supervised-Classification/toc/10.1214/074921707000000391">https://projecteuclid.org/ebooks/institute-of-mathematical-statistics-lecture-notes-monograph-series/Pac-Bayesian-Supervised-Classification/toc/10.1214/074921707000000391</a>
+</div>
+<div id="ref-Clerico+2023" class="csl-entry" role="listitem">
+Clerico, E., Farghly, T., Deligiannidis, G., Guedj, B., &amp; Doucet, A. (2023). <em>Generalisation under gradient descent via deterministic PAC-bayes</em>. <a href="https://arxiv.org/abs/2209.02525">https://arxiv.org/abs/2209.02525</a>
+</div>
+<div id="ref-Dziugaite-Roy2017" class="csl-entry" role="listitem">
+Dziugaite, G. K., &amp; Roy, D. M. (2017). <em>Computing nonvacuous generalization bounds for deep (stochastic) neural networks with many more parameters than training data</em>. <a href="https://arxiv.org/abs/1703.11008">https://arxiv.org/abs/1703.11008</a>
 </div>
 <div id="ref-McAllester1999" class="csl-entry" role="listitem">
 McAllester, D. A. (1999). Some PAC-bayesian theorems. <em>Machine Learning</em>, <em>37</em>, 355–363. <a href="https://link.springer.com/article/10.1023/A:1007618624809">https://link.springer.com/article/10.1023/A:1007618624809</a>
@@ -296,6 +327,9 @@ Seeger, M. (2002). PAC-bayesian generalisation error bounds for gaussian process
 </div>
 <div id="ref-Shawe-Taylor-Williamson1997" class="csl-entry" role="listitem">
 Shawe-Taylor, J., &amp; Williamson, R. C. (1997). A PAC analysis of a bayesian estimator. <em>Proceedings of the Tenth Annual Conference on Computational Learning Theory</em>, 2–9. <a href="https://dl.acm.org/doi/10.1145/267460.267466">https://dl.acm.org/doi/10.1145/267460.267466</a>
+</div>
+<div id="ref-Ujvary+2023" class="csl-entry" role="listitem">
+Ujváry, S., Flamich, G., Fortuin, V., &amp; Hernández-Lobato, J. M. (2023). Estimating optimal <span>PAC</span>-bayes bounds with hamiltonian monte carlo. <em>NeurIPS 2023 Workshop on Mathematics of Modern Machine Learning</em>. <a href="https://openreview.net/forum?id=6ZUH4KRM1o">https://openreview.net/forum?id=6ZUH4KRM1o</a>
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
