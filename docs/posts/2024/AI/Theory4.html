@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-06">
+<meta name="dcterms.date" content="2024-03-10">
 
-<title>Hirofumi Shiba - 強化学習</title>
+<title>Hirofumi Shiba - 統計的学習理論４</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -95,12 +95,18 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 強化学習">
+<meta property="og:title" content="Hirofumi Shiba - 統計的学習理論４">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
+<meta property="og:image" content="https://162348.github.io/posts/2024/AI/Theory.png">
 <meta property="og:site-name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 強化学習">
-<meta name="twitter:description" content="強化学習の考え方を数学的に理解する．">
-<meta name="twitter:card" content="summary">
+<meta property="og:image:height" content="162">
+<meta property="og:image:width" content="857">
+<meta name="twitter:title" content="Hirofumi Shiba - 統計的学習理論４">
+<meta name="twitter:description" content="転移学習とは">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/AI/Theory.png">
+<meta name="twitter:image-height" content="162">
+<meta name="twitter:image-width" content="857">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
 <body class="nav-fixed">
@@ -143,9 +149,11 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">強化学習</h1>
+      <h1 class="title">統計的学習理論４</h1>
+            <p class="subtitle lead">ドメイン汎化と転移学習</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Control</div>
+                <div class="quarto-category">AI</div>
+                <div class="quarto-category">Foundations</div>
               </div>
                   </div>
   </div>
@@ -163,7 +171,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 6, 2024</p>
+        <p class="date">March 10, 2024</p>
       </div>
     </div>
     
@@ -173,7 +181,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="abstract-title">概要</div>
-      強化学習の考え方を数学的に理解する．
+      転移学習とは
     </div>
   </div>
   
@@ -185,14 +193,11 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
+  <li><a href="#ドメイン汎化-wang2023" id="toc-ドメイン汎化-wang2023" class="nav-link active" data-scroll-target="#ドメイン汎化-wang2023"><span class="header-section-number">1</span> ドメイン汎化 <span class="citation" data-cites="Wang+2023">(Wang et al., 2023)</span></a>
   <ul class="collapse">
-  <li><a href="#歴史" id="toc-歴史" class="nav-link" data-scroll-target="#歴史"><span class="header-section-number">1.1</span> 歴史</a></li>
-  </ul></li>
-  <li><a href="#markov-決定過程" id="toc-markov-決定過程" class="nav-link" data-scroll-target="#markov-決定過程"><span class="header-section-number">2</span> Markov 決定過程</a></li>
-  <li><a href="#q-学習" id="toc-q-学習" class="nav-link" data-scroll-target="#q-学習"><span class="header-section-number">3</span> <span class="math inline">\(Q\)</span>-学習</a>
-  <ul class="collapse">
-  <li><a href="#td-学習" id="toc-td-学習" class="nav-link" data-scroll-target="#td-学習"><span class="header-section-number">3.1</span> TD 学習</a></li>
+  <li><a href="#枠組み" id="toc-枠組み" class="nav-link" data-scroll-target="#枠組み"><span class="header-section-number">1.1</span> 枠組み</a></li>
+  <li><a href="#関連する話題" id="toc-関連する話題" class="nav-link" data-scroll-target="#関連する話題"><span class="header-section-number">1.2</span> 関連する話題</a></li>
+  <li><a href="#ドメイン汎化の手法" id="toc-ドメイン汎化の手法" class="nav-link" data-scroll-target="#ドメイン汎化の手法"><span class="header-section-number">1.3</span> ドメイン汎化の手法</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -227,72 +232,101 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<section id="導入" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
-<p>強化学習は機械学習の３分類の１つとして「他の２類型（教師あり・教師なし学習）とは大きく文脈が違う」という注記と共によく紹介される．それもその通り．強化学習は，エージェントが世界の中でどのように行動するかを，環境との相互作用を通じて自律的に学ぶ，という人工知能分野の問題設定から生じた学問である <span class="citation" data-cites="Sutton-Barto2018">(<a href="#ref-Sutton-Barto2018" role="doc-biblioref">Sutton &amp; Barto, 2018</a>)</span>．</p>
-<p>強化学習の設定にはいくつか特徴がある．</p>
+<p>機械学習モデルの社会実装が進むにつけて，<a href="../../../posts/2024/AI/Theory.html"><strong>経験リスク最小化</strong></a> の枠組みでは足りず，さらに汎化性能を重要視した枠組みが必要になってくる．</p>
+<p><a href="../../../posts/2024/AI/Theory3.html"><strong>構造的リスク最小化</strong></a> もその例であるが，<a href="../../../posts/2024/Kernels/Deep2.html#sec-fine-tuning">基盤モデル</a> の台頭を見た現代では，<strong>分布外リスク最小化</strong> (IRM: Invariant Risk Minimization) という新たな枠組みが <span class="citation" data-cites="Arjovsky+2020">(<a href="#ref-Arjovsky+2020" role="doc-biblioref">Arjovsky et al., 2020</a>)</span> により提案されている．</p>
+<section id="ドメイン汎化-wang2023" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="ドメイン汎化-wang2023"><span class="header-section-number">1</span> ドメイン汎化 <span class="citation" data-cites="Wang+2023">(<a href="#ref-Wang+2023" role="doc-biblioref">Wang et al., 2023</a>)</span></h2>
+<p>現状の多くの理論と手法は，訓練データとテストデータは同じ標本を分割したものにすぎず，同じ分布に従うことを前提としている．しかし新たに生じた多くの応用の場面では，新たな分布に対しての汎化性能が特に肝要である．</p>
+<p>これに対処するために，複数のドメインを用意し，未知のドメインに対する汎化性能を高めたいとする問題を <strong>ドメイン汎化</strong> (domain generalization) または <strong>分布外汎化</strong> (out-of-distribution generalization) と呼ぶ．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<section id="枠組み" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="枠組み"><span class="header-section-number">1.1</span> 枠組み</h3>
+<p>ドメイン汎化では，入力空間 <span class="math inline">\(\mathcal{X}\)</span> と出力空間 <span class="math inline">\(\mathcal{Y}\)</span> は固定されている．</p>
+<p>ある分布 <span class="math inline">\(\mathbb{P}\sim\mathcal{P}(\mathcal{X}\times\mathcal{Y})\)</span> からの独立同分布列 <span class="math inline">\(\mathcal{S}=\{(x_i,y_i)\}_{i=1}^N\subset\mathcal{X}\times\mathcal{Y}\)</span> を <strong>ドメイン</strong> という．</p>
+<p>ドメイン汎化は，複数のドメイン <span class="math inline">\(\mathcal{S}_1,\mathcal{S}_2,\ldots,\mathcal{S}_K\)</span> が与えられた状態から，まだ見ぬドメイン <span class="math inline">\(\mathcal{S}\)</span> におけるリスクの最小化を目指す問題である．</p>
+</section>
+<section id="関連する話題" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="関連する話題"><span class="header-section-number">1.2</span> 関連する話題</h3>
 <ul>
-<li>試行錯誤の中で学ぶこと：教師あり学習のように，報酬を最大化するように学んでいくが，学習データというものはなく，試行錯誤の中で学ぶ必要がある．</li>
-<li>報酬は遅れてくるものもあること：行動の結果がすぐに報酬として返ってくるわけではなく，以前の行動が未来の報酬に影響を与えることがあり，それを踏まえて学習をすることが求められる．</li>
+<li><p>マルチタスク学習 <span class="citation" data-cites="Caruana1997">(<a href="#ref-Caruana1997" role="doc-biblioref">Caruana, 1997</a>)</span></p>
+<p>複数のタスクにおいて同時に良い性能を出すモデルを学習する枠組み．複数のドメイン <span class="math inline">\(\mathcal{S}_1,\cdots,\mathcal{S}_K\)</span> において平均的に良い性能を出すことを目指す，などの問題も含む．</p></li>
+<li><p>転移学習 <span class="citation" data-cites="Zhuang+2021">(<a href="#ref-Zhuang+2021" role="doc-biblioref">Zhuang et al., 2021</a>)</span></p>
+<p>始域タスクと終域タスクが異なる場合の学習を指す．終域タスクが既知であるという前提があり，<strong>事前学習-事後調整</strong> (pretraining-finetuning) という手法が最も一般的である．</p></li>
+<li><p>ドメイン適応 <span class="citation" data-cites="Wang-Deng2018">(<a href="#ref-Wang-Deng2018" role="doc-biblioref">M. Wang &amp; Deng, 2018</a>)</span></p>
+<p>特にドメインが異なる場合の転移学習を指す．終域ドメインが既知であるという点がドメイン汎化と異なる．</p></li>
+<li><p>メタ学習 <span class="citation" data-cites="Vanschoren2018">(<a href="#ref-Vanschoren2018" role="doc-biblioref">Vanschoren, 2018</a>)</span>, <span class="citation" data-cites="Hospedales+2022">(<a href="#ref-Hospedales+2022" role="doc-biblioref">Hospedales et al., 2022</a>)</span></p>
+<p>新たなタスクに対して「学習法を学習する」というメタ的な学習を目指す．ドメイン汎化は同じタスクでドメインを変えたものに対する汎化を目指すため，メタ学習はドメイン汎化における有力な手法の一つということになる．</p></li>
+<li><p>継続学習 (continual / lifelong learning) <span class="citation" data-cites="Biesialska+2020">(<a href="#ref-Biesialska+2020" role="doc-biblioref">Biesialska et al., 2020</a>)</span></p></li>
+<li><p>例示なし学習 (zero-shot learning)</p>
+<p>例示なしで新たなクラスに対する分類を行う問題．ドメイン汎化はクラスは同じで分布のみが異なる．</p></li>
 </ul>
-<p>すると，強化学習は専ら動的計画法の議論が中心となる．</p>
-<p>強化学習は，部分的に観測されている Markov 決定過程の最適制御として理解される．</p>
-<p>在庫管理 <span class="citation" data-cites="VanRoy+1997">(<a href="#ref-VanRoy+1997" role="doc-biblioref">Van&nbsp;Roy et al., 1997</a>)</span>，動的なチャンネルの割り当て <span class="citation" data-cites="Singh-Bertsekas1996">(<a href="#ref-Singh-Bertsekas1996" role="doc-biblioref">Singh &amp; Bertsekas, 1996</a>)</span>，エレベータ制御 <span class="citation" data-cites="Crites-Barto1998">(<a href="#ref-Crites-Barto1998" role="doc-biblioref">Crites &amp; Barto, 1998</a>)</span>，テーブルゲーム <span class="citation" data-cites="Silver+2018">(<a href="#ref-Silver+2018" role="doc-biblioref">Silver et al., 2018</a>)</span>，気候変動対策 <span class="citation" data-cites="Rolnick+2022">(<a href="#ref-Rolnick+2022" role="doc-biblioref">Rolnick et al., 2022</a>)</span> などにも用いられている．</p>
-<p>今後も，<a href="https://ja.wikipedia.org/wiki/%E4%BA%BA%E9%96%93%E3%81%AE%E3%83%95%E3%82%A3%E3%83%BC%E3%83%89%E3%83%90%E3%83%83%E3%82%AF%E3%81%AB%E3%82%88%E3%82%8B%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92">人間のフィードバックによる強化学習</a> (RLHF: Reinforcement Learning through Human Feedback) <span class="citation" data-cites="Christiano+2017">(<a href="#ref-Christiano+2017" role="doc-biblioref">Christiano et al., 2017</a>)</span> や <a href="../../../posts/2024/Kernels/GNN.html">GNN</a> のトレーニングなど，他の機械学習手法と組み合わせることでより大きな AI システムを作るにあたって，強化学習は必要不可欠な立場を占めていくだろう．</p>
-<section id="歴史" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1.1</span> 歴史</h3>
 </section>
-</section>
-<section id="markov-決定過程" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="markov-決定過程"><span class="header-section-number">2</span> Markov 決定過程</h2>
-</section>
-<section id="q-学習" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="q-学習"><span class="header-section-number">3</span> <span class="math inline">\(Q\)</span>-学習</h2>
-<p>強化学習の最も標準的かつ古典的なアルゴリズムが，<span class="math inline">\(Q\)</span>-学習 <span class="citation" data-cites="Watkins1989">(<a href="#ref-Watkins1989" role="doc-biblioref">Watkins, 1989</a>)</span>, <span class="citation" data-cites="Watkins-Dayan1992">(<a href="#ref-Watkins-Dayan1992" role="doc-biblioref">Watkins &amp; Dayan, 1992</a>)</span> と，その派生アルゴリズムである SARSA である <span class="citation" data-cites="Powell2011">(<a href="#ref-Powell2011" role="doc-biblioref">Powell, 2011, p. 122</a>)</span>．</p>
-<section id="td-学習" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="td-学習"><span class="header-section-number">3.1</span> TD 学習</h3>
-<p>推移確率が未知である場合，これをシミュレーションによって推定することができる．この設定では <strong>時間差分学習</strong> (Temporal Difference Learning) とも呼ばれる <span class="citation" data-cites="Sutton1988">(<a href="#ref-Sutton1988" role="doc-biblioref">Sutton, 1988</a>)</span>．</p>
+<section id="ドメイン汎化の手法" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="ドメイン汎化の手法"><span class="header-section-number">1.3</span> ドメイン汎化の手法</h3>
+<p>大きく分けて次の３通りの手法が存在する．</p>
+<ol type="1">
+<li><p><strong>表現学習</strong> (representation learning)</p>
+<p>最も主要なアプローチは，ドメイン汎化に適した特徴空間をデザインすることである．主に次の２つの接近がある．</p>
+<ol type="1">
+<li><strong>ドメイン不変な表現学習</strong> (domain-invariant representation learning) を行うことを考える．主な手法には <strong>分布外リスク最小化</strong> による学習や，敵対的学習による方法 <span class="citation" data-cites="Ganin+2016">(<a href="#ref-Ganin+2016" role="doc-biblioref">Ganin et al., 2016</a>)</span> などがある．</li>
+<li><strong>特徴分離</strong> (feature disentanglement) により，ドメインに依存しない特徴とドメイン依存の特徴とを分離する．</li>
+</ol></li>
+<li><p><strong>データ操作</strong> (data manipulation)</p>
+<p>同じくドメイン汎化に適した特徴空間をデザインするのが目的であるが，これを <strong>データ拡張</strong> やデータの生成によって達成することを目指すこともできる．</p></li>
+<li><p>学習枠組み (learning paradigm)</p>
+<p>集合学習 (ensemble learning) や <strong>メタ学習</strong> などのように，学習のアプローチから変えることも考えられる．</p></li>
+</ol>
+<section id="分布外リスク最小化" class="level4" data-number="1.3.1">
+<h4 data-number="1.3.1" class="anchored" data-anchor-id="分布外リスク最小化"><span class="header-section-number">1.3.1</span> 分布外リスク最小化</h4>
+<p>ドメイン汎化が失敗する理由の一つに，因果関係がないが相関関係がある要素（擬似相関）を学習して予測に使ってしまうことがある．</p>
+<p>この問題は分布外リスク最小化 <span class="citation" data-cites="Arjovsky+2020">(<a href="#ref-Arjovsky+2020" role="doc-biblioref">Arjovsky et al., 2020</a>)</span> によって対処できることが実験的に示されており，近年理論的な解明 <span class="citation" data-cites="Toyota-Fukumizu2024">(<a href="#ref-Toyota-Fukumizu2024" role="doc-biblioref">Toyota &amp; Fukumizu, 2024</a>)</span> も進んでいる．</p>
 
 
 
 </section>
 </section>
+</section>
+
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-line-spacing="2" role="list">
-<div id="ref-Christiano+2017" class="csl-entry" role="listitem">
-Christiano, P. F., Leike, J., Brown, T., Martic, M., Legg, S., &amp; Amodei, D. (2017). Deep reinforcement learning from human preferences. <em>Advances in Neural Information Processing Systems</em>, <em>30</em>. <a href="https://papers.nips.cc/paper_files/paper/2017/hash/d5e2c0adad503c91f91df240d0cd4e49-Abstract.html">https://papers.nips.cc/paper_files/paper/2017/hash/d5e2c0adad503c91f91df240d0cd4e49-Abstract.html</a>
+<div id="ref-Arjovsky+2020" class="csl-entry" role="listitem">
+Arjovsky, M., Bottou, L., Gulrajani, I., &amp; Lopez-Paz, D. (2020). <em>Invariant risk minimization</em>. <a href="https://arxiv.org/abs/1907.02893">https://arxiv.org/abs/1907.02893</a>
 </div>
-<div id="ref-Crites-Barto1998" class="csl-entry" role="listitem">
-Crites, R. H., &amp; Barto, A. G. (1998). Elevator group control using multiple reinforcement learning agents. <em>Machine Learning</em>, <em>33</em>, 235–262. <a href="https://link.springer.com/article/10.1023/A:1007518724497">https://link.springer.com/article/10.1023/A:1007518724497</a>
+<div id="ref-Biesialska+2020" class="csl-entry" role="listitem">
+Biesialska, M., Biesialska, K., &amp; Costa-jussà, M. R. (2020). Continual lifelong learning in natural language processing: A survey. In D. Scott, N. Bel, &amp; C. Zong (Eds.), <em>Proceedings of the 28th international conference on computational linguistics</em> (pp. 6523–6541). International Committee on Computational Linguistics. <a href="https://doi.org/10.18653/v1/2020.coling-main.574">https://doi.org/10.18653/v1/2020.coling-main.574</a>
 </div>
-<div id="ref-Powell2011" class="csl-entry" role="listitem">
-Powell, W. B. (2011). <em>Approximate dynamic programming: Solving the curses of dimensionality</em> (2nd ed.). John Wiley &amp; Sons. <a href="https://onlinelibrary.wiley.com/doi/book/10.1002/9781118029176">https://onlinelibrary.wiley.com/doi/book/10.1002/9781118029176</a>
+<div id="ref-Caruana1997" class="csl-entry" role="listitem">
+Caruana, R. (1997). Multitask learning. <em>Machine Learning</em>, <em>28</em>(1), 41–75. <a href="https://doi.org/10.1023/A:1007379606734">https://doi.org/10.1023/A:1007379606734</a>
 </div>
-<div id="ref-Rolnick+2022" class="csl-entry" role="listitem">
-Rolnick, D., Donti, P. L., Kaack, L. H., Kochanski, K., Lacoste, A., Sankaran, K., Ross, A. S., Milojevic-Dupont, N., Jaques, N., Waldman-Brown, A., Luccioni, A. S., Maharaj, T., Sherwin, E. D., Mukkavilli, S. K., Kording, K. P., Gomes, C. P., Ng, A. Y., Hassabis, D., Platt, J. C., … Bengio, Y. (2022). Tackling climate change with machine learning. <em>ACM Computing Survey</em>, <em>55</em>(2). <a href="https://doi.org/10.1145/3485128">https://doi.org/10.1145/3485128</a>
+<div id="ref-Ganin+2016" class="csl-entry" role="listitem">
+Ganin, Y., Ustinova, E., Ajakan, H., Germain, P., Larochelle, H., Laviolette, F., March, M., &amp; Lempitsky, V. (2016). Domain-adversarial training of neural networks. <em>Journal of Machine Learning Research</em>, <em>17</em>(59), 1–35. <a href="http://jmlr.org/papers/v17/15-239.html">http://jmlr.org/papers/v17/15-239.html</a>
 </div>
-<div id="ref-Silver+2018" class="csl-entry" role="listitem">
-Silver, D., Hubert, T., Schrittwieser, J., Antonoglou, I., Lai, M., Guez, A., Lanctot, M., Sifre, L., Kumaran, D., Graepel, T., Lillicrap, T., Simonyan, K., &amp; Hassabis, D. (2018). A general reinforcement learning algorithm that masters chess, shogi, and go through self-play. <em>Science</em>, <em>362</em>(6419), 1140–1144. <a href="https://www.science.org/doi/10.1126/science.aar6404">https://www.science.org/doi/10.1126/science.aar6404</a>
+<div id="ref-Hospedales+2022" class="csl-entry" role="listitem">
+Hospedales, T., Antoniou, A., Micaelli, P., &amp; Storkey, A. (2022). Meta-learning in neural networks: A survey. <em>IEEE Transactions on Pattern Analysis &amp;Amp; Machine Intelligence</em>, <em>44</em>(09), 5149–5169. <a href="https://doi.org/10.1109/TPAMI.2021.3079209">https://doi.org/10.1109/TPAMI.2021.3079209</a>
 </div>
-<div id="ref-Singh-Bertsekas1996" class="csl-entry" role="listitem">
-Singh, S., &amp; Bertsekas, D. (1996). Reinforcement learning for dynamic channel allocation in cellular telephone systems. <em>Advances in Neural Information Processing Systems 9</em>. <a href="https://proceedings.neurips.cc/paper/1996/hash/3948ead63a9f2944218de038d8934305-Abstract.html">https://proceedings.neurips.cc/paper/1996/hash/3948ead63a9f2944218de038d8934305-Abstract.html</a>
+<div id="ref-Toyota-Fukumizu2024" class="csl-entry" role="listitem">
+Toyota, S., &amp; Fukumizu, K. (2024). Out-of-distribution optimality of invariant risk minimization. <em>Transactions on Machine Learning Research</em>. <a href="https://openreview.net/forum?id=pWsfWDnJDa">https://openreview.net/forum?id=pWsfWDnJDa</a>
 </div>
-<div id="ref-Sutton1988" class="csl-entry" role="listitem">
-Sutton, R. S. (1988). Learning to predict by the methods of temporal differences. <em>Machine Learning</em>, <em>3</em>, 9–44. <a href="https://link.springer.com/article/10.1007/BF00115009">https://link.springer.com/article/10.1007/BF00115009</a>
+<div id="ref-Vanschoren2018" class="csl-entry" role="listitem">
+Vanschoren, J. (2018). <em>Meta-learning: A survey</em>. <a href="https://arxiv.org/abs/1810.03548">https://arxiv.org/abs/1810.03548</a>
 </div>
-<div id="ref-Sutton-Barto2018" class="csl-entry" role="listitem">
-Sutton, R. S., &amp; Barto, A. G. (2018). <em>Reinforcement learning: An introduction</em> (2nd ed.). MIT Press. <a href="https://mitpress.mit.edu/9780262352703/reinforcement-learning/">https://mitpress.mit.edu/9780262352703/reinforcement-learning/</a>
+<div id="ref-Wang-Chen2023" class="csl-entry" role="listitem">
+Wang, J., &amp; Chen, Y. (2023). <em>Introduction to transfer learning: Algorithms and practice</em>. Springer Singapore. <a href="https://link.springer.com/book/10.1007/978-981-19-7584-4">https://link.springer.com/book/10.1007/978-981-19-7584-4</a>
 </div>
-<div id="ref-VanRoy+1997" class="csl-entry" role="listitem">
-Van&nbsp;Roy, B., Bertsekas, D. P., Lee, Y., &amp; Tsitsiklis, J. N. (1997). A neuro-dynamic programming approach to retailer inventory management. <em>Proceedings of the 36th IEEE Conference on Decision and Control</em>. <a href="https://ieeexplore.ieee.org/abstract/document/652501">https://ieeexplore.ieee.org/abstract/document/652501</a>
+<div id="ref-Wang+2023" class="csl-entry" role="listitem">
+Wang, J., Lan, C., Liu, C., Ouyang, Y., Qin, T., Lu, W., Chen, Y., Zeng, W., &amp; Yu, P. S. (2023). Generalizing to unseen domains: A survey on domain generalization. <em>IEEE Transactions on Knowledge &amp;Amp; Data Engineering</em>, <em>35</em>(08), 8052–8072. <a href="https://doi.org/10.1109/TKDE.2022.3178128">https://doi.org/10.1109/TKDE.2022.3178128</a>
 </div>
-<div id="ref-Watkins1989" class="csl-entry" role="listitem">
-Watkins, C. J. C. H. (1989). <em>Learning from delayed rewards</em> [PhD thesis, University of London]. <a href="https://www.cs.rhul.ac.uk/~chrisw/thesis.html">https://www.cs.rhul.ac.uk/~chrisw/thesis.html</a>
+<div id="ref-Wang-Deng2018" class="csl-entry" role="listitem">
+Wang, M., &amp; Deng, W. (2018). Deep visual domain adaptation: A survey. <em>Neurocomputing</em>, <em>312</em>, 135–153. https://doi.org/<a href="https://doi.org/10.1016/j.neucom.2018.05.083">https://doi.org/10.1016/j.neucom.2018.05.083</a>
 </div>
-<div id="ref-Watkins-Dayan1992" class="csl-entry" role="listitem">
-Watkins, C. J. C. H., &amp; Dayan, P. (1992). Q-leraning. <em>Machine Learning</em>, <em>8</em>, 279–292. <a href="https://link.springer.com/article/10.1007/BF00992698">https://link.springer.com/article/10.1007/BF00992698</a>
+<div id="ref-Zhuang+2021" class="csl-entry" role="listitem">
+Zhuang, F., Qi, Z., Duan, K., Xi, D., Zhu, Y., Zhu, H., Xiong, H., &amp; He, Q. (2021). A comprehensive survey on transfer learning. <em>Proceedings of the IEEE</em>, <em>109</em>(1), 43–76. <a href="https://doi.org/10.1109/JPROC.2020.3004555">https://doi.org/10.1109/JPROC.2020.3004555</a>
 </div>
-</div></section></div></main> <!-- /main -->
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><span class="citation" data-cites="Wang+2023">(<a href="#ref-Wang+2023" role="doc-biblioref">Wang et al., 2023</a>)</span> がドメイン汎化に対する最初のサーベイである．<span class="citation" data-cites="Wang-Chen2023">(<a href="#ref-Wang-Chen2023" role="doc-biblioref">Wang &amp; Chen, 2023, p. 175</a>)</span> 11章 も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
