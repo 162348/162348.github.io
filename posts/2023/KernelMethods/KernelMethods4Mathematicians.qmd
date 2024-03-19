@@ -1,22 +1,60 @@
 ---
-title: "数学者のためのカーネル法概観 | Kernel Methods for Mathematicians"
+title: "数学者のためのカーネル法概観"
+subtitle: "Kernel Methods for Mathematicians"
 author: "Hirofumi Shiba"
 date: "11/7/2023"
-categories: [Kernel, Math Notes]
+date-modified: "3/14/2024"
+categories: [Kernel]
 abstract-title: 概要
-abstract: 数学者のために，カーネル法によるデータ解析が何をやっているのかを抽象的に説明する．
+abstract: 数学者のために，カーネル法によるデータ解析が何をやっているのかを抽象的に説明する．カーネルとは対称な２変数関数であり，これを用いてデータ点を，データ空間上の関数に変換することで非線型変換を獲得するための道具である．
 toc: true
 number-sections: true
-bibliography: RKHS.bib
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
 csl: ../../../apa.csl
 crossref:
     sec-prefix: 節
     eq-prefix: 式
+    def-prefix: 定義
+    def-title: 定義
+    thm-prefix: 定理
+    thm-title: 定理
+    fig-prefix: 図
+    fig-title: 図
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
 ## 導入
+
+カーネル法はデータ解析の観点から見ると，非線型な前処理を施すことで，その後の線型なデータ解析の性能を向上させるための手法であると言える．
+
+これはニューラルネットワークと比較すると，カーネル関数を適応的に決められない一方で，可算無限個の基底を用いた無限次元の特徴空間上の表現を得ることが出来るという相違点がある．
+
+### データの非線型変換としてのカーネル法
+
+線型手法が使えないときに，変数変換を挟むことで線型分離可能な問題に還元するという手法は広く見られる．
+
+#### Box-Cox 変換
+
+例えば，データが正規分布から大きく違っている場合，[Box-Cox 変換](https://en.wikipedia.org/wiki/Power_transform) [@Box-Cox64]
+
+$$
+x \longmapsto x^{(\lambda)} = \begin{cases} 
+\displaystyle \frac{x^\lambda - 1}{\lambda} & \lambda \neq 0\\ 
+\log x & \lambda = 0\end{cases}
+$$
+
+を通じて正規分布に近づけることが出来る．$\lambda\in\mathbb{R}$ をハイパーパラメータとしてデータから調整出来る．
+
+Box-Cox 変換は特定のリンク関数 $G$ に関する一般化線型モデルと見れる．^[[@Hardle+2004 p.162]]
+
+#### カーネル法
+
+Box-Cox 変換はカーネル法もこのような非線形変換を見つけてくるための統一的な方法論である．
+
+カーネル法によってデータを非線型変換をして得る空間は **特徴空間** と呼ばれ，この上で従来の線型なデータ解析を施すだけで，全体としては非線型な手法の完成である．
 
 ### カーネル法の歴史^[[@Ghojogh+2021] など参考．]{#sec-1-1}
 
@@ -26,7 +64,7 @@ crossref:
 
 ### カーネル法の課題
 
-2006年というのは，[@Hinton+2006]の年である．この自己符号化器の発表がきっかけになり，DNNの訓練がますます効率的になり，一方でKernel SVMは次の2つの障壁に直面しており，現在のDNN最強の時代を我々は見ている．^[一方でここにきて，現代におけるDNNの最先端とも言えるTransformerをSVMとみなせる，という報告も出てきた [@Tarzanagh+2023]]
+2006年というのは，[@Hinton+2006], [@Hinton+2006Science] の年である．この自己符号化器の発表がきっかけになり，DNNの訓練がますます効率的になり，一方でKernel SVMは次の2つの障壁に直面しており，現在のDNN最強の時代を我々は見ている．^[一方でここにきて，現代におけるDNNの最先端とも言えるTransformerをSVMとみなせる，という報告も出てきた [@Tarzanagh+2023]]
 
 1. 種々のタスクに対して，最適なカーネルが何かがわかっていない．
 2. データ数が多すぎると実行不可能になる．
@@ -35,27 +73,11 @@ crossref:
 
 ## カーネル法の数理
 
-### カーネル法とは「データの前処理／データの変換をするための方法論」である
-
-線型手法が使えないときに，良い変数変換を考えることで，線型分離可能にする，というのは統計の基本的な手法である．
-
-例えば，データが正規分布から大きく違っている場合，Box-Cox変換
-
-$$x \longmapsto x^{(\lambda)} = \begin{cases} 
-\displaystyle \frac{x^\lambda - 1}{\lambda} & \lambda \neq 0\\ 
-\log x & \lambda = 0\end{cases}$$
-
-を通じて正規分布に近づけることが出来る．このパラメータ $\lambda\in\mathbb{R}$ をデータから調整する．
-
-カーネル法は，このような非線形変換（はカーネル法ではないが^[どちらかといえば，Box-Cox変換は一般化線型モデルの発想の先駆けと見れる．「リンク関数 $G$ を用いて回帰関係を変換し非線形にする」という発想である．[@Hardle+2004 p.162]]）を見つけてくるための系統的な枠組みであると言える．そして，カーネル法を通じて得た空間（特徴空間という）で従来の線型なデータ解析を施すだけで，全体としては非線型な手法の完成である．だから「カーネル法」という手法があるというより，種々の線型手法の「カーネル化」が常に考えられる，というものである．
-
-一方で，DNNはモデルの構成要素自体が非線型であり，全く精神が違う非線型手法だと言えるだろう．
-
 ### カーネル法の骨格
 
 カーネルと言ったとき，数学的には「（実数値の）半正定値対称関数」を指す．
 
-::: {.callout-tip title="定義：（実数値の）正定値カーネル"}
+::: {.callout-tip title="定義：（実数値の）正定値カーネル" icon="false"}
 関数 $k:\Omega\times\Omega\to\mathbb{R}$ が**正定値カーネル**であるとは，次の２条件を満たすことをいう：
 
 1. 対称性：$k(x,y)=k(y,x)$．
@@ -65,7 +87,7 @@ $$
 $$
 :::
 
-::: {.callout-tip title="例：$\Omega=\mathbb{R}^d$ 上の正定値カーネル"}
+::: {.callout-tip title="例：$\Omega=\mathbb{R}^d$ 上の正定値カーネル" icon="false"}
 * Euclid内積：$k(x,y)=x^\top y$．
 * Gaussカーネル：$k_G(x,y)=\exp\left(-\frac{1}{2\sigma^2}\|x-y\|^2\right)\;(\sigma>0)$．
 * Laplaceカーネル：$k_L(x,y)=\exp\left(-\alpha\sum_{a=1}^d|x_a-y_a|\right)\;(\alpha>0)$．
@@ -74,7 +96,7 @@ $$
 
 この「正定値カーネル」の概念は，次の意味で，「内積」と同一視できる．「内積」と同一視できるという意味で，「類似度の測り方」に対応する．
 
-::: {.callout-tip title="定理：Moore-Aronszajn 1950"}
+::: {.callout-tip title="定理：Moore-Aronszajn 1950"  icon="false"}
 任意の集合 $\Omega$ 上の正定値カーネル $k$ に対して，$\Omega$ 上の関数からなるHilbert空間 $H_k$ であって，以下を満たすものが一意に定まる：^[[@Aronszajn50-ReproducingKernels] 参照．]
 
 1. $k(-,x)\in H_k\;(\forall_{x\in\Omega})$．
@@ -85,7 +107,7 @@ $$
 
 ここで，数学概念について，少し突飛に思えるかもしれないが，次の名前をつける．
 
-::: {.callout-tip title="定義"}
+::: {.callout-tip title="定義"  icon="false"}
 正定値カーネル $k:\Omega\to\mathbb{R}$ について，
 
 * $x\mapsto k(-,x)$ という対応 $\Phi:\Omega\to H_k$ を**特徴写像**という．
@@ -97,7 +119,7 @@ $$
 
 「特徴写像」は，データ $x,y\in\Omega$ を正定値カーネルが測る「類似度」を変えないように，しかしながら全く違う空間内の点 $\Phi(x),\Phi(y)\in H_k$ に写している．「類似度」が変わっていないことを「カーネルトリック」と呼ぶ．
 
-この「トリック」は少し[米田埋め込み](https://ja.wikipedia.org/wiki/%E7%B1%B3%E7%94%B0%E3%81%AE%E8%A3%9C%E9%A1%8C)に似ている．データ $x\in\Omega$ の他のデータとの類似度の全体 $k(-,x):\Omega\to\mathbb{R}$ は，そのデータを特徴づけるのである $k(-,x)=\Phi(x)\in H_k$．
+この「トリック」は少し [米田埋め込み](https://ja.wikipedia.org/wiki/%E7%B1%B3%E7%94%B0%E3%81%AE%E8%A3%9C%E9%A1%8C) に似ている．データ $x\in\Omega$ の他のデータとの類似度の全体 $k(-,x):\Omega\to\mathbb{R}$ は，そのデータを特徴づけるのである $k(-,x)=\Phi(x)\in H_k$．
 
 また，関数のなすHilbert空間 $H\subset\mathbb{R}^\Omega$ が， $\{\mathrm{ev}_x\}_{x\in\Omega}\subset H^*$ を満たすならば，$H$ は再生核を持つ．このような関数空間 $H$ の内積の構造を $\Omega$ にも導入したいとき， $k$ を通じてすれば良いということになる． $k$ は違う $H_k$ と $\Omega$ を対応づけ，正しい $k$ を選ぶと，データ $\{x_1,\cdots,x_n\}\subset\Omega$ のうちなる「特徴」を暴き出せるかもしれない．
 
