@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
-<meta name="dcterms.date" content="2024-02-16">
+<meta name="dcterms.date" content="2024-03-30">
 
 <title>Hirofumi Shiba - 数学者のための深層学習７</title>
 <style>
@@ -137,7 +137,7 @@ window.Quarto = {
 <meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習７">
-<meta name="twitter:description" content="深層学習の学習における確率最適化アルゴリズムに関して概説する．">
+<meta name="twitter:description" content="確率分布をエネルギーの言葉でモデリングする方法である．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -165,11 +165,11 @@ window.Quarto = {
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="../../../static/Sessions.html"> 
-<span class="menu-text">Sessions</span></a>
+<span class="menu-text">Materials</span></a>
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="../../../static/Japanese.html"> 
-<span class="menu-text">日本語</span></a>
+<span class="menu-text">自己紹介</span></a>
   </li>  
 </ul>
           </div> <!-- /navcollapse -->
@@ -184,9 +184,9 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">数学者のための深層学習７</h1>
-            <p class="subtitle lead">確率的最適化</p>
+            <p class="subtitle lead">エネルギーベースモデル</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Optimization</div>
+                <div class="quarto-category">Deep</div>
               </div>
                   </div>
   </div>
@@ -204,7 +204,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 16, 2024</p>
+        <p class="date">March 30, 2024</p>
       </div>
     </div>
     
@@ -214,7 +214,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      深層学習の学習における確率最適化アルゴリズムに関して概説する．
+      確率分布をエネルギーの言葉でモデリングする方法である．
     </div>
   </div>
   
@@ -222,22 +222,7 @@ window.Quarto = {
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">On this page</h2>
-   
-  <ul>
-  <li><a href="#確率的最適化の概観" id="toc-確率的最適化の概観" class="nav-link active" data-scroll-target="#確率的最適化の概観"><span class="header-section-number">1</span> 確率的最適化の概観</a>
-  <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
-  <li><a href="#確率的最適化の歴史" id="toc-確率的最適化の歴史" class="nav-link" data-scroll-target="#確率的最適化の歴史"><span class="header-section-number">1.2</span> 確率的最適化の歴史</a></li>
-  <li><a href="#robbins-monro1951" id="toc-robbins-monro1951" class="nav-link" data-scroll-target="#robbins-monro1951"><span class="header-section-number">1.3</span> <span class="citation" data-cites="Robbins-Monro1951">(Robbins &amp; Monro, 1951)</span></a></li>
-  </ul></li>
-  <li><a href="#sgd-の振る舞い" id="toc-sgd-の振る舞い" class="nav-link" data-scroll-target="#sgd-の振る舞い"><span class="header-section-number">2</span> SGD の振る舞い</a>
-  <ul class="collapse">
-  <li><a href="#導入-1" id="toc-導入-1" class="nav-link" data-scroll-target="#導入-1"><span class="header-section-number">2.1</span> 導入</a></li>
-  </ul></li>
-  </ul>
-</nav>
+        
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -270,137 +255,46 @@ $$
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
-<p>非斉次 Markov 過程とも見れる？ <span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert &amp; Casella, 2004, p. 162</a>)</span>．</p>
-<section id="確率的最適化の概観" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="確率的最適化の概観"><span class="header-section-number">1</span> 確率的最適化の概観</h2>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p>ニューラルネットワークの訓練に関して，目的関数の勾配を上るようにパラメータを更新する手法が取られている．</p>
-<p>一度に全てのデータを使って勾配を計算する場合を <strong>バッチ学習</strong> (batch method) と呼び，これが勾配降下法または最急降下法にあたる．</p>
-<p>一方で，データを分割して逐次的に勾配を計算し最適化を実施する手法を オンライン学習 (online learning) といい，これを <strong>確率的勾配降下法</strong> (stochastic gradient descent, SGD) または逐次的勾配降下法 (sequential gradient descent) と呼ぶ．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-</section>
-<section id="確率的最適化の歴史" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="確率的最適化の歴史"><span class="header-section-number">1.2</span> 確率的最適化の歴史</h3>
-<p>確率的最適化は，はじめは統計学の文脈で <span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951</a>)</span> によってオンラインの最尤推定を題材に考察された．</p>
-<p>これを一般化する形で <span class="citation" data-cites="Kiefer-Wolfowitz1952">(<a href="#ref-Kiefer-Wolfowitz1952" role="doc-biblioref">Kiefer &amp; Wolfowitz, 1952</a>)</span> は <a href="https://ja.wikipedia.org/wiki/%E7%A2%BA%E7%8E%87%E7%9A%84%E5%8B%BE%E9%85%8D%E9%99%8D%E4%B8%8B%E6%B3%95"><strong>確率的勾配降下法</strong></a> (SGD) を提案した．</p>
-<p>SGD を拡張し，適応的に学習率を調整する手法としては，AdaGrad <span class="citation" data-cites="Duchi+2011">(<a href="#ref-Duchi+2011" role="doc-biblioref">Duchi et al., 2011</a>)</span> や RMSprop <span class="citation" data-cites="Tieleman-Hinton2012">(<a href="#ref-Tieleman-Hinton2012" role="doc-biblioref">Tieleman &amp; Hinton, 2012</a>)</span>，そしてこれら２つの長所を組み合わせた Adam <span class="citation" data-cites="Kingma-Ba2017">(<a href="#ref-Kingma-Ba2017" role="doc-biblioref">Kingma &amp; Ba, 2017</a>)</span> が提案された．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-</section>
-<section id="robbins-monro1951" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="robbins-monro1951"><span class="header-section-number">1.3</span> <span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951</a>)</span></h3>
-<p>目的関数が <span class="math display">\[
-h(x)=\operatorname{E}[H(x,Z)]
-\]</span> の形で与えられるとする．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
-<p><span class="math inline">\(h(x)=\beta\)</span> の解 <span class="math inline">\(x=\theta\)</span> を求める問題を考える．のちに <span class="math inline">\(\max_{x\in\mathcal{X}}h(x)\)</span> を求める問題に拡張したのが <span class="citation" data-cites="Kiefer-Wolfowitz1952">(<a href="#ref-Kiefer-Wolfowitz1952" role="doc-biblioref">Kiefer &amp; Wolfowitz, 1952</a>)</span> である．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定理（Robbins-Monro アルゴリズム）^[[@Bouleau-Lepingle1993]，[@Robert-Casella2004 p.202] 定理5.24．]">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-定理（Robbins-Monro アルゴリズム）<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(Z_j\overset{\text{iid}}{\sim}p(z|X_j)\)</span> とし， <span class="math display">\[
-X_{j+1}=X_j+\gamma_j\biggr(\beta-H(Z_j,X_j)\biggl)
-\]</span> によって Markov 連鎖 <span class="math inline">\(\{X_j\}\)</span> を定める．</p>
-<p>このとき，<span class="math inline">\(\{\gamma_n\}\subset\mathbb{R}^+\)</span> が次の３条件を満たすならば，<span class="math inline">\(X_j\xrightarrow{\;\text{a.s.}}\theta\)</span> が成り立つ．</p>
-<ol type="1">
-<li><span class="math display">\[
-\|\gamma\|_1=\infty,\quad\|\gamma\|_2&lt;\infty
-\]</span></li>
-<li><span class="math inline">\(\{X_j\}\)</span> は有界 <span class="math inline">\(\sup_{j\in\mathbb{N}}\lvert X_j\rvert&lt;\infty\)</span> で <span class="math display">\[
-\operatorname{E}[H(X_j,Z_j)|Z_j]=h(X_j)
-\]</span></li>
-<li>ある <span class="math inline">\(\theta\in\mathcal{X}\)</span> が存在して，任意の <span class="math inline">\(\delta\in(0,1)\)</span> について <span class="math display">\[
-\inf_{\delta\le\lvert\theta-x\rvert\le1/\delta}(x-\theta)(h(x)-\beta)&gt;0
-\]</span></li>
-</ol>
-</div>
-</div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-証明
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><span class="citation" data-cites="Robbins-Monro1951">(<a href="#ref-Robbins-Monro1951" role="doc-biblioref">Robbins &amp; Monro, 1951, pp. 401–402</a>)</span> の結果を拡張した形になっている．</p>
-</div>
-</div>
-</div>
-</section>
-</section>
-<section id="sgd-の振る舞い" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="sgd-の振る舞い"><span class="header-section-number">2</span> SGD の振る舞い</h2>
-<section id="導入-1" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="導入-1"><span class="header-section-number">2.1</span> 導入</h3>
-<p>ニューラルネットワークの訓練において，SGD は特に良い性質を示しているが，その理由は未だ十分に解明されていない．</p>
-<p>例えば，正則化に寄与している（<strong>暗黙的正則化</strong> implicit regularization）ということが明らかになりつつある．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
-<p><span class="citation" data-cites="Smith-Le2018">(<a href="#ref-Smith-Le2018" role="doc-biblioref">Smith &amp; Le, 2018</a>)</span> によると，鋭い谷 (sharp minima) に捕まりにくく，広い谷 (flat minima) に入りやすいという性質が汎化性能に寄与しているという．<span class="citation" data-cites="Imaizumi-SchmidtHieber2023">(<a href="#ref-Imaizumi-SchmidtHieber2023" role="doc-biblioref">Imaizumi &amp; Schmidt-Hieber, 2023</a>)</span> は理論的な説明を与えた．</p>
+<p><span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．<span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span></p>
+<p>エネルギーベースのモデル (EBM: Energy-based Model) とは， <span class="math display">\[
+p(z)\,\propto\,e^{-H(z)}
+\]</span> の形で与えられるノンパラメトリックモデルで，訓練データ <span class="math inline">\(\{(x_i,y_i)\}_{i=1}^n\)</span> に対して最も低いエネルギーを割り当てるエネルギー関数 <span class="math inline">\(H\)</span> を探す (energy minimization) ことで確率分布 <span class="math inline">\(p(x)\)</span> を推定する手法である <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span>．</p>
+<p>この形の分布族を <strong>正準分布</strong> または <strong>Gibbs 分布</strong> <span class="citation" data-cites="Koller-Friedman2009">(<a href="#ref-Koller-Friedman2009" role="doc-biblioref">Koller &amp; Friedman, 2009, p. 108</a>)</span>, <span class="citation" data-cites="Friedli-Velenik2017">(<a href="#ref-Friedli-Velenik2017" role="doc-biblioref">Friedli &amp; Velenik, 2017, p. 25</a>)</span>，または Boltzmann 分布 <span class="citation" data-cites="Kim-Bengio2016">(<a href="#ref-Kim-Bengio2016" role="doc-biblioref">Kim &amp; Bengio, 2016</a>)</span>, <span class="citation" data-cites="Mezard-Montanari2009">(<a href="#ref-Mezard-Montanari2009" role="doc-biblioref">Mézard &amp; Montanari, 2009, p. 23</a>)</span> ともいう．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>この推定を，うまく損失関数を設定することで，最適化手法によって解くことが <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span> では考えられている．</p>
+<p>回帰や分類などの古典的なタスクだけでなく，ほとんどの確率的モデルもこの手続きから理解することができ，この場合は EBM が非確率的な／最適化ベースの推論手法を提供するフレームワークとして働くことになる <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007, p. 192</a>)</span>．</p>
+<p>また EBM は，入力 <span class="math inline">\(x\)</span> と出力 <span class="math inline">\(y\)</span> の整合性 <span class="math inline">\(k(x,y)\)</span> を，エネルギーの言葉で与えているモデルであると見ることもできる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 
 
 
-</section>
-</section>
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
-<div id="ref-Bishop2006" class="csl-entry" role="listitem">
-Bishop, C. M. (2006). <em>Pattern recognition and machine learning</em>. Springer New York. <a href="https://link.springer.com/book/9780387310732">https://link.springer.com/book/9780387310732</a>
+<div id="ref-Friedli-Velenik2017" class="csl-entry" role="listitem">
+Friedli, S., &amp; Velenik, Y. (2017). <em>Statistical mechanics of lattice systems</em>. Cambridge University Press.
 </div>
-<div id="ref-Bouleau-Lepingle1993" class="csl-entry" role="listitem">
-Bouleau, N., &amp; Lépingle, D. (1993). <em>Numerical methods for stochastic processes</em>. Wiley. <a href="https://www.wiley.com/en-ca/Numerical+Methods+for+Stochastic+Processes-p-9780471546412">https://www.wiley.com/en-ca/Numerical+Methods+for+Stochastic+Processes-p-9780471546412</a>
+<div id="ref-Gao+2020" class="csl-entry" role="listitem">
+Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., &amp; Wu, Y. N. (2020). Flow contrastive estimation of energy-based models. <em>Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)</em>. <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper">https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper</a>
 </div>
-<div id="ref-Chizat-Bach2020" class="csl-entry" role="listitem">
-Chizat, L., &amp; Bach, F. (2020). Implicit bias of gradient descent for wide two-layer neural networks trained with the logistic loss. In J. Abernethy &amp; S. Agarwal (Eds.), <em>Proceedings of thirty third conference on learning theory</em> (Vol. 125, pp. 1305–1338). PMLR. <a href="https://proceedings.mlr.press/v125/chizat20a.html">https://proceedings.mlr.press/v125/chizat20a.html</a>
+<div id="ref-Kim-Bengio2016" class="csl-entry" role="listitem">
+Kim, T., &amp; Bengio, Y. (2016). Deep directed generative models with energy-based probability estimation. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=BNYAGZZj5S7PwR1riXzA">https://openreview.net/forum?id=BNYAGZZj5S7PwR1riXzA</a>
 </div>
-<div id="ref-Duchi+2011" class="csl-entry" role="listitem">
-Duchi, J., Hazan, E., &amp; Singer, Y. (2011). Adaptive subgradient methods for online learning and stochastic optimization. <em>Journal of Machine Learning Research</em>, <em>12</em>, 2121–2159. <a href="https://jmlr.org/papers/v12/duchi11a.html">https://jmlr.org/papers/v12/duchi11a.html</a>
+<div id="ref-Koller-Friedman2009" class="csl-entry" role="listitem">
+Koller, D., &amp; Friedman, N. (2009). <em>Probabilistic graphical models</em>. MIT Press. <a href="https://mitpress.mit.edu/9780262013192/probabilistic-graphical-models/">https://mitpress.mit.edu/9780262013192/probabilistic-graphical-models/</a>
 </div>
-<div id="ref-Imaizumi-SchmidtHieber2023" class="csl-entry" role="listitem">
-Imaizumi, M., &amp; Schmidt-Hieber, J. (2023). On generalization bounds for deep networks based on loss surface implicit regularization. <em>IEEE Transactions on Information Theory</em>, <em>69</em>(2), 1203–1223. <a href="https://doi.org/10.1109/TIT.2022.3215088">https://doi.org/10.1109/TIT.2022.3215088</a>
+<div id="ref-LeCun+2007" class="csl-entry" role="listitem">
+LeCun, Y., Chopra, S., Hadsell, R., Ranzato, M. A., &amp; Huang, F. J. (2007). <em>Predicting structured data</em> (G. Baklr, T. Hofmann, B. Schölkopf, A. J. Smola, B. Taskar, &amp; S. V. N. Vishwanathan, Eds.; pp. 191–246). The MIT Press. <a href="https://ieeexplore.ieee.org/document/6270201">https://ieeexplore.ieee.org/document/6270201</a>
 </div>
-<div id="ref-Kiefer-Wolfowitz1952" class="csl-entry" role="listitem">
-Kiefer, J., &amp; Wolfowitz, J. (1952). Stochastic estimation of the maximum of a regression function. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 462–466. <a href="https://www.jstor.org/stable/2236690">https://www.jstor.org/stable/2236690</a>
+<div id="ref-Mezard-Montanari2009" class="csl-entry" role="listitem">
+Mézard, M., &amp; Montanari, A. (2009). <em>Information, physics, and computation</em>. Oxford University Press. <a href="https://doi.org/10.1093/acprof:oso/9780198570837.001.0001">https://doi.org/10.1093/acprof:oso/9780198570837.001.0001</a>
 </div>
-<div id="ref-Kingma-Ba2017" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Ba, J. (2017). <em>Adam: A method for stochastic optimization</em>. <a href="https://arxiv.org/abs/1412.6980">https://arxiv.org/abs/1412.6980</a>
-</div>
-<div id="ref-Moroshko+2020" class="csl-entry" role="listitem">
-Moroshko, E., Woodworth, B. E., Gunasekar, S., Lee, J. D., Srebro, N., &amp; Soudry, D. (2020). Implicit bias in deep linear classification: Initialization scale vs training accuracy. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, &amp; H. Lin (Eds.), <em>Advances in neural information processing systems</em> (Vol. 33, pp. 22182–22193). Curran Associates, Inc. <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/fc2022c89b61c76bbef978f1370660bf-Paper.pdf">https://proceedings.neurips.cc/paper_files/paper/2020/file/fc2022c89b61c76bbef978f1370660bf-Paper.pdf</a>
-</div>
-<div id="ref-Murphy2022" class="csl-entry" role="listitem">
-Murphy, K. P. (2022). <em>Probabilistic machine learning: An introduction</em>. MIT Press. <a href="https://probml.github.io/pml-book/book1.html">https://probml.github.io/pml-book/book1.html</a>
-</div>
-<div id="ref-Robbins-Monro1951" class="csl-entry" role="listitem">
-Robbins, H., &amp; Monro, S. (1951). A stochastic approximation method. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 400–407. <a href="https://www.jstor.org/stable/2236626">https://www.jstor.org/stable/2236626</a>
-</div>
-<div id="ref-Robert-Casella2004" class="csl-entry" role="listitem">
-Robert, C. P., &amp; Casella, G. (2004). <em>Monte carlo statistical methods</em> (2nd ed.). Springer New York.
-</div>
-<div id="ref-Smith-Le2018" class="csl-entry" role="listitem">
-Smith, S. L., &amp; Le, Q. V. (2018). A bayesian perspective on generalization and stochastic gradient descent. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=BJij4yg0Z">https://openreview.net/forum?id=BJij4yg0Z</a>
-</div>
-<div id="ref-Tieleman-Hinton2012" class="csl-entry" role="listitem">
-Tieleman, T., &amp; Hinton, G. (2012). <em>Neural networks for machine learning. Lecture 6.5: Divide the gradient by a running average of its recent magnitude</em>. <a href="https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf">https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf</a>
-</div>
-<div id="ref-人工知能学会2015" class="csl-entry" role="listitem">
-麻生英樹, 安田宗樹, 前田新一, 岡野原大輔, 岡谷貴之, 久保陽太郎, &amp; ボレガラダヌシカ. (2015). <em>深層学習</em>. 近代科学社. <a href="https://www.kindaikagaku.co.jp/book_list/detail/9784764904873/">https://www.kindaikagaku.co.jp/book_list/detail/9784764904873/</a>
+<div id="ref-田崎晴明2008" class="csl-entry" role="listitem">
+田崎晴明. (2008). <em>統計力学I</em> (Vol. 37). 培風館. <a href="https://www.gakushuin.ac.jp/~881791/statbook/">https://www.gakushuin.ac.jp/~881791/statbook/</a>
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Bishop2006">(<a href="#ref-Bishop2006" role="doc-biblioref">Bishop, 2006, p. 240</a>)</span> 5.2.4節．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="人工知能学会2015">(<a href="#ref-人工知能学会2015" role="doc-biblioref">麻生英樹 et al., 2015, p. 145</a>)</span> など．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>この <a href="../../../posts/2024/Computation/VI2.html#sec-EM0">稿</a> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><span class="citation" data-cites="Bouleau-Lepingle1993">(<a href="#ref-Bouleau-Lepingle1993" role="doc-biblioref">Bouleau &amp; Lépingle, 1993</a>)</span>，<span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert &amp; Casella, 2004, p. 202</a>)</span> 定理5.24．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p><span class="citation" data-cites="Murphy2022">(<a href="#ref-Murphy2022" role="doc-biblioref">Murphy, 2022, p. 455</a>)</span>, <span class="citation" data-cites="Chizat-Bach2020">(<a href="#ref-Chizat-Bach2020" role="doc-biblioref">Chizat &amp; Bach, 2020</a>)</span>, <span class="citation" data-cites="Moroshko+2020">(<a href="#ref-Moroshko+2020" role="doc-biblioref">Moroshko et al., 2020</a>)</span> も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p> ということもあるようであるが，物理の用語では <span class="math inline">\(e^{H(z)}\)</span> を Boltzmann 因子と呼ぶのみであるようである <span class="citation" data-cites="田崎晴明2008">(<a href="#ref-田崎晴明2008" role="doc-biblioref">田崎晴明, 2008, p. 107</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>分野によっては，エネルギー関数 <span class="math inline">\(H\)</span> を，contrast function, value functions, NLL (Negative Log-Likelihood) functions などとも呼ぶとしている <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007, p. 193</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
