@@ -1,9 +1,9 @@
 ---
 title: "数学者のための深層学習７"
-subtitle: 確率的最適化
+subtitle: エネルギーベースモデル
 author: "司馬 博文"
-date: 2/16/2024
-categories: [Optimization]
+date: 3/30/2024
+categories: [Deep]
 toc: true
 number-sections: true
 code-block-bg: true
@@ -24,80 +24,24 @@ crossref:
     fig-prefix: 図
     fig-title: 図
 abstract-title: 概要
-abstract: 深層学習の学習における確率最適化アルゴリズムに関して概説する．
+abstract: 確率分布をエネルギーの言葉でモデリングする方法である．
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-非斉次 Markov 過程とも見れる？ [@Robert-Casella2004 p.162]．
+[@Gao+2020]
 
-## 確率的最適化の概観
-
-### 導入
-
-ニューラルネットワークの訓練に関して，目的関数の勾配を上るようにパラメータを更新する手法が取られている．
-
-一度に全てのデータを使って勾配を計算する場合を **バッチ学習** (batch method) と呼び，これが勾配降下法または最急降下法にあたる．
-
-一方で，データを分割して逐次的に勾配を計算し最適化を実施する手法を オンライン学習 (online learning) といい，これを **確率的勾配降下法** (stochastic gradient descent, SGD) または逐次的勾配降下法 (sequential gradient descent) と呼ぶ．^[[@Bishop2006 p.240] 5.2.4節．]
-
-### 確率的最適化の歴史
-
-確率的最適化は，はじめは統計学の文脈で [@Robbins-Monro1951] によってオンラインの最尤推定を題材に考察された．
-
-これを一般化する形で [@Kiefer-Wolfowitz1952] は [**確率的勾配降下法**](https://ja.wikipedia.org/wiki/%E7%A2%BA%E7%8E%87%E7%9A%84%E5%8B%BE%E9%85%8D%E9%99%8D%E4%B8%8B%E6%B3%95) (SGD) を提案した．
-
-SGD を拡張し，適応的に学習率を調整する手法としては，AdaGrad [@Duchi+2011] や RMSprop [@Tieleman-Hinton2012]，そしてこれら２つの長所を組み合わせた Adam [@Kingma-Ba2017] が提案された．^[[@人工知能学会2015 p.145] など．]
-
-### [@Robbins-Monro1951]
-
-目的関数が
+エネルギーベースのモデル (EBM: Energy-based Model) とは，
 $$
-h(x)=\E[H(x,Z)]
+p(z)\propt e^{-H(z)}
 $$
-の形で与えられるとする．^[この [稿](../Computation/VI2.qmd#sec-EM0) も参照．]
+の形で与えられるノンパラメトリックモデルで，訓練データ $\{(x_i,y_i)\}_{i=1}^n$ に対して最も低いエネルギーを割り当てるエネルギー関数 $H$ を探す (energy minimization) ことで確率分布 $p(x)$ を推定する手法である [@LeCun+2007]．
 
-$h(x)=\beta$ の解 $x=\theta$ を求める問題を考える．のちに $\max_{x\in\cX}h(x)$ を求める問題に拡張したのが [@Kiefer-Wolfowitz1952] である．
+この形の分布族を **正準分布** または **Gibbs 分布** [@Koller-Friedman2009 p.108], [@Friedli-Velenik2017 p.25]，または **Boltzmann 分布** [@Kim-Bengio2016], [@Mezard-Montanari2009 p.23] ともいう．^[ ということもあるようであるが，物理の用語では $e^{H(z)}$ を Boltzmann 因子と呼ぶのみであるようである [@田崎晴明2008 p.107]．]
 
-::: {.callout-tip icon="false" title="定理（Robbins-Monro アルゴリズム）^[[@Bouleau-Lepingle1993]，[@Robert-Casella2004 p.202] 定理5.24．]"}
+この推定を，うまく損失関数を設定することで，最適化手法によって解くことが [@LeCun+2007] では考えられている．データの分布との KL 乖離度を，勾配降下法によって最小化することによって学習することも多いが，この場合 $p$ からのサンプリングを必要とするため，[GAN](Deep3.qmd) にヒントを得た敵対的な学習も考えられている [@Kim-Bengio2016], [@Gao+2020]．
 
-$Z_j\iidsim p(z|X_j)$ とし，
-$$
-X_{j+1}=X_j+\gamma_j\Paren{\beta-H(Z_j,X_j)}
-$$
-によって Markov 連鎖 $\{X_j\}$ を定める．
+回帰や分類などの古典的なタスクだけでなく，ほとんどの確率的モデルもこの手続きから理解することができ，この場合は EBM が非確率的な／最適化ベースの推論手法を提供するフレームワークとして働くことになる [@LeCun+2007 p.192]．
 
-このとき，$\{\gamma_n\}\subset\R^+$ が次の３条件を満たすならば，$X_j\asto\theta$ が成り立つ．
-
-1. 
-$$
-\norm{\gamma}_1=\infty,\quad\norm{\gamma}_2<\infty
-$$
-2. $\{X_j\}$ は有界 $\sup_{j\in\N}\abs{X_j}<\infty$ で
-$$
-\E[H(X_j,Z_j)|Z_j]=h(X_j)
-$$
-3. ある $\theta\in\cX$ が存在して，任意の $\delta\in(0,1)$ について
-$$
-\inf_{\delta\le\abs{\theta-x}\le1/\delta}(x-\theta)(h(x)-\beta)>0
-$$
-
-:::
-
-::: {.callout-note icon="false" collapse="true" title="証明"}
-
-[@Robbins-Monro1951 pp.401-402] の結果を拡張した形になっている．
-
-:::
-
-## SGD の振る舞い
-
-### 導入
-
-ニューラルネットワークの訓練において，SGD は特に良い性質を示しているが，その理由は未だ十分に解明されていない．
-
-例えば，正則化に寄与している（**暗黙的正則化** implicit regularization）ということが明らかになりつつある．^[[@Murphy2022 p.455], [@Chizat-Bach2020], [@Moroshko+2020] も参照．]
-
-[@Smith-Le2018] によると，鋭い谷 (sharp minima) に捕まりにくく，広い谷 (flat minima) に入りやすいという性質が汎化性能に寄与しているという．[@Imaizumi-SchmidtHieber2023] は理論的な説明を与えた．
-
+また EBM は，入力 $x$ と出力 $y$ の整合性 $k(x,y)$ を，エネルギーの言葉で与えているモデルであると見ることもできる．^[分野によっては，エネルギー関数 $H$ を，contrast function, value functions, NLL (Negative Log-Likelihood) functions などとも呼ぶとしている [@LeCun+2007 p.193]．]
 
