@@ -1,20 +1,17 @@
 ---
 title: "粒子フィルターを用いたサンプリング | About SMC Samplers"
-author: "Hirofumi Shiba"
-date: "12/14/2023"
-date-modified: "12/15/2023"
+subtitle: テンパリングを通じたもう一つの万能サンプラー
+author: "司馬博文"
+date: 12/14/2023
+date-modified: 4/7/2024
 categories: [Particles, Survey]
-toc: true
-number-sections: true
-twitter-card: true
 image: SMCSamplers_LowResolution.jpg
-bibliography: ../../mathematics.bib
+bibliography: 
+    - ../../mathematics.bib
+    - ../../bib.bib
 csl: ../../apa.csl
 abstract-title: 概要
-abstract: 粒子フィルターは30年前に「万能」非線型フィルタリング手法として開発されたが，近年その真の力が明らかになりつつある．相関を持つ粒子系によって分布を逐次的に近似することで，複雑な分布からでも効率的にサンプリング出来るまたとない手法であるようだ．本稿では現在までのサンプラーとしてのSMC手法に対する理解をまとめる．
-crossref:
-    sec-prefix: 節
-    eq-prefix: 式
+abstract: 粒子フィルターは 30 年前に「万能」非線型フィルタリング手法として開発されたが，それは粒子系を輸送するメカニズムとしての万能性も意味するのであり，汎用サンプラーとしても「万能」であるのかもしれないのである．近年，最適化や最適輸送の理論と結びつき，その真の力がますます明らかになりつつある．本稿では現在までのサンプラーとしての SMC 手法に対する理解をまとめる．
 ---
 
 # テンパリングの歴史
@@ -27,29 +24,45 @@ $$
 $$
 を通じて，より簡単な分布 $\pi_1,\pi_2,\cdots$ から逐次的にサンプリングをする，というアイデアを **調温 (tempering)** という（[粒子フィルターの稿](../2023/Surveys/ParticleFilter.qmd#sec-SMC-Samplers) も参照）．
 
-この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案された．
+この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案され，**multilevel sampling** とも呼ばれる．^[[@Liu2004 pp.205-] Chapter 10. Multilevel Sampling and Optimization Methods も参照．]
 
-まずはその歴史を概観する．
+まずはその歴史を概観する．いずれも，目標分布 $\pi_p$ が多峰性をもち，MCMC がうまく峰の間を遷移できずに正しいサンプリングができない（収束が遅くなる）問題を解決する文脈の中で捉えられる．
 
-## MC^3^ / 並行テンパリング
+## 擬似アニーリング [@Kirkpartick+1983]
 
-まず最初の発想は，目標分布 $\pi_p$ が多峰性をもち，MCMC がうまく峰を見つけられず，収束が遅くなる問題を解決する中で生まれた．
+これは MCMC とは関係がなく，もはやシミュレーション法でさえなく最適化手法であるが，「調温」の考え方を一気にポピュラーにした手法であった．^[この前にも，Umbrella sampling [@Torrie-Valleau1977] が本質的には密度の調温のアイデアを用いていた．[@Liu2004 pp.206-] Section 10.1 も参照．] 汎用最適化手法として，半導体製造を通じて，電子工学・コンピュータ産業にも大きな影響を与えた手法である．
 
-そこで，峰の間で遷移する動きを，不変分布を変えないように MCMC に加えることで，収束性が改善できないかと考えられた．
+そもそも **焼きなまし** (annealing) とは，凝縮系物理の用語であり，鉄などの固体を極めて高音にして溶解させたのちに徐々に冷却することで，基底状態の構造を得るのに使われる技術であった．
 
-峰を全て特定し，正しいステップサイズを選択するために，複数の MCMC を同時に走らせる **MC^3^** (Metropolis-Coupled MCMC) という手法が [@Geyer1991] により提案された．
+分子動力学 (molecular dynamics) などの文脈では Metropolis 法はちょうど分子運動のシミュレーションになっていることを踏まえれば，これを simulated annealing と呼ぶのは極めて鮮やかなアナロジーとなっている．焼きなまし法自体も，シミュレーション可能になったのである．
 
-これは $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として独立な MCMC を実行し，時折 Metropolis 核の提案に従って不変分布を変えないようにそれらの位置を交換するという手法である．
+分布列を $\pi_n\propt e^{-\frac{h(x)}{T_n}}\,dx$
+$$
+T_1>T_2>\cdots>T_n\searrow 0
+$$
+と構成することで，
+$$
+\pi_n\xrightarrow{n\to\infty}1_{\argmin h}(x)\,dx
+$$
+であることを利用して，関数 $h$ の最小値を見つけることができる．^[[@Geman-Geman1984] によると，各 $\pi_n$ における MCMC move の回数を $N_n$ とした場合，$O(\log(N_1+\cdots+N_n))$ のオーダーで $T_n$ を（十分遅く）変化させれば，この手法はほとんど確実に $\argmin h$ 内に収束する．[@Liu2004 pp.209-] 10.2 節も参照．]
 
-この手法は **parallel tempering**^[[@Chopin+2023] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Swendsen-Wang1986] などの文献もある．[@Bouchard-Cote+2012] などが引用している．] または [レプリカ交換法](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，さらには population-based MCMC^[[@Jasra+2007] など．] とも呼ばれる．
+## MC^3^ / 並行テンパリング [@Geyer1991]
 
-しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う $\pi_n,\pi_{n+1}$ を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．^[[@Behrens+2012 p.66] も参照．]
+積空間 $\otimes_{n=1}^pE$ 上で $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として MCMC を実行することを考えるのが **MC^3^** (Metropolis-Coupled MCMC) [@Geyer1991] であった．
 
-## 擬似テンパリング
+また時折，不変分布を変えないように Metropolis 核の提案に従って，MCMC 鎖の位置を交換することで収束を加速することを考える．
 
-[焼きなまし法](https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95)（または擬似アニーリング） [@Kirkpartick+1983] の改良として最適化の文脈で提案されたのが **焼き戻し法**，または **擬似テンパリング** (simulated tempering) [@Marinari-Parisi1992] である．
+この手法は **parallel tempering**^[[@Chopin+2023], [@Liu2004 p.4] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Hukushima-Nemoto1996] の exchange Monte Carlo や [@Swendsen-Wang1986] などの文献もある．前者は [@Liu2004 p.4] が "is reminiscent of _parallel tempering_ [@Geyer1991]" と指摘しており，後者は [@Bouchard-Cote+2012] などが引用している．] または exchange Monte Carlo [@Hukushima-Nemoto1996] による再発見に伴って [**レプリカ交換法**](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，さらには population-based MCMC^[[@Jasra+2007] など．] とも呼ばれる．
 
-これは状態空間を $E\times [p]$ に拡大し，^[記法 $[p]=\{1,\cdots,p\}$ は [本サイトの数学記法一覧](../../static/Notations.qmd#sec-numbers) を参照] その上の標的分布を
+しかしながら，全てのテンパリング手法に共通するように，交換の棄却率が高まりすぎないようにするためには隣り合う $\pi_n,\pi_{n+1}$ を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまうこともある．^[[@Behrens+2012 p.66] も参照．]
+
+## 擬似テンパリング [@Marinari-Parisi1992]
+
+最適化手法である [焼きなまし法](https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95)（または擬似アニーリング） [@Kirkpartick+1983] のサンプリングへの変形として提案されたのが **焼き戻し法**，または **擬似テンパリング** (simulated tempering) [@Marinari-Parisi1992] である．
+
+擬似アニーリングでは温度は下がる一方であったのが，擬似テンパリングでは温度もある周辺分布に従って遷移する．擬似アニーリングは最終的にサンプルが最小値点の周りに集積して最適化問題を解くことが目的であったが，擬似テンパリングは高温状態においては多峰性分布が軟化され，峰の間を遷移しやすくなることを利用し，多峰性分布からの効率的なサンプリングを目指す．
+
+擬似テンパリングは状態空間を $E\times [p]$ に拡大して，その上でサンプリングを行うものともみなせる．^[記法 $[p]=\{1,\cdots,p\}$ は [本サイトの数学記法一覧](../../static/Notations.qmd#sec-numbers) を参照] $E\times[p]$ 上の標的分布を
 $$
 X|N=n\sim\pi_n
 $$
@@ -84,3 +97,7 @@ $$
 目標分布の峰を特定するタスクを MCMC から分離して，[BFGS 法](https://ja.wikipedia.org/wiki/BFGS%E6%B3%95) に基づく最適化法によって先に解いてしまう手法が [@Pompe+2020] によって提案されている．
 
 これにより探索した峰の全体を $\cI:=\{1,\cdots,I\}$ に格納し，拡大した状態空間 $E\times\cI$ 上で $\wt{\pi}$ を対象とした MCMC を実行するが，この $\wt{\pi}$ をさらに適応的に更新する Auxiliary Variable Adaptive MCMC を提案している．
+
+# テンパリングと最適化の関係
+
+近年，[@Chopin+2023] で指摘されたように，テンパリングを通じた SMC サンプラーは，$\cP(E)$ 上での最適化としての解釈も持つことが理解されつつある．

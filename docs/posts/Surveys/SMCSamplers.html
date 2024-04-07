@@ -2,11 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.549">
+<meta name="generator" content="quarto-1.4.552">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Hirofumi Shiba">
+<meta name="author" content="司馬博文">
 <meta name="dcterms.date" content="2023-12-14">
 
 <title>Hirofumi Shiba - 粒子フィルターを用いたサンプリング | About SMC Samplers</title>
@@ -137,7 +137,7 @@ window.Quarto = {
 <meta property="og:image" content="https://162348.github.io/posts/Surveys/SMCSamplers_LowResolution.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 粒子フィルターを用いたサンプリング | About SMC Samplers">
-<meta name="twitter:description" content="粒子フィルターは30年前に「万能」非線型フィルタリング手法として開発されたが，近年その真の力が明らかになりつつある．相関を持つ粒子系によって分布を逐次的に近似することで，複雑な分布からでも効率的にサンプリング出来るまたとない手法であるようだ．本稿では現在までのサンプラーとしてのSMC手法に対する理解をまとめる．">
+<meta name="twitter:description" content="粒子フィルターは 30 年前に「万能」非線型フィルタリング手法として開発されたが，それは粒子系を輸送するメカニズムとしての万能性も意味するのであり，汎用サンプラーとしても「万能」であるのかもしれないのである．近年，最適化や最適輸送の理論と結びつき，その真の力がますます明らかになりつつある．本稿では現在までのサンプラーとしての SMC 手法に対する理解をまとめる．">
 <meta name="twitter:image" content="https://162348.github.io/posts/Surveys/SMCSamplers_LowResolution.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -164,8 +164,12 @@ window.Quarto = {
 <span class="menu-text">Blog</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../../static/Materials.html"> 
-<span class="menu-text">Materials</span></a>
+    <a class="nav-link" href="../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="../../static/Japanese.html"> 
@@ -184,6 +188,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">粒子フィルターを用いたサンプリング | About SMC Samplers</h1>
+            <p class="subtitle lead">テンパリングを通じたもう一つの万能サンプラー</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Particles</div>
                 <div class="quarto-category">Survey</div>
@@ -197,21 +202,21 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>Hirofumi Shiba </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">December 14, 2023</p>
+        <p class="date">12/14/2023</p>
       </div>
     </div>
     
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">December 15, 2023</p>
+        <p class="date-modified">4/07/2024</p>
       </div>
     </div>
       
@@ -220,7 +225,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      粒子フィルターは30年前に「万能」非線型フィルタリング手法として開発されたが，近年その真の力が明らかになりつつある．相関を持つ粒子系によって分布を逐次的に近似することで，複雑な分布からでも効率的にサンプリング出来るまたとない手法であるようだ．本稿では現在までのサンプラーとしてのSMC手法に対する理解をまとめる．
+      粒子フィルターは 30 年前に「万能」非線型フィルタリング手法として開発されたが，それは粒子系を輸送するメカニズムとしての万能性も意味するのであり，汎用サンプラーとしても「万能」であるのかもしれないのである．近年，最適化や最適輸送の理論と結びつき，その真の力がますます明らかになりつつある．本稿では現在までのサンプラーとしての SMC 手法に対する理解をまとめる．
     </div>
   </div>
   
@@ -234,14 +239,16 @@ window.Quarto = {
   <ul>
   <li><a href="#テンパリングの歴史" id="toc-テンパリングの歴史" class="nav-link active" data-scroll-target="#テンパリングの歴史"><span class="header-section-number">1</span> テンパリングの歴史</a>
   <ul class="collapse">
-  <li><a href="#mc3-並行テンパリング" id="toc-mc3-並行テンパリング" class="nav-link" data-scroll-target="#mc3-並行テンパリング"><span class="header-section-number">1.1</span> MC<sup>3</sup> / 並行テンパリング</a></li>
-  <li><a href="#擬似テンパリング" id="toc-擬似テンパリング" class="nav-link" data-scroll-target="#擬似テンパリング"><span class="header-section-number">1.2</span> 擬似テンパリング</a></li>
-  <li><a href="#テンパリング遷移-neal1996" id="toc-テンパリング遷移-neal1996" class="nav-link" data-scroll-target="#テンパリング遷移-neal1996"><span class="header-section-number">1.3</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(Neal, 1996)</span></a></li>
-  <li><a href="#焼きなまし重点サンプリング-neal2001" id="toc-焼きなまし重点サンプリング-neal2001" class="nav-link" data-scroll-target="#焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.4</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(Neal, 2001)</span></a></li>
-  <li><a href="#重点テンパリング-gramacy2010" id="toc-重点テンパリング-gramacy2010" class="nav-link" data-scroll-target="#重点テンパリング-gramacy2010"><span class="header-section-number">1.5</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(Gramacy et al., 2010)</span></a></li>
-  <li><a href="#荷重を保つ擬似テンパリング-tawn2020" id="toc-荷重を保つ擬似テンパリング-tawn2020" class="nav-link" data-scroll-target="#荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.6</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(Tawn et al., 2020)</span></a></li>
-  <li><a href="#多峰性の最適化に基づく対処" id="toc-多峰性の最適化に基づく対処" class="nav-link" data-scroll-target="#多峰性の最適化に基づく対処"><span class="header-section-number">1.7</span> 多峰性の最適化に基づく対処</a></li>
+  <li><a href="#擬似アニーリング-kirkpartick1983" id="toc-擬似アニーリング-kirkpartick1983" class="nav-link" data-scroll-target="#擬似アニーリング-kirkpartick1983"><span class="header-section-number">1.1</span> 擬似アニーリング <span class="citation" data-cites="Kirkpartick+1983">(Kirkpartick et al., 1983)</span></a></li>
+  <li><a href="#mc3-並行テンパリング-geyer1991" id="toc-mc3-並行テンパリング-geyer1991" class="nav-link" data-scroll-target="#mc3-並行テンパリング-geyer1991"><span class="header-section-number">1.2</span> MC<sup>3</sup> / 並行テンパリング <span class="citation" data-cites="Geyer1991">(Geyer, 1991)</span></a></li>
+  <li><a href="#擬似テンパリング-marinari-parisi1992" id="toc-擬似テンパリング-marinari-parisi1992" class="nav-link" data-scroll-target="#擬似テンパリング-marinari-parisi1992"><span class="header-section-number">1.3</span> 擬似テンパリング <span class="citation" data-cites="Marinari-Parisi1992">(Marinari &amp; Parisi, 1992)</span></a></li>
+  <li><a href="#テンパリング遷移-neal1996" id="toc-テンパリング遷移-neal1996" class="nav-link" data-scroll-target="#テンパリング遷移-neal1996"><span class="header-section-number">1.4</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(Neal, 1996)</span></a></li>
+  <li><a href="#焼きなまし重点サンプリング-neal2001" id="toc-焼きなまし重点サンプリング-neal2001" class="nav-link" data-scroll-target="#焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.5</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(Neal, 2001)</span></a></li>
+  <li><a href="#重点テンパリング-gramacy2010" id="toc-重点テンパリング-gramacy2010" class="nav-link" data-scroll-target="#重点テンパリング-gramacy2010"><span class="header-section-number">1.6</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(Gramacy et al., 2010)</span></a></li>
+  <li><a href="#荷重を保つ擬似テンパリング-tawn2020" id="toc-荷重を保つ擬似テンパリング-tawn2020" class="nav-link" data-scroll-target="#荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.7</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(Tawn et al., 2020)</span></a></li>
+  <li><a href="#多峰性の最適化に基づく対処" id="toc-多峰性の最適化に基づく対処" class="nav-link" data-scroll-target="#多峰性の最適化に基づく対処"><span class="header-section-number">1.8</span> 多峰性の最適化に基づく対処</a></li>
   </ul></li>
+  <li><a href="#テンパリングと最適化の関係" id="toc-テンパリングと最適化の関係" class="nav-link" data-scroll-target="#テンパリングと最適化の関係"><span class="header-section-number">2</span> テンパリングと最適化の関係</a></li>
   </ul>
 </nav>
     </div>
@@ -281,52 +288,68 @@ $$
 <p>SMC の文脈で，目標の分布 <span class="math inline">\(\pi_p\in\mathcal{P}(E)\)</span> が複雑であるとき，これに至る <span class="math inline">\(\mathcal{P}(E)\)</span> 上の道 <span class="math display">\[
 [p]\ni n\mapsto\pi_n\in\mathcal{P}(E)
 \]</span> を通じて，より簡単な分布 <span class="math inline">\(\pi_1,\pi_2,\cdots\)</span> から逐次的にサンプリングをする，というアイデアを <strong>調温 (tempering)</strong> という（<a href="../../posts/2023/Surveys/ParticleFilter.html#sec-SMC-Samplers">粒子フィルターの稿</a> も参照）．</p>
-<p>この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案された．</p>
+<p>この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案され，<strong>multilevel sampling</strong> とも呼ばれる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <p>まずはその歴史を概観する．</p>
-<section id="mc3-並行テンパリング" class="level2" data-number="1.1">
-<h2 data-number="1.1" class="anchored" data-anchor-id="mc3-並行テンパリング"><span class="header-section-number">1.1</span> MC<sup>3</sup> / 並行テンパリング</h2>
+<section id="擬似アニーリング-kirkpartick1983" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="擬似アニーリング-kirkpartick1983"><span class="header-section-number">1.1</span> 擬似アニーリング <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span></h2>
+<p>これは MCMC とは関係がなく，もはやシミュレーション法でさえなく最適化手法であるが，「調温」の考え方を一気にポピュラーにした手法であった．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> 汎用最適化手法として，半導体製造を通じて，電子工学・コンピュータ産業にも大きな影響を与えた手法である．</p>
+<p>そもそも <strong>焼きなまし</strong> (annealing) とは，凝縮系物理の用語であり，鉄などの固体を極めて高音にして溶解させたのちに徐々に冷却することで，基底状態の構造を得るのに使われる技術であった．</p>
+<p>分子動力学 (molecular dynamics) などの文脈では Metropolis 法はちょうど分子運動のシミュレーションになっていることを踏まえれば，これを simulated annealing と呼ぶのは極めて鮮やかなアナロジーとなっている．焼きなまし法自体も，シミュレーション可能になったのである．</p>
+<p>分布列を <span class="math inline">\(\pi_n\,\propto\,e^{-\frac{h(x)}{T_n}}\,dx\)</span> <span class="math display">\[
+T_1&gt;T_2&gt;\cdots&gt;T_n\searrow 0
+\]</span> と構成することで， <span class="math display">\[
+\pi_n\xrightarrow{n\to\infty}1_{\mathop{\mathrm{arg\,min}}h}(x)\,dx
+\]</span> であることを利用して，関数 <span class="math inline">\(h\)</span> の最小値を見つけることができる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+</section>
+<section id="mc3-並行テンパリング-geyer1991" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="mc3-並行テンパリング-geyer1991"><span class="header-section-number">1.2</span> MC<sup>3</sup> / 並行テンパリング <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span></h2>
 <p>まず最初の発想は，目標分布 <span class="math inline">\(\pi_p\)</span> が多峰性をもち，MCMC がうまく峰を見つけられず，収束が遅くなる問題を解決する中で生まれた．</p>
 <p>そこで，峰の間で遷移する動きを，不変分布を変えないように MCMC に加えることで，収束性が改善できないかと考えられた．</p>
 <p>峰を全て特定し，正しいステップサイズを選択するために，複数の MCMC を同時に走らせる <strong>MC<sup>3</sup></strong> (Metropolis-Coupled MCMC) という手法が <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span> により提案された．</p>
 <p>これは <span class="math inline">\(\pi_1\otimes\cdots\otimes\pi_p\)</span> を目標分布として独立な MCMC を実行し，時折 Metropolis 核の提案に従って不変分布を変えないようにそれらの位置を交換するという手法である．</p>
-<p>この手法は <strong>parallel tempering</strong><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> または <a href="https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95">レプリカ交換法</a>，さらには population-based MCMC<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> とも呼ばれる．</p>
-<p>しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う <span class="math inline">\(\pi_n,\pi_{n+1}\)</span> を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>この手法は <strong>parallel tempering</strong><a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> または exchange Monte Carlo <span class="citation" data-cites="Hukushima-Nemoto1996">(<a href="#ref-Hukushima-Nemoto1996" role="doc-biblioref">Hukushima &amp; Nemoto, 1996</a>)</span> による再発見に伴って <a href="https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95">レプリカ交換法</a>，さらには population-based MCMC<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> とも呼ばれる．</p>
+<p>しかしながら，交換の棄却率が高まりすぎないようにするためには隣り合う <span class="math inline">\(\pi_n,\pi_{n+1}\)</span> を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまう．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
 </section>
-<section id="擬似テンパリング" class="level2" data-number="1.2">
-<h2 data-number="1.2" class="anchored" data-anchor-id="擬似テンパリング"><span class="header-section-number">1.2</span> 擬似テンパリング</h2>
-<p><a href="https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95">焼きなまし法</a>（または擬似アニーリング） <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span> の改良として最適化の文脈で提案されたのが <strong>焼き戻し法</strong>，または <strong>擬似テンパリング</strong> (simulated tempering) <span class="citation" data-cites="Marinari-Parisi1992">(<a href="#ref-Marinari-Parisi1992" role="doc-biblioref">Marinari &amp; Parisi, 1992</a>)</span> である．</p>
-<p>これは状態空間を <span class="math inline">\(E\times [p]\)</span> に拡大し，<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> その上の標的分布を <span class="math display">\[
+<section id="擬似テンパリング-marinari-parisi1992" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="擬似テンパリング-marinari-parisi1992"><span class="header-section-number">1.3</span> 擬似テンパリング <span class="citation" data-cites="Marinari-Parisi1992">(<a href="#ref-Marinari-Parisi1992" role="doc-biblioref">Marinari &amp; Parisi, 1992</a>)</span></h2>
+<p>最適化手法である <a href="https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95">焼きなまし法</a>（または擬似アニーリング） <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span> のサンプリングへの変形として提案されたのが <strong>焼き戻し法</strong>，または <strong>擬似テンパリング</strong> (simulated tempering) <span class="citation" data-cites="Marinari-Parisi1992">(<a href="#ref-Marinari-Parisi1992" role="doc-biblioref">Marinari &amp; Parisi, 1992</a>)</span> である．</p>
+<p>擬似アニーリングでは温度は下がる一方であったのが，擬似テンパリングでは温度もある周辺分布に従って遷移する．擬似アニーリングは最終的にサンプルが最小値点の周りに集積して最適化問題を解くことが目的であったが，擬似テンパリングは高温状態においては多峰性分布が軟化され，峰の間を遷移しやすくなることを利用し，多峰性分布からの効率的なサンプリングを目指す．</p>
+<p>擬似テンパリングは状態空間を <span class="math inline">\(E\times [p]\)</span> に拡大して，その上でサンプリングを行うものともみなせる．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a> <span class="math inline">\(E\times[p]\)</span> 上の標的分布を <span class="math display">\[
 X|N=n\sim\pi_n
 \]</span> を満たすようにし，<span class="math inline">\(N|X\)</span> は適宜架橋分布 <span class="math inline">\(\{\pi_n\}\)</span> を往来するよう設計することで，MC<sup>3</sup> が <span class="math inline">\(p\)</span> 本の MCMC を用いて実現していたことを，<span class="math inline">\(E\times [p]\)</span> 上の MCMC 1つで効率的に実行する．</p>
 <p>また，MCMC の収束を大幅に加速する手法としても，遺伝学における複雑な事後分布からのサンプリングへの応用を念頭に独立に提案された <span class="citation" data-cites="Geyer-Thompson1995">(<a href="#ref-Geyer-Thompson1995" role="doc-biblioref">Geyer &amp; Thompson, 1995</a>)</span>．</p>
 </section>
-<section id="テンパリング遷移-neal1996" class="level2" data-number="1.3">
-<h2 data-number="1.3" class="anchored" data-anchor-id="テンパリング遷移-neal1996"><span class="header-section-number">1.3</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span></h2>
-<p><strong>tempered transitions</strong> では，架橋列 <span class="math inline">\(\{\pi_n\}\)</span> をそれぞれの <span class="math inline">\(\pi_n\)</span> を不変分布に持つ Markov 核を通じて１往復して探索し，その結果を元に <span class="math inline">\(\pi_p\)</span> を効率的に探索するような MCMC の提案を構成する．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<section id="テンパリング遷移-neal1996" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="テンパリング遷移-neal1996"><span class="header-section-number">1.4</span> テンパリング遷移 <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span></h2>
+<p><strong>tempered transitions</strong> では，架橋列 <span class="math inline">\(\{\pi_n\}\)</span> をそれぞれの <span class="math inline">\(\pi_n\)</span> を不変分布に持つ Markov 核を通じて１往復して探索し，その結果を元に <span class="math inline">\(\pi_p\)</span> を効率的に探索するような MCMC の提案を構成する．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
 <p>また， <span class="math display">\[
 \pi_n(x)\,\propto\,\pi_0(x)e^{-\beta_nh(x)}
 \]</span> と表せる際，架橋分布 <span class="math inline">\(\{\pi_n\}\)</span> は温度比 <span class="math inline">\(\beta_n/\beta_{n+1}\)</span> が一定になるように <strong>幾何的に</strong> 取ることを提案しており，現在でも一般的な基準であるようである <span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span>．</p>
 </section>
-<section id="焼きなまし重点サンプリング-neal2001" class="level2" data-number="1.4">
-<h2 data-number="1.4" class="anchored" data-anchor-id="焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.4</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span></h2>
-<p>ここで初めて SMC の文脈にもテンパリングが輸入された．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a> <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> は重点サンプリングによってあらゆる温度 <span class="math inline">\(\{\pi_n\}\)</span> からの提案を効率的に採用する方法を模索した．</p>
+<section id="焼きなまし重点サンプリング-neal2001" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="焼きなまし重点サンプリング-neal2001"><span class="header-section-number">1.5</span> 焼きなまし重点サンプリング <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span></h2>
+<p>ここで初めて SMC の文脈にもテンパリングが輸入された．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a> <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> は重点サンプリングによってあらゆる温度 <span class="math inline">\(\{\pi_n\}\)</span> からの提案を効率的に採用する方法を模索した．</p>
 <p>テンパリング遷移の後半のアルゴリズムを発展させた形である．</p>
 </section>
-<section id="重点テンパリング-gramacy2010" class="level2" data-number="1.5">
-<h2 data-number="1.5" class="anchored" data-anchor-id="重点テンパリング-gramacy2010"><span class="header-section-number">1.5</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(<a href="#ref-Gramacy+2010" role="doc-biblioref">Gramacy et al., 2010</a>)</span></h2>
+<section id="重点テンパリング-gramacy2010" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="重点テンパリング-gramacy2010"><span class="header-section-number">1.6</span> 重点テンパリング <span class="citation" data-cites="Gramacy+2010">(<a href="#ref-Gramacy+2010" role="doc-biblioref">Gramacy et al., 2010</a>)</span></h2>
 <p>こちらは擬似テンパリングを基にし，他の温度からの提案を保持しておく機構を提案している．</p>
 </section>
-<section id="荷重を保つ擬似テンパリング-tawn2020" class="level2" data-number="1.6">
-<h2 data-number="1.6" class="anchored" data-anchor-id="荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.6</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(<a href="#ref-Tawn+2020" role="doc-biblioref">Tawn et al., 2020</a>)</span></h2>
+<section id="荷重を保つ擬似テンパリング-tawn2020" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="荷重を保つ擬似テンパリング-tawn2020"><span class="header-section-number">1.7</span> 荷重を保つ擬似テンパリング <span class="citation" data-cites="Tawn+2020">(<a href="#ref-Tawn+2020" role="doc-biblioref">Tawn et al., 2020</a>)</span></h2>
 </section>
-<section id="多峰性の最適化に基づく対処" class="level2" data-number="1.7">
-<h2 data-number="1.7" class="anchored" data-anchor-id="多峰性の最適化に基づく対処"><span class="header-section-number">1.7</span> 多峰性の最適化に基づく対処</h2>
+<section id="多峰性の最適化に基づく対処" class="level2" data-number="1.8">
+<h2 data-number="1.8" class="anchored" data-anchor-id="多峰性の最適化に基づく対処"><span class="header-section-number">1.8</span> 多峰性の最適化に基づく対処</h2>
 <p>目標分布の峰を特定するタスクを MCMC から分離して，<a href="https://ja.wikipedia.org/wiki/BFGS%E6%B3%95">BFGS 法</a> に基づく最適化法によって先に解いてしまう手法が <span class="citation" data-cites="Pompe+2020">(<a href="#ref-Pompe+2020" role="doc-biblioref">Pompe &amp; Łatuszyński, 2020</a>)</span> によって提案されている．</p>
 <p>これにより探索した峰の全体を <span class="math inline">\(\mathcal{I}:=\{1,\cdots,I\}\)</span> に格納し，拡大した状態空間 <span class="math inline">\(E\times\mathcal{I}\)</span> 上で <span class="math inline">\(\widetilde{\pi}\)</span> を対象とした MCMC を実行するが，この <span class="math inline">\(\widetilde{\pi}\)</span> をさらに適応的に更新する Auxiliary Variable Adaptive MCMC を提案している．</p>
-
-
-
 </section>
+</section>
+<section id="テンパリングと最適化の関係" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> テンパリングと最適化の関係</h1>
+<p>近年，<span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span> で指摘されたように，テンパリングを通じた SMC サンプラーは，<span class="math inline">\(\mathcal{P}(E)\)</span> 上での最適化としての解釈も持つことが理解されつつある．</p>
+
+
+
 </section>
 
 
@@ -343,14 +366,20 @@ Chopin, N., Crucinio, F. R., &amp; Korba, A. (2023). <em>A connection between te
 <div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
 Chopin, N., &amp; Papaspiliopoulos, O. (2020). <em>An introduction to sequential monte carlo</em>. Springer Cham.
 </div>
+<div id="ref-Geman-Geman1984" class="csl-entry" role="listitem">
+Geman, S., &amp; Geman, D. (1984). Stochastic relaxation, gibbs distributions, and the bayesian restoration of images. <em>IEEE Transactions on Pattern Analysis and Machine Intelligence</em>, <em>PAMI-6</em>(6), 721–741.
+</div>
 <div id="ref-Geyer1991" class="csl-entry" role="listitem">
 Geyer, C. J. (1991). Markov chain monte carlo maximum likelihood. In E. M. Keramidas (Ed.), <em>Computing science and statistics: Proceedings of the 23rd symposium on the interface</em> (pp. 156–163). Interface Foundation.
 </div>
 <div id="ref-Geyer-Thompson1995" class="csl-entry" role="listitem">
-Geyer, C. J., &amp; Thompson, E. A. (1995). Annealing markov chain monte carlo with applications to ancestral inference. <em>Journal of the American Statistical Association</em>, <em>90</em>(431), 909–920.
+Geyer, C. J., &amp; Thompson, E. A. (1995). Annealing markov chain monte carlo with applications to ancestral inference. <em>Journal of the American Statistical Association</em>, <em>90</em>(431), 909–920. <a href="https://www.jstor.org/stable/2291325">https://www.jstor.org/stable/2291325</a>
 </div>
 <div id="ref-Gramacy+2010" class="csl-entry" role="listitem">
 Gramacy, R., Samworth, R., &amp; King, R. (2010). Importance tempering. <em>Statistics and Computing</em>, <em>20</em>, 1–7.
+</div>
+<div id="ref-Hukushima-Nemoto1996" class="csl-entry" role="listitem">
+Hukushima, K., &amp; Nemoto, K. (1996). Exchange monte carlo method and application to spin glass simulations. <em>Journal of the Physical Society of Japan</em>, <em>65</em>(6), 1604–1608. <a href="https://doi.org/10.1143/JPSJ.65.1604">https://doi.org/10.1143/JPSJ.65.1604</a>
 </div>
 <div id="ref-Jasra+2007" class="csl-entry" role="listitem">
 Jasra, A., Stephens, D. A., &amp; Holmes, C. C. (2007). On population-based simulation for static inference. <em>Statistics and Computing</em>, <em>17</em>, 263–279.
@@ -358,11 +387,14 @@ Jasra, A., Stephens, D. A., &amp; Holmes, C. C. (2007). On population-based simu
 <div id="ref-Kirkpartick+1983" class="csl-entry" role="listitem">
 Kirkpartick, S., Gelatt, C. D., &amp; Vecchi, M. P. (1983). Optimization by simulated annealing. <em>Science</em>, <em>220</em>(4598), 671–680.
 </div>
+<div id="ref-Liu2004" class="csl-entry" role="listitem">
+Liu, J. S. (2004). <em>Monte carlo strategies in scientific computing</em>. Springer New York. <a href="https://doi.org/10.1007/978-0-387-76371-2">https://doi.org/10.1007/978-0-387-76371-2</a>
+</div>
 <div id="ref-Marinari-Parisi1992" class="csl-entry" role="listitem">
 Marinari, E., &amp; Parisi, G. (1992). Simulated tempering: A new monte carlo scheme. <em>Europhysics Letters</em>, <em>19</em>(6), 451–458.
 </div>
 <div id="ref-Neal1996" class="csl-entry" role="listitem">
-Neal, R. M. (1996). Sampling from multimodal distributions using tempered transitions. <em>Statistics and Computing</em>, <em>6</em>, 353–366.
+Neal, R. M. (1996). <em>Bayesian learning for neural networks</em> (Vol. 118). Springer New York. <a href="https://link.springer.com/book/10.1007/978-1-4612-0745-0">https://link.springer.com/book/10.1007/978-1-4612-0745-0</a>
 </div>
 <div id="ref-Neal2001" class="csl-entry" role="listitem">
 Neal, R. M. (2001). Annealed importance sampling. <em>Statistics and Computing</em>, <em>11</em>, 125–139.
@@ -376,15 +408,21 @@ Swendsen, R. H., &amp; Wang, J.-S. (1986). Replica monte carlo simulation of spi
 <div id="ref-Tawn+2020" class="csl-entry" role="listitem">
 Tawn, N. G., Roberts, G. O., &amp; Rosenthal, J. S. (2020). Weight-preserving simulated tempering. <em>Statistics and Computing</em>, <em>30</em>, 27–41.
 </div>
+<div id="ref-Torrie-Valleau1977" class="csl-entry" role="listitem">
+Torrie, G. M., &amp; Valleau, J. P. (1977). Nonphysical sampling distributions in monte carlo free-energy estimation: Umbrella sampling. <em>Journal of Computational Physics</em>, <em>23</em>(2), 187–199. <a href="https://doi.org/10.1016/0021-9991(77)90121-8">https://doi.org/10.1016/0021-9991(77)90121-8</a>
+</div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span> でも <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span> を引用して PT と呼んでいる．一方で物理学の分野では <span class="citation" data-cites="Swendsen-Wang1986">(<a href="#ref-Swendsen-Wang1986" role="doc-biblioref">Swendsen &amp; Wang, 1986</a>)</span> などの文献もある．<span class="citation" data-cites="Bouchard-Cote+2012">(<a href="#ref-Bouchard-Cote+2012" role="doc-biblioref">Bouchard-Côté et al., 2012</a>)</span> などが引用している．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Jasra+2007">(<a href="#ref-Jasra+2007" role="doc-biblioref">Jasra et al., 2007</a>)</span> など．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012, p. 66</a>)</span> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p>記法 <span class="math inline">\([p]=\{1,\cdots,p\}\)</span> は <a href="../../static/Notations.html#sec-numbers">本サイトの数学記法一覧</a> を参照<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span> も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn6"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, p. 33</a>)</span> で，SMC を調温に初めて応用した論文として紹介されている．p.352 では “An early version of SMC tempering (without resampling)” としている．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p><span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, pp. 205–205</a>)</span> Chapter 10. Multilevel Sampling and Optimization Methods も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>この前にも，Umbrella sampling <span class="citation" data-cites="Torrie-Valleau1977">(<a href="#ref-Torrie-Valleau1977" role="doc-biblioref">Torrie &amp; Valleau, 1977</a>)</span> が本質的には密度の調温のアイデアを用いていた．<span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, pp. 206–206</a>)</span> Section 10.1 も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="Geman-Geman1984">(<a href="#ref-Geman-Geman1984" role="doc-biblioref">Geman &amp; Geman, 1984</a>)</span> によると，各 <span class="math inline">\(\pi_n\)</span> における MCMC move の回数を <span class="math inline">\(N_n\)</span> とした場合，<span class="math inline">\(O(\log(N_1+\cdots+N_n))\)</span> のオーダーで <span class="math inline">\(T_n\)</span> を（十分遅く）変化させれば，この手法はほとんど確実に <span class="math inline">\(\mathop{\mathrm{arg\,min}}h\)</span> 内に収束する．<span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, pp. 209–209</a>)</span> 10.2 節も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span>, <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 4</a>)</span> でも <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span> を引用して PT と呼んでいる．一方で物理学の分野では <span class="citation" data-cites="Hukushima-Nemoto1996">(<a href="#ref-Hukushima-Nemoto1996" role="doc-biblioref">Hukushima &amp; Nemoto, 1996</a>)</span> の exchange Monte Carlo や <span class="citation" data-cites="Swendsen-Wang1986">(<a href="#ref-Swendsen-Wang1986" role="doc-biblioref">Swendsen &amp; Wang, 1986</a>)</span> などの文献もある．前者は <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 4</a>)</span> が “is reminiscent of <em>parallel tempering</em> <span class="citation" data-cites="Geyer1991">(<a href="#ref-Geyer1991" role="doc-biblioref">Geyer, 1991</a>)</span>” と指摘しており，後者は <span class="citation" data-cites="Bouchard-Cote+2012">(<a href="#ref-Bouchard-Cote+2012" role="doc-biblioref">Bouchard-Côté et al., 2012</a>)</span> などが引用している．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Jasra+2007">(<a href="#ref-Jasra+2007" role="doc-biblioref">Jasra et al., 2007</a>)</span> など．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012, p. 66</a>)</span> も参照．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>記法 <span class="math inline">\([p]=\{1,\cdots,p\}\)</span> は <a href="../../static/Notations.html#sec-numbers">本サイトの数学記法一覧</a> を参照<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Behrens+2012">(<a href="#ref-Behrens+2012" role="doc-biblioref">Behrens et al., 2012</a>)</span> も参照．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p><span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020, p. 33</a>)</span> で，SMC を調温に初めて応用した論文として紹介されている．p.352 では “An early version of SMC tempering (without resampling)” としている．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
@@ -610,6 +648,24 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     // clear code selection
     e.clearSelection();
   });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
   function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
@@ -644,7 +700,11 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
     });
   }
   const xrefs = window.document.querySelectorAll('a.quarto-xref');
