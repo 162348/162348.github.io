@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.552">
+<meta name="generator" content="quarto-1.4.549">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -136,7 +136,7 @@ window.Quarto = {
 <meta property="og:image" content="https://162348.github.io/posts/2024/Review/anomaths.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - Peters and de With (2012) Rejection-Free Monte Carlo Sampling for General Potentials">
-<meta name="twitter:description" content="(Peters &amp; de&nbsp;With, 2012) は対称とは限らないエルゴード的な Markov 連鎖の収束レートを，カップリングの方法を用いて導出した仕事．">
+<meta name="twitter:description" content="(Peters &amp; de&nbsp;With, 2012) は Metropolis 法による棄却-採択の代わりに，衝突により方向を変える粒子を想定することで，効率的な Monte Carlo 法を実行することを目指した．ただの event-driven な molecular dynamics と違い，一般の滑らかなポテンシャルに適用可能である点が革新的である．しかし，粒子系のポテンシャルは常に和の形で表されるように，一般の PDMP に基づいた連続時間 MCMC 手法も，適用可能なモデルの範囲が限定されている点が難点である (Nemeth &amp; Fearnhead, 2021)．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Review/anomaths.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -216,7 +216,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p><span class="citation" data-cites="Peters-deWith2012">(<a href="#ref-Peters-deWith2012" role="doc-biblioref">Peters &amp; de&nbsp;With, 2012</a>)</span> は対称とは限らないエルゴード的な Markov 連鎖の収束レートを，カップリングの方法を用いて導出した仕事．</p>
+      <p><span class="citation" data-cites="Peters-deWith2012">(<a href="#ref-Peters-deWith2012" role="doc-biblioref">Peters &amp; de&nbsp;With, 2012</a>)</span> は Metropolis 法による棄却-採択の代わりに，衝突により方向を変える粒子を想定することで，効率的な Monte Carlo 法を実行することを目指した．ただの event-driven な molecular dynamics と違い，一般の滑らかなポテンシャルに適用可能である点が革新的である．しかし，粒子系のポテンシャルは常に和の形で表されるように，一般の PDMP に基づいた連続時間 MCMC 手法も，適用可能なモデルの範囲が限定されている点が難点である <span class="citation" data-cites="Nemeth-Fearnhead2021">(<a href="#ref-Nemeth-Fearnhead2021" role="doc-biblioref">Nemeth &amp; Fearnhead, 2021</a>)</span>．</p>
     </div>
   </div>
   
@@ -231,9 +231,14 @@ window.Quarto = {
   <li><a href="#概要" id="toc-概要" class="nav-link active" data-scroll-target="#概要"><span class="header-section-number">1</span> 概要</a></li>
   <li><a href="#背景" id="toc-背景" class="nav-link" data-scroll-target="#背景"><span class="header-section-number">2</span> 背景</a>
   <ul class="collapse">
-  <li><a href="#分子動力学" id="toc-分子動力学" class="nav-link" data-scroll-target="#分子動力学"><span class="header-section-number">2.1</span> 分子動力学</a></li>
-  <li><a href="#統計力学で用いる分子動力学法" id="toc-統計力学で用いる分子動力学法" class="nav-link" data-scroll-target="#統計力学で用いる分子動力学法"><span class="header-section-number">2.2</span> 統計力学で用いる分子動力学法</a></li>
+  <li><a href="#ed-md" id="toc-ed-md" class="nav-link" data-scroll-target="#ed-md"><span class="header-section-number">2.1</span> ED-MD</a></li>
+  <li><a href="#ed-md-の改良" id="toc-ed-md-の改良" class="nav-link" data-scroll-target="#ed-md-の改良"><span class="header-section-number">2.2</span> ED-MD の改良</a></li>
+  <li><a href="#他の手法との比較" id="toc-他の手法との比較" class="nav-link" data-scroll-target="#他の手法との比較"><span class="header-section-number">2.3</span> 他の手法との比較</a></li>
+  <li><a href="#分子動力学" id="toc-分子動力学" class="nav-link" data-scroll-target="#分子動力学"><span class="header-section-number">2.4</span> 分子動力学</a></li>
+  <li><a href="#統計力学で用いる分子動力学法" id="toc-統計力学で用いる分子動力学法" class="nav-link" data-scroll-target="#統計力学で用いる分子動力学法"><span class="header-section-number">2.5</span> 統計力学で用いる分子動力学法</a></li>
+  <li><a href="#sec-effectiveness-of-potentials" id="toc-sec-effectiveness-of-potentials" class="nav-link" data-scroll-target="#sec-effectiveness-of-potentials"><span class="header-section-number">2.6</span> ポテンシャルの役割</a></li>
   </ul></li>
+  <li><a href="#提案手法" id="toc-提案手法" class="nav-link" data-scroll-target="#提案手法"><span class="header-section-number">3</span> 提案手法</a></li>
   </ul>
 </nav>
     </div>
@@ -271,9 +276,12 @@ $$
 <section id="概要" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="概要"><span class="header-section-number">1</span> 概要</h2>
 <p>統計用語でいう Bouncy Particle Sampler を，Metropolis-Hastings 法の連続時間極限として初めて提案した論文であるが，これが <span class="citation" data-cites="Bouchard-Cote+2018-BPS">(<a href="#ref-Bouchard-Cote+2018-BPS" role="doc-biblioref">Bouchard-Côté et al., 2018</a>)</span> に発見されるには６年の時間を要した．</p>
+<p>これを event-driven rejection-free Monte Carlo 法と呼び，Lennard-Jones ポテンシャルを持った流体のシミュレーションで検証した．</p>
 </section>
 <section id="背景" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="背景"><span class="header-section-number">2</span> 背景</h2>
+<section id="ed-md" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="ed-md"><span class="header-section-number">2.1</span> ED-MD</h3>
 <p>（古典）統計力学に従って粒子系をシミュレーションする際には，MD (molecular dynamics) と MC (Monte Carlo methods) の組み合わせを用いることになるが，現状いずれも Metropolis <span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> の採択-棄却の枠組みで実行されるのが最も一般的である．</p>
 <p>Metropolis の方法だと，</p>
 <ul>
@@ -281,8 +289,19 @@ $$
 <li>希薄系ではタイムスケールは分子の衝突過程に依存するので，シミュレーション時間のほとんどは無駄に使う必要が出る．</li>
 </ul>
 <p>という難点があるが，これは最初の MD 法 <span class="citation" data-cites="Alder-Wainwright1959">(<a href="#ref-Alder-Wainwright1959" role="doc-biblioref">Alder &amp; Wainwright, 1959</a>)</span> で取られたような event-driven な方法で改善できる．</p>
-<section id="分子動力学" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="分子動力学"><span class="header-section-number">2.1</span> 分子動力学</h3>
+</section>
+<section id="ed-md-の改良" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="ed-md-の改良"><span class="header-section-number">2.2</span> ED-MD の改良</h3>
+<p>しかし 剛体球に対する ED-MD <span class="citation" data-cites="Alder-Wainwright1959">(<a href="#ref-Alder-Wainwright1959" role="doc-biblioref">Alder &amp; Wainwright, 1959</a>)</span> にも難点がある．</p>
+<p>ED-MD はポテンシャルが単関数である場合にまでしか一般化できないが，本手法は一般のポテンシャルに適用できる（ <a href="#sec-effectiveness-of-potentials" class="quarto-xref">節&nbsp;2.6</a> も参照）．</p>
+</section>
+<section id="他の手法との比較" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="他の手法との比較"><span class="header-section-number">2.3</span> 他の手法との比較</h3>
+<p>Event-Chain Monte Carlo 手法 <span class="citation" data-cites="Bernard+2009">(<a href="#ref-Bernard+2009" role="doc-biblioref">Bernard et al., 2009</a>)</span>, <span class="citation" data-cites="Bernard-Krauth2011">(<a href="#ref-Bernard-Krauth2011" role="doc-biblioref">Bernard &amp; Krauth, 2011</a>)</span> は，ランダムに粒子を１つ選択し，他の粒子を規定の距離移動するまで，衝突しても無視して動かし続ける手法である．これにより MCMC の収束が高速化されるというのである．本手法も，棄却の代わりに衝突に注目するという点では ECMC とアイデアが似ている．</p>
+<p>アルゴリズム的には kinetic / dynamic MD <span class="citation" data-cites="Fichthorn-Weinberg1991">(<a href="#ref-Fichthorn-Weinberg1991" role="doc-biblioref">Fichthorn &amp; Weinberg, 1991</a>)</span> に似て Poisson 過程のシミュレーションに帰着する．だが本手法は，イベントをシミュレーションしたのちに，そのイベントの間の粒子系の動きは線形に補間される．</p>
+</section>
+<section id="分子動力学" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="分子動力学"><span class="header-section-number">2.4</span> 分子動力学</h3>
 <p>分子動力学法 (MD: Molecular Dynamics simulation) は，系のミクロなダイナミクスを実験的に調べる代わりに，シミュレーションによって必要条件を絞り込んでいく構成的な・計算機集約的なアプローチである．</p>
 <p>特に，多体系の運動方程式を計算機を用いて数値的に解くことを指す <span class="citation" data-cites="Alder-Wainwright1959">(<a href="#ref-Alder-Wainwright1959" role="doc-biblioref">Alder &amp; Wainwright, 1959</a>)</span>．それ故，物理や化学はもちろん，生化学，物質科学，さらには工学分野にまで幅広く用いられるシミュレーション法になる．</p>
 <blockquote class="blockquote">
@@ -293,17 +312,17 @@ $$
 <p>彼らの関心は，ポロニウムなどの剛体球 (hard-sphere) の系とみれる物質の温度に依存した相転移現象にあった <span class="citation" data-cites="Alder-Wainwright1957">(<a href="#ref-Alder-Wainwright1957" role="doc-biblioref">Alder &amp; Wainwright, 1957</a>)</span>．<span class="citation" data-cites="Alder-Wainwright1959">(<a href="#ref-Alder-Wainwright1959" role="doc-biblioref">Alder &amp; Wainwright, 1959</a>)</span> では撃力相互作用 (impulsive interaction) が問題であったので，event-driven なシミュレーション (ED-MD scheme) が取られていたことは <span class="citation" data-cites="Peters-deWith2012">(<a href="#ref-Peters-deWith2012" role="doc-biblioref">Peters &amp; de&nbsp;With, 2012</a>)</span> でも言及されている．当時の計算機では，500個の粒子を扱うことが限界であったことが興味深い．</p>
 <p>その他に，粒子に内部構造がない場合は time-driven な Newton 力学のシミュレーションで良いかもしれないが，剛体で体積を持つ場合は Euler 方程式，内部構造を持つ場合は Langrange 方程式のシミュレーションも伴うかもしれない <span class="citation" data-cites="Rapaport2004">(<a href="#ref-Rapaport2004" role="doc-biblioref">Rapaport, 2004, p. 4</a>)</span>．</p>
 <p>通常の平衡状態の（エネルギー・体積・粒子数一定の）分子系は小正準集団に対応するが，特定の温度条件下での物性を考えたい場合は，運動方程式を修正してシミュレーションする方法もある．この方法の欠点は，物性を再現できても，個々の分子の軌道を正しく模倣しているわけではないという点であるが，そもそもそのカオス的な振る舞いから，正しい軌道を得ることは諦めることが多い．このこともあり，MD 法で用いられる数値積分法は比較的低次元で軽量なものでも十分なのである <span class="citation" data-cites="Rapaport2004">(<a href="#ref-Rapaport2004" role="doc-biblioref">Rapaport, 2004, p. 4</a>)</span>．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-<section id="他手法の可能性" class="level4" data-number="2.1.1">
-<h4 data-number="2.1.1" class="anchored" data-anchor-id="他手法の可能性"><span class="header-section-number">2.1.1</span> 他手法の可能性</h4>
+<section id="他手法の可能性" class="level4" data-number="2.4.1">
+<h4 data-number="2.4.1" class="anchored" data-anchor-id="他手法の可能性"><span class="header-section-number">2.4.1</span> 他手法の可能性</h4>
 <p>セルオートマトンや格子ボルツマン法などの格子ベースの手法の方が計算量は安価であるが，表現力に劣ることになる．</p>
 <p>Lanvegin 方程式に基づいた Brownian dynamics などのさらに連続時間ベースの手法もある．</p>
 </section>
 </section>
-<section id="統計力学で用いる分子動力学法" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="統計力学で用いる分子動力学法"><span class="header-section-number">2.2</span> 統計力学で用いる分子動力学法</h3>
+<section id="統計力学で用いる分子動力学法" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="統計力学で用いる分子動力学法"><span class="header-section-number">2.5</span> 統計力学で用いる分子動力学法</h3>
 <p>統計力学で用いられる Monte Carlo 法と molecular dynamics には極めて深い繋がりがある．</p>
-<section id="布置平均を取る方法" class="level4" data-number="2.2.1">
-<h4 data-number="2.2.1" class="anchored" data-anchor-id="布置平均を取る方法"><span class="header-section-number">2.2.1</span> 布置平均を取る方法</h4>
+<section id="布置平均を取る方法" class="level4" data-number="2.5.1">
+<h4 data-number="2.5.1" class="anchored" data-anchor-id="布置平均を取る方法"><span class="header-section-number">2.5.1</span> 布置平均を取る方法</h4>
 <p>一度 MD の文脈を取り去り，純粋に統計力学的な量を Monte Carlo 法によって計算したいとする．</p>
 <p>やりたいことは抽象的には，その統計的集団の Boltzmann 分布から系をサンプリングできれば良い <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 184</a>)</span>．</p>
 <p>典型的には MCMC によって行うこととなるが，結局その提案は MD によって示唆されたものの方が効率が良くなる．</p>
@@ -315,8 +334,8 @@ $$
 <p>A major advantage of molecular dynamics simulation in physical systems is its reliance on basic physics principles (e.g.&nbsp;Newton’s equation), which has been shown by nature to work well. <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 189</a>)</span></p>
 </blockquote>
 </section>
-<section id="時間平均を取る方法" class="level4" data-number="2.2.2">
-<h4 data-number="2.2.2" class="anchored" data-anchor-id="時間平均を取る方法"><span class="header-section-number">2.2.2</span> 時間平均を取る方法</h4>
+<section id="時間平均を取る方法" class="level4" data-number="2.5.2">
+<h4 data-number="2.5.2" class="anchored" data-anchor-id="時間平均を取る方法"><span class="header-section-number">2.5.2</span> 時間平均を取る方法</h4>
 <p>統計力学において，マクロ物理量はアンサンブル平均として計算され，エルゴード仮説の下では１つの系の時間発展を追うことで計算できることになる．</p>
 <p>これに MD を用いるとすると，自然と Monte Carlo シミュレーションのサブルーチンとして MD を用いることになるが，タイムステップが系の特徴的な事象をよく捉えるように注意して取る必要がある．特に，系のハミルトニアンが変化しすぎないように離散化誤差を抑える必要がある <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 184</a>)</span>．</p>
 <p>特に MD シミュレーション自体が（温度と粒子数が一定な）小正準集団に対応することになる <span class="citation" data-cites="Rapaport2004">(<a href="#ref-Rapaport2004" role="doc-biblioref">Rapaport, 2004, p. 6</a>)</span>．</p>
@@ -324,8 +343,8 @@ $$
 <p><strong>混合モンテカルロ／分子動力学法</strong>：モンテカルロ法を用いた構造分布の生成において，試行に用いる構造をニュートンの運動方程式など決定論的手法に従って用意する手法．分子凝集系などの複雑な系に対して，効率的に構造空間探索を行えると期待される．<span class="citation" data-cites="用語解説2022">(<a href="#ref-用語解説2022" role="doc-biblioref">栗﨑 &amp; 田中, 2022</a>)</span></p>
 </blockquote>
 </section>
-<section id="optimal-scaling-の問題" class="level4" data-number="2.2.3">
-<h4 data-number="2.2.3" class="anchored" data-anchor-id="optimal-scaling-の問題"><span class="header-section-number">2.2.3</span> Optimal scaling の問題</h4>
+<section id="optimal-scaling-の問題" class="level4" data-number="2.5.3">
+<h4 data-number="2.5.3" class="anchored" data-anchor-id="optimal-scaling-の問題"><span class="header-section-number">2.5.3</span> Optimal scaling の問題</h4>
 <p>ここで，optimal scaling と並行な，<strong>タイムステップ選択の問題</strong> がやはり中核となることが確認された．</p>
 <blockquote class="blockquote">
 <p>how to choose a good step size has always been an art in the field. <span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 183</a>)</span></p>
@@ -337,15 +356,32 @@ $$
 <p>かといって，MD から遊離した MCMC を実行して性能を上げるためには，何かしらの形で遷移核に分布の形状を通知したいところであるが，これは MD 法なしには難しいということになる．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
 <p>明らかに分布が特殊な形状をしているのに，ランダムウォークがその方向を見つけるまで待つのでは効率が悪い．</p>
 </section>
-<section id="hamiltonian-monte-carlo-法" class="level4" data-number="2.2.4">
-<h4 data-number="2.2.4" class="anchored" data-anchor-id="hamiltonian-monte-carlo-法"><span class="header-section-number">2.2.4</span> Hamiltonian Monte Carlo 法</h4>
+<section id="hamiltonian-monte-carlo-法" class="level4" data-number="2.5.4">
+<h4 data-number="2.5.4" class="anchored" data-anchor-id="hamiltonian-monte-carlo-法"><span class="header-section-number">2.5.4</span> Hamiltonian Monte Carlo 法</h4>
 <p>そこで，完全な MD シミュレーションは行わず，Hamiltonian からの知識を部分的に提案核に取り入れるというアイデアが HMC (hybrid Monte Carlo) <span class="citation" data-cites="Duane+1987">(<a href="#ref-Duane+1987" role="doc-biblioref">Duane et al., 1987</a>)</span> として示された．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
 <p>後に，統計力学的な背景を持たないサンプリング問題についても，Hamilton 系から示唆された提案分布を用いる方が MCMC として性能が良いことが発見された．これが HMC (Hamiltonian Monte Carlo) 法 <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span> である．</p>
-
-
-
 </section>
 </section>
+<section id="sec-effectiveness-of-potentials" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="sec-effectiveness-of-potentials"><span class="header-section-number">2.6</span> ポテンシャルの役割</h3>
+<p>例え量子系のシミュレーションであろうとも，Born-Oppenheimer などの近似を重ねて，原子に働く有効ポテンシャルにのみ注目することにより，古典系のシミュレーションと同様の方法で実行することができ，多くのマクロ的な性質を再現することが出来ることが，<span class="citation" data-cites="Griebel+2007">(<a href="#ref-Griebel+2007" role="doc-biblioref">Griebel et al., 2007, pp. 17–17</a>)</span> に詳細に説明されている．</p>
+<p>実際の系での粒子間相互作用を決定する際，純粋に Schrödinger 方程式などから理論的に導出するだけでなく，解析的に記述されたポテンシャルをフィッティングしてみてそれが理論や実験に合致するかどうかを見る統計的な方法もとられる <span class="citation" data-cites="Griebel+2007">(<a href="#ref-Griebel+2007" role="doc-biblioref">Griebel et al., 2007, p. 27</a>)</span>．</p>
+<p>多くの場合ポテンシャルは，粒子間距離や角度，座標などの変数が入っており，これらのパラメータを推定することで探されるが，当然このステップは難しいものである：</p>
+<blockquote class="blockquote">
+<p>The construction of good potentials is still a form of art and requires much skill, work, and intuition. <span class="citation" data-cites="Griebel+2007">(<a href="#ref-Griebel+2007" role="doc-biblioref">Griebel et al., 2007, p. 28</a>)</span></p>
+</blockquote>
+<p>Morse ポテンシャルや Lennard-Jones ポテンシャルがその代表例である．いわば，これらのポテンシャルも模型なのである．半導体のモデリングなどでは，さらに複雑なポテンシャルが必要になる <span class="citation" data-cites="Griebel+2007">(<a href="#ref-Griebel+2007" role="doc-biblioref">Griebel et al., 2007, p. 30</a>)</span>．</p>
+<p>このように，多体問題をポテンシャル関数によって解く手法は 1980 年代からである <span class="citation" data-cites="Griebel+2007">(<a href="#ref-Griebel+2007" role="doc-biblioref">Griebel et al., 2007, p. 30</a>)</span>．ポテンシャル関数の形によって、適した数値計算アルゴリズムが異なる。特に、長距離力の高速計算のためには、ポテンシャルの性質を巧みに利用したアルゴリズムが必要である。</p>
+</section>
+</section>
+<section id="提案手法" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="提案手法"><span class="header-section-number">3</span> 提案手法</h2>
+<p>Metropolis scheme のように提案と棄却によって詳細釣り合い条件を満たすのではなく，ポテンシャルの壁にぶつかった際に（確率的に）跳ね返ることによって詳細釣り合い条件を達成することを考える．</p>
+<p><span class="math inline">\(U\)</span> が <span class="math inline">\(U=1_{\mathbb{R}_+}\)</span> である場合から初めて，単関数の場合，最後に連続関数の場合でどのようなアルゴリズムになるかを順に記述している．</p>
+<p>連続極限を取ることで，「どの時点まで衝突せずに直進できるか」を計算することに帰着する．</p>
+
+
+
 </section>
 
 
@@ -359,11 +395,23 @@ Alder, B. J., &amp; Wainwright, T. E. (1958). <a href="">Molecular dynamics by e
 <div id="ref-Alder-Wainwright1959" class="csl-entry" role="listitem">
 Alder, B. J., &amp; Wainwright, T. E. (1959). <span class="nocase">Studies in Molecular Dynamics. I. General Method</span>. <em>The Journal of Chemical Physics</em>, <em>31</em>(2), 459–466. <a href="https://doi.org/10.1063/1.1730376">https://doi.org/10.1063/1.1730376</a>
 </div>
+<div id="ref-Bernard-Krauth2011" class="csl-entry" role="listitem">
+Bernard, E. P., &amp; Krauth, W. (2011). Two-step melting in two dimensions: First-order liquid-hexatic transition. <em>Phys. Rev. Lett.</em>, <em>107</em>, 155704. <a href="https://doi.org/10.1103/PhysRevLett.107.155704">https://doi.org/10.1103/PhysRevLett.107.155704</a>
+</div>
+<div id="ref-Bernard+2009" class="csl-entry" role="listitem">
+Bernard, E. P., Krauth, W., &amp; Wilson, D. B. (2009). Event-chain monte carlo algorithms for hard-sphere systems. <em>Phys. Rev. E</em>, <em>80</em>, 056704. <a href="https://doi.org/10.1103/PhysRevE.80.056704">https://doi.org/10.1103/PhysRevE.80.056704</a>
+</div>
 <div id="ref-Bouchard-Cote+2018-BPS" class="csl-entry" role="listitem">
 Bouchard-Côté, A., Vollmer, S. J., &amp; Doucet, A. (2018). The bouncy particle sampler: A nonreversible rejection-free markov chain monte carlo method. <em>Journal of the American Statistical Association</em>, <em>113</em>(522), 855–867. <a href="https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1294075">https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1294075</a>
 </div>
 <div id="ref-Duane+1987" class="csl-entry" role="listitem">
 Duane, S., Kennedy, A. D., Pendleton, B. J., &amp; Roweth, D. (1987). Hybrid monte carlo. <em>Physics Letters B</em>, <em>195</em>(2), 216–222. <a href="https://doi.org/10.1016/0370-2693(87)91197-X">https://doi.org/10.1016/0370-2693(87)91197-X</a>
+</div>
+<div id="ref-Fichthorn-Weinberg1991" class="csl-entry" role="listitem">
+Fichthorn, K. A., &amp; Weinberg, W. H. (1991). <span class="nocase">Theoretical foundations of dynamical Monte Carlo simulations</span>. <em>The Journal of Chemical Physics</em>, <em>95</em>(2), 1090–1096. <a href="https://doi.org/10.1063/1.461138">https://doi.org/10.1063/1.461138</a>
+</div>
+<div id="ref-Griebel+2007" class="csl-entry" role="listitem">
+Griebel, M., Zumbusch, G., &amp; Knapek, S. (2007). <em>Numerical simulation in molecular dynamics: Numerics, algorithms, parallelization, applications</em> (Vol. 5). Springer Belin, Heidelberg. <a href="https://link.springer.com/book/10.1007/978-3-540-68095-6">https://link.springer.com/book/10.1007/978-3-540-68095-6</a>
 </div>
 <div id="ref-Liu2004" class="csl-entry" role="listitem">
 Liu, J. S. (2004). <em>Monte carlo strategies in scientific computing</em>. Springer New York. <a href="https://doi.org/10.1007/978-0-387-76371-2">https://doi.org/10.1007/978-0-387-76371-2</a>
@@ -373,6 +421,9 @@ Metropolis, N., Rosenbluth, A. W., Rosenbluth, M. N., Teller, A. H., &amp; Telle
 </div>
 <div id="ref-Neal1996" class="csl-entry" role="listitem">
 Neal, R. M. (1996). <em>Bayesian learning for neural networks</em> (Vol. 118). Springer New York. <a href="https://link.springer.com/book/10.1007/978-1-4612-0745-0">https://link.springer.com/book/10.1007/978-1-4612-0745-0</a>
+</div>
+<div id="ref-Nemeth-Fearnhead2021" class="csl-entry" role="listitem">
+Nemeth, C., &amp; Fearnhead, P. (2021). Stochastic gradient markov chain monte carlo. <em>Journal of the American Statistical Association</em>, <em>116</em>(533), 433–450. <a href="https://www.tandfonline.com/doi/full/10.1080/01621459.2020.1847120">https://www.tandfonline.com/doi/full/10.1080/01621459.2020.1847120</a>
 </div>
 <div id="ref-Peters-deWith2012" class="csl-entry" role="listitem">
 Peters, E. A. J. F., &amp; de&nbsp;With, G. (2012). Rejection-free monte carlo sampling for general potentials. <em>Physical Review E</em>, <em>85</em>(2). <a href="https://journals.aps.org/pre/abstract/10.1103/PhysRevE.85.026703">https://journals.aps.org/pre/abstract/10.1103/PhysRevE.85.026703</a>
@@ -616,24 +667,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     // clear code selection
     e.clearSelection();
   });
-    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-    var mailtoRegex = new RegExp(/^mailto:/);
-      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
-    var isInternal = (href) => {
-        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-    }
-    // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
-    for (var i=0; i<links.length; i++) {
-      const link = links[i];
-      if (!isInternal(link.href)) {
-        // undo the damage that might have been done by quarto-nav.js in the case of
-        // links that we want to consider external
-        if (link.dataset.originalHref !== undefined) {
-          link.href = link.dataset.originalHref;
-        }
-      }
-    }
   function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
@@ -668,11 +701,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      if (note) {
-        return note.innerHTML;
-      } else {
-        return "";
-      }
+      return note.innerHTML;
     });
   }
   const xrefs = window.document.querySelectorAll('a.quarto-xref');

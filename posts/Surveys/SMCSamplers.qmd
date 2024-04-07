@@ -24,7 +24,7 @@ $$
 $$
 を通じて，より簡単な分布 $\pi_1,\pi_2,\cdots$ から逐次的にサンプリングをする，というアイデアを **調温 (tempering)** という（[粒子フィルターの稿](../2023/Surveys/ParticleFilter.qmd#sec-SMC-Samplers) も参照）．
 
-この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案され，**multilevel sampling** とも呼ばれる．^[[@Liu2004 pp.205-] Chapter 10. Multilevel Sampling and Optimization Methods も参照．]
+この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案され，**multilevel sampling** とも呼ばれた．^[[@Liu2004 pp.205-] Chapter 10. Multilevel Sampling and Optimization Methods も参照．] Multilevel sampling の発展の中で，次第に population-based と呼ばれる手法群 [@Iba2001] が発達し，自然と SMC が活躍の場を広げて行った，とも見れるのである．
 
 まずはその歴史を概観する．いずれも，目標分布 $\pi_p$ が多峰性をもち，MCMC がうまく峰の間を遷移できずに正しいサンプリングができない（収束が遅くなる）問題を解決する文脈の中で捉えられる．
 
@@ -48,13 +48,32 @@ $$
 
 ## MC^3^ / 並行テンパリング [@Geyer1991]
 
-積空間 $\otimes_{n=1}^pE$ 上で $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として MCMC を実行することを考えるのが **MC^3^** (Metropolis-Coupled MCMC) [@Geyer1991] であった．
+積空間 $\otimes_{n=1}^pE$ 上で $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として MCMC を実行することを考えるのが **MC^3^** (Metropolis-Coupled MCMC) [@Geyer1991] である．
 
-また時折，不変分布を変えないように Metropolis 核の提案に従って，MCMC 鎖の位置を交換することで収束を加速することを考える．
+時折，不変分布を変えないような Metropolis 核による提案に従って，MCMC 鎖の位置を交換することで収束を加速する．
 
-この手法は **parallel tempering**^[[@Chopin+2023], [@Liu2004 p.4] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Hukushima-Nemoto1996] の exchange Monte Carlo や [@Swendsen-Wang1986] などの文献もある．前者は [@Liu2004 p.4] が "is reminiscent of _parallel tempering_ [@Geyer1991]" と指摘しており，後者は [@Bouchard-Cote+2012] などが引用している．] または exchange Monte Carlo [@Hukushima-Nemoto1996] による再発見に伴って [**レプリカ交換法**](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，さらには population-based MCMC^[[@Jasra+2007] など．] とも呼ばれる．
+この手法は **parallel tempering**^[[@Chopin+2023], [@Liu2004 p.4] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Hukushima-Nemoto1996] の exchange Monte Carlo や [@Swendsen-Wang1986] などの文献もある．前者は [@Liu2004 p.4] が "is reminiscent of _parallel tempering_ [@Geyer1991]" と指摘しており，後者は [@Bouchard-Cote+2012] などが引用している．] または exchange Monte Carlo [@Hukushima-Nemoto1996] による独立な提案に伴って [**レプリカ交換法**](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，さらには **population-based MCMC**^[[@Jasra+2007] は [@Geyer1991] も指して population-based と呼んでおり，この言葉自体は [@Iba2001] からとったといい，"we define a population-based simulation method as one which, instead of sampling a single (independent/dependent) sample, generates a collection of samples in parallel" と定義しており，大きく MCMC によるものと逐次重点サンプリングベースのものの２流儀あるとしている．[@Liu2004 pp.225-] 第11章など．] とも呼ばれる．
+
+population-based [@Iba2001] というのは，$p$ 個の粒子を展開して高温状態でも探索してもらい，定期的に粒子を交換することでその情報を互いに伝え合うメカニズムのように思えるために言う．^[[@Iba2001b] が良い解説を与えていると [@Jasra+2007] でも言及されている．ただし，[@Iba2001b] はこの並行テンパリングだけでなく，擬似テンパリング，multicanonical Monte Carlo [@Berg-Neuhaus1991] / Adaptive Umbrella Sampling を総称して Extended Ensemble Monte Carlo と呼んでサーベイしていることに注意．] この観点から見ると，「鎖の間の交換」とは，粒子の間の相互作用としては極めてナイーブなもので，粒子フィルターに見られるような遺伝的なアルゴリズムの導入でより効率化できるのではないか？という発想が出てくる．
+
+## テンパリング共通の問題：$p$ の設定
 
 しかしながら，全てのテンパリング手法に共通するように，交換の棄却率が高まりすぎないようにするためには隣り合う $\pi_n,\pi_{n+1}$ を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまうこともある．^[[@Behrens+2012 p.66] も参照．]
+
+## 進化的モンテカルロ
+
+並行テンパリングに加えて，種々の population-based method が提案された．[@Jasra+2007] によるレビューも参照．
+
+まずは Adaptive direction sampling [@Gilks+1994] がある．これは複数の粒子 $\b{x}:=\{x_t^n\}_{n=1}^p$ を，
+
+1. ある $x_t^a\in\b{x}$ を選んで，ここからアンカーポイント $y\in E$ を何かしらの方法で定める．
+2. $x_t^c\in\b{x}\setminus\{x_t^a\}$ を選んで，1 で定めた $y\in E$ の方向にランダムに動かす．
+
+の繰り返しによって発展させていくことによりサンプリングする手法である．
+
+このような手続きを，遺伝的アルゴリズムの考え方を取り入れてさらに推し進め，実際に MCMC としての収束レートを速めたのが **進化モンテカルロ** [@Liang-Wong2000], [@Liang-Wong2001] である．
+
+
 
 ## 擬似テンパリング [@Marinari-Parisi1992]
 
