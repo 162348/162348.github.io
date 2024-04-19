@@ -9,7 +9,7 @@ bibliography:
 csl: ../../../apa.csl
 abstract-title: 概要
 abstract: |
-    [@Duane+1987] は
+    [@Duane+1987] は Hamiltonian Monte Carlo 法の提案論文と目されているが，その実は全く違う文脈の中で提案された．場の量子論における [@Parisi-Wu1981] の確率過程量子化や小正準法にように，正確に物理的過程をシミュレーションする必要はないのである．これを Metropolis 法の提案核に使うことを提案した論文である．
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -21,6 +21,10 @@ abstract: |
 hybrid Monte Carlo とは，MD と MC（＝Metropolis 法） の融合を指す．
 
 すなわち，粒子を動かして，これを棄却手続きによって正準集団を作る MCMC 法を指すが，粒子の動かし方＝提案核を運動論から構成するというのである．^["a form of the Metropolis algorithm in which candidate states are found by means of dynamical simulation." [@Neal1996 p.55]]
+
+そもそも著者は [@Duane1985] において，場の量子論をシミュレーションするための "hybrid algorithm" を提案していた．これは第三の量子化と呼ばれる [@Parisi-Wu1981] の確率過程量子化に基づく Langevin algorithm と 小正準法（量子系に対する MD 法）のいいとこ取りをする確率的アルゴリズムである．
+
+ここからさらに Monte Carlo を導入し，「MD を提案分布にする」という発想の転換がある．正確には，任意の Hamilton 力学系を提案分布にとっても，Metropolis 法が使えるということを示唆したのである．この Hamilton 力学系を正確に取ると，これは hybrid algorithm になる（古典系に対しては MD に一致するだろう）が，必ずしも正確に取る必要はないのである．
 
 ### 概要
 
@@ -41,3 +45,33 @@ hybrid Monte Carlo とは，MD と MC（＝Metropolis 法） の融合を指す�
 2. 運動方程式の計算：MD に対応する方法である．小さいステップサイズで系全体を運動方程式に沿ってアップデートしていくことで，非局所的な有効作用というものは考えなくて済む．しかし，運動方程式の決定論的計算に伴う truncation error が導入される．
 
 後者の計算効率性と，前者の正確性を両取りすることを考える．
+
+## 本論
+
+HMC は結局完全に Metropolis 法 [@Metropolis+1953] の枠内であり，詳細釣り合い条件を満たしにいくことを考える．ただし，この枠組みの中で最も優秀な方法を考える，というのである．
+
+採択関数は
+$$
+\al(x,y)=1\land\frac{\pi(y)q(y,x)}{\pi(x)q(x,y)}
+$$
+で与えられるから，^[[@鎌谷20-モンテカルロ] より．] $q(x,y)$ の計算が速いだけでなく，$q(y,x)$ も得られやすい理論的に都合の良い提案核 $Q$ を探すことを考える．
+
+### 先行研究
+
+この考えは molecular dynamics と Langevin algorithm をハイブリッドするアルゴリズム [@Duane1985], [@Duane-Kogut1986] に基づく．
+
+場の理論において，[確率過程量子化](https://ja.wikipedia.org/wiki/%E7%A2%BA%E7%8E%87%E9%81%8E%E7%A8%8B%E9%87%8F%E5%AD%90%E5%8C%96) (stochastic quantization) [@Parisi-Wu1981] に基づく Langevin 方程式の方法と，小正準集団の方法（MD に近い，QCD の熱力学のシミュレーションにも使われる）という２つの方法が，特に力学的フェルミオンを含んだ系の数値シミュレーションにおいて魅力的な代替理論になっている．
+
+この２つのシミュレーションのいいとこ取りをする hybrid algorithm が [@Duane1985] で提案されており，[@Duane-Kogut1986] で理論的な解析が進められた．これは，確率 $p\Delta$ によって，Langevin 法を用いるか，小正準法を決めるというアルゴリズムである．これは系をある熱浴に接続するという物理的な解釈を持つ．加えて，このアルゴリズムの軌跡は，ある古典的な運動方程式に従った奇跡ともみなせる．
+
+### アイデア
+
+Parisi-Wu の確率過程量子化では，仮想的な時間 $t$ を導入して，場の量 $\phi_i(x)$ が Langevin 方程式に従って発展するとする．こうして定まる確率過程が $t\to\infty$ の極限で場の量子論を与えるというのである．
+
+これに倣い，仮想的な時間パラメータ $\tau$ と Hamilton 力学系を導入する．ここで補助変数として，共役運動量 $\pi(t)$ が導入される．
+
+もし Hamiltonian $H$ を正確に対象の系と同様に取れば，採択率は $1$ になり，これが hybrid algorithm [@Duane1985] に他ならない．しかし，ずらしても良いのである．
+
+### 検証
+
+詳細釣り合い条件を満たすことを示している．詳細釣り合い条件が満たされる主な理由は Hamilton 力学系が可逆であることによる．

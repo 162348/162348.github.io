@@ -24,7 +24,7 @@ $$
 $$
 を通じて，より簡単な分布 $\pi_1,\pi_2,\cdots$ から逐次的にサンプリングをする，というアイデアを **調温 (tempering)** という（[粒子フィルターの稿](../2023/Surveys/ParticleFilter.qmd#sec-SMC-Samplers) も参照）．
 
-この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案され，**multilevel sampling** とも呼ばれた．^[[@Liu2004 pp.205-] Chapter 10. Multilevel Sampling and Optimization Methods も参照．] Multilevel sampling の発展の中で，次第に population-based と呼ばれる手法群 [@Iba2001] が発達し，自然と SMC が活躍の場を広げて行った，とも見れるのである．
+この tempering という考え方は本質的に逐次的な発想を持っているが，元々は SMC の文脈とは全く独立に，MCMC を多峰性を持つ複雑な分布に対しても使えるように拡張する研究で提案された．これらの手法が自然と SMC へと接続する様子を population Monte Carlo [@Iba2001], [@Jasra+2007] というキーワードで理解されている．
 
 まずはその歴史を概観する．いずれも，目標分布 $\pi_p$ が多峰性をもち，MCMC がうまく峰の間を遷移できずに正しいサンプリングができない（収束が遅くなる）問題を解決する文脈の中で捉えられる．
 
@@ -32,9 +32,7 @@ $$
 
 これは MCMC とは関係がなく，もはやシミュレーション法でさえなく最適化手法であるが，「調温」の考え方を一気にポピュラーにした手法であった．^[この前にも，Umbrella sampling [@Torrie-Valleau1977] が本質的には密度の調温のアイデアを用いていた．[@Liu2004 pp.206-] Section 10.1 も参照．] 汎用最適化手法として，半導体製造を通じて，電子工学・コンピュータ産業にも大きな影響を与えた手法である．
 
-そもそも **焼きなまし** (annealing) とは，凝縮系物理の用語であり，鉄などの固体を極めて高音にして溶解させたのちに徐々に冷却することで，基底状態の構造を得るのに使われる技術であった．
-
-分子動力学 (molecular dynamics) などの文脈では Metropolis 法はちょうど分子運動のシミュレーションになっていることを踏まえれば，これを simulated annealing と呼ぶのは極めて鮮やかなアナロジーとなっている．焼きなまし法自体も，シミュレーション可能になったのである．
+そもそも **焼きなまし** (annealing) とは，凝縮系物理の用語であり，鉄などの固体を極めて高音にして溶解させたのちに徐々に冷却することで，基底状態の構造を得るのに使われる技術であった．^[分子動力学 (molecular dynamics) などの文脈では Metropolis 法はちょうど分子運動のシミュレーションになっていることを踏まえれば，これを simulated annealing と呼ぶのは極めて鮮やかなアナロジーとなっている．焼きなまし法自体も，シミュレーション可能になったのである．]
 
 分布列を $\pi_n\propt e^{-\frac{h(x)}{T_n}}\,dx$
 $$
@@ -46,21 +44,41 @@ $$
 $$
 であることを利用して，関数 $h$ の最小値を見つけることができる．^[[@Geman-Geman1984] によると，各 $\pi_n$ における MCMC move の回数を $N_n$ とした場合，$O(\log(N_1+\cdots+N_n))$ のオーダーで $T_n$ を（十分遅く）変化させれば，この手法はほとんど確実に $\argmin h$ 内に収束する．[@Liu2004 pp.209-] 10.2 節も参照．]
 
-## MC^3^ / 並行テンパリング [@Geyer1991]
+## 拡張アンサンブル法
+
+MCMC を複数同時に実行する手法を **拡張アンサンブル法** という [@Iba2001b]．これは正準集団などの物理的根拠のあるアンサンブルを用いるのではなく，人工のアンサンブルを導入してサンプリング効率を向上させると捉えられるために呼ぶ [@岡本祐幸2010]．
+
+multilevel sampling とも呼ばれる．^[[@Liu2004 pp.205-] Chapter 10. Multilevel Sampling and Optimization Methods も参照．]
+
+一方で，次節 [-@sec-IPM] で扱う相関粒子法も含めて，複数のサンプルを用いる手法はとして population-based method とも呼ばれる [@Iba2001], [@Jasra+2007]．
+
+### 傘サンプル法 [@Torrie-Valleau1977] {#sec-umbrella-sampling}
+
+[@Torrie-Valleau1977] では系のポテンシャルに傘ポテンシャルと呼ばれる追加項を足すことで，本来なら到達できない状態からもサンプリングすることを可能にするアイデアであり，拡張アンサンブル法の最初の萌芽と捉えられる．
+
+<!--
+[@Torrie-Valleau1977] では自由エネルギーを計算するにあたり，相空間上に定義された積分路上の種々のアンサンブル平均を取る必要があった．
+-->
+
+この傘ポテンシャルとして，上述の意味でのテンパリング分布をとることも提案されており，後述の種々のテンパリング法の先駆けともみなせるのである．^[[@Liu2004 p.207] も参照．]
+
+### MC^3^ / 並行テンパリング / 交換モンテカルロ [@Geyer1991], [@Hukushima-Nemoto1996]
 
 積空間 $\otimes_{n=1}^pE$ 上で $\pi_1\otimes\cdots\otimes\pi_p$ を目標分布として MCMC を実行することを考えるのが **MC^3^** (Metropolis-Coupled MCMC) [@Geyer1991] である．
 
 時折，不変分布を変えないような Metropolis 核による提案に従って，MCMC 鎖の位置を交換することで収束を加速する．
 
-この手法は **parallel tempering**^[[@Chopin+2023], [@Liu2004 p.4] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Hukushima-Nemoto1996] の exchange Monte Carlo や [@Swendsen-Wang1986] などの文献もある．前者は [@Liu2004 p.4] が "is reminiscent of _parallel tempering_ [@Geyer1991]" と指摘しており，後者は [@Bouchard-Cote+2012] などが引用している．] または exchange Monte Carlo [@Hukushima-Nemoto1996] による独立な提案に伴って **交換モンテカルロ** または [**レプリカ交換法**](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，^[[最終講義 スピングラスと計算物性物理](https://ocw.u-tokyo.ac.jp/lecture_files/issp_02/1/notes/ja/takayama-lecture.pdf) p.34 も参照．温度の違う熱浴につけたレプリカをシミュレートして，時々交換する，という見方ができるためにこう呼ぶ．] さらには **population-based MCMC**^[[@Jasra+2007] は [@Geyer1991] も指して population-based と呼んでおり，この言葉自体は [@Iba2001] からとったといい，"we define a population-based simulation method as one which, instead of sampling a single (independent/dependent) sample, generates a collection of samples in parallel" と定義しており，大きく MCMC によるものと逐次重点サンプリングベースのものの２流儀あるとしている．[@Liu2004 pp.225-] 第11章など．] とも呼ばれる．
+この手法は **parallel tempering**^[[@Chopin+2023], [@Liu2004 p.4] でも [@Geyer1991] を引用して PT と呼んでいる．一方で物理学の分野では [@Hukushima-Nemoto1996] の exchange Monte Carlo や [@Swendsen-Wang1986] などの文献もある．前者は [@Liu2004 p.4] が "is reminiscent of _parallel tempering_ [@Geyer1991]" と指摘しており，後者は [@Bouchard-Cote+2012] などが引用している．] または exchange Monte Carlo [@Hukushima-Nemoto1996] という名前による独立な提案に伴って **交換モンテカルロ** または [**レプリカ交換法**](https://ja.wikipedia.org/wiki/%E3%83%AC%E3%83%97%E3%83%AA%E3%82%AB%E4%BA%A4%E6%8F%9B%E6%B3%95)，^[[最終講義 スピングラスと計算物性物理](https://ocw.u-tokyo.ac.jp/lecture_files/issp_02/1/notes/ja/takayama-lecture.pdf) p.34 も参照．温度の違う熱浴につけたレプリカをシミュレートして，時々交換する，という見方ができるためにこう呼ぶ．] さらには **population-based MCMC**^[[@Jasra+2007] は [@Geyer1991] も指して population-based と呼んでおり，この言葉自体は [@Iba2001] からとったという．"we define a population-based simulation method as one which, instead of sampling a single (independent/dependent) sample, generates a collection of samples in parallel" と定義しており，大きく MCMC によるものと逐次重点サンプリングベースのものの２流儀あるとしている．[@Liu2004 pp.225-] 第11章なども参照．] とも呼ばれる．
 
-population-based [@Iba2001] というのは，$p$ 個の粒子を展開して高温状態でも探索してもらい，定期的に粒子を交換することでその情報を互いに伝え合うメカニズムのように思えるために言う．^[[@Iba2001b] が良い解説を与えていると [@Jasra+2007] でも言及されている．ただし，[@Iba2001b] はこの並行テンパリングだけでなく，擬似テンパリング，multicanonical Monte Carlo [@Berg-Neuhaus1991] / Adaptive Umbrella Sampling を総称して Extended Ensemble Monte Carlo と呼んでサーベイしていることに注意．] この観点から見ると，「鎖の間の交換」とは，粒子の間の相互作用としては極めてナイーブなもので，粒子フィルターに見られるような遺伝的なアルゴリズムの導入でより効率化できるのではないか？という発想が出てくる．
+> 特に，その分子動力学法版（REMD）[@Sugita-Okamoto1999] が開発されてからは，分子シミュレーションの分野に広く受け入れられ，AMBER, CHARMM, GROMACS, NAMD などの汎用プログラムにも REMD が組み込まれた．[@岡本祐幸2010]
 
-## テンパリング共通の問題：$p$ の設定
+マルチカノニカル法 [-@sec-MUCA] や擬似テンパリング [-@sec-ST] では荷重を決定するために試行が必要であるが，並行テンパリングでは荷重は Boltzmann 因子であるため，このような予備試行は必要ない．^[[@岡本祐幸2010] など．]
 
 しかしながら，全てのテンパリング手法に共通するように，交換の棄却率が高まりすぎないようにするためには隣り合う $\pi_n,\pi_{n+1}$ を十分近く取る必要があり，すると必要な MCMC 鎖の数が極めて大きくなってしまうこともある．^[[@Behrens+2012 p.66] も参照．]
 
-## 進化的モンテカルロ
+population-based [@Iba2001] というのは，$p$ 個の粒子を展開して高温状態でも探索してもらい，定期的に粒子を交換することでその情報を互いに伝え合うメカニズムのように思えるために言う．^[[@Iba2001b] が良い解説を与えていると [@Jasra+2007] でも言及されている．ただし，[@Iba2001b] はこの並行テンパリングだけでなく，擬似テンパリング，multicanonical Monte Carlo [@Berg-Neuhaus1991] / Adaptive Umbrella Sampling [@Torrie-Valleau1977] を総称して **拡張アンサンブル法** (Extended Ensemble Monte Carlo) と呼んでサーベイしていることに注意．] この観点から見ると，「鎖の間の交換」とは，粒子の間の相互作用としては極めてナイーブなもので，粒子フィルターに見られるような遺伝的なアルゴリズムの導入でより効率化できるのではないか？という発想が出てくる．
+
+### 進化的モンテカルロ
 
 並行テンパリングに加えて，種々の population-based method が提案された．[@Jasra+2007] によるレビューも参照．
 
@@ -73,11 +91,9 @@ population-based [@Iba2001] というのは，$p$ 個の粒子を展開して高
 
 このような手続きを，遺伝的アルゴリズムの考え方を取り入れてさらに推し進め，実際に MCMC としての収束レートを速めたのが **進化モンテカルロ** [@Liang-Wong2000], [@Liang-Wong2001] である．
 
+### 擬似テンパリング [@Marinari-Parisi1992] {#sec-ST}
 
-
-## 擬似テンパリング [@Marinari-Parisi1992] {#sec-ST}
-
-最適化手法である [焼きなまし法](https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95)（または擬似アニーリング） [@Kirkpartick+1983] のサンプリングへの変形として提案されたのが **焼き戻し法**，または **擬似テンパリング** (simulated tempering) [@Marinari-Parisi1992] である．
+最適化手法である [焼きなまし法](https://ja.wikipedia.org/wiki/%E7%84%BC%E3%81%8D%E3%81%AA%E3%81%BE%E3%81%97%E6%B3%95)（または擬似アニーリング） [@Kirkpartick+1983] のサンプリングへの変形として提案されたのが **焼き戻し法**，または **擬似テンパリング** (simulated tempering) [@Marinari-Parisi1992] である．^[[@Lyubartsev+1992] が引用されることもある．[@酒井佑士2017], [@岡本祐幸2010] など．method of expanded ensemble とも呼ばれる [@岡本祐幸2010], [@Iba2001b]．]
 
 擬似アニーリングでは温度は下がる一方であったのが，擬似テンパリングでは温度もある周辺分布に従って遷移する．擬似アニーリングは最終的にサンプルが最小値点の周りに集積して最適化問題を解くことが目的であったが，擬似テンパリングは高温状態においては多峰性分布が軟化され，峰の間を遷移しやすくなることを利用し，多峰性分布からの効率的なサンプリングを目指す．
 
@@ -89,7 +105,15 @@ $$
 
 また，MCMC の収束を大幅に加速する手法としても，遺伝学における複雑な事後分布からのサンプリングへの応用を念頭に独立に提案された [@Geyer-Thompson1995]．
 
-## テンパリング遷移 [@Neal1996]
+### マルチカノニカル法 [@Berg-Neuhaus1991] {#sec-MUCA}
+
+マルチカノニカル法 [@Berg-Neuhaus1991] もポテンシャルを人工的に変更する方法であり，この点で傘サンプリングの発展ともみなせ，Adaptive umberlla sampling とも呼ばれる [@Iba2001b]．
+
+物性物理学の分野から提案され，スピングラスの問題などでも大きな成果を挙げた．^[その後すぐに分子シミュレーションの分野にも導入された．[@岡本祐幸2010] も参照．]
+
+## 相関粒子系への発展 {#sec-IPM}
+
+### テンパリング遷移 [@Neal1996TT]
 
 **tempered transitions** では，架橋列 $\{\pi_n\}$ をそれぞれの $\pi_n$ を不変分布に持つ Markov 核を通じて１往復して探索し，その結果を元に $\pi_p$ を効率的に探索するような MCMC の提案を構成する．^[[@Behrens+2012] も参照．]
 
@@ -99,19 +123,21 @@ $$
 $$
 と表せる際，架橋分布 $\{\pi_n\}$ は温度比 $\beta_n/\beta_{n+1}$ が一定になるように **幾何的に** 取ることを提案しており，現在でも一般的な基準であるようである [@Behrens+2012]．
 
-## 焼きなまし重点サンプリング [@Neal2001]
+### 焼きなまし重点サンプリング [@Neal2001]
 
 ここで初めて SMC の文脈にもテンパリングが輸入された．^[[@Chopin-Papaspiliopoulos20-SMC p.33] で，SMC を調温に初めて応用した論文として紹介されている．p.352 では "An early version of SMC tempering (without resampling)" としている．] [@Neal2001] は重点サンプリングによってあらゆる温度 $\{\pi_n\}$ からの提案を効率的に採用する方法を模索した．
 
 テンパリング遷移の後半のアルゴリズムを発展させた形である．
 
-## 重点テンパリング [@Gramacy+2010]
+### 重点テンパリング [@Gramacy+2010]
 
 こちらは擬似テンパリングを基にし，他の温度からの提案を保持しておく機構を提案している．
 
-## 荷重を保つ擬似テンパリング [@Tawn+2020]
+### 荷重を保つ擬似テンパリング [@Tawn+2020]
 
-## 多峰性の最適化に基づく対処
+## その他の手法
+
+### 多峰性の最適化に基づく対処
 
 目標分布の峰を特定するタスクを MCMC から分離して，[BFGS 法](https://ja.wikipedia.org/wiki/BFGS%E6%B3%95) に基づく最適化法によって先に解いてしまう手法が [@Pompe+2020] によって提案されている．
 
