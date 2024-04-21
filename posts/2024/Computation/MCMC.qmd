@@ -26,6 +26,12 @@ copyright: "Copyright Hirofumi Shiba 2024. All Rights Reserved"
 
 {{< include ../../../_preamble.qmd >}}
 
+[![「新時代の MCMC を迎えるために」統数研オープンハウス（タップで PDF 閲覧）](../../../static/Posters/ISM-OH2024.jpg){width=200}](../../../static/Posters/ISM-OH2024.pdf)
+
+::: {.callout-tip appearance="minimal"}
+以下は，5月24日 10:30~12:30 に行われた [2024年度統数研オープンハウス](../../../static/Sessions.qmd#sec-ISM-openhouse2024) ポスターセッションに於て発表された上付のポスターに関する解説記事です．
+:::
+
 現状，HMC (Hamiltonian Monte Carlo) [@Duane+1987] というなんと約 40 年前の MCMC 手法が，Stan などの確率的プログラミング言語のデフォルト MCMC 手法として採用されています．^[Hamiltonian Monte Carlo の名称は [@Neal2011-HMC] からで，元々は Hybrid Monte Carlo と呼ばれていました．分子動力学法 (Molecular Dynamics) と MCMC のハイブリッド，という意味でした．]
 
 この手法はもともと "別の HMC" たる混合モンテカルロ (HMC: hybrid Monte Carlo) [@Duane+1987] が量子力学系のシミュレーションに特化した MCMC であったところを，一般の統計モデルに適用可能な形式に翻訳する形で提案されたものでした．
@@ -70,13 +76,47 @@ $$
 
 [@Metropolis+1953] では，Boltzmann-Gibbs 分布 $\frac{1}{Z}e^{-\frac{E}{kT}}$ から直接サンプリングする方法が探求されました．
 
-ここでは簡単のため，１粒子が次のようなポテンシャルに従って運動する場合を考えましょう：
+ここでは簡単のため，１粒子が次のようなポテンシャル
+$$
+U(x)=\frac{x^2}{2}+\frac{x^4}{4}
+$$
+に従って運動する場合を考えましょう：
 
-![ポテンシャル $E$ のプロット](Files/potential.svg)
+![ポテンシャル $U$ のプロット](Files/potential.svg)
 
 このポテンシャルに関する Boltzmann-Gibbs 分布は次のような形になります：
 
-![ポテンシャル $E$ が定める Botlzmann-Gibbs 分布のプロット](Files/Gibbs.svg)
+![ポテンシャル $U$ が定める Botlzmann-Gibbs 分布のプロット](Files/Gibbs.svg)
+
+<!--
+```
+\begin{tikzpicture}
+\begin{axis}[
+    axis lines = middle,
+    axis line style={->},
+    xlabel = $x$,
+    ylabel = {$e^{-\beta U(x)}$},
+    xlabel style={at={(ticklabel* cs:1)}, anchor=north west},
+    ylabel style={at={(ticklabel* cs:1)}, anchor=south west},
+    xmin=-1.2, xmax=1.2,
+    ymin=0, ymax=1,
+    xtick distance=1,
+    ytick=\empty,
+    grid=both,
+    grid style={gray!30, dashed},
+    minor tick num=1,
+    width=10cm,
+    height=8cm,
+    legend pos=north east,
+    legend cell align=left,
+    legend style={fill=white, fill opacity=0.8, draw opacity=1, text opacity=1, font=\small},
+]
+\addplot[domain=-2:2, samples=100, smooth, thick, SaddleBrown] {exp(-x^2 - x^4)};
+\addlegendentry{$y = e^{-\frac{U(x)}{kT}}$}
+\end{axis}
+\end{tikzpicture}
+```
+-->
 
 低エネルギー状態が現れやすく，エネルギーが上がるにつれて急激に現れにくくなることがわかります．
 
@@ -96,7 +136,7 @@ def metropolis(num_samples, initial_state, verbose=False):
     accept = []
 
     for _ in range(num_samples - 1):
-        proposed_state = current_state + np.random.uniform(-2,2)
+        proposed_state = current_state + np.random.uniform(-1,1)
         acceptance_ratio = pi(proposed_state) / pi(current_state)
         if np.random.rand() < acceptance_ratio:
             current_state = proposed_state
@@ -115,23 +155,40 @@ initial_state = 0.0
 ```
 
 ```{python}
-import pints.plot
+#| echo: false
+ISMblue = "#2f579c"
+SaddleBrown = "#8b4513"
+```
+
+```{python}
 import matplotlib.pyplot as plt
 
 samples_MH = metropolis(num_samples, initial_state)
-samples_MH.shape = (num_samples,1)
-pints.plot.autocorrelation(samples_MH, parameter_names=['Samples'], max_lags=10)
+plt.acorr(samples_MH - np.mean(samples_MH), maxlags=10, color=SaddleBrown)
+plt.xlim(-0.5, 10.5)
+#plt.ylim(-0.5,0.85)
+# グラフの装飾
+plt.title('Metropolis-Hastings', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('Lag', color=ISMblue)
+plt.ylabel('Autocorrelation', color=ISMblue)
+#plt.savefig('MH_auto.svg', format='svg')
 plt.show()
 ```
 
 ```{python}
 plt.figure()
-plt.plot(samples_MH[0:50], range(50), color='green', linestyle='dashed', label='First 50 samples')
-plt.legend(loc=4, prop={'size': 10})
-plt.title('Metropolis-Hastings')
-plt.xlabel('Sample value')
-plt.ylabel('Sample index')
-plt.ylim(-0.5, 49.5)  # 軸の範囲を設定
+plt.plot(samples_MH[0:50], range(50), color=SaddleBrown)
+plt.ylim(-0.5, 49.5)
+#plt.xlim(-1.2,1.2)
+# グラフの装飾
+plt.title('Metropolis-Hastings', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('X-axis', color=ISMblue)
+plt.ylabel('Step', color=ISMblue)
+#plt.savefig('MH_traj.svg', format='svg')
 plt.show()
 ```
 
@@ -153,7 +210,7 @@ def lifted_metropolis(num_samples, initial_state, verbose=False):
     accept = []
 
     for _ in range(num_samples - 1):
-        delta = np.random.uniform(0,2)
+        delta = np.random.uniform(0,1)
         proposed_state = current_state + lifting_variable * delta
         acceptance_ratio = pi(proposed_state) / pi(current_state)
 
@@ -173,23 +230,34 @@ def lifted_metropolis(num_samples, initial_state, verbose=False):
 ```
 
 ```{python}
-import pints.plot
-import matplotlib.pyplot as plt
-
+#| echo: false
 samples_LMH = lifted_metropolis(num_samples, initial_state)
-samples_LMH.shape = (num_samples,1)
-pints.plot.autocorrelation(samples_LMH, parameter_names=['Samples'], max_lags=10)
+plt.acorr(samples_LMH - np.mean(samples_LMH), maxlags=10, color=SaddleBrown)
+plt.xlim(-0.5, 10.5)
+#plt.ylim(-0.5,0.85)
+# グラフの装飾
+plt.title('Lifted Metropolis-Hastings', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('Lag', color=ISMblue)
+plt.ylabel('Autocorrelation', color=ISMblue)
+#plt.savefig('LMH_auto.svg', format='svg')
 plt.show()
 ```
 
 ```{python}
+#| echo: false
 plt.figure()
-plt.plot(samples_LMH[0:50], range(50), color='green', linestyle='dashed', label='First 50 samples')
-plt.legend(loc=4, prop={'size': 10})
-plt.title('Lifted Metropolis-Hastings')
-plt.xlabel('Sample value')
-plt.ylabel('Sample index')
-plt.ylim(-0.5, 49.5)  # 軸の範囲を設定
+plt.plot(samples_LMH[0:50], range(50), color=SaddleBrown)
+plt.ylim(-0.5, 49.5)
+#plt.xlim(-1.2,1.2)
+# グラフの装飾
+plt.title('Lifted Metropolis-Hastings', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('X-axis', color=ISMblue)
+plt.ylabel('Step', color=ISMblue)
+#plt.savefig('LMH_traj.svg', format='svg')
 plt.show()
 ```
 
@@ -225,23 +293,34 @@ def zigzag(num_samples, initial_state):
 ```
 
 ```{python}
-import pints.plot
-import matplotlib.pyplot as plt
-
+#| echo: false
 samples_zigzag = zigzag(num_samples, initial_state)
-samples_zigzag.shape = (len(samples_zigzag),1)
-pints.plot.autocorrelation(samples_zigzag, parameter_names=['Samples'], max_lags=10)
+plt.acorr(samples_zigzag - np.mean(samples_zigzag), maxlags=10, color=SaddleBrown)
+plt.xlim(-0.5, 10.5)
+#plt.ylim(-0.5,0.85)
+# グラフの装飾
+plt.title('Zig-Zag sampler', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('Lag', color=ISMblue)
+plt.ylabel('Autocorrelation', color=ISMblue)
+#plt.savefig('zigzag_auto.svg', format='svg')
 plt.show()
 ```
 
 ```{python}
+#| echo: false
 plt.figure()
-plt.plot(samples_zigzag[0:50], range(50), color='green', linestyle='dashed', label='First 50 samples')
-plt.legend(loc=4, prop={'size': 10})
-plt.title('Zig-Zag sampler')
-plt.xlabel('Sample value')
-plt.ylabel('Sample index')
-plt.ylim(-0.5, 49.5)  # 軸の範囲を設定
+plt.plot(samples_zigzag[0:50], range(50), color=SaddleBrown)
+plt.ylim(-0.5, 49.5)
+#plt.xlim(-1.2,1.2)
+# グラフの装飾
+plt.title('Zig-Zag sampler', color=SaddleBrown)
+plt.tick_params(axis='x', colors=ISMblue)
+plt.tick_params(axis='y', colors=ISMblue)
+plt.xlabel('X-axis', color=ISMblue)
+plt.ylabel('Step', color=ISMblue)
+#plt.savefig('zigzag_traj.svg', format='svg')
 plt.show()
 ```
 
@@ -265,10 +344,10 @@ plt.show()
 
 ## 終わりに {.appendix}
 
-本ポスター執筆のきっかけは，情報統計力学の研究集会に出席したことでした．
+本ポスター執筆のきっかけは，[MLSS でのポスター発表](../Particles/PF.qmd) で連続時間 MCMC のことが機械学習の界隈では全く知られていないことを知ったことと，情報統計力学の研究集会に出席したことでした．
 
-統計界隈では PDMP や連続時間 MCMC と呼ばれる手法は，物理学界隈では lifting や event-based simulation と呼ばれて活発に研究されていました．
+統計界隈では PDMP や連続時間 MCMC と呼ばれる手法は，物理学界隈では lifting や event-based simulation，rejection-free と呼ばれる手法群の１つとして活発に研究されていました．
 
-まさに同じ問題を解こうとしているのに，用語法が全く異なるのです！
+全く同じ問題を解こうとしているのに，用語法が全く異なるのです！
 
 ２つの分野の相互理解と知見の交換が進むことを目指し，これからも研究していきたいと考えます．
