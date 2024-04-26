@@ -3,7 +3,7 @@ title: "数学者のための確率的グラフィカルモデル１"
 subtitle: ベイジアンネットワーク，マルコフネットワーク，ファクターグラフ
 author: "司馬博文"
 date: 12/20/2023
-date-modified: 1/19/2024
+date-modified: 4/26/2024
 categories: [Bayesian, Computation]
 toc: true
 image: PGM.png
@@ -40,15 +40,13 @@ $$
 $$
 :::
 
-[決定木](../../2023/数理法務/%E6%B3%95%E5%BE%8B%E5%AE%B6%E3%81%AE%E3%81%9F%E3%82%81%E3%81%AE%E7%B5%B1%E8%A8%88%E6%95%B0%E7%90%863.qmd)，[状態空間モデル](../../2023/Surveys/SSM.qmd)，ニューラルネットワーク [@Rumelhart+1987]，構造方程式モデルはいずれもベイジアンネットワークの例と見れる．^[[@Taroni+2014 p.35]，[@Sucar2021 p.x], [@Clark2018] [Graphical Models](https://m-clark.github.io/sem/graphical-models.html)．[@Jordan+1999 p.191] は 3.2節で Neural Networks as Graphical Models を扱っている．]
+[決定木](../../2023/数理法務/%E6%B3%95%E5%BE%8B%E5%AE%B6%E3%81%AE%E3%81%9F%E3%82%81%E3%81%AE%E7%B5%B1%E8%A8%88%E6%95%B0%E7%90%863.qmd)，系統図，[状態空間モデル](../../2023/Surveys/SSM.qmd)，ニューラルネットワーク [@Rumelhart+1987]，構造方程式モデル，階層モデルはいずれもベイジアンネットワークの例と見れる．^[[@Taroni+2014 p.35]，[@Sucar2021 p.x], [@Clark2018] [Graphical Models](https://m-clark.github.io/sem/graphical-models.html)．[@Jordan+1999 p.191] は 3.2節で Neural Networks as Graphical Models を扱っている．]
 
-（２次元以下の）[Ising 模型](PGM2.qmd#sec-Ising-model) はマルコフネットワークの例である．
+（２次元以下の）[Ising 模型](PGM2.qmd#sec-Ising-model) はマルコフネットワークとファクターグラフの例である．
 
 以上は全て，確率的グラフィカルモデルの例である．
 
-ベイジアンネットワークは，[Markov 圏](../../2023/Probability/MarkovCategory.qmd) 上の図式のうち，特定のグラフ理論的な条件 [-@sec-DAG] を満たすものと見れる．
-
-[@Wainwright-Jordan2008], [@Chen2023] も参考になるであろう．
+また，ベイジアンネットワークは，[Markov 圏](../../2023/Probability/MarkovCategory.qmd) 上の図式のうち，特定のグラフ理論的な条件 [-@sec-DAG] を満たすものと見れる．
 
 ## 歴史と導入
 
@@ -56,15 +54,13 @@ $$
 
 **グラフィカルモデル** とは，多くの変数からなるモデルを，グラフを用いて表現することで，各変数の間の依存性・独立性を明確に表すと同時に，確率モデルを端的に定義する語彙である．^[[@Koller-Friedman2009 p.3] 1.2.1，[@Murphy2023 p.143] 第4章．[@Balgi+2024] "As non-parametric causal models, DAGs require no assumptions about the functional form of the hypothesized relationships."]
 
-この手法が特に肝要になるのが，自立して推論・意思決定を行うシステムの構築においてである．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．] これはこの分野が不確実性を定量的に扱う必要があり，それ故確率的モデリングを必要とするためである．^[一般に，特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するためには，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる [@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．これは対象となるシステムの構造に関する知識を，計算機が理解可能な形で表現するモデルベースな接近であり，「知識」と「推論」という異なるタスクを分離する点に妙がある．] 
+この手法は初め，自立して推論・意思決定を行うシステムの構築のために使用された．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．] これはこの分野が不確実性を定量的に扱う必要があり，それ故確率的モデリングを必要としたためである．^[一般に，特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するためには，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる [@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．これは対象となるシステムの構造に関する知識を，計算機が理解可能な形で表現するモデルベースな接近であり，「知識」と「推論」という異なるタスクを分離する点に妙がある．] 
 
-知識表現や系のモデリングのために横断的に用いられる手法が **確率的グラフィカルモデリング** である．「確率的」というのは確率論的・統計学的な手法の採用を指す．
-
-世界に対する知識には不確実性がつきものであり，これを反映した表現がより現実に即したモデルを生むことから，近年盛んに研究・応用されている（第 [-@sec-probabilistic-methods] 節）．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
-
-人間にとって視覚的にわかりやすいだけでなく，周辺化，極値の計算，条件付き確率の計算を高速化するという点で計算機にとっても極めてわかりやすい表示になる．^[[@Theodoridis2020 p.772] なども参照．]
+世界に対する知識には不確実性がつきものであり，これを反映した表現がより現実に即したモデルを生むことから，近年の機械学習分野でも盛んに研究・応用されている（第 [-@sec-probabilistic-methods] 節）．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
 
 > I have approximate answers and possible beliefs with different degrees of uncertainty about different things, but I am not absolutely sure of anything. -- [Richard Feynman](https://www.youtube.com/watch?v=P-Qdl6Gbx0k)
+
+人間にとって視覚的にわかりやすいだけでなく，周辺化，極値の計算，条件付き確率の計算を高速化するという点で計算機にとっても極めてわかりやすい表示になる．^[[@Theodoridis2020 p.772] なども参照．] 加えて，用いるアルゴリズムの計算複雑性も，グラフ理論の言葉で記述できることが多い．^[[@Wainwright-Jordan2008 p.4]．]
 
 ### 確率的グラフィカルモデルの例
 
@@ -111,6 +107,20 @@ $$
 2. [@Heckerman+1992], [@Heckerman-Nathwani1992] が Bayesian network を病理学標本に応用して大きな成功を挙げたこと．
 
 の2つである．これにより，確率的グラフィカルモデル，また一般に確率的アプローチが広く受け入れられるようになった．
+
+### Markov Network の登場
+
+MCMC が真に統計界隈に採用された [@Gelfand-Smith1990] も Gibbs サンプラーを重視しており，[@Geman-Geman1984] による Gibbs サンプラーの提案も，画像分析，広く空間統計学においてなされた．
+
+統計物理学における Ising モデルが空間統計学における Markov random field として広く受け入れられ [@Besag1974]，これにより統計界隈に階層モデルと Gibbs サンプラーが広く受け入れられるようになったのである．
+
+特に，Markov random field が，Gibbs 分布の局所的な条件付き分布からの特徴付けを与える（Hammersley-Clifford の定理[-@sec-separation-in-markov-network]）という認識を導き，このことが MCMC を一般の Bayes 計算手法たらしめたと強調している [@Besag-Green1993]．
+
+> it is no coincidence that the original concept and the early development of MCMC in Bayesian inference should take place exclusivelyin the spatial statistics literature. [@Besag-Green1993 p.26]
+
+その最重要文献として，[@Grenander1983]，特に画像分析への Bayesian アプローチを取り扱った 4-6 章を挙げている．Gibbs サンプラーの語を導入したのは [@Geman-Geman1984] であるが，すでに [@Grenander1983] において極めて重要な Bayes 計算手法として扱われていた．
+
+
 
 ### 確率的グラフィカルモデリングの美点
 
