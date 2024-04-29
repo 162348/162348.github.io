@@ -29,7 +29,7 @@ copyright: "Copyright Hirofumi Shiba 2024. All Rights Reserved"
 [![「新時代の MCMC を迎えるために」統数研オープンハウス（タップで PDF 閲覧）](../../../static/Posters/ISM-OH2024.jpg){width=50%}](../../../static/Posters/ISM-OH2024.pdf)
 
 ::: {.callout-tip appearance="minimal"}
-以下は，5月24日 10:30~12:30 に行われた [2024年度統数研オープンハウス](../../../static/Sessions.qmd#sec-ISM-openhouse2024) ポスターセッションに於て発表された上付のポスターに関する解説記事です．
+以下は，5月24日 10:30~12:30 （コアタイム：10:30~11:10）に行われた [2024年度統数研オープンハウス](../../../static/Sessions.qmd#sec-ISM-openhouse2024) ポスターセッション（掲載 No. E1）に於て発表された上付のポスターに関する解説記事です．
 :::
 
 現状，HMC (Hamiltonian Monte Carlo) [@Duane+1987] というなんと約 40 年前の MCMC 手法が，Stan などの確率的プログラミング言語のデフォルト MCMC 手法として採用されています．^[Hamiltonian Monte Carlo の名称は [@Neal2011-HMC] からで，元々は Hybrid Monte Carlo と呼ばれていました．分子動力学法 (Molecular Dynamics) と MCMC のハイブリッド，という意味でした．]
@@ -82,7 +82,7 @@ U(x)=\frac{x^2}{2}+\frac{x^4}{4}
 $$
 に従って運動する場合を考えましょう：
 
-![ポテンシャル $U$ のプロット](Files/potential.svg){width=50%}
+![ポテンシャル $U$ のプロット](Files/potential.svg){width=50% #fig-2}
 
 このポテンシャルに関する Boltzmann-Gibbs 分布 $\pi\propt e^{-\beta U}$ は次のような形になります：
 
@@ -122,9 +122,13 @@ $$
 
 ### 分子動力学法
 
-統計力学によれば，$\beta=1$ で定まる温度とポテンシャル $U$ を持つ正準集団は $e^{-U}$ の分布に従います．したがってその物理過程をシミュレートすることで，この分布からサンプリングすることが可能になるでしょう．
+統計力学によれば，$\beta=1$ で定まる温度とポテンシャル $U$ を持つ Boltzmann-Gibbs 分布 $e^{-U}$ は，温度 $T=\frac{1}{k_B\beta}$ を持つ熱浴に接している力学系を，長時間シミュレーションして時間平均を取ることでサンプリングできるはずです（エルゴード仮説）．
 
 このように，力学に基づいて物理過程を数値シミュレーションをすることでサンプリングをするという技法を [**分子動力学法**](https://ja.wikipedia.org/wiki/%E5%88%86%E5%AD%90%E5%8B%95%E5%8A%9B%E5%AD%A6%E6%B3%95) ともいいます．
+
+これを実際にやってみます．ポテンシャル（ @fig-2 ）内を運動する粒子，またはポテンシャル（ @fig-2 ）を持つ（非調和）振動子などの力学系を考えます．これを温度 $T=\frac{1}{k_B\beta}$ を持つ熱浴と相互作用させます．例えば，ポテンシャル（ @fig-2 ）の $x=0$ の位置に半透性の壁を置き，確率 $1/2$ でこの温度 $T$ の壁の粒子と弾性衝突するとします．
+
+壁の速度は Maxwell の境界条件から与えられるものとすれば，次のようにして粒子の位置 $x$ がシミュレートできます：
 
 ```{python}
 import numpy as np
@@ -153,9 +157,12 @@ def md(num_samples, initial_state, initial_velocity, timestep=0.1):
 
     return np.array(samples)
 
-# サンプル数と初期状態を固定
+# サンプル数と初期条件を固定
 num_samples = 10000
 initial_state = 0.0
+initial_velocity = 1.0
+
+samples_MD = md(num_samples * 10, initial_state, initial_velocity, timestep=0.01)
 ```
 
 ```{python}
@@ -170,7 +177,6 @@ minty = "#80c4ac"
 #| fig-cap: 分子動力学法からのサンプル
 import matplotlib.pyplot as plt
 
-samples_MD = md(num_samples * 10, 0.0, 1.0, timestep=0.01)
 plt.figure(figsize=(3.5, 3))
 plt.hist(samples_MD, bins=50, density=True, alpha=0.7, color=minty)
 plt.show()
@@ -238,7 +244,7 @@ plt.show()
 
 ```{python}
 #| echo: false
-#| label: fig-MHtraj
+#| label: fig-1
 #| fig-cap: Metropolis 法の軌跡
 plt.figure(figsize=(3.5, 3))
 plt.plot(samples_MH[0:50], range(50), color=minty)
@@ -266,7 +272,7 @@ plt.show()
 
 ## 非対称化への試み
 
-ここでもう一度 Metropolis 法の軌跡 [-@fig-MHtraj] を見てみましょう．
+ここでもう一度 Metropolis 法の軌跡（ @fig-1 ）を見てみましょう．
 
 ```{python}
 #| echo: false
