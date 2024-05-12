@@ -1,0 +1,64 @@
+---
+title: "SDE のベイズ推定入門"
+author: "司馬 博文"
+date: 5/12/2024
+categories: [Process, Simulation, MCMC, Stan]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: SDE のベイズ推定を，R パッケージ YUIMA を用いて実行する方法を紹介する．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+```{.r}
+adastan <- function(yuima){  # <1>
+  excode <- 'data {  # <2>
+  int N; 
+  real x[N+1]; 
+  real T; 
+  real h; 
+}
+parameters {
+'
+
+
+for(i in 1:length(yuima@model@parameter@all)){  # <3>
+  
+  excode <- paste(excode, "real<lower=0>", yuima@model@parameter@all[i], ";")
+}
+excode<- paste(excode,"}")  # <4>
+
+excode<- paste(excode,'model {  # <5>
+  x[1] ~ normal(0,1);
+  for(n in 2:(N+1)){
+    ')
+excode <- paste(excode,"x[n] ~ normal(x[n-1] + h *", 
+                gsub("x", "x[n-1]", yuima@model@drift), 
+                ",sqrt(h) *", 
+                gsub("x", "x[n-1]", yuima@model@diffusion[[1]]),");")  # <6>
+excode <- paste(excode,'}
+}')
+
+sde_dat <- list(N =  yuima@sampling@n, 
+                x = as.numeric(sim@data@original.data), 
+                T=yuima@sampling@Terminal,
+                h=yuima@sampling@Terminal/yuima@sampling@n)  # <7>
+
+fit <- stan(model_code=excode, data = sde_dat, 
+        iter = 1000, chains = 4)  # <8>
+
+return(fit)
+}
+```
+
+1. `adastan` という関数を定義する．この関数は，Yuima パッケージのオブジェクトを引数として受け取り，Stan での推定を行い，その結果を `fit` オブジェクトとして返す．
+2. Stan モデルのコード（パラメータ部分は未定）を文字列として `excode` 変数に格納する．
+3. ここからが `adastan` 関数の本体である．Yuima モデルの全てのパラメータについてループを開始して，`excode` にパラメータの宣言を追加していく．
+4. ここでついに Stan モデルのパラメータの定義部分が完成する．
+5. 最後はモデルの定義部分を追加して，Stan モデルのコードが完成する．最初の観測値 `x[1]` は $\rN(0,1)$ に従う．
+6. それ以降の観測値 `x[n]` は，前の観測値 `x[n-1]` に drift 項と diffusion 項を加えたものに従う．これを実装するために，Yuima モデルの drift 項と diffusion 項の定義文を呼び出し，`x` を `x[n-1]` に置換することで Stan モデルのコードに埋め込む．
+7. Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト `sde_dat` を作成する．
+8. 最後に Stan モデルをコンパイルして実行し，結果を `fit` オブジェクトとして返す．
