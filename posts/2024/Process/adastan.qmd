@@ -11,7 +11,7 @@ abstract-title: 概要
 abstract: SDE のベイズ推定を，R パッケージ YUIMA を用いて実行する方法を紹介する．
 format:
   html:
-    code-overflow: scroll
+    code-fold: false
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -87,13 +87,17 @@ adastan <- function(yuima){  # <1>
 
   excode <- paste(excode,'}}')
 
-  sde_dat <- list(N =  yuima@sampling@n, 
+
+
+  sde_dat <- list(N =  yuima@sampling@n,  # <7>
                   x = as.numeric(sim@data@original.data), 
                   T=yuima@sampling@Terminal,
-                  h=yuima@sampling@Terminal/yuima@sampling@n)  # <7>
+                  h=yuima@sampling@Terminal/yuima@sampling@n)
 
-  fit <- stan(model_code=excode, data = sde_dat, 
-          iter = 1000, chains = 4)  # <8>
+  fit <- stan(model_code=excode,
+            data = sde_dat, 
+            iter = 1000,
+            chains = 4)  # <8>
 
   return(fit)
 }
@@ -107,3 +111,178 @@ adastan <- function(yuima){  # <1>
 6. それ以降の観測値 `x[n]` は，前の観測値 `x[n-1]` に drift 項と diffusion 項を加えたものに従う．これを実装するために，Yuima モデルの drift 項と diffusion 項の定義文を呼び出し，`x` を `x[n-1]` に置換することで Stan モデルのコードに埋め込む．
 7. Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト `sde_dat` を作成する．
 8. 最後に Stan モデルをコンパイルして実行し，結果を `fit` オブジェクトとして返す．
+
+しかし現状では，
+
+* 関数内部で Stan model のコードを文字列として生成していることが苦しい．
+
+ので，もっと良い方法を考えたい．
+
+### 問題点 {#sec-exp-OU}
+
+具体例を見てみる．YUIMA を通じて１次元 OU 過程
+
+$$
+dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
+$$
+
+をシミュレーションをするためには，次のようにモデル定義をする：
+
+```{r}
+#| output: false
+library(yuima)
+model <- setModel(drift = "theta*(mu-X)", diffusion = "sigma", state.variable = "X")
+```
+
+これだけで，YUIMA は勝手にパラメータを識別してくれる：
+
+```{r}
+str(model@parameter)
+```
+
+```{r}
+str(model@drift)
+```
+
+```{r}
+str(model@diffusion)
+```
+
+これを通じて生成される Stan モデル文は
+
+```{.stan}
+data {
+  int N;
+  real x[N+1];
+  real T;
+  real h;
+}
+
+parameters {
+  real<lower=0> theta;
+  real<lower=0> mu;
+  real<lower=0> sigma;
+}
+
+model {
+  x[1] ~ normal(0,1);
+  for(n in 2:(N+1)){
+    x[n] ~ normal(x[n-1] + h * theta * (mu - x[n-1]),
+                  sqrt(h) * sigma);
+  }
+}
+```
+
+となるべきである．
+
+YUIMA の時点で文字列を直接取り扱っており，オブジェクト `model` がそれを格納しているのだから，もはやこのまま用いることは極めて自然である．
+
+## RStan について
+
+### `stan` 関数
+
+RStan パッケージの本体は `stan` 関数である：
+
+```{.r}
+stan(file, model_name = "anon_model", model_code = "", fit = NA,
+  data = list(), pars = NA,
+  chains = 4, iter = 2000, warmup = floor(iter/2), thin = 1,
+  init = "random", seed = sample.int(.Machine$integer.max, 1),
+  algorithm = c("NUTS", "HMC", "Fixed_param"),
+  control = NULL, sample_file = NULL, diagnostic_file = NULL,
+  save_dso = TRUE, verbose = FALSE, include = TRUE,
+  cores = getOption("mc.cores", 1L),
+  open_progress = interactive() && !isatty(stdout()) &&
+                  !identical(Sys.getenv("RSTUDIO"), "1"),
+  ...,
+  boost_lib = NULL, eigen_lib = NULL
+  )
+```
+
+重要な引数のみピックアップすると，
+
+* `model_code=""`：Stan モデルを定義するコードを，文字列として直接受け渡す．他の方法は `file` としてファイルへのパスを渡すか，フィット済みのものを `fit` オブジェクトとして渡すか，の２つのみである．
+* `data`：
+
+### 例
+
+前述の OU 過程 [-@#sec-exp-OU]
+
+$$
+dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
+$$
+
+で `stan` 関数でベイズ推定を実行してみます．
+
+パラメータは
+$$
+\begin{pmatrix}\theta\\\mu\\\sigma\end{pmatrix}
+=
+\begin{pmatrix}1\\0\\0.5\end{pmatrix}
+$$
+として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみます．
+
+```{r}
+#| output: false
+library(rstan)
+excode <- "data {
+            int N;
+            real x[N+1];
+            real T;
+            real h;
+          }
+
+          parameters {
+            real<lower=0> theta;
+            real<lower=0> mu;
+            real<lower=0> sigma;
+          }
+
+          model {
+            x[1] ~ normal(0,1);
+            for(n in 2:(N+1)){
+              x[n] ~ normal(x[n-1] + h * theta * (mu - x[n-1]),
+                            sqrt(h) * sigma);
+            }
+          }"
+
+sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
+yuima <- setYuima(model = model, sampling = sampling)
+simulation <- simulate(yuima, true.parameter = c(mu = 0,theta = 1, sigma = 0.5), 
+                       xinit = 0.02)
+sde_dat <- list(N =  yuima@sampling@n,
+                  x = as.numeric(simulation@data@original.data), 
+                  T=yuima@sampling@Terminal,
+                  h=yuima@sampling@Terminal/yuima@sampling@n)
+```
+
+```{r}
+# シミュレーション結果
+plot(simulation)
+```
+
+```{r}
+#| output: false
+# ベイズ推定
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+fit <- stan(model_code=excode, data = sde_dat, iter = 1000, chains = 4)
+
+library("bayesplot")
+library("rstanarm")
+library("ggplot2")
+
+posterior <- as.matrix(fit)
+plot_title <- ggtitle("Posterior distributions",
+                      "with medians and 80% intervals")
+```
+```{r}
+mcmc_areas(posterior,
+           pars = c("theta", "mu", "sigma"),
+           prob = 0.8) + plot_title
+```
+
+### 調査：他の Stan インターフェース
+
+[`brms`](https://cran.r-project.org/web/packages/brms/index.html) や `rethinking` も，背後で Stan を利用している．これらが文字式をどのように取り扱っているかを調査する．
