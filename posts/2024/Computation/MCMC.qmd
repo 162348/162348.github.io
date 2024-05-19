@@ -2,7 +2,7 @@
 title: "新時代の MCMC を迎えるために"
 subtitle: "連続時間アルゴリズムへの進化"
 author: 
-    - name: "司馬 博文"
+    - name: "司馬博文"
       orcid: 0009-0007-8251-1224
       affiliation:
         - name: 総合研究大学院大学先端学術院（統計科学コース）
@@ -72,6 +72,24 @@ MCMC とは，確率変数をシミュレーションする際に用いられる
 ![非対称 MCMC 法（Lifted Metropolis 法）の出力（第 [-@sec-LMH] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-output-1.png)
 
 ![連続時間 MCMC 法（Zig-Zag サンプラー）の出力（第 [-@sec-PDMP] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-output-1.png)
+:::
+
+### 自己相関・軌跡の一覧
+
+::: {layout-ncol=3}
+![Metropolis 法の自己相関関数（第 [-@sec-MH] 節）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-auto-output-1.png)
+
+![非対称 MCMC 法（Lifted Metropolis 法）の自己相関関数（第 [-@sec-LMH] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-auto-output-1.png)
+
+![連続時間 MCMC 法（Zig-Zag サンプラー）の自己相関関数（第 [-@sec-PDMP] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-auto-output-1.png)
+:::
+
+::: {layout-ncol=3}
+![Metropolis 法の軌跡（第 [-@sec-MH] 節）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-1-output-1.png)
+
+![非対称 MCMC 法（Lifted Metropolis 法）の軌跡（第 [-@sec-LMH] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-4-output-1.png)
+
+![連続時間 MCMC 法（Zig-Zag サンプラー）の軌跡（第 [-@sec-PDMP] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-traj-output-1.png)
 :::
 
 ## MCMC の起源 {#sec-origin}
@@ -157,6 +175,8 @@ $$
 ```{python}
 import numpy as np
 
+np.random.seed(2024)
+
 def U(x):
     return x**2/2 + x**4/4
 
@@ -227,7 +247,7 @@ def metropolis(num_samples, initial_state, verbose=False):
     accept = []
 
     for _ in range(num_samples - 1):
-        proposed_state = current_state + np.random.uniform(-1,1)
+        proposed_state = current_state + np.random.uniform(-2,2)
         acceptance_ratio = pi(proposed_state) / pi(current_state)
         if np.random.rand() < acceptance_ratio:
             current_state = proposed_state
@@ -293,7 +313,7 @@ plt.ylabel('Step', color=ISMblue)
 plt.show()
 ```
 
-上図は Metropolis 法で構成される Markov 連鎖の軌跡を表しています．行ったり来たりしているのがわかります．棄却率は $1/4$ 程度です．^[一般には，採択率の方を $1/4$ から $1/2$ にするのが良いとされています．[@Chopin-Papaspiliopoulos20-SMC p.282] など．]
+上図は Metropolis 法で構成される Markov 連鎖の軌跡を表しています．行ったり来たりしているのがわかります．棄却率は５割弱です．^[一般には，採択率を 0.2 から 0.4 に抑えるのが良いとされています．[@Chopin-Papaspiliopoulos20-SMC p.282] など．]
 
 ### 統計学への応用
 
@@ -343,7 +363,7 @@ def lifted_metropolis(num_samples, initial_state, verbose=False):
     accept = []
 
     for _ in range(num_samples - 1):
-        delta = np.random.uniform(0,1)
+        delta = np.random.uniform(0,2)
         proposed_state = current_state + lifting_variable * delta
         acceptance_ratio = pi(proposed_state) / pi(current_state)
 
@@ -391,7 +411,9 @@ plt.show()
 
 自己相関関数を見ると，Metropolis 法よりも急速に減衰していることがわかります．むしろ，過減衰のように自己相関関数が負になっていることもあります．
 
-これは，一度「この方向に行く！」と決めたら行き続けるようにしたことが関係していると考えられます．
+これは，一度「この方向に行く！」と決めたら行き続けるように設計したために，正の値が出たしばらくあとは負の値が，負の値が出たしばらくあとは正の値が出やすいようになってしまっているためです．
+
+したがってこれは１次元の分布を考えていることに起因するため，殊更問題とすべきではないでしょう．
 
 ```{python}
 #| echo: false
@@ -410,6 +432,10 @@ plt.ylabel('Step', color=ISMblue)
 #plt.savefig('LMH_traj.svg', format='svg')
 plt.show()
 ```
+
+### リフティングの有用性
+
+Curie-Weiss モデルに対する Lifted Metropolis-Hastings 方の適用が，モデルのパラメータ数 $n$ に対して，緩和時間を $\sqrt{n}$ のオーダーだけ改善することが，[@Turitsyn+2011] では数値実験で，[@Bierkens-Roberts2017] では理論的に検証されている．
 
 <!--
 
@@ -462,6 +488,7 @@ Lifted Metropolis-Hastings の適切な連続時間極限 $\Delta t\to0$ を考�
 このような PDMP は，Lifted Metropolis-Hastings 以外にも種々の MCMC 法の極限から見つかっており，その中でも特に有名なのが次の **Zig-Zag sampler** です：
 
 ```{python}
+#| output: false
 import math
 
 def zigzag(num_samples, initial_state):
@@ -473,14 +500,23 @@ def zigzag(num_samples, initial_state):
     while t < num_samples:
         state_event = lifting_variable * np.sqrt(-1 + np.sqrt( 1 - 4 * np.log(np.random.rand()) ))
         t_event = t + np.abs(state_event - current_state)
-        for _ in range(math.ceil(t),math.ceil(t_event)):
-            samples.append(current_state + lifting_variable * (t_event - t))
+        for _ in range(math.ceil(t), math.ceil(t_event)):
+        #for _ in np.linspace(t, t_event, 4):
+            samples.append(current_state + lifting_variable * (_ - t))
         current_state = state_event
         lifting_variable = (-1) * lifting_variable
         t = t_event
 
     return np.array(samples)
 ```
+
+<!--
+自己相関関数こんなに spiky になるっけ？
+いや，多分この設定だと zig-zag は普通に悪いんだろうな．
+棄却率が高くて７割くらいある LMH に負けるのが「正しい」のかも知れない．
+
+そして１次元なのに等間隔でサンプリングしているから，自己相関関数は sine curve に（むしろ）なるべきなのか！
+-->
 
 ```{python}
 #| echo: false
@@ -510,7 +546,9 @@ plt.ylabel('Autocorrelation', color=ISMblue)
 plt.show()
 ```
 
-自己相関関数は，Lifted Metropolis-Hastings 法と同様に，急激に下がって負の値に突き抜けたあとは，Lifted Metropolis-Hastings 法よりも急速に減衰していることがわかります．
+自己相関関数は，Lifted Metropolis-Hastings 法と同様に急激に下がって負の値に突き抜けたあとは，少し振動が残っているのがわかります．
+
+次の軌跡を見て分かる通り，激しく多服するので，少し距離のあるサンプル間でも相関が出やすいようです．
 
 ```{python}
 #| echo: false
@@ -530,9 +568,21 @@ plt.ylabel('Step', color=ISMblue)
 plt.show()
 ```
 
-<!-- その軌跡は極めて顕著です．-->
+連続時間極限 $\Delta t\to0$ をとっているということは，「極めて小さいステップサイズでの random walk Metropolis 法（第 [-@sec-MH] 節）」に相当します．従って，一度折り返したら，原点 $x=0$ を超えるまでは絶対に棄却されません．
+
+そのため，このように往復するような軌跡が得られます．
 
 ### 連続時間 MCMC の美点
+
+前節では，必ずしも PDMP 法である Zig-Zag sampler が，Lifted Metropolis-Hastings 法より，自己相関関数の観点で良いとは言い切れないことを見ました．
+
+しかし，今回の設定は１次元という特殊な条件下であることを考慮に入れる必要があります．
+
+１次元なので Zig-Zag サンプラーは行き来することしか出来ていませんが，２次元以上，特に高次元の場合は，Zig-Zag サンプラーは極めて効率的に状態空間を探索できることが期待されます．
+
+例えば，標準正規分布に対する２次元での軌跡は次の通りです：
+
+![Zig-Zag Sampler in $\R^2$](./Files/ZigZag_2d.png)
 
 <!-- 
 
