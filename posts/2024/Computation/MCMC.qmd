@@ -61,17 +61,17 @@ MCMC とは，確率変数をシミュレーションする際に用いられる
 以降，MCMC の起源である物理系のシミュレーション（第 [-@sec-origin] 節）を例に取り，分子動力学法（第 [-@sec-MD] 節），Metropolis 法（第 [-@sec-MH] 節）を復習します．
 
 ::: {layout-ncol=2}
-![分子動力学法の出力](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-md-output-1.png)
+![分子動力学法の出力（第 [-@sec-MD] 節）^[特に収束が遅く，他の手法と比べてイテレーション数を 10　倍にしています．]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-md-output-1.png)
 
-![Metropolis 法の出力](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-output-1.png)
+![Metropolis 法の出力（第 [-@sec-MH] 節）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-output-1.png)
 :::
 
 これを基礎として，近年提案された非対称な MCMC 手法（第 [-@sec-LMH] 章），そして最新の連続時間 MCMC 手法（第 [-@sec-PDMP] 章）を紹介します．
 
 ::: {layout-ncol=2}
-![非対称 MCMC 法（Lifted Metropolis 法）の出力](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-output-1.png)
+![非対称 MCMC 法（Lifted Metropolis 法）の出力（第 [-@sec-LMH] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-output-1.png)
 
-![連続時間 MCMC 法（Zig-Zag サンプラー）の出力](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-output-1.png)
+![連続時間 MCMC 法（Zig-Zag サンプラー）の出力（第 [-@sec-PDMP] 章）](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-output-1.png)
 :::
 
 ## MCMC の起源 {#sec-origin}
@@ -108,7 +108,7 @@ $$
 
 このポテンシャルに関する Boltzmann-Gibbs 分布 $\pi\propt e^{-\beta U}$ は次のような形になります：^[１粒子系なので相互作用はなく，$E=U$．]
 
-![ポテンシャル $U$ が定める Botlzmann-Gibbs 分布のプロット](Files/Gibbs.svg){width=50%}
+![ポテンシャル $U$ が定める Botlzmann-Gibbs 分布のプロット](Files/Gibbs.svg){width=50% #fig-3}
 
 <!--
 ```
@@ -211,7 +211,13 @@ plt.show()
 
 ### Metropolis 法 {#sec-MH}
 
-しかし，分布 $e^{-U}$ をサンプリングするために，必ずしも背景にある物理過程をシミュレーションする必要はありません．そこで，シミュレーションは簡単なランダムウォークで行い，その結果を適切に修正することで目標分布に収束させる方法が [@Metropolis+1953] で考えられました．
+もちろん，分布 $e^{-U}$ をサンプリングするために，必ずしも背景にある物理過程まで戻ってシミュレーションをする必要はありません．
+
+そこで，シミュレーションは簡単なランダムウォークで行い，その結果を適切に修正することで目標分布に収束させる方法が [@Metropolis+1953] で考えられました．
+
+[@Metropolis+1953] の手法は，現在では random walk Metropolis-Hastings 法と呼ばれます．
+
+この背後の物理現象から離陸する一歩が，分子動力学法と MCMC 法とを分けるものでした．
 
 ```{python}
 def metropolis(num_samples, initial_state, verbose=False):
@@ -239,17 +245,17 @@ def metropolis(num_samples, initial_state, verbose=False):
 #| echo: false
 #| fig-cap: Metropolis 法からのサンプル
 #| label: fig-MH
-samples_MH = metropolis(num_samples, initial_state)
+samples_MH = metropolis(num_samples, initial_state, verbose=False)
 plt.figure(figsize=(3.5, 3))
 plt.hist(samples_MH, bins=50, density=True, alpha=0.7, color=minty)
 plt.show()
 ```
 
-サンプル数は $1/10$ であるにも拘らず，目標分布 $e^{-U}$ の良い近似を得ていると思われます．
+サンプル数は分子動力学法の $1/10$ であるにも拘らず，目標分布 $e^{-U}$ の良い近似を得ています．
 
-一般に，MCMC からのサンプルの質の良さは，[自己相関関数](https://ja.wikipedia.org/wiki/%E8%87%AA%E5%B7%B1%E7%9B%B8%E9%96%A2) を見ることで評価されます．
+一般に，MCMC からのサンプルの質の良さは，[自己相関関数](https://ja.wikipedia.org/wiki/%E8%87%AA%E5%B7%B1%E7%9B%B8%E9%96%A2) を見ることで評価できます．^[自己相関関数がどのような意味を持つか，筆者はわかりやすい説明をできかねますが，例えば自己相関関数の裾が重すぎると，中心極限定理が成り立たなくなります．]
 
-横軸の Lag が大きくなればなるほど Autocorrelation の値は小さくなっています．一般に，離れたサンプル同士の相関が小さければ小さいほど，Markov 連鎖の平衡分布への収束は速い傾向にあります．
+Metropolis 法の自己相関関数を計算してみると，横軸の Lag が大きくなればなるほど Autocorrelation の値は小さくなっています．
 
 ```{python}
 #| echo: false
@@ -287,21 +293,25 @@ plt.ylabel('Step', color=ISMblue)
 plt.show()
 ```
 
+上図は Metropolis 法で構成される Markov 連鎖の軌跡を表しています．行ったり来たりしているのがわかります．棄却率は $1/4$ 程度です．^[一般には，採択率の方を $1/4$ から $1/2$ にするのが良いとされています．[@Chopin-Papaspiliopoulos20-SMC p.282] など．]
+
 ### 統計学への応用
 
 こうして MCMC が発明されれば，すぐにイノベーションとして理解されたかというとそうではありませんでした．
 
 この Metropolis の手法が極めて賢いシミュレーション手法であることは一目瞭然でも，一般の確率分布からのサンプリングに使える汎用アルゴリズムになっているという抽象的な観点が得られるまでには時間を要しました．これを成し遂げたのが [@Hastings1970] でした．^["While [@Metropolis+1953] proposed the use of MCMC sampling to compute particular integrals in statistical mechanics, **it was the Hastings paper that elevated the concept to a general one, and introduced it to the broader statistics community**." [@Martin+2023-history p.7] 3.5節．]
 
-さらにこの結果も見過ごされました．真にMCMC 法一般を統計学界隈に広め，ベイズ統計学の興隆につながったのは Gibbs サンプリングの有用性も強調した [@Gelfand-Smith1990] だと言われます．^[[@Martin+2023-history p.8] 4節，[@Robert-Casella2011 p.102] など．]
+さらに，Hastings のこの結果も見過ごされたと言って良いでしょう．真にMCMC を統計学界隈に広め，現代におけるベイズ統計学の興隆の契機となったのは階層モデリングにおける Gibbs サンプリングの有用性を強調した [@Gelfand-Smith1990] だと言われます．^[[@Martin+2023-history p.8] 4節，[@Robert-Casella2011 p.102] など．]
 
-当時代替手法としては複雑な数値アルゴリズムしかなかったベイズ統計学において，MCMC は汎用的で実装も容易であることが周知され，ベイズ統計学が普及する大きな潤滑剤となりました．
+当時，代替手法としては複雑な数値アルゴリズムしかなかったベイズ統計学において，MCMC は汎用的で実装も容易であることが周知され，ベイズ統計学が普及するきっかけとなりました．
 
 ## 非対称化への試み {#sec-LMH}
 
 ここでもう一度 Metropolis 法の軌跡 @fig-1 を見てみましょう．
 
-![@fig-1 Metropolis 法の軌跡](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-traj-output-1.png){width=230pt}
+![@fig-1 Metropolis 法の軌跡](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-1-output-1.png){width=230pt}
+
+目標分布 [-@fig-3] の台は $[-2,2]$ ですが，（最初の 50 サンプルしか表示していませんから，そうでもないかもしれません．）
 
 ### リフティング
 
