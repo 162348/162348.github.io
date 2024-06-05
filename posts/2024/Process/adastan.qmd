@@ -1,8 +1,10 @@
 ---
 title: "SDE のベイズ推定入門"
+subtitle: "YUIMA と Stan を用いた確率過程のベイズ推定入門"
 author: "司馬 博文"
 date: 5/12/2024
-categories: [Process, Simulation, MCMC, Stan, YUIMA]
+date-modified: 6/5/2024
+categories: [Process, Simulation, MCMC, Stan, YUIMA, R]
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
@@ -18,7 +20,7 @@ execute:
 
 {{< include ../../../_preamble.qmd >}}
 
-YUIMAについては次の記事も参照：
+R の YUIMA パッケージに関する詳細は，次の記事も参照：
 
 ```{=html}
 <div class="article-card-container">
@@ -36,7 +38,7 @@ YUIMAについては次の記事も参照：
 
 ## ベイズ推定の実行
 
-ベイズ推定には R パッケージ `RStan` を通じて，Stan を用いることを考える．Stan については次の記事も参照：
+ベイズ推定には R パッケージ `RStan` を通じて，確率的プログラミング言語 Stan を用いることを考える．Stan については次の記事も参照：
 
 ```{=html}
 <div class="article-card-container">
@@ -52,7 +54,7 @@ YUIMAについては次の記事も参照：
 </div>
 ```
 
-その中で，次のような関数を考えるのである．
+具体的には，R において，次のような関数を定義する：
 
 ```{.r}
 adastan <- function(yuima){  # <1>
@@ -70,7 +72,7 @@ adastan <- function(yuima){  # <1>
       "real<lower=0>",
       yuima@model@parameter@all[i], ";"
       )
-  }
+    }
 
   excode <- paste(excode,"}")  # <4>
 
@@ -92,14 +94,14 @@ adastan <- function(yuima){  # <1>
 
 
   sde_dat <- list(N =  yuima@sampling@n,  # <7>
-                  x = as.numeric(sim@data@original.data), 
-                  T=yuima@sampling@Terminal,
-                  h=yuima@sampling@Terminal/yuima@sampling@n)
+    x = as.numeric(sim@data@original.data), 
+    T=yuima@sampling@Terminal,
+    h=yuima@sampling@Terminal/yuima@sampling@n)
 
   fit <- stan(model_code=excode,
-            data = sde_dat, 
-            iter = 1000,
-            chains = 4)  # <8>
+    data = sde_dat, 
+    iter = 1000,
+    chains = 4)  # <8>
 
   return(fit)
 }
@@ -114,11 +116,15 @@ adastan <- function(yuima){  # <1>
 7. Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト `sde_dat` を作成する．
 8. 最後に Stan モデルをコンパイルして実行し，結果を `fit` オブジェクトとして返す．
 
-しかし現状では，
+これが最初に思いつく，最も直接的な方法かも知れないが，このままではいくつかの問題がある：
+
+::: {.callout-caution title="問題点"}
 
 * 関数内部で Stan model のコードを文字列として生成していることが苦しい．
 
-ので，もっと良い方法を考えたい．
+:::
+
+そこで，もっと良い方法を考えたい．
 
 ### 問題点 {#sec-exp-OU}
 
@@ -178,6 +184,59 @@ model {
 となるべきである．
 
 YUIMA の時点で文字列を直接取り扱っており，オブジェクト `model` がそれを格納しているのだから，もはやこのまま用いることは極めて自然である．
+
+### Expression とは
+
+オブジェクト志向言語ではコード自体もオブジェクトであり，これを R では Expression と呼ぶ．
+
+１つのクラスからなるわけではなく，`call`, `symbol`, `constant`, `pairlist` の４つの型からなる．^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+次のような操作ができる^[[@Wickham2019] [第18章](https://adv-r.hadley.nz/expressions.html)]
+
+`rlang::expr` がコンストラクタである：
+
+```{r}
+z <- rlang::expr(y <- x*10)
+z
+```
+
+`expression` オブジェクトは `base::eval()` で評価できる：
+
+```{r}
+x <- 4
+eval(z)
+y
+```
+
+`expression` には list のようにアクセス可能である：^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+```{r}
+f <- expr(f(x = 1, y = 2))
+
+# Add a new argument
+f$z <- 3
+f
+#> f(x = 1, y = 2, z = 3)
+
+# Or remove an argument:
+f[[2]] <- NULL
+f
+#> f(y = 2, z = 3)
+```
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/R4.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">R（４）メタプログラミング</h3>
+        <p class="article-description">Expression について</p>
+      </div>
+    </a>
+  </div>
+</div>
+```
 
 ## RStan について
 
@@ -288,3 +347,18 @@ mcmc_areas(posterior,
 ### 調査：他の Stan インターフェース
 
 [`brms`](https://cran.r-project.org/web/packages/brms/index.html) や `rethinking` も，背後で Stan を利用している．これらが文字式をどのように取り扱っているかを調査する．
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/brms.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">R によるベイズ推定入門</h3>
+        <p class="article-description">brms を用いたベイズ回帰分析入門</p>
+      </div>
+    </a>
+  </div>
+</div>
+```
+
