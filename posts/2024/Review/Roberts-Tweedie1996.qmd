@@ -15,9 +15,9 @@ abstract: |
 
 {{< include ../../../_preamble.qmd >}}
 
-## 概要
+## 概要 {.unnumbered}
 
-### 研究の立ち位置
+### 研究の立ち位置 {.unnumbered}
 
 MALA は [@Besag1994] で提案され，[@Roberts-Tweedie1996] で指数エルゴード性の必要十分条件が示されている．後の研究 [@Roberts-Rosenthal1998] で最適スケーリングが論じられる．
 
@@ -37,7 +37,7 @@ MALA は [@Besag1994] で提案され，[@Roberts-Tweedie1996] で指数エル�
 
 [@Roberts-Tweedie1996] は [@Roberts-Tweedie1996MH] とセットである．後者はランダムウォーク MH に対象を限定して，指数エルゴード性がどのような含意を持つかを検証している（積率も指数収束するための条件，中心極限定理など）．
 
-### MALA とは
+### MALA とは {.unnumbered}
 
 MALA は，提案核を対象分布 $\pi$ から Langevin 拡散の形で構成する，problem-specific な Metropolis-Hastings 法であり，ランダムウォーク MH よりも速く収束することが期待される．[@Corenflos-Finke2024] でも state-of-the-art と呼ばれているサンプリング法である．
 
@@ -45,7 +45,7 @@ MALA は，提案核を対象分布 $\pi$ から Langevin 拡散の形で構成�
 
 MALA の他に，[@Neal1994] などの hybrid-Monte Carlo アルゴリズムも MALA と「提案核をよく考えている」という点で関係が深いが，本論文では扱わない．
 
-### MALA のエルゴード性について
+### MALA のエルゴード性について {.unnumbered}
 
 Langevin 拡散
 $$
@@ -71,9 +71,144 @@ $$
 
 Langevin 動力学は極めて優秀なモデリング手法であるが，シミュレーションのための離散化が入ることで，収束は遅くなるどころかそもそも収束性が失われることさえある．
 
-[@Neal1994] を引用しながら，hybrid Monte Carlo が Langevin アルゴリズムに似ていると触れながら，まるで非対称手法であるかのようなコメントをしている．
+[@Neal1994] を引用しながら，hybrid Monte Carlo が Langevin アルゴリズムに似ていると触れながら，話が対称性と非対称性の話に変わる．
 
 > However, it is worth remarking that often methods induced by non-reversible methods can be shown to converge more quickly than their reversible counterparts (see, for example, [@Sheu1991]).
 
 しかし [@Sheu1991] は $P_t$ の評価を上下からしているのみで，非対称性どころか収束の議論は全くしていない．議論に飛躍があるか，引用が間違っているかが考えられる．
 
+### Langevin 拡散について
+
+本論文が研究する MH 法は，提案を Langevin 拡散により取り入れたものである．
+
+密度 $\pi$ が可微分であるとき，$\nabla\log\pi$ が考えられる．これに対して，Langevin 拡散 $\{L_t\}\subset\R^k$ とは
+$$
+dL_t=dW_t+\frac{1}{2}\nabla\log\pi(L_t)dt
+$$
+と定義される．
+
+$\pi$ が十分滑らかであるとき，これはエルゴード性を持つ：
+$$
+\norm{P^t_L(x,-)-\pi}_\TV\to0.
+$$
+
+本論文では，この収束が指数レートで起こる場合，そして同様の積率収束も起こる場合に興味がある．
+
+### 指数収束する例
+
+#### １次元クラス $\cE(\beta,\gamma)$
+
+$k=1$ とする．$\pi\in\cE(\beta,\gamma)\subset C^\infty(\R)$ であるとは，可微分であり，加えてある $x_0\in\R$ と $\gamma,\beta>0$ が存在して，
+$$
+\pi(x)\propt e^{-\gamma\abs{x}^\beta},\quad\abs{x}\ge x_0,
+$$
+が成り立つことをいう．このとき，
+$$
+\nabla\log\pi(x)=-\gamma\beta\sgn(x)\abs{x}^{\beta-1},\quad\abs{x}>x_0.
+$$
+
+2.3 節にて，指数収束するための必要十分条件は $\beta\ge1$ であることを見る．この結論は乱歩 MH アルゴリズムと全く同様である [@Mengersen-Robert1996 定理3.5]．
+
+#### 多次元指数分布族 $\cP_m$
+
+[@Roberts-Tweedie1996MH] で乱歩 MH 法について考えたように，多次元の統計モデルとしては指数分布族を考えることとする．特に，次の場合を考える：
+$$
+\pi(x)\propt e^{-p(x)}\quad \abs{x}\ge x_0,
+$$
+ただし $p$ は $m$ 次の多項式で，次の表示を持つ：
+$$
+p=p_m+q_{m-1}.
+$$
+$\pi\in\cP_m\subset C^\infty(\R^k)$ とは，$p_m\xrightarrow{\abs{x}\to\infty}\infty$ を満たすことをいう．特に，$m\ge2$ であることに注意．
+
+### Langevin 拡散 $L_t$ の離散近似
+
+実際の実装で $L_t$ をそのまま用いることは出来ず，これを離散化することが必要である．
+
+#### ULA (unadjusted Langevin algorithm)
+
+> The unadjusted Langevin algorithm (ULA) is a discrete-time Markov chain $U_n$ which is the natural discretization of ordinary Langevin diffusion $L_t$.
+
+[@Parisi1980], [@Grenander-Miller1994] で考えられたものである．
+
+$$
+U_n\sim\rN_k\paren{U_{n-1}+\frac{h}{2}\nabla\log\pi(U_{n-1}),hI_k}
+$$
+によって構成できる． [@Besag1994] が指摘したように，元の $L_t$ と似た（しかしステップサイズ $h$ に依存する変換を受けた）不変分布を持つ．
+
+::: {.callout-caution title="例" collapse="true"}
+$\pi=\rN_1(0,1)$ であり，ステップサイズを $h=2$ とすると，$\nabla\log\pi(x)$=-x$ であるから，
+$$
+U_{n-1}+\frac{h}{2}\nabla\log\pi(U_{n-1})=U_{n-1}-\frac{2}{2}\frac{U_{n-1}}{1}=0
+$$
+より，$U_n\sim\rN_1(0,2)$ となる．
+:::
+
+#### MALA (Metropolis-Adjusted Langevin Algorithm)
+
+[@Besag1994] に従い，修正を加える．$U_n$ を提案として，Metropolis-Hastings 法を実行するのである．
+
+$$
+q(M_{n-1},-):=\rN_k\paren{M_{n-1}+\frac{1}{2}h\nabla\log\pi(M_{n-1}),hI_k}
+$$
+を提案核とし，
+$$
+\al(M_{n-1},U_n):=1\land\frac{\pi(U_n)q(U_n,M_{n-1})}{\pi(M_{n-1})q(M_{n-1},U_n)}
+$$
+を採択確率とする．
+
+この場合，必ずエルゴード性が成り立つ．[@Roberts-Tweedie1996MH] の結論と同様，$\ell_k$-既約かつ周期的だからである．^[Doob の定理から，で良くないか？] 特に，殆ど至る所の $x\in\R^k$ について，
+$$
+\norm{P^n_M(x,-)-\pi}_\TV\to0.
+$$
+また，本論文が提示する指数収束の条件の下では，任意の $x\in\R^k$ で起こる．
+
+ULA が推移的であるとき，MALA も指数エルゴード性を持たないことが判る．だが，これは尾部確率が指数よりも重い場合にしか起こらない．
+
+#### MALTA (Metropolis-Adjusted Langevin Truncated Algorithm)
+
+$$
+T_n\sim\rN_k\Paren{M_{n-1}+R(M_{n-1}),hI_k}
+$$
+$$
+R(x):=\frac{D\nabla\log\pi(x)}{2(D\lor\abs{\nabla\log\pi(x)})}.
+$$
+を提案とし，MH 法を適用する．
+
+MALTA は大変ロバストで，指数収束が起こりやすい．
+
+## Langevin 拡散アルゴリズムの指数収束
+
+### 一般の収束結果
+
+$$
+dL_t=dW_t+\frac{1}{2}\nabla\log\pi(L_t)dt
+$$
+
+::: {.callout-tip icon="false" title="定理2.1（Langevin 拡散のエルゴード性）"}
+$\nabla\log\pi$ は $C^1(\R^k)$-級で，ある $N,a,b>0$ が存在して
+$$
+\nabla\log\pi(x)\cdot x\le a\abs{x}^2+b,\qquad\abs{x}>N,
+$$
+を満たすとする．このとき，Langevin 拡散 $\{L_t\}$ について次が成り立つ：
+
+1. $L$ は爆発的でなく，$\ell_k$-既約で，周期的で，強 Feller であり，任意のコンパクト集合は小集合である．
+2. $L$ は $\pi$-不変であり，任意の $x\in\R^k$ について
+$$
+\norm{P^t_L(x,-)-\pi}_\TV\to0.
+$$
+:::
+
+::: {.callout-note icon="false" title="証明"}
+
+1. $\abs{L_t}$ と OU 過程を比較することで，$\abs{L_t}$ が爆発しないことが判る．続いて，ドリフト係数が局所有界であるため，[@Bhattacharya1978] と同様の議論により $\ell_k$-既約かつ強 Feller である．強 Feller かつ $\ell_k$-既約ならば，任意のコンパクト集合は小集合である [@Tweedie1994 定理5.1]．非周期性は，任意のスケルトンも $\ell_k$-既約であることから従う．
+2. [@Ikeda-Watanabe1981 5.4節] により，$\pi$ は $L$ の不変分布であることが，生成作用素
+$$
+A_Lf(x)=\paren{\frac{1}{2}\nabla\log\pi(x)}\nabla f(x)+\frac{1}{2}\Lap f(x)
+$$
+$$
+f\in C^2(\R^k)
+$$
+に関して不変であることから従う．$C^2(\R^k)$ は，爆発しない拡散過程について，分布を定める (distribution-determining class)．[@Tweedie1994 定理2.3] より，不変分布を持つから，再帰的ではある．また連続な過程であるから，これは Harris 再帰性を意味する．[@Meyn-Tweedie1993 定理6.1] から，全変動収束が従う．
+
+:::
