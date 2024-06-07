@@ -38,6 +38,320 @@ R 言語とは
       * ニュージーランドのオークランド大学の [Ross Ihaka](https://en.wikipedia.org/wiki/Ross_Ihaka) と [Robert Clifford Gentleman](https://en.wikipedia.org/wiki/Robert_Gentleman_(statistician)) により作られた
       * BBC のグラフは R で書いている．BBC が R 用のパッケージをリリースしている．
 
+## 基本型
+
+### データ構造：built-in は５つ
+
+* vector
+    * scaler オブジェクトは長さ１の vector として実装されている？
+        * scaler は数値，文字列，論理値など．
+    * `c()`が constructor
+    * `x[]`で indexing できる
+        * `[]`の中身はベクトルで指定できる！これが slice の代わり．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+x <- c(10, 20, 30, 40, 50)
+x[1]
+```
+
+```{r}
+x[2:4]
+```
+
+:::
+
+* matrix
+    * `matrix()` がコンストラクタ
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+mat <- matrix(1:9, nrow = 3, ncol = 3)
+mat
+```
+
+```{r}
+mat[2, 3]
+```
+
+:::
+
+* list：ベクトルとの違いはデータ型が不均一であるのを認めること．
+    * `list()` がコンストラクタ
+    * 多分データ分析じゃない計算機命令的な棲み分け．一番 csv みたい，
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+lst <- list(name = "Alice", age = 25, scores = c(90, 85, 88))
+lst
+```
+
+```{r}
+lst[[1]]
+```
+
+```{r}
+lst$name
+```
+
+:::
+
+* data frame：要は実データに即した構造で，行列の拡張．csv みたいな．長さの等しい vector の list．
+    * `data.frame` がコンストラクタ．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+df <- data.frame(name = c("Alice", "Bob"), age = c(25, 30))
+df
+```
+
+```{r}
+df[1, 2]
+```
+
+```{r}
+df$name
+```
+
+:::
+
+* array：ベクトル，行列のその先へ
+    * `array`がコンストラクタ
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+arr <- array(1:8, dim = c(2, 2, 2))
+arr
+```
+
+```{r}
+arr[1, 2, 2]
+```
+
+:::
+
+### データ型：built-in は 25^[[@Wickham2019] [第12章](https://adv-r.hadley.nz/base-types.html)．]
+`typeof()`で調べる
+
+> Note that in the C code underlying R, all objects are pointers to a structure with typedef `SEXPREC`; the different R data types are represented in C by `SEXPTYPE`, which determines how the information in the various parts of the structure is used. 
+
+* `int`：整数
+* `double`：クラスとしては`numeric`として実装されている．浮動小数点
+  * `3.4e-2`は $3.4×10^-2$ で表す．
+* `complex`：`1i`を虚数単位とし，`a+bi`と表す．
+* `character`
+    * `paste(x,y,[sep=“ “])`
+* `logical`：Boole 値
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+typeof(1L)
+```
+
+```{r}
+typeof(1i)
+```
+
+```{r}
+typeof(FALSE)
+```
+
+
+:::
+
+* `print(pi, digit=12)`
+    * 任意精度表示．多分 print.numeric_version への dispatch
+
+```{r}
+print(pi, digit=12)
+```
+
+### 予約語とそのデータ型
+
+* `pi`, `e`：`double`型
+* `Inf`, `NaN`：`doule`型
+* `T`,`F`：TRUE と FALSE の予約．`logical` 型
+    * `as.numeric()`で`1`,`0`に埋め込まれる．
+* `NA`：Not Available，統計データの欠損を表す．
+    * 各モードに１つずつ存在する generic な存在である．
+    * `NA_integer_`, `NA_real_`, `NA_complex_`, `NA_character_`, `NA_logical_`, ......
+* `LETTERS`, `letters`：アルファベットのベクトル，`character` 型
+* `NULL`：`NULL` 型でモードを持たない特殊なオブジェクト．$\emptyset$ のこと．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+LETTERS
+```
+
+:::
+
+### データのクラス
+`class()`で調べることが出来る．
+
+多くはデータ型（`typeof()`）と一致する．
+
+```{r}
+typeof(pi)
+```
+
+```{r}
+class(pi)
+```
+
+### Logical：２値関数
+ベクトルを各成分ごとに評価して，logical vector を返す関数．
+
+* `!=`, `>=`, `<=`
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(1, 2, 3)
+y <- c(3, 2, 1)
+x != y
+```
+
+```{r}
+x >= y
+```
+
+```{r}
+x <= y
+```
+
+:::
+
+* `is.null()`, `is.na()`, `is.nan()`, `is.finite()`, `is.infinite()`
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+is.na(c(1, NA, 3))
+```
+```{r}
+is.finite(c(1, Inf, NA, NaN))
+```
+:::
+
+* `identical(1,1.0)`：`T`である，いずれも倍精度浮動小数点で表現されるので．
+* `all.equal()`：「ほぼ同じ」かどうか．数値の近似比較に使える．
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+identical(1, 1.0)
+```
+```{r}
+all.equal(1, 1.0000001)
+```
+:::
+
+* `&`,`|`：論理積・和
+* `&&`, `||`：条件式の論理積・和
+  * `&`,`|`と違い，ベクトルには使えない．
+* `xor()`：排他的論理和
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(TRUE, FALSE, TRUE)
+y <- c(TRUE, TRUE, FALSE)
+x & y
+```
+```{r}
+#| error: true
+x && y
+```
+```{r}
+xor(x, y)
+```
+:::
+
+* `%in%`：match の二項関係版 interface．
+    * `"%in%" <- function(x, table) match(x, table, nomatch = 0) > 0`が現状の定義
+* `with(data, expr, …)`
+    * `data`：data frame
+    * `expr`は`data`の列名に関する expression をベタがき
+    * 列ごとに`expr`を実行した結果を返す．
+* `match(x, table)`
+    * `x %in% table`と使える．
+    * `x`：vector
+    * `table`：vector
+    * 返り値：logical vector
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(1, 2, 3)
+table <- c(2, 3, 4)
+x %in% table
+```
+```{r}
+match(x, table)
+```
+```{r}
+data <- data.frame(a = 1:3, b = 4:6)
+with(data, a + b)
+```
+:::
+
+### `mode` について
+
+* `str(obj)`：R object の構造を教えてくれる．structure
+* `mode(obj)`：オブジェクトのモード＝データ型を返す．
+* `class(obj)`：R は全てのものはオブジェクトだから，class を返す．この値に従って dispatch されている．
+
+> Function `mode` gives information about the mode of an object in the sense of Becker, Chambers & Wilks (1988), and is more compatible with other implementations of the S language. -- [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html)
+
+* `storage.mode(obj)`：オブジェクトの storage mode を返す．
+
+> Finally, the function `storage.mode` returns the storage mode of its argument in the sense of Becker et al. (1988).  -- [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html)
+
+* `help()`：`?keyword`と等価．
+    * `Trig {base}`：パッケージ base の Trig についての説明．
+    * `graphics::hist`：はパッケージ graphics の関数 hist について．
+    * 特殊関数を調べるには`””`で escape する必要があることがある．
+* `example()`：R のこの機能やばすぎる
+    * help 内の例を実行
+    * `demo()`がさらにある．
+* `help.search()`：`??”keyword”`と等価．
+    * キーワード検索
+    * Google 検索と同じ要領で使ってください．
+
+## 属性
+
+`NULL`以外の全てのオブジェクトは`attribute`を持ち得る．`attribute`とは，全ての成分に名前がついた`pairlist`である．
+
+```{r}
+attributes(y ~ x1 + x2)
+```
+
+属性は，第一義的には R にクラス構造を実装するのに使われる．`class`属性を評価し，そのオブジェクトにどの function dispatch を適用するかを決定する．
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/R0.html" target="_blank">
+      <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">R の概観</h3>
+        <p class="article-description">R は統計計算のための言語です．  </p>
+      </div>
+    </a>
+  </div>
+</div>
+```
+
+### `names`
+
+`names`は，ベクトルの各要素に名前をつけるための属性であり，indexing にも使われる．
+
+### `class`
+
+`class`は，オブジェクトのクラスを指定する文字列である．
+
 ## R のオブジェクト志向構造
 
 ### Polymorphism（多態的）なオブジェクト志向
@@ -85,3 +399,37 @@ S3クラス（S言語ver.3という意味）
     * `typeof()`を wrap している．
     * `<- value`とできるのは："logical", "integer", "double", "complex", "raw", "character", "list", "expression", "name", "symbol" and "function"
 * `typeof(object)`
+
+### S3 クラス（S 言語 ver.3 という意味）
+初期の R クラス構造で現在も R の有力なクラスパラダイム．
+組み込みクラスのほとんどが S3 パラダイム．
+1. 全てがリストであり，新たにクラス名属性を持つとクラスになる．
+2. method dispatch機能の実装のためにある
+    1. 「ジェネリック関数が呼び出された時に，実引数のmodeを見て適切なクラスメソッドに引き渡す機能」があるのでgeneric functionが定義できる．
+    2. plot()で適切に動くのも，全てのオブジェクトが密かにクラスが違うからである．ジェネリック関数printの呼び出しprint(lm)はlmクラスのメソッドprint.lm()にディスパッチされる．
+
+実装に使われている関数
+* attr()：
+* class()：クラス属性のベクトル．ここへ付与する形でS3は実装されている．
+
+それを確認できる関数
+* attributes(obj)：$nameや$classなどの属性を格納したlist．
+    * 実はリストのtag（$で参照されるやつ）はnamesというattributeである．
+    * それに次いで２番目が$classというattributeになる．
+    * 通常のlist objectを表示した時，最後の要素がattr(,”class”)となるのは，通常のリストの構造は１列目の要素としたら，２列目の要素ということである．
+    * ＃これがリストの多次元入れ子構造．
+* unclass(obj)：クラス属性を外せる．lmなど，ほとんどがクラスという属性を持ったlist．
+* methods(fun)：generic methodの全てを表示する．
+    * *がついているものは，デフォルトのbase名前空間にはない関数．
+    * getAnywhere()：あらゆる名前空間からその名前を持つobjectを持ってくる．
+    * 標準名前空間にない存在はnamespace:::nameでアクセスできる．
+    * methods(,”classname”)と使うと，classnameという名前を持ったクラスにdispatchされているmethodを表示する．
+
+クラス定義のための機構
+* print()
+    * prints its argument and returns it _invisibly_ (via ‘invisible(x)’)
+    * 新しいクラスを作ったら，そのためのprintを定義するのが流れ．
+
+### S4 クラス
+
+S3 クラスとの棲み分けは，安全性で，まだ存在しないクラスコンポーネントにアクセスできなくなった．
