@@ -2,7 +2,8 @@
 title: "R（１）基本文法"
 subtitle: "基本パッケージとその文法"
 author: "司馬 博文"
-date: 6/5/2024
+date: 5/7/2021
+date-modified: 6/7/2024
 categories: [Computation, R]
 bibliography: 
     - ../../../mathematics.bib
@@ -24,6 +25,8 @@ format:
 
 ### 対話モード
 バッチ処理は`R CMD BATCH file.z`で行う．
+
+> When a user types a command at the prompt (or when an expression is read from a file) the first thing that happens to it is that the command is transformed by the parser into an internal representation. The evaluator executes parsed R expressions and returns the value of the expression. All expressions have a value. This is the core of the language. -- [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html#Evaluation-of-expressions-1)
 
 * R：どこからでも対話モードで実行可能なのが R．
 * `[1]`はすぐ隣の要素の index．ALGOL 系と違い，1から index する．
@@ -157,7 +160,103 @@ print(z)
 * 変数名に数字が使えるのいいな．
   * 語頭は数字にはできない．
 
-## オブジェクト
+::: {.callout-caution title="演算子まとめ" collapse="true"}
+
+
+| Operator | Description |
+|:-:|:----------------|
+| `-`      | Minus, can be unary or binary |
+| `+`      | Plus, can be unary or binary |
+| `!`      | Unary not |
+| `~`      | Tilde, used for model formulae, can be either unary or binary |
+| `?`      | Help |
+| `:`      | Sequence, binary (in model formulae: interaction) |
+| `*`      | Multiplication, binary |
+| `/`      | Division, binary |
+| `^`      | Exponentiation, binary |
+| `%x%`    | Special binary operators, x can be replaced by any valid name |
+| `%%`     | Modulus, binary |
+| `%/%`    | Integer divide, binary |
+| `%*%`    | Matrix product, binary |
+| `%o%`    | Outer product, binary |
+| `%x%`    | Kronecker product, binary |
+| `%in%`   | Matching operator, binary (in model formulae: nesting) |
+| `%||%`   | Null coalescing operator, binary |
+| `<`      | Less than, binary |
+| `>`      | Greater than, binary |
+| `==`     | Equal to, binary |
+| `>=`     | Greater than or equal to, binary |
+| `<=`     | Less than or equal to, binary |
+| `&`      | And, binary, vectorized |
+| `&&`     | And, binary, not vectorized |
+| `|`      | Or, binary, vectorized |
+| `||`     | Or, binary, not vectorized |
+| `<-`     | Left assignment, binary |
+| `->`     | Right assignment, binary |
+| `$`      | List subset, binary |
+
+: [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html#Operators-1) {.active .hover .bordered .responsive-sm}
+
+:::
+
+
+### 制御
+
+* `{suite}`：ブロック
+
+    ブロックは閉じるまで評価されない．
+
+  ```{r}
+  { x <- 0
+  x + 5
+  }
+  ```
+
+* `if`, `else`, `else if`：条件分岐
+
+    ```r
+    if ( statement1 )
+        statement2
+    else
+        statement3
+    ```
+
+* `for`, `while`, `repeat`：反復
+    
+    ```r
+    for ( name in vector ) {
+        statement
+    }
+    ```
+
+    ```r
+    while ( statement1 ) {
+        statement2
+    }
+    ```
+
+    ```r
+    repeat {
+        statement
+        if ( condition ) break
+    }
+    ```
+
+* `switch (statement, list)`：`statement`を評価した結果得る数値を用いて，`list`を indexing して（評価して）返す．
+
+  * `switch`は関数として実装されているが，「評価」のステップがあるために制御構文として使える．
+
+  ```{r}
+  x <- 3
+  switch(x, 2+2, mean(1:10), rnorm(5))
+  ```
+  ```{r}
+  switch(2, 2+2, mean(1:10), rnorm(5))
+  ```
+
+
+
+## 基本型
 
 ### データ構造：built-in は５つ
 
@@ -257,6 +356,8 @@ arr[1, 2, 2]
 ### データ型：built-in は 25^[[@Wickham2019] [第12章](https://adv-r.hadley.nz/base-types.html)．]
 `typeof()`で調べる
 
+> Note that in the C code underlying R, all objects are pointers to a structure with typedef `SEXPREC`; the different R data types are represented in C by `SEXPTYPE`, which determines how the information in the various parts of the structure is used. 
+
 * `int`：整数
 * `double`：クラスとしては`numeric`として実装されている．浮動小数点
   * `3.4e-2`は $3.4×10^-2$ で表す．
@@ -309,7 +410,7 @@ LETTERS
 
 :::
 
-### データ構造
+### データのクラス
 `class()`で調べることが出来る．
 
 多くはデータ型（`typeof()`）と一致する．
@@ -414,84 +515,57 @@ with(data, a + b)
 ```
 :::
 
-### Base
+### `mode` について
 
-* library(package) and require(package) both load the namespace of the package with name package and attach it on the search list.
-    * require is designed for use inside other functions; it returns FALSE and gives a warning (rather than an error as library() does by default) if the package does not exist.
+* `str(obj)`：R object の構造を教えてくれる．structure
+* `mode(obj)`：オブジェクトのモード＝データ型を返す．
+* `class(obj)`：R は全てのものはオブジェクトだから，class を返す．この値に従って dispatch されている．
 
-### Utils
+> Function `mode` gives information about the mode of an object in the sense of Becker, Chambers & Wilks (1988), and is more compatible with other implementations of the S language. -- [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html)
 
-* str(obj)：R objectの構造を教えてくれる．structure
-* mode(obj)：オブジェクトのモード＝データ型を返す．
-* class(obj)：Rは全てのものはオブジェクトだから，classを返す．
+* `storage.mode(obj)`：オブジェクトの storage mode を返す．
 
-* help()：?keywordと等価．
-    * Trig {base}：パッケージbaseのTrigについての説明．
-    * graphics::hist：はパッケージgraphicsの関数histについて．
-    * 特殊関数を調べるには””でescapeする必要があることがある．
-* example()：Rのこの機能やばすぎる
-    * help内の例を実行
-    * demo()にさらにある．
-* help.search()：??”keyword””と等価．
+> Finally, the function `storage.mode` returns the storage mode of its argument in the sense of Becker et al. (1988).  -- [R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html)
+
+* `help()`：`?keyword`と等価．
+    * `Trig {base}`：パッケージ base の Trig についての説明．
+    * `graphics::hist`：はパッケージ graphics の関数 hist について．
+    * 特殊関数を調べるには`””`で escape する必要があることがある．
+* `example()`：R のこの機能やばすぎる
+    * help 内の例を実行
+    * `demo()`がさらにある．
+* `help.search()`：`??”keyword”`と等価．
     * キーワード検索
-    * Google検索と同じ要領で使ってください．
+    * Google 検索と同じ要領で使ってください．
 
-## 統計処理
+## 属性
 
-### Stats
+`NULL`以外の全てのオブジェクトは`attribute`を持ち得る．`attribute`とは，全ての成分に名前がついた`pairlist`である．
 
-* runif(n [,min=0, max=1])：区間上の一様分布
-    * dunif：density
-    * punif：distribution function
-    * qunif：quantile function
-* rnorm(n [, mean=0, sd=1])：正規分布
-    * dnorm
-    * pnorm
-    * qnorm
-* sample(x, size [,replace=FALSE, prob=NULL])：ベクトルxの中からsize個をランダム抽出
-    * 元々が非復元抽出なので，size=length(x)とすると置換．replace=TRUEとすると復元抽出．
-    * probにvectorを引かせると，xの要素にでやすさの重みがつく．
+```{r}
+attributes(y ~ x1 + x2)
+```
 
-### 時系列分析
-* ts.plot()
+属性は，第一義的には R にクラス構造を実装するのに使われる．`class`属性を評価し，そのオブジェクトにどの function dispatch を適用するかを決定する．
 
-### Graphics
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/R0.html" target="_blank">
+      <img src="https://162348.github.io/thumbnail.svg" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">R の概観</h3>
+        <p class="article-description">R は統計計算のための言語です．  </p>
+      </div>
+    </a>
+  </div>
+</div>
+```
 
-* hist(x, …)
-    * breaks=“Starges”：binの数をStargesの公式で定めているところを，scaler nで指定できる．
-    * col=“NULL”：barsをfillする色”lightgreen”などにできる．
-    * main, xlab, ylab：title()でgetするattribution
-    * right=“TRUE”：デフォルトではbinはright-closedである．
-* plot(x[, y, …])
-    * xが適切な構造を持つならyはいらない．
-    * arrayを渡すと，タイル図になる．
-    * dfを渡すと，算譜図になる．
-* image(x)
-    * 
+### `names`
 
-### grDevices
+`names`は，ベクトルの各要素に名前をつけるための属性であり，indexing にも使われる．
 
-* hcl.colors(n)：n色のpalleteを作成する．
+### `class`
 
-### Datasets
-`data()`で一覧を見れる
-
-* co2
-    * Mauna LoaのCO2 concentration
-* volcano
-    * Aukland’s Maunga Whauのtopographic data
-    * 10m×10m範囲での
-* Titanic
-    * 4-dimentional array
-* airquality
-    * New York Airquality Measurement
-    * 6変数についてのdata frame
-* jpdata
-    * 統計局からの県別データでutf8なのでread.csv(file=“”, fileEncoding=“utf8”)が安全．
-    * jpdata1.csv：対象データ
-    * jpdata2.csv：対象データの内容
-    * jpdata3.csv：圏別と地域の対応関係
-* tokyo_weather
-    * 気象庁からのデータ．
-* tokyo_covid19
-    * 東京のstopcovid19.metro.tokyo.lg.jpのデータ項目．
+`class`は，オブジェクトのクラスを指定する文字列である．
