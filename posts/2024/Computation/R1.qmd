@@ -15,3 +15,483 @@ format:
     code-fold: false
 ---
 
+::: {.callout-important appearance="simple"}
+1. 全ては関数である．
+2. 全てはベクトルであり，複雑な構造は dispatch の賜物である．
+:::
+
+## 基本
+
+### 対話モード
+バッチ処理は`R CMD BATCH file.z`で行う．
+
+* R：どこからでも対話モードで実行可能なのが R．
+* `[1]`はすぐ隣の要素の index．ALGOL 系と違い，1から index する．
+    * ベクトルは基本横で`[1]`という行の名前の後に表示される，行列の行は`[1,]`と indexing される．indexing の表示の違いでクラスの違いがわかる．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+x <- c(10, 20, 30, 40)
+x
+```
+
+```{r}
+mat <- matrix(1:6, nrow = 2)
+mat
+```
+
+:::
+
+* 関数名直打ちは定義が帰ってくる．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+sum
+```
+
+:::
+
+* `()`も，直打ちも，generic function の神である print 関数を呼んでいる．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+x <- 42
+x
+```
+
+```{r}
+(x)
+```
+
+:::
+
+* working directory の概念がある．
+    * `getwd()`, `setwd()`
+
+### 関数
+
+* keyword をつけて呼び出せるが，位置が正しければ省略可能
+    * `f(arg1=value1, arg2=value2)`
+
+- R は **関数型言語** で，全ての実装は関数になっている．が，認知容易性のために予約語として実装された特殊文字を用いて，中置記法が使える．
+    - `+`などの二項演算子は`”+”(1,2)`として使える．
+    - `in`などの Condition Flow の宣言っぽい演算子も実装は関数．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+`+`(1, 2)
+```
+
+```{r}
+1 %in% c(1, 2, 3)
+```
+
+:::
+
+- 関数適用の大原則：**リサイクル**
+
+  logical の`==`も，`matrix(3,3,3)`も recycle される．
+    - `(1,2,3) == (2,3,4)`はベクトルの同一性を表さず，`(F,F,F)`を返し，`matrix(3,3,3)`は３でrecycleされた3×3行列．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+c(1, 2, 3) + c(4, 5)
+```
+
+```{r}
+c(1, 2, 3) == c(2, 3, 4)
+```
+
+```{r}
+matrix(3, nrow = 3, ncol = 3)
+```
+
+:::
+
+### オブジェクト操作
+`?Syntax`で演算の速さなどがわかる．
+
+* 代入
+    * `foo <- object`または`object -> foo`
+    * `<<-`は再帰的代入
+        * 関数の中でしか使われず，親 environment やグローバル環境の中からも右辺を探す．右辺が見つかったら再びそれを代入する．
+    * `=`は代入もできる
+    
+    > the operator `=` is only allowed at the top level (e.g., in the complete expression typed at the command prompt) or as one of the subexpressions in a braced list of expressions.
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+foo <- 1
+
+change_foo <- function() {
+  foo <<- foo + 1
+}
+
+change_foo()
+print(foo)
+```
+
+:::
+
+* evaluetion
+    * `(object)`
+        * `print(object)` と等価．console だと裸で良い．
+* `;`
+    * 命令の併記
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+x <- 1; y <- 2; z <- x + y
+print(z)
+```
+
+:::
+
+* 変数名に数字が使えるのいいな．
+  * 語頭は数字にはできない．
+
+## オブジェクト
+
+### データ構造：built-in は５つ
+
+* vector
+    * scaler オブジェクトは長さ１の vector として実装されている？
+        * scaler は数値，文字列，論理値など．
+    * `c()`が constructor
+    * `x[]`で indexing できる
+        * `[]`の中身はベクトルで指定できる！これが slice の代わり．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+x <- c(10, 20, 30, 40, 50)
+x[1]
+```
+
+```{r}
+x[2:4]
+```
+
+:::
+
+* matrix
+    * `matrix()` がコンストラクタ
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+mat <- matrix(1:9, nrow = 3, ncol = 3)
+mat
+```
+
+```{r}
+mat[2, 3]
+```
+
+:::
+
+* list：ベクトルとの違いはデータ型が不均一であるのを認めること．
+    * `list()` がコンストラクタ
+    * 多分データ分析じゃない計算機命令的な棲み分け．一番 csv みたい，
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+lst <- list(name = "Alice", age = 25, scores = c(90, 85, 88))
+lst
+```
+
+```{r}
+lst[[1]]
+```
+
+```{r}
+lst$name
+```
+
+:::
+
+* data frame：要は実データに即した構造で，行列の拡張．csv みたいな．長さの等しい vector の list．
+    * `data.frame` がコンストラクタ．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+df <- data.frame(name = c("Alice", "Bob"), age = c(25, 30))
+df
+```
+
+```{r}
+df[1, 2]
+```
+
+```{r}
+df$name
+```
+
+:::
+
+* array：ベクトル，行列のその先へ
+    * `array`がコンストラクタ
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+arr <- array(1:8, dim = c(2, 2, 2))
+arr
+```
+
+```{r}
+arr[1, 2, 2]
+```
+
+:::
+
+### データ型：built-in は 25^[[@Wickham2019] [第12章](https://adv-r.hadley.nz/base-types.html)．]
+`typeof()`で調べる
+
+* `int`：整数
+* `double`：クラスとしては`numeric`として実装されている．浮動小数点
+  * `3.4e-2`は $3.4×10^-2$ で表す．
+* `complex`：`1i`を虚数単位とし，`a+bi`と表す．
+* `character`
+    * `paste(x,y,[sep=“ “])`
+* `logical`：Boole 値
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+typeof(1L)
+```
+
+```{r}
+typeof(1i)
+```
+
+```{r}
+typeof(FALSE)
+```
+
+
+:::
+
+* `print(pi, digit=12)`
+    * 任意精度表示．多分 print.numeric_version への dispatch
+
+```{r}
+print(pi, digit=12)
+```
+
+### 予約語とそのデータ型
+
+* `pi`, `e`：`double`型
+* `Inf`, `NaN`：`doule`型
+* `T`,`F`：TRUE と FALSE の予約．`logical` 型
+    * `as.numeric()`で`1`,`0`に埋め込まれる．
+* `NA`：Not Available，統計データの欠損を表す．
+    * 各モードに１つずつ存在する generic な存在である．
+    * `NA_integer_`, `NA_real_`, `NA_complex_`, `NA_character_`, `NA_logical_`, ......
+* `LETTERS`, `letters`：アルファベットのベクトル，`character` 型
+* `NULL`：`NULL` 型でモードを持たない特殊なオブジェクト．$\emptyset$ のこと．
+
+::: {.callout-caution collapse="true" title="例"}
+
+```{r}
+LETTERS
+```
+
+:::
+
+### データ構造
+`class()`で調べることが出来る．
+
+多くはデータ型（`typeof()`）と一致する．
+
+```{r}
+typeof(pi)
+```
+
+```{r}
+class(pi)
+```
+
+### Logical：２値関数
+ベクトルを各成分ごとに評価して，logical vector を返す関数．
+
+* `!=`, `>=`, `<=`
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(1, 2, 3)
+y <- c(3, 2, 1)
+x != y
+```
+
+```{r}
+x >= y
+```
+
+```{r}
+x <= y
+```
+
+:::
+
+* `is.null()`, `is.na()`, `is.nan()`, `is.finite()`, `is.infinite()`
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+is.na(c(1, NA, 3))
+```
+```{r}
+is.finite(c(1, Inf, NA, NaN))
+```
+:::
+
+* `identical(1,1.0)`：`T`である，いずれも倍精度浮動小数点で表現されるので．
+* `all.equal()`：「ほぼ同じ」かどうか．数値の近似比較に使える．
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+identical(1, 1.0)
+```
+```{r}
+all.equal(1, 1.0000001)
+```
+:::
+
+* `&`,`|`：論理積・和
+* `&&`, `||`：条件式の論理積・和
+  * `&`,`|`と違い，ベクトルには使えない．
+* `xor()`：排他的論理和
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(TRUE, FALSE, TRUE)
+y <- c(TRUE, TRUE, FALSE)
+x & y
+```
+```{r}
+#| error: true
+x && y
+```
+```{r}
+xor(x, y)
+```
+:::
+
+* `%in%`：match の二項関係版 interface．
+    * `"%in%" <- function(x, table) match(x, table, nomatch = 0) > 0`が現状の定義
+* `with(data, expr, …)`
+    * `data`：data frame
+    * `expr`は`data`の列名に関する expression をベタがき
+    * 列ごとに`expr`を実行した結果を返す．
+* `match(x, table)`
+    * `x %in% table`と使える．
+    * `x`：vector
+    * `table`：vector
+    * 返り値：logical vector
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+x <- c(1, 2, 3)
+table <- c(2, 3, 4)
+x %in% table
+```
+```{r}
+match(x, table)
+```
+```{r}
+data <- data.frame(a = 1:3, b = 4:6)
+with(data, a + b)
+```
+:::
+
+### Base
+
+* library(package) and require(package) both load the namespace of the package with name package and attach it on the search list.
+    * require is designed for use inside other functions; it returns FALSE and gives a warning (rather than an error as library() does by default) if the package does not exist.
+
+### Utils
+
+* str(obj)：R objectの構造を教えてくれる．structure
+* mode(obj)：オブジェクトのモード＝データ型を返す．
+* class(obj)：Rは全てのものはオブジェクトだから，classを返す．
+
+* help()：?keywordと等価．
+    * Trig {base}：パッケージbaseのTrigについての説明．
+    * graphics::hist：はパッケージgraphicsの関数histについて．
+    * 特殊関数を調べるには””でescapeする必要があることがある．
+* example()：Rのこの機能やばすぎる
+    * help内の例を実行
+    * demo()にさらにある．
+* help.search()：??”keyword””と等価．
+    * キーワード検索
+    * Google検索と同じ要領で使ってください．
+
+## 統計処理
+
+### Stats
+
+* runif(n [,min=0, max=1])：区間上の一様分布
+    * dunif：density
+    * punif：distribution function
+    * qunif：quantile function
+* rnorm(n [, mean=0, sd=1])：正規分布
+    * dnorm
+    * pnorm
+    * qnorm
+* sample(x, size [,replace=FALSE, prob=NULL])：ベクトルxの中からsize個をランダム抽出
+    * 元々が非復元抽出なので，size=length(x)とすると置換．replace=TRUEとすると復元抽出．
+    * probにvectorを引かせると，xの要素にでやすさの重みがつく．
+
+### 時系列分析
+* ts.plot()
+
+### Graphics
+
+* hist(x, …)
+    * breaks=“Starges”：binの数をStargesの公式で定めているところを，scaler nで指定できる．
+    * col=“NULL”：barsをfillする色”lightgreen”などにできる．
+    * main, xlab, ylab：title()でgetするattribution
+    * right=“TRUE”：デフォルトではbinはright-closedである．
+* plot(x[, y, …])
+    * xが適切な構造を持つならyはいらない．
+    * arrayを渡すと，タイル図になる．
+    * dfを渡すと，算譜図になる．
+* image(x)
+    * 
+
+### grDevices
+
+* hcl.colors(n)：n色のpalleteを作成する．
+
+### Datasets
+`data()`で一覧を見れる
+
+* co2
+    * Mauna LoaのCO2 concentration
+* volcano
+    * Aukland’s Maunga Whauのtopographic data
+    * 10m×10m範囲での
+* Titanic
+    * 4-dimentional array
+* airquality
+    * New York Airquality Measurement
+    * 6変数についてのdata frame
+* jpdata
+    * 統計局からの県別データでutf8なのでread.csv(file=“”, fileEncoding=“utf8”)が安全．
+    * jpdata1.csv：対象データ
+    * jpdata2.csv：対象データの内容
+    * jpdata3.csv：圏別と地域の対応関係
+* tokyo_weather
+    * 気象庁からのデータ．
+* tokyo_covid19
+    * 東京のstopcovid19.metro.tokyo.lg.jpのデータ項目．
