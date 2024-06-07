@@ -21,6 +21,40 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -80,15 +114,44 @@ gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../styles.css">
 <meta property="og:title" content="Hirofumi Shiba - R（２）ベクトル">
 <meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Computation/anomaths.png">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - R（２）ベクトル">
 <meta name="twitter:description" content="R は統計計算のための言語です．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Computation/anomaths.png">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -191,6 +254,33 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <li><a href="#すべてはベクトルである" id="toc-すべてはベクトルである" class="nav-link" data-scroll-target="#すべてはベクトルである"><span class="header-section-number">1.1</span> すべてはベクトルである</a></li>
   <li><a href="#他のデータ型との関係" id="toc-他のデータ型との関係" class="nav-link" data-scroll-target="#他のデータ型との関係"><span class="header-section-number">1.2</span> 他のデータ型との関係</a></li>
   </ul></li>
+  <li><a href="#ベクトル" id="toc-ベクトル" class="nav-link" data-scroll-target="#ベクトル"><span class="header-section-number">2</span> ベクトル</a>
+  <ul class="collapse">
+  <li><a href="#構成" id="toc-構成" class="nav-link" data-scroll-target="#構成"><span class="header-section-number">2.1</span> 構成</a></li>
+  <li><a href="#単項演算-vto-v" id="toc-単項演算-vto-v" class="nav-link" data-scroll-target="#単項演算-vto-v"><span class="header-section-number">2.2</span> 単項演算 <span class="math inline">\(V\to V\)</span></a></li>
+  <li><a href="#index-付与自分で-index-を変えられる" id="toc-index-付与自分で-index-を変えられる" class="nav-link" data-scroll-target="#index-付与自分で-index-を変えられる"><span class="header-section-number">2.3</span> index 付与：自分で index を変えられる．</a></li>
+  <li><a href="#単項演算-vto-k統計的特徴の抽出" id="toc-単項演算-vto-k統計的特徴の抽出" class="nav-link" data-scroll-target="#単項演算-vto-k統計的特徴の抽出"><span class="header-section-number">2.4</span> 単項演算 <span class="math inline">\(V\to K\)</span>：統計的特徴の抽出</a></li>
+  <li><a href="#単項演算-vto2条件" id="toc-単項演算-vto2条件" class="nav-link" data-scroll-target="#単項演算-vto2条件"><span class="header-section-number">2.5</span> 単項演算 <span class="math inline">\(V\to2\)</span>：条件</a></li>
+  <li><a href="#indexingベクトルの構成法３つcseqに対応した-indexing-法がある" id="toc-indexingベクトルの構成法３つcseqに対応した-indexing-法がある" class="nav-link" data-scroll-target="#indexingベクトルの構成法３つcseqに対応した-indexing-法がある"><span class="header-section-number">2.6</span> indexing：ベクトルの構成法３つ<code>:</code>,<code>c</code>,<code>seq</code>に対応した indexing 法がある．</a></li>
+  <li><a href="#数値演算-v2to-v" id="toc-数値演算-v2to-v" class="nav-link" data-scroll-target="#数値演算-v2to-v"><span class="header-section-number">2.7</span> 数値演算 <span class="math inline">\(V^2\to V\)</span></a></li>
+  <li><a href="#文字列演算" id="toc-文字列演算" class="nav-link" data-scroll-target="#文字列演算"><span class="header-section-number">2.8</span> 文字列演算</a></li>
+  </ul></li>
+  <li><a href="#行列" id="toc-行列" class="nav-link" data-scroll-target="#行列"><span class="header-section-number">3</span> 行列</a>
+  <ul class="collapse">
+  <li><a href="#構成-1" id="toc-構成-1" class="nav-link" data-scroll-target="#構成-1"><span class="header-section-number">3.1</span> 構成</a></li>
+  <li><a href="#操作" id="toc-操作" class="nav-link" data-scroll-target="#操作"><span class="header-section-number">3.2</span> 操作</a></li>
+  <li><a href="#indexing-周り" id="toc-indexing-周り" class="nav-link" data-scroll-target="#indexing-周り"><span class="header-section-number">3.3</span> indexing 周り</a></li>
+  <li><a href="#一項演算" id="toc-一項演算" class="nav-link" data-scroll-target="#一項演算"><span class="header-section-number">3.4</span> 一項演算</a></li>
+  <li><a href="#二項演算" id="toc-二項演算" class="nav-link" data-scroll-target="#二項演算"><span class="header-section-number">3.5</span> 二項演算</a></li>
+  </ul></li>
+  <li><a href="#generic-operator" id="toc-generic-operator" class="nav-link" data-scroll-target="#generic-operator"><span class="header-section-number">4</span> generic operator</a>
+  <ul class="collapse">
+  <li><a href="#ベクトルと行列で挙動が違う-generic-単項関数-knto-v" id="toc-ベクトルと行列で挙動が違う-generic-単項関数-knto-v" class="nav-link" data-scroll-target="#ベクトルと行列で挙動が違う-generic-単項関数-knto-v"><span class="header-section-number">4.1</span> ベクトルと行列で挙動が違う generic 単項関数 <span class="math inline">\(K^n\to V\)</span></a></li>
+  <li><a href="#ベクトルも行列も同等に扱う二項演算" id="toc-ベクトルも行列も同等に扱う二項演算" class="nav-link" data-scroll-target="#ベクトルも行列も同等に扱う二項演算"><span class="header-section-number">4.2</span> ベクトルも行列も同等に扱う二項演算</a></li>
+  <li><a href="#数学関数はベクトル化されている" id="toc-数学関数はベクトル化されている" class="nav-link" data-scroll-target="#数学関数はベクトル化されている"><span class="header-section-number">4.3</span> 数学関数はベクトル化されている．</a></li>
+  <li><a href="#関数のベクトル化" id="toc-関数のベクトル化" class="nav-link" data-scroll-target="#関数のベクトル化"><span class="header-section-number">4.4</span> 関数のベクトル化</a></li>
+  </ul></li>
+  <li><a href="#配列" id="toc-配列" class="nav-link" data-scroll-target="#配列"><span class="header-section-number">5</span> 配列</a></li>
   </ul>
 </nav>
     </div>
@@ -201,6 +291,31 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+$$
+<p>%%% 演算子 </p>
+%%% 線型代数学
+<p>%%% 複素解析学 %%% 集合と位相 </p>
+<p>%%% 形式言語理論 %%% Graph Theory </p>
+%%% 多様体 %%% 代数 %%% 代数的位相幾何学 %%% 微分幾何学
+%%% 函数解析
+%%% 積分論
+<p>%%% Fourier解析 %%% 数値解析 </p>
+%%% 確率論
+<p>%%% 情報理論 %%% 量子論 %%% 最適化 %%% 数理ファイナンス </p>
+<p>%%% 偏微分方程式 %%% 常微分方程式 %%% 統計力学 %%% 解析力学 </p>
+%%% 統計的因果推論 %%% 応用統計学 %%% 数理統計
+<p>%%% 計量経済学 </p>
+%%% 無限次元統計模型の理論
+<p>%%% Banach Lattices </p>
+<p>%%% 圏 %代数の圏 %Metric space &amp; Contraction maps %確率空間とMarkov核の圏 %Sober space &amp; continuous map %Category of open subsets %Category of sheave %Category of presheave, PSh(C)=[C^op,set]のこと %Convergence spaceの圏 %一様空間と一様連続写像の圏 %フレームとフレームの射 %その反対圏 %滑らかな多様体の圏 %Quiverの圏 </p>
+%%% SMC
+%%% 括弧類
+<p>%%% 予約語 </p>
+<p>%%% 略記 </p>
+<p>%%% 矢印類 $$</p>
+</div>
 <section id="概観" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="概観"><span class="header-section-number">1</span> 概観</h2>
 <section id="すべてはベクトルである" class="level3" data-number="1.1">
@@ -221,7 +336,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <div class="article-card-container">
   <div class="article-card">
     <a href="https://162348.github.io/posts/2024/Computation/R3.html" target="_blank">
-      <img src="https://162348.github.io/thumbnail.svg" alt="Article Image" class="article-image">
+      <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
       <div class="article-content">
         <h3 class="article-title anchored" data-anchor-id="リスト">R（３）リスト</h3>
         <p class="article-description">R におけるリストは，独自の index `$` を持った構造体であり，Python の dictionary， Perl の hash table に似ている．`$` は S3 の機能で，S4 は `@` である．これはリストが本質的に R の実装の深いところに存在するデータ型だからである． </p>
@@ -229,65 +344,276 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     </a>
   </div>
 </div>
-<p>ベクトルは基本横で<code>[1]</code>という行の名前の後に表示される，行列はそのdim属性のために基本縦で[,1]とindexingされる．indexingの表示の違いでクラスの違いがわかる．</p>
-<p>まずベクトルの時点で定義される演算を紹介し，インデックスを紹介する．全てのオブジェクトはベクトルなので，ベクトルをベクトルでインデックスするという奇怪な状況が発生する．またRでは演算のほとんどがベクトル化されていて，これを使いこなすことが高速化の最初の手法になる． 次に行列を定義し，行列特有の演算を見る．</p>
-<p>ベクトル スカラーなどの概念はない，全てはベクトル． 文字列も，character modeの長さ１ベクトル．</p>
-<p>構成 1. 基本的にはベクトルのためのコンストラクタc(arg1,arg2,…)を用いる．実は浮動小数点モードを生成する． * 引数もベクトルなので，本質はconcatenation * データ型が強制される，これがlistとの違い． 2. a:b：a&lt;bならば増加，a&gt;bならば減少の，step=1のベクトルの生成．実は整数モードを生成する． 3. seq(from=1,to=1,by=((to - from)/(length.out - 1))) * 上の方法だと1:0は[1] 1 0を返すので安全でない． * seq(NULL)はNULLを返すので安全． 4. rep(y,times=n,each,length.out) * times：=3でn回繰り返す． * each：=3とすると各要素を３回繰り返す． * length.out：=3とすると出力の長さを制限</p>
+<p>ベクトルは基本横で<code>[1]</code>という行の名前の後に表示される，行列はその<code>dim</code>属性のために基本縦で<code>[,1]</code>と indexing される．indexing の表示の違いでクラスの違いがわかる．</p>
+<p>まずベクトルの時点で定義される演算を紹介し，インデックスを紹介する．全てのオブジェクトはベクトルなので，ベクトルをベクトルでインデックスするという奇怪な状況が発生する．また R では演算のほとんどがベクトル化されていて，これを使いこなすことが高速化の最初の手法になる． 次に行列を定義し，行列特有の演算を見る．</p>
+</section>
+</section>
+</section>
+<section id="ベクトル" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="ベクトル"><span class="header-section-number">2</span> ベクトル</h2>
+<p>スカラーなどの概念はない，全てはベクトル． 文字列も，<code>character</code> modeの長さ１ベクトル．</p>
+<section id="構成" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="構成"><span class="header-section-number">2.1</span> 構成</h3>
+<ol type="1">
+<li>基本的にはベクトルのためのコンストラクタ<code>c(arg1,arg2,...)</code>を用いる．実は浮動小数点モードを生成する．
 <ul>
-<li>要素ごとに代入したい場合は宣言が必要（ベクトルを指すと判明していないポインタに向かってindexingをするy[2]という書き方は禁忌）．y &lt;- vector(length=n)としてポインタを作ってから，y[1]&lt;-5などと代入していく．
+<li>引数もベクトルなので，本質は concatenation</li>
+<li>データ型が強制される，これが list との違い．</li>
+</ul></li>
+<li><code>a:b</code>：<code>a&lt;b</code>ならば増加，<code>a&gt;b</code>ならば減少の，<code>step=1</code>のベクトルの生成．実は整数モードを生成する．</li>
+<li><code>seq(from=1,to=1,by=((to - from)/(length.out - 1)))</code>
 <ul>
-<li>ベクトルの再割り当ては時間がかかるので，関数定義で返り値のためにベクトルの積み上げをしたい場合は，ret &lt;- vector(length=n)とした方がいい．返す前にret &lt;- ret[1:n]として未使用部分を無くすために再割り当てをして2回で済ませるのがいい．</li>
+<li>上の方法だと<code>1:0</code>は<code>[1] 1 0</code>を返すので安全でない．</li>
+<li><code>seq(NULL)</code>は<code>NULL</code>を返すので安全．</li>
+</ul></li>
+<li><code>rep(y,times=n,each,length.out)</code>
+<ul>
+<li><code>times</code>：<code>=3</code>で<code>n</code>回繰り返す．</li>
+<li><code>each</code>：<code>=3</code>とすると各要素を３回繰り返す．</li>
+<li><code>length.out</code>：<code>=3</code>とすると出力の長さを制限</li>
+</ul></li>
+</ol>
+<ul>
+<li>要素ごとに代入したい場合は宣言が必要（ベクトルを指すと判明していないポインタに向かって indexing をする<code>y[2]</code>という書き方は禁忌）．<code>y &lt;- vector(length=n)</code>としてポインタを作ってから，<code>y[1]&lt;-5</code>などと代入していく．
+<ul>
+<li>ベクトルの再割り当ては時間がかかるので，関数定義で返り値のためにベクトルの積み上げをしたい場合は，<code>ret &lt;- vector(length=n)</code>とした方がいい．返す前に<code>ret &lt;- ret[1:n]</code>として未使用部分を無くすために再割り当てをして2回で済ませるのがいい．</li>
 </ul></li>
 </ul>
-<p>単項演算V→V * 操作 * rev(x)：反転 * t(x)：転置 * 表示 * head(x[, n=6L]) * tail(x[, n=6L])</p>
-<p>index付与：自分でindexを変えられる． * names属性を付与できるが，リストにはならない． * names(x) &lt;- ：colnamesかrownamesか，どちらか適切な方． * names(x) &lt;- NULL：削除．</p>
-<p>単項演算V→K：統計的特徴の抽出 * 長さ：length(x) * 行列などに対しては，属性を外してベクトルと見て演算して，属性を戻すとかそういう感じ． * mean(a, na.rm=F)：算術平均．na.rm=TでNAがあっても適用可能になる． * sum(a)：総和 * prod(a)：漱石 * max(a)： * sd(x)：standard deviation</p>
-<p>単項演算V→2：条件 * all(expr)：exprの結果であるlogical vectorが，全てTかどうかを判定して長さ１ベクトルを返す * any(expr)：exprの結果であるlogical vectorが，Tが存在するかを判定して長さ１ベクトルを返す</p>
-<p>indexing：ベクトルの構成法３つ”:,c,seq”に対応したindexing法がある． * y[c(1,3,4)]：scalerは退化したベクトルなのでこれがあるべき姿 * y[-c(1,3,4)]：除外は負数を用いる．y[-length(y)]は最後の要素の除外．y[-1:-2]は1,2番目の除外． * tail(x,[n=]1)：右後ろからindexing</p>
-<p>数値演算V^2→V * 同次元演算 * a+b, a-b * a<em>b：Hadamard積，a/b </em> a %<em>% b：内積 </em> %o%：外積 * %/%：整数除算 * a^b：冪で，**でも実行できるが非推奨． * %%：mod．情報落ちを検出したら警告が出るようになっている． - recycle：長さがどちらかの定数倍である時，演算を繰り返す．</p>
-<p>文字列演算 * paste(“str1”, “str2”)：concatenation * strsplit(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE)</p>
+</section>
+<section id="単項演算-vto-v" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="単項演算-vto-v"><span class="header-section-number">2.2</span> 単項演算 <span class="math inline">\(V\to V\)</span></h3>
 <ul>
-<li>ベクトルはCの配列のように，連続的に格納されているので，要素の挿入や削除は新しく作るのと等価．実装はCのpointerと同じで，再代入はポインタの指す先を変えることで再割り当てを実現する．</li>
-</ul>
-<p>行列 dim属性（ncolとnrow）のついたベクトルで，縦に並んだベクトルをdim属性を参照しながら横にずらしながら構成される．</p>
-<p>構成 1. ベクトルへの属性付与による構成 * ベクトルにdim属性を付与するコンストラクタmatrix([data=]a,[nrow=]m,[ncol=]n)：aがscalerの場合m×nをa-fillする，aがベクトルの場合m×nにfillしていく． * fillの順番は列ごとで，byrow=TRUEとすると行ごとになる． * この逆変換はas.vector(A) 2. ベクトルの結合による構成 * rbind(a,b,c)：行ベクトルとして結合，あるいは行列の横結合． * cbind(a,b,c)：列ベクトルとして結合，あるいは行列の縦結合． * dim(x) &lt;- c(n,m)：ベクトルに次元のデータを加えて，行列に変換する． - メモリ確保はmatrix(nrow=a,ncol=b)でなされる．</p>
-<p>操作 * rownames(), colnames() &lt;- name：名前をつけられる． * t(A)：転置</p>
-<p>indexing周り * dim(A)：返り値は長さ2のベクトル * nrow(A)=dim(A)[1] * ncol(A)=dim(A)[2] * A[行,列]：空欄を渡すと走る，長さ2以上のベクトルを渡すと複数選択 * [,2]などでも行ベクトルで帰ってくる．これは全てのベクトルは横で表示されるから． * [n]だと，列を繋げた順序についてのindexingで，要素が返ってくる． - 抽出した部分行列に値が部分代入できる．</p>
-<p>一項演算 * ノルム * norm(A [,type=c(“o”, ”I”, ”F”, ”M”, ”2”)]) * one, infinity, flobenius=Eucleadean as a vector, maximum modulus, 2はspectral norm． * l2ノルムはsqrt(a %<em>% a)::matrixでいける </em> 正方行列 * det(A) * sum(diag(A))：tr</p>
-<p>二項演算 * 同次元演算 * A+B, A-B * A<em>B, A/B：Hadamard積 </em> A %*% B：行列積</p>
+<li>操作
 <ul>
-<li>逆行列solve(A)</li>
-<li>一般化逆行列(Moore-Penrose pseudoinverse)
+<li><code>rev(x)</code>：反転</li>
+<li><code>t(x)</code>：転置</li>
+</ul></li>
+<li>表示
 <ul>
-<li>library(MASS)ginv(A)</li>
+<li><code>head(x[, n=6L])</code></li>
+<li><code>tail(x[, n=6L])</code></li>
 </ul></li>
 </ul>
-<p>generic operator 行列はベクトルなので，ほとんどの関数はベクトルだと思って作用する．属性を外してベクトルと見て演算して，属性を戻すとかそういう感じ．</p>
-<p>ベクトルと行列で挙動が違うgeneric単項関数K^n→V * diag(x)：引数がベクトルなら対角行列の作成．diag(rep(1,n))=En．行列ならベクトルを返す．</p>
-<p>ベクトルも行列も同等に扱う二項演算 * +, -：長さが整数倍ならば，repしてから足す． * Hadamard積 <em>：scalerと行列ならば普段の積．%</em>%ではエラーになる． * %<em>%：これは数学でもgenericよね． </em> xA=行ベクトル，Ax=列ベクトルと返り値が定まり，xの縦横に依らない．</p>
+</section>
+<section id="index-付与自分で-index-を変えられる" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="index-付与自分で-index-を変えられる"><span class="header-section-number">2.3</span> index 付与：自分で index を変えられる．</h3>
 <ul>
-<li>solve(A,B)：Bがベクトルの時，Ax=bを解く．行列のときはAX=Bを解く．
+<li><code>names</code>属性を付与できるが，リストにはならない．
 <ul>
-<li>Bを省略するとEnとみなされ，したがって解はX=A^{-1}</li>
+<li><code>names(x) &lt;-</code> ：colnames か rownames か，どちらか適切な方．</li>
+<li><code>names(x) &lt;- NULL</code>：削除．</li>
 </ul></li>
 </ul>
-<p>数学関数はベクトル化されている． * sin(), exp(), abs(), sqrt(), log(), log10(), acos(), sinpi() * 1:10<em>2は(1:10)</em>2だが，1:10^2は1:100 * log([x=]b,[base=exp(1)]) * acos：逆三角関数 * sinpi(3/2)：sin(pi<em>3/2)に同じ </em> round(), floor(), ceiling() * factorial() * x&gt;3などの評価：条件評価も実際は関数． * １．3がrecycleされてxと同じ長さになる． * ２．point-wiseに評価が行われて， * ３．logicalのベクトルを返す． * 複数のベクトルを値に取る関数 * pmax() * cumsum(), cumprod()</p>
-<p>関数のベクトル化 * sapply(x,f) * fをxの各要素に適用し，返り値を行列とする． * fがベクトルの長さを伸ばすような関数だった場合，行列化処理と合成するのが自然で，これを勝手にやってくれる．</p>
-<p>配列 n次元リストで，一番一般的なデータ構造．</p>
+</section>
+<section id="単項演算-vto-k統計的特徴の抽出" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="単項演算-vto-k統計的特徴の抽出"><span class="header-section-number">2.4</span> 単項演算 <span class="math inline">\(V\to K\)</span>：統計的特徴の抽出</h3>
+<ul>
+<li>長さ：<code>length(x)</code>
+<ul>
+<li>行列などに対しては，属性を外してベクトルと見て演算して，属性を戻すとかそういう感じ．</li>
+</ul></li>
+<li><code>mean(a, na.rm=F)</code>：算術平均．<code>na.rm=T</code>で<code>NA</code>があっても適用可能になる．</li>
+<li><code>sum(a)</code>：総和</li>
+<li><code>prod(a)</code>：総積</li>
+<li><code>max(a)</code>：</li>
+<li><code>sd(x)</code>：standard deviation</li>
+</ul>
+</section>
+<section id="単項演算-vto2条件" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="単項演算-vto2条件"><span class="header-section-number">2.5</span> 単項演算 <span class="math inline">\(V\to2\)</span>：条件</h3>
+<ul>
+<li><code>all(expr)</code>：expr の結果である logical vector が，全て<code>T</code>かどうかを判定して長さ１ベクトルを返す</li>
+<li><code>any(expr)</code>：expr の結果である logical vector が，<code>T</code>が存在するかを判定して長さ１ベクトルを返す</li>
+</ul>
+</section>
+<section id="indexingベクトルの構成法３つcseqに対応した-indexing-法がある" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="indexingベクトルの構成法３つcseqに対応した-indexing-法がある"><span class="header-section-number">2.6</span> indexing：ベクトルの構成法３つ<code>:</code>,<code>c</code>,<code>seq</code>に対応した indexing 法がある．</h3>
+<ul>
+<li><code>y[c(1,3,4)]</code>：scaler は退化したベクトルなのでこれがあるべき姿</li>
+<li><code>y[-c(1,3,4)]</code>：除外は負数を用いる．<code>y[-length(y)]</code>は最後の要素の除外．<code>y[-1:-2]</code>は1,2番目の除外．</li>
+<li><code>tail(x,[n=]1)</code>：右後ろから indexing</li>
+</ul>
+</section>
+<section id="数値演算-v2to-v" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="数値演算-v2to-v"><span class="header-section-number">2.7</span> 数値演算 <span class="math inline">\(V^2\to V\)</span></h3>
+<ul>
+<li>同次元演算
+<ul>
+<li><code>a+b</code>, <code>a-b</code></li>
+<li><code>a*b</code>：Hadamard積，<code>a/b</code></li>
+<li><code>a %*% b</code>：内積</li>
+<li><code>%o%</code>：外積</li>
+<li><code>%/%</code>：整数除算</li>
+<li><code>a^b</code>：冪で，<code>**</code>でも実行できるが非推奨．</li>
+<li><code>%%</code>：mod．情報落ちを検出したら警告が出るようになっている．</li>
+</ul></li>
+<li>recycle：長さがどちらかの定数倍である時，演算を繰り返す．</li>
+</ul>
+</section>
+<section id="文字列演算" class="level3" data-number="2.8">
+<h3 data-number="2.8" class="anchored" data-anchor-id="文字列演算"><span class="header-section-number">2.8</span> 文字列演算</h3>
+<ul>
+<li><p><code>paste(“str1”, “str2”)</code>：concatenation</p></li>
+<li><p><code>strsplit(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE)</code></p></li>
+<li><p>ベクトルは C の配列のように，連続的に格納されているので，要素の挿入や削除は新しく作るのと等価．実装は C の pointer と同じで，再代入はポインタの指す先を変えることで再割り当てを実現する．</p></li>
+</ul>
+</section>
+</section>
+<section id="行列" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="行列"><span class="header-section-number">3</span> 行列</h2>
+<p><code>dim</code>属性（<code>ncol</code>と<code>nrow</code>）のついたベクトルで，縦に並んだベクトルを<code>dim</code>属性を参照しながら横にずらしながら構成される．</p>
+<section id="構成-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="構成-1"><span class="header-section-number">3.1</span> 構成</h3>
+<ol type="1">
+<li>ベクトルへの属性付与による構成
+<ul>
+<li>ベクトルにdim属性を付与するコンストラクタmatrix([data=]a,[nrow=]m,[ncol=]n)：aがscalerの場合m×nをa-fillする，aがベクトルの場合m×nにfillしていく．
+<ul>
+<li>fillの順番は列ごとで，byrow=TRUEとすると行ごとになる．</li>
+<li>この逆変換はas.vector(A)</li>
+</ul></li>
+</ul></li>
+<li>ベクトルの結合による構成
+<ul>
+<li>rbind(a,b,c)：行ベクトルとして結合，あるいは行列の横結合．</li>
+<li>cbind(a,b,c)：列ベクトルとして結合，あるいは行列の縦結合．</li>
+<li>dim(x) &lt;- c(n,m)：ベクトルに次元のデータを加えて，行列に変換する．</li>
+</ul></li>
+</ol>
+<ul>
+<li>メモリ確保はmatrix(nrow=a,ncol=b)でなされる．</li>
+</ul>
+</section>
+<section id="操作" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="操作"><span class="header-section-number">3.2</span> 操作</h3>
+<ul>
+<li>rownames(), colnames() &lt;- name：名前をつけられる．</li>
+<li>t(A)：転置</li>
+</ul>
+</section>
+<section id="indexing-周り" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="indexing-周り"><span class="header-section-number">3.3</span> indexing 周り</h3>
+<ul>
+<li>dim(A)：返り値は長さ2のベクトル</li>
+<li>nrow(A)=dim(A)[1]</li>
+<li>ncol(A)=dim(A)[2]</li>
+<li>A[行,列]：空欄を渡すと走る，長さ2以上のベクトルを渡すと複数選択
+<ul>
+<li>[,2]などでも行ベクトルで帰ってくる．これは全てのベクトルは横で表示されるから．</li>
+<li>[n]だと，列を繋げた順序についてのindexingで，要素が返ってくる．</li>
+</ul></li>
+<li>抽出した部分行列に値が部分代入できる．</li>
+</ul>
+</section>
+<section id="一項演算" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="一項演算"><span class="header-section-number">3.4</span> 一項演算</h3>
+<ul>
+<li>ノルム
+<ul>
+<li>norm(A [,type=c(“o”, ”I”, ”F”, ”M”, ”2”)])
+<ul>
+<li>one, infinity, flobenius=Eucleadean as a vector, maximum modulus, 2はspectral norm．</li>
+<li>l2ノルムはsqrt(a %*% a)::matrixでいける</li>
+</ul></li>
+</ul></li>
+<li>正方行列
+<ul>
+<li><code>det(A)</code></li>
+<li><code>sum(diag(A))</code>：<span class="math inline">\(\mathop{\mathrm{Tr}}\)</span></li>
+</ul></li>
+</ul>
+</section>
+<section id="二項演算" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="二項演算"><span class="header-section-number">3.5</span> 二項演算</h3>
+<ul>
+<li><p>同次元演算</p>
+<ul>
+<li><code>A+B</code>, <code>A-B</code></li>
+<li><code>A*B</code>, <code>A/B</code>：Hadamard積</li>
+<li><code>A %*% B</code>：行列積</li>
+</ul></li>
+<li><p>逆行列<code>solve(A)</code></p></li>
+<li><p>一般化逆行列 (Moore-Penrose pseudoinverse)</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MASS)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ginv</span>(A)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+</ul>
+</section>
+</section>
+<section id="generic-operator" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="generic-operator"><span class="header-section-number">4</span> generic operator</h2>
+<p>行列はベクトルなので，ほとんどの関数はベクトルだと思って作用する．属性を外してベクトルと見て演算して，属性を戻すとかそういう感じ．</p>
+<section id="ベクトルと行列で挙動が違う-generic-単項関数-knto-v" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="ベクトルと行列で挙動が違う-generic-単項関数-knto-v"><span class="header-section-number">4.1</span> ベクトルと行列で挙動が違う generic 単項関数 <span class="math inline">\(K^n\to V\)</span></h3>
+<ul>
+<li><code>diag(x)</code>：引数がベクトルなら対角行列の作成．<code>diag(rep(1,n))=En</code>．行列ならベクトルを返す．</li>
+</ul>
+</section>
+<section id="ベクトルも行列も同等に扱う二項演算" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="ベクトルも行列も同等に扱う二項演算"><span class="header-section-number">4.2</span> ベクトルも行列も同等に扱う二項演算</h3>
+<ul>
+<li>+, -：長さが整数倍ならば，repしてから足す．</li>
+<li>Hadamard積 <code>*</code>：scaler と行列ならば普段の積．<code>%*%</code>ではエラーになる．</li>
+<li><code>%*%</code>：これは数学でも generic よね．
+<ul>
+<li><code>xA=行ベクトル</code>，<code>Ax=列ベクトル</code>と返り値が定まり，<code>x</code>の縦横に依らない．</li>
+</ul></li>
+<li><code>solve(A,B)</code>：<code>B</code>がベクトル <span class="math inline">\(b\)</span> の時，<span class="math inline">\(Ax=b\)</span> を解く．行列のときは <span class="math inline">\(AX=B\)</span> を解く．
+<ul>
+<li><code>B</code>を省略すると対角行列とみなされ，したがって解は <span class="math inline">\(X=A^{-1}\)</span></li>
+</ul></li>
+</ul>
+</section>
+<section id="数学関数はベクトル化されている" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="数学関数はベクトル化されている"><span class="header-section-number">4.3</span> 数学関数はベクトル化されている．</h3>
+<ul>
+<li><code>sin()</code>, <code>exp()</code>, <code>abs()</code>, <code>sqrt()</code>, <code>log()</code>, <code>log10()</code>, <code>acos()</code>, <code>sinpi()</code>
+<ul>
+<li><code>1:10*2</code>は<code>(1:10)*2</code>だが，<code>1:10^2</code>は<code>1:100</code></li>
+<li><code>log([x=]b,[base=exp(1)])</code></li>
+<li><code>acos</code>：逆三角関数</li>
+<li><code>sinpi(3/2)</code>：<code>sin(pi*3/2)</code>に同じ</li>
+</ul></li>
+<li><code>round()</code>, <code>floor()</code>, <code>ceiling()</code></li>
+<li><code>factorial()</code></li>
+<li><code>x&gt;3</code>などの評価：条件評価も実際は関数．
+<ol type="1">
+<li><code>3</code>が recycle されて<code>x</code>と同じ長さになる．</li>
+<li>point-wise に評価が行われて，</li>
+<li>logical のベクトルを返す．</li>
+</ol></li>
+<li>複数のベクトルを値に取る関数
+<ul>
+<li><code>pmax()</code></li>
+<li><code>cumsum()</code>, <code>cumprod()</code></li>
+</ul></li>
+</ul>
+</section>
+<section id="関数のベクトル化" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="関数のベクトル化"><span class="header-section-number">4.4</span> 関数のベクトル化</h3>
+<ul>
+<li><code>sapply(x,f)</code>
+<ul>
+<li><code>f</code>を<code>x</code>の各要素に適用し，返り値を行列とする．</li>
+<li><code>f</code>がベクトルの長さを伸ばすような関数だった場合，行列化処理と合成するのが自然で，これを勝手にやってくれる．</li>
+</ul></li>
+</ul>
+</section>
+</section>
+<section id="配列" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="配列"><span class="header-section-number">5</span> 配列</h2>
+<p><span class="math inline">\(n\)</span> 次元リストで，一番一般的なデータ構造．</p>
 <ul>
 <li>構成
 <ul>
-<li>array(data=NA, dim=length(data), dimnames=NULL)
+<li><code>array(data=NA, dim=length(data), dimnames=NULL)</code>
 <ul>
-<li>dim=c(3,4,2)などができる．</li>
-<li>dimnamesはもともと数字で，,,1という調子で切り出して表示される（listみたいな）</li>
+<li><code>dim=c(3,4,2)</code>などができる．</li>
+<li><code>dimnames</code>はもともと数字で，<code>,,1</code>という調子で切り出して表示される（list みたいな）</li>
 </ul></li>
 </ul></li>
 </ul>
 
 
-</section>
-</section>
 </section>
 
 
