@@ -170,7 +170,7 @@ window.Quarto = {
 <meta property="og:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - R によるベイズ推定入門">
-<meta name="twitter:description" content="brms">
+<meta name="twitter:description" content="brms はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，brms の基本的な使い方と，その実装を紹介する．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -259,7 +259,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      brms
+      <p><code>brms</code> はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，<code>brms</code> の基本的な使い方と，その実装を紹介する．</p>
     </div>
   </div>
   
@@ -338,7 +338,7 @@ $$ %%% 汎用コード列
 <div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"brms"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <section id="例" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="例"><span class="header-section-number">1</span> 例</h2>
-<p>Documentation で紹介されている <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
+<p>Documentation で紹介されている，<a href="https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html"><code>Epilepsy Seizures Data</code></a> <span class="citation" data-cites="Thall-Vail1990">(<a href="#ref-Thall-Vail1990" role="doc-biblioref">Thall &amp; Vail, 1990</a>)</span> を用いた <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(brms)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -844,8 +844,8 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <p>モデル<code>fit1</code>で行った Poisson 回帰分析は，個々の観測が独立であるという仮定の上に成り立っている．</p>
 <p>この仮定が破れているとき，Poisson 分布の性質 <span class="math display">\[
 \operatorname{E}[X]=\mathrm{V}[X]=\lambda\qquad (X\sim\mathrm{Pois}(\lambda))
-\]</span> からの離反として現れ，<strong>過分散</strong>（overdispersion）とも呼ばれる．</p>
-<p>そこで，モデル<code>fit1</code>に，観測毎の切片項を追加してみる．</p>
+\]</span> からの離反として現れ，この現象は <strong>過分散</strong>（overdispersion）とも呼ばれる．</p>
+<p>そこで，モデル<code>fit1</code>に，観測ごとの切片項 <span class="math inline">\(\eta_{it}\)</span> を追加してみる．</p>
 <div class="sourceCode" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>obs),</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="callout callout-style-default callout-caution callout-titled" title="フィッティングの出力">
@@ -976,8 +976,21 @@ Chain 4: </code></pre>
 </div>
 </div>
 <p>２つのモデルを比較することを考える．LLO (Leave-One-Out) cross-validation が関数<code>loo</code>によって実行できる：</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="callout callout-style-default callout-caution callout-titled" title="LOO-CV の結果">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+LOO-CV の結果
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: Found 6 observations with a pareto_k &gt; 0.7 in model 'fit1'. We
 recommend to set 'moment_match = TRUE' in order to perform moment matching for
@@ -1033,10 +1046,76 @@ fit2   0.0       0.0
 fit1 -78.3      27.9  </code></pre>
 </div>
 </div>
+</div>
+</div>
+</div>
 <p><code>elpd_diff</code> は expected log posterior density の差異を表す．<code>fit2</code>の方が大きく当てはまりが良いことが見て取れる．</p>
-<p>他にも，<code>reloo</code>, <code>kfold</code> などの関数もある．</p>
+<p>また，WAIC (Watanabe-Akaike Information Criterion) も実装されている：</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="callout callout-style-default callout-caution callout-titled" title="WAIC の結果">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+WAIC の結果
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">methods</span>(<span class="at">class=</span><span class="st">"brmsfit"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: 
+52 (22.0%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Computed from 4000 by 236 log-likelihood matrix.
+
+          Estimate   SE
+elpd_waic   -668.5 36.5
+p_waic        91.2 14.5
+waic        1337.0 73.1
+
+52 (22.0%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit2))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: 
+64 (27.1%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Computed from 4000 by 236 log-likelihood matrix.
+
+          Estimate   SE
+elpd_waic   -572.5 12.0
+p_waic        85.1  5.2
+waic        1144.9 24.1
+
+64 (27.1%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>他にも，<code>reloo</code>, <code>kfold</code> などの関数もある．</p>
+<div class="callout callout-style-default callout-caution callout-titled" title="他の関数一覧">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+他の関数一覧
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">methods</span>(<span class="at">class=</span><span class="st">"brmsfit"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> [1] add_criterion           add_ic                  as_draws_array         
  [4] as_draws_df             as_draws_list           as_draws_matrix        
@@ -1071,6 +1150,9 @@ fit1 -78.3      27.9  </code></pre>
 [91] variables               vcov                    waic                   
 [94] WAIC                   
 see '?methods' for accessing help and source code</code></pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 </section>
@@ -1109,6 +1191,9 @@ Bürkner, P.-C. (2018). <span class="nocase">Advanced Bayesian Multilevel Modeli
 </div>
 <div id="ref-Burkner2021" class="csl-entry" role="listitem">
 Bürkner, P.-C. (2021). Bayesian item response modeling in r with brms and stan. <em>Journal of Statistical Software</em>, <em>100</em>(5), 1–54. <a href="https://doi.org/10.18637/jss.v100.i05">https://doi.org/10.18637/jss.v100.i05</a>
+</div>
+<div id="ref-Thall-Vail1990" class="csl-entry" role="listitem">
+Thall, P. F., &amp; Vail, S. C. (1990). Some covariance models for longitudinal count data with overdispersion. <em>Biometrics</em>, <em>46</em>(3), 657–671. <a href="http://www.jstor.org/stable/2532086">http://www.jstor.org/stable/2532086</a>
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
