@@ -22,34 +22,160 @@ execute:
 
 ::: {.callout-tip title="リンク集" appearance="simple"}
 
-[r-project](https://cran.r-project.org/web/packages/brms/), [Documentation](https://paul-buerkner.github.io/brms/), [GitHub](https://github.com/paul-buerkner/brms), [discourse](https://discourse.mc-stan.org/), [@Burkner2017], [@Burkner2018], [@Burkner2021]
+* [r-project](https://cran.r-project.org/web/packages/brms/)
+* [Documentation](https://paul-buerkner.github.io/brms/)
+* [GitHub](https://github.com/paul-buerkner/brms)
+* [discourse](https://discourse.mc-stan.org/)
+* [@Burkner2017]
+* [@Burkner2018]
+* [@Burkner2021]
 
 :::
+
+ダウンロードは：^[R を最新バージョン 4.3.1 → 4.4.0 にアップデートしなければインストールに失敗したことに注意．]
 
 ```r
 install.packages("brms")
 ```
 
-^[R を最新バージョン 4.3.1 → 4.4.0 にアップデートしなければインストールに失敗したことに注意．]
-
-## 使い方
-
-::: {.callout-caution collapse="true" title="例"}
+## 例
 
 Documentation で紹介されている [例](https://paul-buerkner.github.io/brms/) を実行してみる：
+
+```r
+library(brms)
+fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
+            data = epilepsy, family = poisson())
+```
+
+てんかん (epilepsy) 患者の発作回数`count`を被説明変数とし，処置の効果を表す説明変数`Trt`と患者毎のランダムな切片項`(1|patient)`と`zAge`,`zBase`への依存構造を調べたい．被説明変数`count`のモデルとしては，Poisson 分布族を用いる．
+
+::: {.callout-note appearance="simple" title="説明変数"}
+
+* `zAge`：標準化された年齢
+* `zBase`：ベースの発作回数
+* `Trt`：治療の有無を表す２値変数
+* `(1|patient)`：患者ごとに異なるとした切片項
+
+`zBase * Trt`という記法は，この２つの交互作用もモデルに含めることを意味する．
+
+また，59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．`patient`が患者を識別する ID であり，`(1|patient)`は患者ごとのランダム効果ということになる．
+
+従って本モデルは`zAge`と`zBase`という固定効果，`(1|patient)`というランダム効果を取り入れた混合モデルということになり，回帰式は次の通りである：
+$$
+\text{count}_{it} = \beta_1 \cdot\text{zAge}_i+ \beta_2 \cdot \text{zBase}_i + \beta_3 \cdot \text{Trt}_i + \beta_4 \cdot (\text{zBase}_i \cdot \text{Trt}_i) + u_i +\ep_{it}
+$$
+
+:::
+
+::: {.callout-caution collapse="true" title="全データ"}
+```{r}
+epilepsy
+```
+:::
+
+### モデルの推定とプロット
+
+::: {.callout-caution collapse="true" title="フィッティングの出力"}
 
 ```{r}
 library(brms)
 fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
             data = epilepsy, family = poisson())
 ```
+:::
 
 ```{r}
 summary(fit1)
 ```
 
+基本的な解析の前提がまず出力され，推定結果はグループ毎（今回は患者毎）の変数（今回は $u_i$）から表示される．
+
+後半に固定効果の係数，すなわち回帰係数の推定結果が表示される．
+
+治療効果`Trt`の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は $0$ を跨いでいるという意味で，有意とは言えない．また，交差項`zBase*Trt`の係数は小さく，交互効果の存在を示す証拠はないと思われる．
+
+$\wh{R}$ が１より大きい場合，MCMC が収束していない可能性を意味する．
+
+変数を指定して，事後分布と MCMC の軌跡をプロットできる：
+
+```{r}
+plot(fit1, variable = c("b_Trt1", "b_zBase"))
+```
+
+より詳しく見るには`conditional_effects`関数を用いることもできる．交差項の効果はほとんどないことがわかる：
+
+```{r}
+plot(conditional_effects(fit1, effects = "zBase:Trt"))
+```
+
+```{r}
+plot(conditional_effects(fit1, effects = "Trt"))
+```
+
+### モデルによる予測
+
+fit したモデル `fit1` を用いて，平均年齢と平均ベースレートを持つ患者に対する治療効果を予測する：
+
+```{r}
+newdata <- data.frame(Trt = c(0, 1), zAge = 0, zBase = 0)
+predict(fit1, newdata = newdata, re_formula = NA)
+```
+
+```{r}
+fitted(fit1, newdata = newdata, re_formula = NA)
+```
+
+### モデルの比較
+
+モデル`fit1`で行った Poisson 回帰分析は，個々の観測が独立であるという仮定の上に成り立っている．
+
+この仮定が破れているとき，Poisson 分布の性質
+$$
+\E[X]=\V[X]=\lambda\qquad (X\sim\Pois(\lambda))
+$$
+からの離反として現れ，**過分散**（overdispersion）とも呼ばれる．
+
+そこで，モデル`fit1`に，観測毎の切片項を追加してみる．
+
+```r
+fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
+            data = epilepsy, family = poisson())
+```
+
+::: {.callout-caution collapse="true" title="フィッティングの出力"}
+
+```{r}
+fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
+            data = epilepsy, family = poisson())
+```
+
 :::
+
+２つのモデルを比較することを考える．LLO (Leave-One-Out) cross-validation が関数`loo`によって実行できる：
+
+```{r}
+loo(fit1, fit2)
+```
+
+`elpd_diff` は expected log posterior density の差異を表す．`fit2`の方が大きく当てはまりが良いことが見て取れる．
+
+他にも，`reloo`, `kfold` などの関数もある．
+
+```{r}
+methods(class="brmsfit")
+```
 
 ## 実装
 
 `brm` 関数（コードは [こちら](https://github.com/paul-buerkner/brms/blob/master/R/brm.R)）の実装を調べる．
+
+::: {.callout-important appearance="simple" icon="false"}
+
+* [`brms`](https://github.com/paul-buerkner/brms/blob/master/R/brm.R#L436)
+
+Stan コードを扱っている関数は [`.stancode()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/stancode.R) であった．最終的に，[`.compile_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L67) と [`.fit_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L145) が呼ばれるようになっている．
+
+* [`.standata`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/standata.R#L109)
+
+:::
