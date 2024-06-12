@@ -170,7 +170,7 @@ window.Quarto = {
 <meta property="og:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - R によるベイズモデリング入門">
-<meta name="twitter:description" content="brms はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，brms の基本的な使い方と，その実装を紹介する．">
+<meta name="twitter:description" content="brms はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，brms の基本的な使い方と，その実装を紹介する．また，ランダム効果モデルや一般化推定方程式などの文脈で扱われる種々のモデルを，階層モデルの観点から統一的にレビューし，ベイズ統計学の観点の透徹性を強調する．現代では，まだ複雑で大規模なモデルに対して，完全なベイズ推定を実行するには困難が多く，ベイズのモデリング上の透徹性と，最適化による点推定の計算上の優位性とのバランスを考える．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Computation/profile.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -259,7 +259,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p><code>brms</code> はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，<code>brms</code> の基本的な使い方と，その実装を紹介する．</p>
+      <p><code>brms</code> はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，<code>brms</code> の基本的な使い方と，その実装を紹介する．また，ランダム効果モデルや一般化推定方程式などの文脈で扱われる種々のモデルを，階層モデルの観点から統一的にレビューし，ベイズ統計学の観点の透徹性を強調する．現代では，まだ複雑で大規模なモデルに対して，完全なベイズ推定を実行するには困難が多く，ベイズのモデリング上の透徹性と，最適化による点推定の計算上の優位性とのバランスを考える．</p>
     </div>
   </div>
   
@@ -285,7 +285,10 @@ window.Quarto = {
   <li><a href="#混合効果モデル" id="toc-混合効果モデル" class="nav-link" data-scroll-target="#混合効果モデル"><span class="header-section-number">2.4</span> 混合効果モデル</a></li>
   <li><a href="#グループレベル分散の推定" id="toc-グループレベル分散の推定" class="nav-link" data-scroll-target="#グループレベル分散の推定"><span class="header-section-number">2.5</span> グループレベル分散の推定</a></li>
   </ul></li>
-  <li><a href="#実装" id="toc-実装" class="nav-link" data-scroll-target="#実装"><span class="header-section-number">3</span> 実装</a></li>
+  <li><a href="#実装" id="toc-実装" class="nav-link" data-scroll-target="#実装"><span class="header-section-number">3</span> 実装</a>
+  <ul class="collapse">
+  <li><a href="#モデリング機能" id="toc-モデリング機能" class="nav-link" data-scroll-target="#モデリング機能"><span class="header-section-number">3.1</span> モデリング機能</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -346,7 +349,7 @@ $$ %%% 汎用コード列
 <div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"brms"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <section id="例" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="例"><span class="header-section-number">1</span> 例</h2>
-<p>Documentation で紹介されている，<a href="https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html"><code>Epilepsy Seizures Data</code></a> <span class="citation" data-cites="Thall-Vail1990">(<a href="#ref-Thall-Vail1990" role="doc-biblioref">Thall &amp; Vail, 1990</a>)</span> を用いた <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
+<p>Documentation で紹介されている，<a href="https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html"><code>Epilepsy Seizures Data</code></a> <span class="citation" data-cites="Leppik+1987">(<a href="#ref-Leppik+1987" role="doc-biblioref">Leppik et al., 1987</a>)</span>，<span class="citation" data-cites="Thall-Vail1990">(<a href="#ref-Thall-Vail1990" role="doc-biblioref">Thall &amp; Vail, 1990</a>)</span> を用いた <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(brms)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1210,6 +1213,11 @@ y_i=\alpha_0+\beta x_i+\underbrace{\epsilon_i'}_{\epsilon_i+\eta_{s[i]}}
 <p>そのため，ランダム効果モデルは避けられる傾向にあり，切片項 <span class="math inline">\(\alpha_{s[i]}\equiv\alpha_0\)</span> は変動しないとし，グループレベルの効果を無視してモデリングすることも多い： <span class="math display">\[
 y_i=\alpha_0+\beta x_i+\epsilon_i.
 \]</span> このことを complete pooling model と呼び，ランダム効果モデルを partial pooling model と対比させることがある．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>実際，これ以上の仮定を置かず，ランダム効果は局外母数として一般化推定方程式の方法（第 <a href="#sec-GEE" class="quarto-xref">2.4.1</a> 節）によれば，<span class="math inline">\(\beta\)</span> の不偏推定が可能である．</p>
+<p>リンク関数 <span class="math inline">\(g\)</span> を通じた非線型モデル <span class="math display">\[
+g(\operatorname{E}[y_i|x_i])=\beta x_i
+\]</span> であっても，指数型分布族を仮定すれば，<span class="math inline">\(\beta\)</span> の一致推定が可能である．</p>
+<p>このような場合は，marginal model や population-average model とも呼ばれる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．</p>
 </section>
 <section id="sec-fixed-effects-model" class="level4" data-number="2.2.3">
 <h4 data-number="2.2.3" class="anchored" data-anchor-id="sec-fixed-effects-model"><span class="header-section-number">2.2.3</span> 固定効果モデルという解決</h4>
@@ -1288,11 +1296,12 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i
 </section>
 <section id="混合効果モデル" class="level3" data-number="2.4">
 <h3 data-number="2.4" class="anchored" data-anchor-id="混合効果モデル"><span class="header-section-number">2.4</span> 混合効果モデル</h3>
-<p>以上，解説してきたランダム効果モデルであるが，混合効果モデルとも呼ばれる．</p>
+<p>以上，解説してきた「ランダム効果モデル」であるが，混合効果モデルとも呼ばれる．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
 <p>何を言っているのかわからないかもしれないが，式 <a href="#eq-stage-1" class="quarto-xref">式&nbsp;1</a> <span class="math display">\[
 y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 \]</span> において，<span class="math inline">\(\alpha_{s[i]}\)</span> がランダム効果であるが，回帰係数 <span class="math inline">\(\beta\)</span> を固定効果とも呼ぶのである．</p>
-<p>これが固定効果モデル（第 <a href="#sec-fixed-effects-model" class="quarto-xref">2.2.3</a> 節）の名前の由来である．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a> 固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）．</p>
+<p>現代的には，必要ならば <span class="math inline">\(\beta\)</span> を確率変数とみなしても良いだろうが，慣習的にそう呼ぶため，これに従わざるを得ない，というのが <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 625</a>)</span> などを見る限り共通了解であるようである．</p>
+<p>これが計量経済学における固定効果モデル（第 <a href="#sec-fixed-effects-model" class="quarto-xref">2.2.3</a> 節）の名前の由来である．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a> 固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）．</p>
 <p>そこで，式 <a href="#eq-stage-1" class="quarto-xref">式&nbsp;1</a> 自体は，固定効果と変量効果の両方を含んだ <strong>混合（効果）モデル</strong> というのである．</p>
 <div class="callout callout-style-simple callout-caution no-icon callout-titled" title="名前">
 <div class="callout-header d-flex align-content-center">
@@ -1310,17 +1319,61 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 <li>階層モデル (hierarchical models)</li>
 <li>マルチレベル線型モデル (multilevel linear models)</li>
 <li>混合効果モデル (mixed-effects models) <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span></li>
+<li>ランダム効果モデル (random effects model) <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> （え？）</li>
+<li>分散成分モデル (variance component model)<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a></li>
 </ul>
 <p>などと呼ばれる．</p>
 <p>ただし，ランダム効果モデルと呼んでしまうことも多い．<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007</a>)</span> のアブストラクトなど．</p>
 </div>
 </div>
+<section id="sec-GEE" class="level4" data-number="2.4.1">
+<h4 data-number="2.4.1" class="anchored" data-anchor-id="sec-GEE"><span class="header-section-number">2.4.1</span> GEE との違い</h4>
+<div class="callout callout-style-default callout-caution no-icon callout-titled" title="一般化推定方程式 (GEE: Generalized Estimating Equation) との違い">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+一般化推定方程式 (GEE: Generalized Estimating Equation) との違い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><p><u>回帰式が違う</u></p>
+<p>線型の場合の GEE は <span class="math display">\[
+   Y_{it}=\alpha+\beta_1x_{1,i,t}+\cdots+\beta_px_{p,i,t}
+   \]</span> とも表され，ランダムな切片項というものは見当たらない．その代わり，グループ間の影響は相関係数行列としてモデル化を行う．ランダム効果モデルでは，この相関構造を，ランダムな切片項を追加し，その回帰式も立てることでモデルに取り込む．</p></li>
+<li><p><u>推定目標が違う</u></p>
+<p>GEE は population average model でよく用いられる <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> ように，あくまで応答 <span class="math inline">\(Y_{it}\)</span> の平均の不偏推定が目標であり，共分散構造はいわば局外母数である．一方，混合効果モデルは，その階層モデルとしての性質の通り，平均構造と分散構造のいずれも推定対象として扱う志向性がある．</p></li>
+<li><p><u>推定方法が違う</u></p>
+<p>混合効果モデルは主に最尤法により推定される <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span>．GEE はモーメント法により推定され，最尤法ベースではないため，完全にランダムとは言えない欠測がある場合は弱く，IPW などの方法が用いられる．</p></li>
+</ol>
+</div>
+</div>
+<p>GEE にとって相関構造は局外母数であり，正確な特定は目的に含まれない．この意味で GEE の相関係数⾏列におく仮定は「間違えていてもよい便宜的な仮定」であるため，作業相関係数行列 (working correlation coefficient matrix) とも呼ばれる．相関構造を誤特定していても，平均構造は一致推定が可能であり，ロバストである．両方の特定に成功した場合はセミパラメトリック有効性が達成される．</p>
+<p>一方で，混合効果モデルは，階層モデルとして，平均構造と分散構造のいずれにも明示的な仮定をおくため，片方（例えば共分散構造）の特定を間違えていた場合，もう片方の解釈性が失われる，というリスクがあると論じることができる．特に <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> に見られる論調である．</p>
+<p>しかし，子供の身長の成長曲線の描画が主な研究目標である場合など，ユニットの平均効果ではなく各個人に注目したい場合には，（特に変動係数を取り入れた）混合効果モデルの方が適していることになる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009</a>)</span>．実際，モデルの特定に成功していれば，いずれのパラメータも最尤推定されるため，一致性を持つ．</p>
+<p>従って，モデル選択において用いられる基準も違う．GEE における作業相関係数行列と説明変数の選択には QIC (Quasi-likelihood Information Criterion) が，混合効果モデルには AIC や BIC （または cAIC や mAIC <span class="citation" data-cites="Vaida-Blanchard2005">(<a href="#ref-Vaida-Blanchard2005" role="doc-biblioref">Vaida &amp; Blanchard, 2005</a>)</span>）が用いられる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．</p>
+<!--
+
+本データを扱った論文 [@Thall-Vail1990] では，[@Liang-Zeger1986] の一般化推定方程式の枠組みに則り，共分散の構造にどのようなパラメトリック分布を仮定するのが良いかが，漸近論の観点から議論されている．
+
+-->
+</section>
+<section id="ベイズ混合効果モデルという光" class="level4" data-number="2.4.2">
+<h4 data-number="2.4.2" class="anchored" data-anchor-id="ベイズ混合効果モデルという光"><span class="header-section-number">2.4.2</span> ベイズ混合効果モデルという光……？</h4>
+<p>しかし，結局ベイズ統計学の立場からは，２つの違いはほとんど重要ではなく，混合効果モデルを推定した後に，周辺化をして平均構造に関する marginal estimator を構成すれば，GEE の代用になっているのではないか？</p>
+<p>計算機の性能と，計算統計手法の発展が目まぐるしい現代にて，過去の議論を踏襲しすぎることは，問題の本質を誤るということもあるのだろう．</p>
+<p>ということで，以上議論したグループレベル構造を持ったデータに対する２階の階層モデルを，本稿では「混合効果モデル」と呼ぶことにする．</p>
+<p>この節はこれで終わり．</p>
+</section>
 </section>
 <section id="グループレベル分散の推定" class="level3" data-number="2.5">
 <h3 data-number="2.5" class="anchored" data-anchor-id="グループレベル分散の推定"><span class="header-section-number">2.5</span> グループレベル分散の推定</h3>
-<p>混合効果モデル（階層モデル）の推定において，特にグループ数 <span class="math inline">\(S\)</span> が小さい場合，グループレベルの変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になるという問題点が古くからの問題である <span class="citation" data-cites="Harville1977">(<a href="#ref-Harville1977" role="doc-biblioref">Harville, 1977</a>)</span>．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
-<p>この <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> は何の仮定も置かれておらず，グループ間の相関構造のモデリングを一手に引き受けている．EM アルゴリズムが提案されたばかりの頃 <span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span> では，共分散構造にパラメトリックな仮定をおいていたが，現代ではこれを取り去った最尤推定法・ベイズ推定法（２つは計算法が違うだけで本質的に同じ）が主流である．</p>
-<p>共分散構造が <span class="math inline">\(0\)</span> になるのが好ましくない場合は，Wishart 事前分布を仮定することでこれが回避される（最尤法の文脈では，penalized likelihood と等価になる）ことが，ベイズ MAP 推定の文脈で <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>，最尤推定の文脈で <span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span> によって示されている．</p>
+<p>混合効果モデル（階層モデル）の推定において，特にグループ数 <span class="math inline">\(S\)</span> が小さい場合，グループレベルの変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になるという問題点が古くからの問題である <span class="citation" data-cites="Harville1977">(<a href="#ref-Harville1977" role="doc-biblioref">Harville, 1977</a>)</span>．<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a></p>
+<p>この <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> は何の仮定も置かれておらず，グループ間の相関構造のモデリングを一手に引き受けている．EM アルゴリズムが提案されたばかりの頃 <span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span> では，共分散構造にパラメトリックな仮定をおいていたが，現代ではこれを取り去った最尤推定法・ベイズ推定法が主流である．</p>
+<p>しかし，最尤推定法と，一定の事前分布を仮定したベイズ MAP 推定法では，推定された共分散行列が退化してしまうことがある．これは Wishart 事前分布を仮定することでこれが回避される <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a> これは最尤法の文脈では，penalized likelihood と等価になる <span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>．</p>
+<p>モデルのサイズによっては，完全なベイズ推定を実行することが難しく，一部は等価な頻度論的な方法や近似を用いることもある．その際，最適化ソルバーの収束を速めるために，共分散構造に（データや計画とは無関係に）パラメトリックモデルを仮定してしまうこともある <span class="citation" data-cites="Kincaid2005">(<a href="#ref-Kincaid2005" role="doc-biblioref">Kincaid, 2005</a>)</span>．</p>
 </section>
 </section>
 <section id="実装" class="level2" data-number="3">
@@ -1342,9 +1395,13 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 </div>
 </div>
 </div>
+<section id="モデリング機能" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="モデリング機能"><span class="header-section-number">3.1</span> モデリング機能</h3>
+<p><code>gr</code>関数</p>
 
 
 
+</section>
 </section>
 
 
@@ -1370,11 +1427,17 @@ Chung, Y., Rabe-Hesketh, S., Dorie, V., Gelman, A., &amp; Liu, J. (2013). A nond
 <div id="ref-Cunningham21-Mixtape" class="csl-entry" role="listitem">
 Cunningham, S. (2021). <em>Causal inference : The mixtape</em>. Yale University Press.
 </div>
+<div id="ref-Gardiner+2009" class="csl-entry" role="listitem">
+Gardiner, J. C., Luo, Z., &amp; Roman, L. A. (2009). Fixed effects, random effects and GEE: What are the differences? <em>Statistics in Medicine</em>, <em>28</em>(2), 221–239. https://doi.org/<a href="https://doi.org/10.1002/sim.3478">https://doi.org/10.1002/sim.3478</a>
+</div>
 <div id="ref-Hansen2022" class="csl-entry" role="listitem">
 Hansen, B. E. (2022). <em>Econometrics</em>. Princeton University Press.
 </div>
 <div id="ref-Harville1977" class="csl-entry" role="listitem">
 Harville, D. A. (1977). Maximum likelihood approaches to variance component estimation and to related problems. <em>Journal of the American Statistical Association</em>, <em>72</em>(358), 320–338. <a href="https://doi.org/10.1080/01621459.1977.10480998">https://doi.org/10.1080/01621459.1977.10480998</a>
+</div>
+<div id="ref-Hubbard+2010" class="csl-entry" role="listitem">
+Hubbard, A. E., Ahern, J., Fleischer, N. L., Laan, M. V. der, Lippman, S. A., Jewell, N., Bruckner, T., &amp; Satariano, W. A. (2010). To GEE or not to GEE: Comparing population average and mixed models for estimating the associations between neighborhood risk factors and health. <em>Epidemiology</em>, <em>21</em>(4). <a href="https://journals.lww.com/epidem/fulltext/2010/07000/to_gee_or_not_to_gee__comparing_population_average.7.aspx">https://journals.lww.com/epidem/fulltext/2010/07000/to_gee_or_not_to_gee__comparing_population_average.7.aspx</a>
 </div>
 <div id="ref-Kincaid2005" class="csl-entry" role="listitem">
 Kincaid, C. D. (2005). <span class="nocase">Guidelines for Selecting the Covariance Structure in Mixed Model Analysis</span>. <em>SAS User Group International</em>, <em>30</em>, 198–130. <a href="https://support.sas.com/resources/papers/proceedings/proceedings/sugi30/198-30.pdf">https://support.sas.com/resources/papers/proceedings/proceedings/sugi30/198-30.pdf</a>
@@ -1382,8 +1445,14 @@ Kincaid, C. D. (2005). <span class="nocase">Guidelines for Selecting the Covaria
 <div id="ref-Laird-Ware1982" class="csl-entry" role="listitem">
 Laird, N. M., &amp; Ware, J. H. (1982). Random-effects models for longitudinal data. <em>Biometrics</em>, <em>38</em>(4), 963–974. <a href="http://www.jstor.org/stable/2529876">http://www.jstor.org/stable/2529876</a>
 </div>
+<div id="ref-Leppik+1987" class="csl-entry" role="listitem">
+Leppik, I. E., Dreifuss, F. E., Porter, R., Bowman, T., Santilli, N., Jacobs, M., Crosby, C., Cloyd, J., Stackman, J., Graves, N., Sutula, T., Welty, T., Vickery, J., Brundage, R., Gates, J., Gumnit, R. J., &amp; Gutierrez, A. (1987). A controlled study of progabide in partial seizures. <em>Neurology</em>, <em>37</em>(6), 963–963. <a href="https://doi.org/10.1212/WNL.37.6.963">https://doi.org/10.1212/WNL.37.6.963</a>
+</div>
 <div id="ref-Thall-Vail1990" class="csl-entry" role="listitem">
 Thall, P. F., &amp; Vail, S. C. (1990). Some covariance models for longitudinal count data with overdispersion. <em>Biometrics</em>, <em>46</em>(3), 657–671. <a href="http://www.jstor.org/stable/2532086">http://www.jstor.org/stable/2532086</a>
+</div>
+<div id="ref-Vaida-Blanchard2005" class="csl-entry" role="listitem">
+Vaida, F., &amp; Blanchard, S. (2005). Conditional akaike information for mixed-effects models. <em>Biometrika</em>, <em>92</em>(2), 351–370. <a href="http://www.jstor.org/stable/20441193">http://www.jstor.org/stable/20441193</a>
 </div>
 <div id="ref-Vehtari+2021" class="csl-entry" role="listitem">
 Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., &amp; Bürkner, P.-C. (2021). <span class="nocase">Rank-Normalization, Folding, and Localization: An Improved <span class="math inline">\(\widehat{R}\)</span> for Assessing Convergence of MCMC (with Discussion)</span>. <em>Bayesian Analysis</em>, <em>16</em>(2), 667–718. <a href="https://doi.org/10.1214/20-BA1221">https://doi.org/10.1214/20-BA1221</a>
@@ -1392,7 +1461,7 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., &amp; Bürkner, P.-C. (2021
 
 <ol>
 <li id="fn1"><p>R を最新バージョン 4.3.1 → 4.4.0 にアップデートしなければインストールに失敗したことに注意．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 333</a>)</span> 第12.3節，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 3</a>)</span>, <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 604</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 333</a>)</span> 第12.3節，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 3</a>)</span>, <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 604</a>)</span>，<span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn3"><p>このような誤差項の構造 <span class="math inline">\(e_{it}=u_i+\epsilon_{it}\)</span> を一元誤差成分モデル (one-way error component model) ともいう <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 600</a>)</span>．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn4"><p>この，説明変数と誤差の間に相関があることを，計量経済学では <strong>内生性</strong> (endogeneity) という．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn5"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 5</a>)</span>．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
@@ -1401,8 +1470,11 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., &amp; Bürkner, P.-C. (2021
 <li id="fn8"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, pp. 4–5</a>)</span>．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn9"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span>，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 6</a>)</span>．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn10"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 6</a>)</span>．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn11"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 625</a>)</span> 17.25節．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn12"><p><span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span>，<span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>，<span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>，<a href="https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/">Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023</a>．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p><span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> では両方の名前で呼んでいる．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 625</a>)</span> 17.25節．疫学・生物統計学では，実験計画法でしか「固定効果」「変量効果モデル」とは言わない，という認識であることも筆者は聞いたことがある．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p><span class="math inline">\(\mathrm{V}[\eta_s]\)</span> はブロック行列の構造を持つためこう呼ばれるs．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn14"><p><span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span>，<span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>，<span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>，<a href="https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/">Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023</a>．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn15"><p>逆 Wishart ではないらしい <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
