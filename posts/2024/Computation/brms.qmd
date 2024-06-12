@@ -62,7 +62,7 @@ fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
 
 また，59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．`patient`が患者を識別する ID であり，`(1|patient)`は患者ごとのランダム効果ということになる．
 
-従って本モデルは`zAge`と`zBase`という固定効果，`(1|patient)`というランダム効果を取り入れた混合モデルということになり，回帰式は次の通りである：
+従って本モデルは`zAge`, `zBase`, `Trt`, `Trt*zBase`という固定効果，`(1|patient)`というランダム効果を取り入れた混合効果モデルということになり，回帰式は次の通りである：
 $$
 \text{count}_{it} = \beta_1 \cdot\text{zAge}_i+ \beta_2 \cdot \text{zBase}_i + \beta_3 \cdot \text{Trt}_i + \beta_4 \cdot (\text{zBase}_i \cdot \text{Trt}_i) + u_i +\ep_{it}
 $$
@@ -96,7 +96,7 @@ summary(fit1)
 
 治療効果`Trt`の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は $0$ を跨いでいるという意味で，有意とは言えない．また，交差項`zBase*Trt`の係数は小さく，交互効果の存在を示す証拠はないと思われる．
 
-$\wh{R}$ が１より大きい場合，MCMC が収束していない可能性を意味する．
+$\wh{R}$ が１より大きい場合，MCMC が収束していない可能性を意味する [@Vehtari+2021]．通説には $\wh{R}\le1.1$ などの基準がある．
 
 変数を指定して，事後分布と MCMC の軌跡をプロットできる：
 
@@ -193,6 +193,115 @@ methods(class="brmsfit")
 ```
 
 :::
+
+## 混合効果モデルに関する補足
+
+::: {.callout-important appearance="simple" icon="false" title="概要"}
+
+* ランダム効果モデルとは，グループ毎に異なる切片項 $\al_{s[i]}$ を追加し，これにも誤差を仮定してモデルに入れて得る階層モデルである．
+* しかし，$\al_{s[i]}$ が（ユニットレベルの）説明変数 $x_i$ と相関を持つ場合，推定量の一致性が失われる．これを回避するために，$x_i$ の係数 $\beta$ にのみ関心がある場合は，固定効果モデルが用いられることも多い．
+* だが，簡単なトリック（$\al_{s[i]}$ の説明変数に $\ov{x}_s$ を追加すること）で，推定量の一致性を回復することができる．
+* このトリックを取り入れたランダム効果モデルは，$x_i$ と $\al_{s[i]}$ に相関がない場合は固定効果モデルと等価な $\beta$ の推定量を与え，相関がある場合でも，$\beta$ を一致推定し，各変動切片項 $\al_{s[i]}$ の構造にも洞察を与えてくれる．
+
+:::
+
+### ランダム効果モデル
+
+ランダム効果モデルは，切片項が変動するモデルと呼んだ方がわかりやすい [@Bafumi-Gelman2007] と言われるように，サブグループ毎に異なる切片を加えたモデルである．
+
+従って，ユニットレベルの回帰式を書き下すと，グループ選択関数 $s:[n]\to[S]\;(S\le n)$ を通じて，
+$$
+y_i=\al_{s[i]}+\beta x_i+\ep_i,\qquad i\in[n],
+$$ {#eq-stage-1}
+というようになる．
+
+これは，確率変数 $\al_{s[i]}$ の平均を $\al_0$ とすると，グループレベルの回帰式
+$$
+\al_s=\al_0+\eta_s,\qquad s\in[S]
+$$ {#eq-stage-2}
+が背後にある階層モデルだとみなすこともできる．
+
+### 説明変数との相関の問題
+
+#### 問題の所在
+
+ランダム効果では，ユニットレベルの説明変数 $x_i$ と変動切片項 $\al_{s[i]}$ が相関を持たないという仮定が Gauss-Markov の定理の仮定に等価になるため，これが違反されると推定量の不偏性・一致性が約束されず，推定量の分散も大きくなる．^[[@Hansen2022 p.333] 第12.3節，[@Bafumi-Gelman2007 p.3], [@Hansen2022 p.604]．]
+
+実際，ランダム効果モデルの階層構造を，@eq-stage-2 を @eq-stage-1 に代入することで一つの式にまとめると
+$$
+y_i=\al_0+\beta x_i+\underbrace{\ep_i'}_{\ep_i+\eta_{s[i]}}
+$$ {#eq-RF}
+を得る．^[このような誤差項の構造 $e_{it}=u_i+\ep_{it}$ を一元誤差成分モデル (one-way error component model) ともいう [@Hansen2022 p.600]．] $x_i$ と $\al_{s[i]}$ の相関をモデルに含めていない場合，$x_i$ と $\eta_s$ が相関を持ってしまい，結果として @eq-RF では説明変数と誤差 $\ep_i'$ に相関が生じてしまう．^[この，説明変数と誤差の間に相関があることを，計量経済学では **内生性** (endogeneity) という．]
+
+#### 業界の現状
+
+そのため，ランダム効果モデルは避けられる傾向にあり，切片項 $\al_{s[i]}\equiv\al_0$ は変動しないとし，グループレベルの効果を無視してモデリングすることも多い：
+$$
+y_i=\al_0+\beta x_i+\ep_i.
+$$
+このことを complete pooling model と呼び，ランダム効果モデルを partial pooling model と対比させることがある．^[[@Bafumi-Gelman2007 p.5]．]
+
+#### 固定効果モデルという解決
+
+問題を起こさずに，しかしながらグループレベルの効果をモデリングしたい場合，
+$$
+y_i=\al_{s[i]}^{\text{unmodeled}}+\beta x_i+\ep_i
+$$
+$$
+\al_s^{\text{unmodeled}}\sim\rN(\al_0,\infty)
+$$
+として，グループ毎に変動する切片項 $\al_{s[i]}^{\text{unmodeled}}$ を許すが，この変数自体にモデルは仮定しない．
+
+このようなモデルは，グループ毎に別々の回帰分析を実行し，$\beta$ の値はこれらのグループの間で適切に重みづけて最終的な推定値としているに等しい．
+
+すなわち，グループの数だけ，グループへの所属を表す２値変数 $1_{s[i]=s}$ を導入し，$S$ 個の項 $\sum_{s=1}^S1_{s[i]=s}\al_{s[i]}^{\text{unmodeled}}$ を説明変数に加えて回帰分析を行うことに等しい．
+
+::: {.callout-caution title="名前" icon="false" appearance="simple"}
+
+* [@Bafumi-Gelman2007] は unmodeled varying intercept と呼んでいる．
+* [@Hansen2022] をはじめ，計量経済学では fixed effects model と呼ばれる．
+* least squares dummy variable regression とも呼べる．^[[@Bafumi-Gelman2007 p.5]，[@Hansen2022 p.609] 17.11節 など．狭義では，fixed effects model は within transformation を行い，グループ間の影響を引いたあとに回帰を実行する……という手続きを指すこともあるが，２つは等価な結果を生む．詳しくは [@Cunningham21-Mixtape] なども参照．]
+
+:::
+
+::: {.callout-caution title="利点" icon="false" appearance="simple"}
+
+$x_i$ と $\al_{s[i]}$ が相関を持ち得る場合も，固定効果モデルでは関係がない．^[[@Hansen2022 p.624] 17.25節．]
+
+:::
+
+::: {.callout-caution title="問題点" icon="false" appearance="simple"}
+
+異なるグループのデータが相互作用する機構がランダム効果モデルに比べて貧しい．
+
+（正しく特定された）ランダム効果モデルの方は，外れ値グループが存在しても，$\eta_s$ を通じて緩やかに情報が伝達され，$\beta$ の値は平均へ縮小されて推定されるが，固定効果モデルではそのような頑健性を持たない．^[[@Bafumi-Gelman2007 pp.4-5]．]
+
+:::
+
+固定効果モデルは $\beta$ （のみ）に関心がある場合，$\al_{s[i]}$ と $x_i$ の相関の存在に対してロバストな推定法として有用であり，その理由で計量経済学（特に線型パネルデータ）では主流の推定手法となっている．^[[@Hansen2022 p.624]，[@Bafumi-Gelman2007 p.6]．] 実際，$\al_{s[i]}$ と $x_i$ が無相関であるとき，$\beta$ に関しては等価な推定量を与える．
+
+> Current econometric practice is to prefer robustness over efficiency. Consequently, current practice is (nearly uniformly) to use the fixed effects estmimator for linear panel data models. [@Hansen2022 p.624]
+
+逆に言えば，固定効果モデルは $x_i$ と $\al_{s[i]}$ の構造のモデリングを放棄したモデリング法であり，各 $\al_{s[i]}$ の値にも興味がある場合，および $\beta$ のグループ毎の値も考えたい場合にはやはり $\al_{s[i]}$ の誤差と相関構造もモデルに取り入れたランダム効果モデルを用いたい，ということになる．
+
+### 相関のモデリング
+
+$x_i$ と $\al_{s[i]}$ との相関は，欠落変数が存在するため，と考えることができる．
+
+そして，この相関は，説明変数の平均 $\ov{x}_s$ を変動する切片項 $\al_s$ の説明変数として追加することで除去できる：^[[@Bafumi-Gelman2007 p.6]．]
+
+$$
+y_i=\al_{s[i]}+\beta x_i+\ep_i
+$$
+$$
+\al_s=\al_0+\al_1\ov{x}_s+\eta_s
+$$
+
+これにより，Gauss-Markov の仮定（外生性）が回復される．
+
+[@Bafumi-Gelman2007 pp.7-9] にシミュレーションによる検証が掲載されている．
+
+> Practitioners can get around this problem by taking advantage of the multilevel structure of their regression equation. [@Bafumi-Gelman2007 p.12]
 
 ## 実装
 
