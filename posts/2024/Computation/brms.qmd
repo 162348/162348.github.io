@@ -40,7 +40,7 @@ execute:
 install.packages("brms")
 ```
 
-## 例
+## 例 {#sec-example}
 
 Documentation で紹介されている，[`Epilepsy Seizures Data`](https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html) [@Leppik+1987]，[@Thall-Vail1990] を用いた [例](https://paul-buerkner.github.io/brms/) を実行してみる：
 
@@ -116,10 +116,6 @@ plot(fit1, variable = c("b_Trt1", "b_zBase"))
 plot(conditional_effects(fit1, effects = "zBase:Trt"))
 ```
 
-```{r}
-plot(conditional_effects(fit1, effects = "Trt"))
-```
-
 ### モデルによる予測
 
 fit したモデル `fit1` を用いて，平均年齢と平均ベースレートを持つ患者に対する治療効果を予測する：
@@ -129,13 +125,26 @@ newdata <- data.frame(Trt = c(0, 1), zAge = 0, zBase = 0)
 predict(fit1, newdata = newdata, re_formula = NA)
 ```
 
+関数[`predict()`](https://paul-buerkner.github.io/brms/reference/predict.brmsfit.html)は事後予測分布からのサンプリングを行う．一方で，関数[`fitted()`](https://paul-buerkner.github.io/brms/reference/fitted.brmsfit.html)は平均を返す．
+
 ```{r}
 fitted(fit1, newdata = newdata, re_formula = NA)
 ```
 
-### モデルの比較
+::: {.callout-caution collapse="true" title="予測の出力"}
 
-モデル`fit1`で行った Poisson 回帰分析は，個々の観測が独立であるという仮定の上に成り立っている．
+従って，もう１度ずつ実行すると，`predict`では値が変わるが，`fitted`では同じ値が出力される．
+
+```{r}
+predict(fit1, newdata = newdata, re_formula = NA)
+fitted(fit1, newdata = newdata, re_formula = NA)
+```
+
+:::
+
+### モデルの比較 {#sec-model-comparison}
+
+モデル`fit1`で行った Poisson 回帰分析は，個々の観測が独立であるという仮定の上に成り立っている（第 [-@sec-ubsubsec-covariance-structure] 節）．
 
 この仮定が破れているとき，Poisson 分布の性質
 $$
@@ -143,7 +152,9 @@ $$
 $$
 からの離反として現れ，この現象は **過分散**（overdispersion）とも呼ばれる．
 
-そこで，モデル`fit1`に，観測ごとの切片項 $\eta_{it}$ を追加してみる．
+ということで，Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
+
+そこで，追加の変動をモデルに追加するべく，モデル`fit1`に観測ごとの切片項 $\eta_{it}$ を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 [-@sec-subsec-count-data] 節参照）．
 
 ```r
 fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
@@ -159,7 +170,9 @@ fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
 
 :::
 
-２つのモデルを比較することを考える．LLO (Leave-One-Out) cross-validation が関数`loo`によって実行できる：
+こうして得た２つのモデル`fit1`,`fit2`を比較する．
+
+LLO (Leave-One-Out) cross-validation が関数`loo`によって実行できる：
 
 ```r
 loo(fit1, fit2)
@@ -408,9 +421,71 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 モデルのサイズによっては，完全なベイズ推定を実行することが難しく，一部は等価な頻度論的な方法や近似を用いることもある．その際，最適化ソルバーの収束を速めるために，共分散構造に（データや計画とは無関係に）パラメトリックモデルを仮定してしまうこともある [@Kincaid2005]．
 
+### カウントデータのモデリング {#sec-subsec-count-data}
+
+カウントデータの基本は Poisson 分布であろうが，過分散を考慮するために，負の二項分布でモデリングすることもできる．これは例えば，マーケティングにおいて，顧客の購買回数をモデル化する際に用いられる [@森岡-今西16-確率思考の戦略論]．
+
+この行為は，Poisson 分布の Gamma 分布による混合分布族を用いた，混合モデリングを行っているとみなせる：
+
+::: {.callout-tip title="命題" icon="false"}
+
+Poisson 分布 $\Pois(\theta)$ の $\GAMMA(\al,\nu)$-混合は負の二項分布 $\NB\paren{\nu,\frac{\al}{\al+1}}$ になる．
+
+ただし，負の二項分布 $\NB(\nu,p)$ は，次の確率質量関数 $p(x;\nu,p)$ が定める $\N$ 上の確率分布である：
+$$
+p(x;\nu,p)=\comb{x+\nu-1}{x}p^\nu(1-p)^x.
+$$
+
+:::
+
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+確率分布の変換則より，次のように計算できる：
+
+\begin{align*}
+  p(x)&=\int_{\R_+}\frac{\theta^x}{x!}e^{-\theta}\frac{1}{\Gamma(\nu)}\al^\nu\theta^{\nu-1}e^{-\al\theta}d\theta\\
+  &=\frac{\al^\nu}{x!\Gamma(\nu)}\int_{\R_+}\theta^{x+\nu-1}e^{-(\al+1)\theta}d\theta\\
+  &=\frac{\al^\nu}{x!\Gamma(\nu)}\frac{\Gamma(x+\nu)}{(\al+1)^{x+\nu}}\\
+  &=\comb{\nu+x-1}{x}\paren{\frac{1}{\al+1}}^x\paren{\frac{\al}{\al+1}}^\nu.
+\end{align*}
+
+この最右辺は，たしかに負の二項分布の質量関数である．
+
+この証明方法と，Gamma 分布については次の記事を参照：
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2023/Probability/Beta-Gamma.html" target="_blank">
+      <img src="https://162348.github.io/posts/2023/Probability/Beta-Gamma_files/figure-html/cell-4-output-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">確率測度の変換則</h3>
+        <p class="article-description">Gamma 分布とBeta 分布を例に</p>
+      </div>
+    </a>
+  </div>
+</div>
+```
+
+:::
+
+Poisson 回帰
+
+$$
+\begin{align*} y_{it} & \sim \operatorname{Pois}(\lambda_{s[i]}) \\ \log(\lambda_{s[i]}) & = u_i + \eta_{it} \\ \eta_{it} & \sim \operatorname{N}(0, \sigma). \end{align*}
+$$
+
+を考えると，各 $y_{it}$ を，（グループ毎に条件付ければ）Poisson 分布の対数正規分布による混合分布を用いてモデル化していることにあたる．
+
+この，Poisson-対数正規分布族は，[@Bulmer1974] により生物種の個体数分布のモデリングで，過分散を説明するために用いられている．
+
+すなわち，第 [-@sec-example] 節のモデルの比較 [-@sec-model-comparison] で扱った，**観測レベルランダム効果** (OLRE: Observation-level Random Effects) の方法は，観測毎に $\eta_{it}$ というランダム切片項を追加するだけで，本質的には混合モデリングを実施するという，いわばハックのような使い方である．^[[Solomon Kurtz (2021)](https://solomonkurz.netlify.app/blog/2021-07-12-got-overdispersion-try-observation-level-random-effects-with-the-poisson-lognormal-mixture/#negative-binomial-counts) による解説，[RPubs](https://rpubs.com/INBOstats/OLRE) も参照．]
+
+今回はモデル比較の結果が良かったため，本格的に対数正規混合を実施してみるのも良いかもしれない．
+
 ## 実装
 
-`brm` 関数（コードは [こちら](https://github.com/paul-buerkner/brms/blob/master/R/brm.R)）の実装を調べる．
+[`brm` 関数](https://paul-buerkner.github.io/brms/reference/brm.html)（コードは [こちら](https://github.com/paul-buerkner/brms/blob/master/R/brm.R)）の実装を調べる．
 
 ::: {.callout-important appearance="simple" icon="false"}
 
@@ -424,4 +499,26 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 ### モデリング機能
 
-`gr`関数
+#### 事前分布
+
+[`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) では，デフォルトでは無情報事前分布が用いられる．
+
+> Default priors are chosen to be non or very weakly informative so that their influence on the results will be negligible and you usually don't have to worry about them. However, after getting more familiar with Bayesian statistics, I recommend you to start thinking about reasonable informative priors for your model parameters: Nearly always, there is at least some prior information available that can be used to improve your inference.<br>[brm(): Fit Bayesian Generalized (Non-)Linear Multivariate Multilevel Models](https://paul-buerkner.github.io/brms/reference/brm.html)
+
+#### 共分散構造 {#sec-ubsubsec-covariance-structure}
+
+共分散構造を指定するには，[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) を使用する．
+
+この関数は`brm`関数の内部で呼び出され，デフォルトでは対角行列が指定される．
+
+> By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+
+また，この二階層目の分布族（第 [-@sec-example] 節での $u_i$ と $\eta_{it}$）は，正規分布がデフォルトで，現状他の分布族は指定できないでいる．
+
+> dist: Name of the distribution of the group-level effects. Currently "gaussian" is the only option.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+
+
+
+### 推論エンジン
+
+[`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) は，Stan による MCMC サンプリングを通じて，事後分布を計算する．
