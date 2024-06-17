@@ -378,10 +378,10 @@ brms: Bayesian Regression Models using ‘Stan’ リンク集
 <p><code>zBase * Trt</code>という記法は，この２つの交互作用もモデルに含めることを意味する．</p>
 <p>また，59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．<code>patient</code>が患者を識別する ID であり，<code>(1|patient)</code>は患者ごとのランダム効果ということになる．</p>
 <p>従って本モデルは<code>zAge</code>, <code>zBase</code>, <code>Trt</code>, <code>Trt*zBase</code>という固定効果，<code>(1|patient)</code>というランダム効果を取り入れた混合効果モデルということになり，回帰式は次の通りである： <span class="math display">\[
-\text{count}_{it} = \beta_1 \cdot\text{zAge}_i+ \beta_2 \cdot \text{zBase}_i + \beta_3 \cdot \text{Trt}_i
+y_{it} = \beta_1 \cdot\texttt{zAge}_i+ \beta_2 \cdot \texttt{zBase}_i + \beta_3 \cdot \texttt{Trt}_i
 \]</span> <span class="math display">\[
-+ \beta_4 \cdot (\text{zBase}_i \cdot \text{Trt}_i) + u_i +\epsilon_{it}.
-\]</span></p>
++ \beta_4 \cdot (\texttt{zBase}_i \cdot \texttt{Trt}_i) + \alpha_i +\epsilon_{it}.
+\]</span> ただし，<span class="math inline">\(\texttt{count}_{it}\)</span> の Poisson 母数を <span class="math inline">\(\lambda_{it}\)</span> として，<span class="math inline">\(y_{it}:=\log(\lambda_{it})\)</span> とした．</p>
 <p>ベースの発作回数が高いほど，治療効果が高い／低いのではないか？という仮説を検証する，<code>zBase*Trt</code>を曝露因子としたモデルである．</p>
 </div>
 </div>
@@ -800,7 +800,7 @@ and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 </div>
 </div>
-<p>基本的な解析の前提がまず出力され，推定結果はグループ毎（今回は患者毎）の変数（今回は <span class="math inline">\(u_i\)</span>）から表示される．</p>
+<p>基本的な解析の前提がまず出力され，推定結果はグループ毎（今回は患者毎）の変数（今回は <span class="math inline">\(\alpha_i\)</span>）から表示される．</p>
 <p>後半に固定効果の係数，すなわち回帰係数の推定結果が表示される．</p>
 <p>治療効果<code>Trt</code>の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は <span class="math inline">\(0\)</span> を跨いでいるという意味で，有意とは言えない．また，交差項<code>zBase*Trt</code>の係数は小さく，交互効果の存在を示す証拠はないと思われる．</p>
 <p><span class="math inline">\(\widehat{R}\)</span> が１より大きい場合，MCMC が収束していない可能性を意味する <span class="citation" data-cites="Vehtari+2021">(<a href="#ref-Vehtari+2021" role="doc-biblioref">Vehtari et al., 2021</a>)</span>．通説には <span class="math inline">\(\widehat{R}\le1.1\)</span> などの基準がある．</p>
@@ -1203,7 +1203,7 @@ see '?methods' for accessing help and source code</code></pre>
 <section id="患者内の相関構造のモデリング" class="level4" data-number="1.3.2">
 <h4 data-number="1.3.2" class="anchored" data-anchor-id="患者内の相関構造のモデリング"><span class="header-section-number">1.3.2</span> 患者内の相関構造のモデリング</h4>
 <p>また，<code>fit1</code>において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．</p>
-<p>患者間の相関構造は，<code>brm()</code>関数の<code>autocor</code>引数で指定できる（第 <a href="#sec-autocor-argument" class="quarto-xref">3.1.3.2</a> 節）．</p>
+<p>患者内の相関構造は，<code>brm()</code>関数の<code>autocor</code>引数で指定できる（第 <a href="#sec-autocor-argument" class="quarto-xref">3.1.3.2</a> 節）．</p>
 <p>例えば，全く構造を仮定しない場合は，<a href="http://paul-buerkner.github.io/brms/reference/unstr.html"><code>unstr</code></a>を指定する：</p>
 <div class="sourceCode" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
 <span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">autocor =</span> <span class="sc">~</span><span class="fu">unstr</span>(<span class="at">time=</span>visit, <span class="at">gr=</span>patient),</span>
@@ -1418,6 +1418,7 @@ fit3 -7.4       2.6   </code></pre>
 <section id="その他の例" class="level3" data-number="1.4">
 <h3 data-number="1.4" class="anchored" data-anchor-id="その他の例"><span class="header-section-number">1.4</span> その他の例</h3>
 <p>Sebastian Weber らにより，<a href="https://opensource.nibr.com/bamdd/">新薬の治験における実際の解析事例をまとめたウェブサイト</a> が公開されている．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>特に，<a href="https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation">13 章</a>で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．</p>
 </section>
 </section>
 <section id="混合効果モデルに関する補足" class="level2" data-number="2">
@@ -1683,7 +1684,7 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 </div>
 <p>Poisson 回帰</p>
 <p><span class="math display">\[
-\begin{align*} y_{it} &amp; \sim \operatorname{Pois}(\lambda_{s[i]}) \\ \log(\lambda_{s[i]}) &amp; = u_i + \eta_{it} \\ \eta_{it} &amp; \sim \operatorname{N}(0, \sigma). \end{align*}
+\begin{align*} y_{it} &amp; \sim \operatorname{Pois}(\lambda_{s[i]}) \\ \log(\lambda_{s[i]}) &amp; = \alpha_i + \eta_{it} \\ \eta_{it} &amp; \sim \operatorname{N}(0, \sigma). \end{align*}
 \]</span></p>
 <p>を考えると，各 <span class="math inline">\(y_{it}\)</span> を，（グループ毎に条件付ければ）Poisson 分布の対数正規分布による混合分布を用いてモデル化していることにあたる．</p>
 <p>この，Poisson-対数正規分布族は，<span class="citation" data-cites="Bulmer1974">(<a href="#ref-Bulmer1974" role="doc-biblioref">Bulmer, 1974</a>)</span> により生物種の個体数分布のモデリングで，過分散を説明するために用いられている．</p>
@@ -1750,7 +1751,7 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 </div>
 </div>
 </div>
-<p>また，この二階層目の分布族（第 <a href="#sec-example" class="quarto-xref">1</a> 節での <span class="math inline">\(u_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，分散共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
+<p>また，この二階層目の分布族（第 <a href="#sec-example" class="quarto-xref">1</a> 節での <span class="math inline">\(\alpha_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，分散共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
 <blockquote class="blockquote">
 <p>dist: Name of the distribution of the group-level effects. Currently “gaussian” is the only option.<br><a href="https://paul-buerkner.github.io/brms/reference/gr.html">gr(): Set up basic grouping terms in brms</a></p>
 </blockquote>
@@ -1865,7 +1866,7 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., &amp; Bürkner, P.-C. (2021
 <li id="fn1"><p>R を最新バージョン 4.3.1 → 4.4.0 にアップデートしなければインストールに失敗したことに注意．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn2"><p>Statistical Modeling, Causal Inference, and Social Science における <a href="https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/">こちらのエントリ</a> も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn3"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 333</a>)</span> 第12.3節，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 3</a>)</span>, <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 604</a>)</span>，<span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p>このような誤差項の構造 <span class="math inline">\(e_{it}=u_i+\epsilon_{it}\)</span> を一元誤差成分モデル (one-way error component model) ともいう <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 600</a>)</span>．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>このような誤差項の構造 <span class="math inline">\(e_{it}=\alpha_i+\epsilon_{it}\)</span> を一元誤差成分モデル (one-way error component model) ともいう <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 600</a>)</span>．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn5"><p>この，説明変数と誤差の間に相関があることを，計量経済学では <strong>内生性</strong> (endogeneity) という．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn6"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 5</a>)</span>．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn7"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi &amp; Gelman, 2007, p. 5</a>)</span>，<span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 609</a>)</span> 17.11節 など．狭義では，fixed effects model は within transformation を行い，グループ間の影響を引いたあとに回帰を実行する……という手続きを指すこともあるが，２つは等価な結果を生む．詳しくは <span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span> なども参照．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
