@@ -285,13 +285,14 @@ window.Quarto = {
   <li><a href="#説明変数との相関の問題" id="toc-説明変数との相関の問題" class="nav-link" data-scroll-target="#説明変数との相関の問題"><span class="header-section-number">2.2</span> 説明変数との相関の問題</a></li>
   <li><a href="#ランダム効果モデルにおける相関のモデリング" id="toc-ランダム効果モデルにおける相関のモデリング" class="nav-link" data-scroll-target="#ランダム効果モデルにおける相関のモデリング"><span class="header-section-number">2.3</span> ランダム効果モデルにおける相関のモデリング</a></li>
   <li><a href="#混合効果モデル" id="toc-混合効果モデル" class="nav-link" data-scroll-target="#混合効果モデル"><span class="header-section-number">2.4</span> 混合効果モデル</a></li>
-  <li><a href="#グループレベル分散の推定" id="toc-グループレベル分散の推定" class="nav-link" data-scroll-target="#グループレベル分散の推定"><span class="header-section-number">2.5</span> グループレベル分散の推定</a></li>
+  <li><a href="#sec-group-level-variance-estimation" id="toc-sec-group-level-variance-estimation" class="nav-link" data-scroll-target="#sec-group-level-variance-estimation"><span class="header-section-number">2.5</span> グループレベル分散の推定</a></li>
   <li><a href="#sec-subsec-count-data" id="toc-sec-subsec-count-data" class="nav-link" data-scroll-target="#sec-subsec-count-data"><span class="header-section-number">2.6</span> カウントデータのモデリング</a></li>
   </ul></li>
   <li><a href="#brmsの実装" id="toc-brmsの実装" class="nav-link" data-scroll-target="#brmsの実装"><span class="header-section-number">3</span> <code>brms</code>の実装</a>
   <ul class="collapse">
   <li><a href="#モデリング機能" id="toc-モデリング機能" class="nav-link" data-scroll-target="#モデリング機能"><span class="header-section-number">3.1</span> モデリング機能</a></li>
-  <li><a href="#推論エンジン" id="toc-推論エンジン" class="nav-link" data-scroll-target="#推論エンジン"><span class="header-section-number">3.2</span> 推論エンジン</a></li>
+  <li><a href="#モデリング実装" id="toc-モデリング実装" class="nav-link" data-scroll-target="#モデリング実装"><span class="header-section-number">3.2</span> モデリング実装</a></li>
+  <li><a href="#推論エンジン" id="toc-推論エンジン" class="nav-link" data-scroll-target="#推論エンジン"><span class="header-section-number">3.3</span> 推論エンジン</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -1618,8 +1619,8 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 <p>この節はこれで終わり．</p>
 </section>
 </section>
-<section id="グループレベル分散の推定" class="level3" data-number="2.5">
-<h3 data-number="2.5" class="anchored" data-anchor-id="グループレベル分散の推定"><span class="header-section-number">2.5</span> グループレベル分散の推定</h3>
+<section id="sec-group-level-variance-estimation" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="sec-group-level-variance-estimation"><span class="header-section-number">2.5</span> グループレベル分散の推定</h3>
 <p>混合効果モデル（階層モデル）の推定において，特にグループ数 <span class="math inline">\(S\)</span> が小さい場合，グループレベルの変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になるという問題点が古くからの問題である <span class="citation" data-cites="Harville1977">(<a href="#ref-Harville1977" role="doc-biblioref">Harville, 1977</a>)</span>．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a></p>
 <p>この <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> は何の仮定も置かれておらず，グループ間の相関構造のモデリングを一手に引き受けている．EM アルゴリズムが提案されたばかりの頃 <span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span> では，共分散構造にパラメトリックな仮定をおいていたが，現代ではこれを取り去った最尤推定法・ベイズ推定法が主流である．</p>
 <p>しかし，最尤推定法と，一定の事前分布を仮定したベイズ MAP 推定法では，推定された共分散行列が退化してしまうことがある．これは Wishart 事前分布を仮定することでこれが回避される <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a> これは最尤法の文脈では，penalized likelihood と等価になる <span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>．</p>
@@ -1731,23 +1732,67 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 <h5 data-number="3.1.3.1" class="anchored" data-anchor-id="gr関数"><span class="header-section-number">3.1.3.1</span> <code>gr</code>関数</h5>
 <p>この関数は<code>brm</code>関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．</p>
 <p>例えば，回帰式に<code>(1|patient)</code>が含まれていた場合，<code>gr(patient)</code>が呼び出される．</p>
-<p>グループ内の相関構造については関与せず，デフォルトでは対角行列が指定される．</p>
+<p>共分散構造におく仮定について，重要なデフォルト設定が２つある：</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li><p>グループ間の相関構造は想定されている：<code>cor=True</code>．</p></li>
+<li><p>一方で，グループ内の相関構造は想定されておらず，独立とされている．具体的に指定したい場合は引数<code>cov</code>を用いる．</p>
 <blockquote class="blockquote">
 <p>By default, levels of the same grouping factor are modeled as independent of each other.<br><a href="https://paul-buerkner.github.io/brms/reference/gr.html">gr(): Set up basic grouping terms in brms</a></p>
-</blockquote>
-<p>また，この二階層目の分布族（第 <a href="#sec-example" class="quarto-xref">1</a> 節での <span class="math inline">\(u_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
+</blockquote></li>
+</ul>
+<p>すなわち，<span class="math inline">\(\mathrm{V}[\eta_s]\)</span> には一才仮定が置かれておらず（第 <a href="#sec-group-level-variance-estimation" class="quarto-xref">2.5</a> 節），一方で <span class="math inline">\(\{\epsilon_{it}\}_{t=1}^T\)</span> は互いに独立とされている．</p>
+</div>
+</div>
+</div>
+<p>また，この二階層目の分布族（第 <a href="#sec-example" class="quarto-xref">1</a> 節での <span class="math inline">\(u_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，分散共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
 <blockquote class="blockquote">
 <p>dist: Name of the distribution of the group-level effects. Currently “gaussian” is the only option.<br><a href="https://paul-buerkner.github.io/brms/reference/gr.html">gr(): Set up basic grouping terms in brms</a></p>
 </blockquote>
 </section>
 <section id="sec-autocor-argument" class="level5" data-number="3.1.3.2">
 <h5 data-number="3.1.3.2" class="anchored" data-anchor-id="sec-autocor-argument"><span class="header-section-number">3.1.3.2</span> <code>autocor</code>引数</h5>
-<p><code>brm()</code>関数には，<a href="http://paul-buerkner.github.io/brms/reference/autocor-terms.html"><code>autocor</code>引数</a> が用意されている．経時的繰り返し観測データに対して，同一ユニット間の経時的な相関をモデル化するために用いることができる．</p>
+<p><code>brm()</code>関数には，<a href="http://paul-buerkner.github.io/brms/reference/autocor-terms.html"><code>autocor</code>引数</a> が用意されている．</p>
+<p><code>gr()</code>のデフォルト値では独立とされていたグループ内の相関構造を，具体的に指定するのに用いられる．</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li><code>unstr</code>：一才の仮定を置かない．</li>
+<li><code>AR</code>：一次の自己相関構造．</li>
+</ul>
+</div>
+</div>
+</div>
 </section>
 </section>
 </section>
-<section id="推論エンジン" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="推論エンジン"><span class="header-section-number">3.2</span> 推論エンジン</h3>
+<section id="モデリング実装" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="モデリング実装"><span class="header-section-number">3.2</span> モデリング実装</h3>
+<section id="回帰式-1" class="level4" data-number="3.2.1">
+<h4 data-number="3.2.1" class="anchored" data-anchor-id="回帰式-1"><span class="header-section-number">3.2.1</span> 回帰式</h4>
+<p><code>brm</code>関数に与えられた<code>formula</code>は，<code>validate_formula</code>関数に渡される．</p>
+<p>この関数は S3 のメソッドのディスパッチを用いて実装されており，<code>brmsformula</code>オブジェクトに対しては，<code>validate_formula.brmsformula</code>関数が呼び出される．</p>
+<p>ここでは<code>autocor</code>引数が引かれている場合，出力の<code>formula</code>属性に追加される：<a href="#fn18" class="footnote-ref" id="fnref18" role="doc-noteref"><sup>18</sup></a></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>fit3<span class="sc">$</span>formula</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>count ~ zAge + zBase * Trt + (1 | patient) 
+autocor ~ unstr(time = visit, gr = patient)</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="推論エンジン" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="推論エンジン"><span class="header-section-number">3.3</span> 推論エンジン</h3>
 <p><a href="https://paul-buerkner.github.io/brms/reference/brm.html"><code>brm</code>関数</a> は，Stan による MCMC サンプリングを通じて，事後分布を計算する．</p>
 
 
@@ -1834,6 +1879,7 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., &amp; Bürkner, P.-C. (2021
 <li id="fn15"><p><span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird &amp; Ware, 1982</a>)</span>，<span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>，<span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>，<a href="https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/">Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023</a>．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn16"><p>逆 Wishart ではないらしい <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fnref16" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn17"><p><a href="https://solomonkurz.netlify.app/blog/2021-07-12-got-overdispersion-try-observation-level-random-effects-with-the-poisson-lognormal-mixture/#negative-binomial-counts">Solomon Kurtz (2021)</a> による解説，<a href="https://rpubs.com/INBOstats/OLRE">RPubs</a> も参照．<a href="#fnref17" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn18"><p><a href="https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363">Line 1363</a>．<a href="#fnref18" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

@@ -219,7 +219,7 @@ methods(class="brmsfit")
 
 また，`fit1`において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．
 
-患者間の相関構造は，`brm()`関数の`autocor`引数で指定できる（第 [-@sec-autocor-argument] 節）．
+患者内の相関構造は，`brm()`関数の`autocor`引数で指定できる（第 [-@sec-autocor-argument] 節）．
 
 例えば，全く構造を仮定しない場合は，[`unstr`](http://paul-buerkner.github.io/brms/reference/unstr.html)を指定する：
 
@@ -252,6 +252,8 @@ loo(fit2,fit3)
 ### その他の例
 
 Sebastian Weber らにより，[新薬の治験における実際の解析事例をまとめたウェブサイト](https://opensource.nibr.com/bamdd/) が公開されている．^[Statistical Modeling, Causal Inference, and Social Science における [こちらのエントリ](https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/) も参照．]
+
+特に，[13 章](https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation)で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．
 
 ## 混合効果モデルに関する補足
 
@@ -451,7 +453,7 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 この節はこれで終わり．
 
-### グループレベル分散の推定
+### グループレベル分散の推定 {#sec-group-level-variance-estimation}
 
 混合効果モデル（階層モデル）の推定において，特にグループ数 $S$ が小さい場合，グループレベルの変動切片項 $\al_{s[i]}$ の共分散行列 $\V[\eta_s]$ の推定が不安定になるという問題点が古くからの問題である [@Harville1977]．^[[@Laird-Ware1982]，[@Chung+2013]，[@Chung+2015]，[Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023](https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/)．]
 
@@ -563,19 +565,45 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 例えば，回帰式に`(1|patient)`が含まれていた場合，`gr(patient)`が呼び出される．
 
-グループ内の相関構造については関与せず，デフォルトでは対角行列が指定される．
+共分散構造におく仮定について，重要なデフォルト設定が２つある：
 
-> By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+::: {.callout-tip appearance="simple" icon="false"}
+* グループ間の相関構造は想定されている：`cor=True`．
+* 一方で，グループ内の相関構造は想定されておらず，独立とされている．具体的に指定したい場合は引数`cov`を用いる．
 
-また，この二階層目の分布族（第 [-@sec-example] 節での $u_i$ と $\eta_{it}$）は，正規分布がデフォルトで，現状他の分布族は指定できないでいる．
+    > By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+
+すなわち，$\V[\eta_s]$ には一才仮定が置かれておらず（第 [-@sec-group-level-variance-estimation] 節），一方で $\{\ep_{it}\}_{t=1}^T$ は互いに独立とされている．
+:::
+
+また，この二階層目の分布族（第 [-@sec-example] 節での $u_i$ と $\eta_{it}$）は，分散共分散行列 $\V[\eta_s]$ を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．
 
 > dist: Name of the distribution of the group-level effects. Currently "gaussian" is the only option.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
-
 ##### `autocor`引数 {#sec-autocor-argument}
 
-`brm()`関数には，[`autocor`引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．経時的繰り返し観測データに対して，同一ユニット間の経時的な相関をモデル化するために用いることができる．
+`brm()`関数には，[`autocor`引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．
 
+`gr()`のデフォルト値では独立とされていたグループ内の相関構造を，具体的に指定するのに用いられる．
+
+::: {.callout-tip appearance="simple" icon="false"}
+* `unstr`：一才の仮定を置かない．
+* `AR`：一次の自己相関構造．
+:::
+
+### モデリング実装
+
+#### 回帰式
+
+`brm`関数に与えられた`formula`は，`validate_formula`関数に渡される．
+
+この関数は S3 のメソッドのディスパッチを用いて実装されており，`brmsformula`オブジェクトに対しては，`validate_formula.brmsformula`関数が呼び出される．
+
+ここでは`autocor`引数が引かれている場合，出力の`formula`属性に追加される：^[[Line 1363](https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363)．]
+
+```{r}
+fit3$formula
+```
 
 
 ### 推論エンジン
