@@ -3,7 +3,7 @@ title: "R によるベイズ混合モデリング入門"
 subtitle: "brms を用いた混合効果モデリング入門"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 6/16/2024
+date-modified: 6/17/2024
 categories: [MCMC, Stan, R]
 image: ./brms_files/figure-html/unnamed-chunk-4-1.png
 bibliography: 
@@ -152,6 +152,8 @@ $$
 $$
 からの離反として現れ，この現象は **過分散**（overdispersion）とも呼ばれる．
 
+#### 観測レベルランダム効果
+
 ということで，Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
 
 そこで，追加の変動をモデルに追加するべく，モデル`fit1`に観測ごとの切片項 $\eta_{it}$ を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 [-@sec-subsec-count-data] 節参照）．
@@ -212,6 +214,44 @@ methods(class="brmsfit")
 ```
 
 :::
+
+#### 患者内の相関構造のモデリング
+
+また，`fit1`において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．
+
+患者間の相関構造は，`brm()`関数の`autocor`引数で指定できる（第 [-@sec-autocor-argument] 節）．
+
+例えば，全く構造を仮定しない場合は，[`unstr`](http://paul-buerkner.github.io/brms/reference/unstr.html)を指定する：
+
+```r
+fit3 <- brm(count ~ zAge + zBase * Trt + (1|patient),
+            autocor = ~unstr(time=visit, gr=patient),
+            data = epilepsy, family = poisson())
+```
+
+::: {.callout-caution collapse="true" title="フィッティングの出力"}
+
+```{r}
+fit3 <- brm(count ~ zAge + zBase * Trt + (1|patient),
+            autocor = ~unstr(time=visit, gr=patient),
+            data = epilepsy, family = poisson())
+```
+
+:::
+
+このモデルも`fit1`より遥かに当てはまりが良く，`fit2`とほとんど同じ当てはまりの良さが見られる：
+
+::: {.callout-caution collapse="true" title="LOO-CV の結果"}
+
+```{r}
+loo(fit2,fit3)
+```
+
+:::
+
+### その他の例
+
+Sebastian Weber らにより，[新薬の治験における実際の解析事例をまとめたウェブサイト](https://opensource.nibr.com/bamdd/) が公開されている．^[Statistical Modeling, Causal Inference, and Social Science における [こちらのエントリ](https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/) も参照．]
 
 ## 混合効果モデルに関する補足
 
@@ -505,17 +545,36 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 > Default priors are chosen to be non or very weakly informative so that their influence on the results will be negligible and you usually don't have to worry about them. However, after getting more familiar with Bayesian statistics, I recommend you to start thinking about reasonable informative priors for your model parameters: Nearly always, there is at least some prior information available that can be used to improve your inference.<br>[brm(): Fit Bayesian Generalized (Non-)Linear Multivariate Multilevel Models](https://paul-buerkner.github.io/brms/reference/brm.html)
 
+#### 回帰式
+
+`brm()`関数の第一引数は`brmsformula`オブジェクトを取る．
+
+[`brmsformula()`関数](http://paul-buerkner.github.io/brms/reference/brmsformula.html) は，R の`formula`オブジェクトを通じて，階層モデルを定義できるようになっている（実装は[リスト](R3.qmd)）．
+
 #### 共分散構造 {#sec-ubsubsec-covariance-structure}
 
-共分散構造を指定するには，[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) を使用する．
+共分散構造は２つの観点から，`brmsformula`オブジェクトから自動的に指定される．
 
-この関数は`brm`関数の内部で呼び出され，デフォルトでは対角行列が指定される．
+１つ目がグルーピング構造（共分散行列のブロック構造）であり，これは[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) が使用される．２つ目がグループ内の相関構造であり，これは`brm()`関数の`autocor`引数を用いる．
+
+##### `gr`関数
+
+この関数は`brm`関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．
+
+例えば，回帰式に`(1|patient)`が含まれていた場合，`gr(patient)`が呼び出される．
+
+グループ内の相関構造については関与せず，デフォルトでは対角行列が指定される．
 
 > By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
 また，この二階層目の分布族（第 [-@sec-example] 節での $u_i$ と $\eta_{it}$）は，正規分布がデフォルトで，現状他の分布族は指定できないでいる．
 
 > dist: Name of the distribution of the group-level effects. Currently "gaussian" is the only option.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+
+
+##### `autocor`引数 {#sec-autocor-argument}
+
+`brm()`関数には，[`autocor`引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．経時的繰り返し観測データに対して，同一ユニット間の経時的な相関をモデル化するために用いることができる．
 
 
 
