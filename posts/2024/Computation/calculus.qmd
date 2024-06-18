@@ -1,0 +1,159 @@
+---
+title: "R による記号微分入門"
+subtitle: "calculus パッケージ入門"
+author: "司馬博文"
+date: 6/18/2024
+categories: [R, YUIMA]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: |
+  `calculus` は `c++` を通じて数値微分・数値積分を高速に実行するパッケージである．同時に，ほとんどの演算を，純粋に記号操作により実行する機能も持つ．一般の多変数関数を，記号のまま微分，Taylor 展開することができる．
+format:
+  html:
+    code-fold: false
+execute:
+  cache: true
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+::: {.callout-tip title="calculus リンク集" appearance="simple"}
+
+* [CRAN パッケージページ](https://cran.r-project.org/web/packages/calculus/index.html)
+* [GitHub](https://github.com/eguidotti/calculus)
+* [r-package.org](https://www.r-package.org/)
+* 論文 [@Guidotti2022]
+
+:::
+
+## 概要 {.unnumbered}
+
+R パッケージ`calculus`は，記号微分と数値微分・積分をシームレスに繋いだ機能を提供するパッケージである．
+
+数値微積分は`Rcpp`パッケージと`cubature`パッケージを通じて`C++`バックエンドを用いて提供する．記号微分は外部の記号計算ソフトウェアに依らない実装を提供している．
+
+```r
+install.packages("calculus")
+```
+
+::: {.callout-caution title="例" collapse="true" icon="false"}
+
+* Einstein の縮約記法
+* Levi-Civita 記号の計算
+* 一般化 Kronecker デルタ
+* Taylor 展開
+* 高階導関数
+* 多変数 Hermite 多項式
+* 常微分方程式
+* 微分作用素
+
+:::
+
+::: {.callout-caution title="関連パッケージとの違い" collapse="true" icon="false"}
+
+* [`numDeriv`](https://cran.r-project.org/web/packages/numDeriv/index.html)は数値微分による Jacobian, Hessian 計算を提供するが，それ以上の高階の微分ができず，テンソル値関数の微分もできない．
+* [`tensorA`](https://cran.r-project.org/web/packages/tensorA/index.html)は Einstein の縮約記法を提供するが，２階のテンソルまでに限る．
+* [`mpoly`](https://cran.r-project.org/web/packages/mpoly/index.html)は１変数の Hermite 多項式を提供するが，多変数には対応していない．
+* [`pracma`](https://cran.r-project.org/web/packages/pracma/index.html)は１変数の Taylor 展開を提供するが，多変数には対応していない．
+* [`cubature`](https://cran.r-project.org/web/packages/cubature/index.html)は多変数関数の数値積分に対応しているが，その他の（直交）座標には対応していない．
+
+特に R は記号計算が苦手である．外部の記号計算ソフトウェアに繋ぐことは試みがあるかもしれないが，R 独自のパッケージ内で扱うシステムは従来なかった．
+
+* [`Ryacas`](https://cran.r-project.org/web/packages/Ryacas/index.html)は[`Yacas`](http://www.yacas.org/index.html)という外部の記号計算ソフトウェアへのインターフェースを提供する．
+* [`caracas`](https://cran.r-project.org/web/packages/caracas/index.html)は R-Python インターフェース[`reticulate`](https://rstudio.github.io/reticulate/)を通じて[`SymPy`](https://www.sympy.org/en/index.html)という Python の記号計算ライブラリへのインターフェースを提供する．
+
+これにより，R の，新たな統計推測手法を実装し論文として公開するために用いる言語という性質を活かすことが，パッケージ`calculus`の目的にある [@Guidotti2022 p.4]．
+
+:::
+
+確率過程に対する漸近展開公式では，1000 を超える連立常微分方程式系を解き，その解を通じて多変数 Hermite 多項式の和を計算する必要があり，その際に YUIMA パッケージにおいて記号微分を実行する際に用いられている：
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/YUIMA.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">YUIMA 入門</h3>
+        <p class="article-description">確率微分方程式のシミュレーションと推測のためのパッケージ`yuima`の構造と使い方をまとめます．</p>
+      </div>
+    </a>
+  </div>
+</div>
+```
+
+## 基本
+
+### 概観
+
+ベクトル，行列，テンソルはいずれも配列 `array` として実装されている．特に，ベクトルと行列はテンソルの特殊な場合と理解できるように，実装上も，統一的に Einstein の縮約記法が適用可能である．
+
+すべての関数（＝数学的演算）は，数値バージョンと記号演算バージョンのディスパッチとして実装される．
+
+### 演算
+
+`numeric`, `complex`, `character`, `expression` のいずれかの型を持つ，同次元の配列に対して定義されている．
+
+例えば１次元の`character`に対しては：
+
+```{r}
+library(calculus)
+("a + b" %prod% 1i) %sum% (0 %prod% "c") %diff% (expression(d + e) %div% 3)
+```
+ここで，`1i`, `0`, `expression(d+e)`,`3`はいずれも`character`に変換されてから実行されている：
+```{r}
+typeof(.Last.value)
+```
+
+この段階では`+0`などを省くのみで，評価や簡約化はされない．
+
+::: {.callout-caution title="() の消去" collapse="true" icon="false"}
+
+$$
+(a+b)(c+d)
+$$
+を
+$$
+a+bc+d
+$$
+と解釈してしまうことなどを防ぐため，すべての変数は`()`で囲まれる．
+
+この挙動は`options(calculus.auto.wrap=FALSE)`で無効にできる．
+
+:::
+
+### 評価
+
+関数`evaluate`が提供されている．
+
+```{r}
+x <- array(letters[1:6], dim=c(2,3))
+evaluate(x, var=c(a=1, b=2, c=3, d=4, e=5, f=6))
+```
+
+関数`evaluate`はベクトル化されている：
+
+```{r}
+var <- data.frame(a=c(1,3), b=2:3, c=3:4, d=4:5, e=5:6, f=6:7)
+evaluate(x, var=var)
+```
+
+::: {.callout-caution title="R Base の eval 関数との違い" collapse="true" icon="false"}
+
+`eval`関数では，１つの変数の代入しか行えない．
+
+複数与えられた場合でも，最後の１つのみ評価した結果が返される：
+
+```{r}
+var_list <- list(a=1, b=2, c=3, d=4, e=5, f=6)
+eval(parse(text=x), envir=var_list)
+```
+`evaluate`関数と同様の結果を得るには，成分ごとに繰り返し適用する必要がある．例えば次のように：
+```{r}
+apply(x, c(1, 2), function(expr) eval(parse(text=expr), envir=var_list))
+```
+
+:::
