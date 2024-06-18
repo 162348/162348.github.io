@@ -2,14 +2,15 @@
 title: "YUIMA 入門"
 author: "司馬 博文"
 date: 5/17/2024
-categories: [Stan, R, YUIMA]
+date-modified: 6/16/2024
+categories: [Stan, R, YUIMA, Process]
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
     - YUIMA.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: 確率微分方程式のシミュレーションと推測のためのパッケージ`yuima`の構造と使い方をまとめます．
+abstract: R パッケージ`yuima`は，従来の i.i.d. 仮定の下での統計推測から，一般の確率過程の統計推測への橋渡しをすべく，広範な確率微分方程式のシミュレーションと統計推測を可能とするパッケージです．その機能の全貌と，基本的な使い方を紹介します．
 execute:
   cache: true
 ---
@@ -18,30 +19,29 @@ execute:
 
 ## [YUIMA](https://r-forge.r-project.org/projects/yuima/)とは？
 
-YUIMAプロジェクトとは，確率微分方程式のシミュレーションと推測のためのパッケージ`yuima`の開発を目指すプロジェクト．`yuima`が取り扱う確率微分方程式は，「多次元 Wiener 過程または一般の Hurst 指数を持つ分数 Brown 運動に駆動され，Lévy ノイズが定めるジャンプを持ち得る」過程という極めて一般的な形を取り扱える．確率微分方程式を用いた更に複雑なモデルや推測手続きのための基盤インフラとなることを目指している．^[[@Brouste+2014] 概要より．]
+R パッケージ`yuima`は，Lévy 過程または分数 Brown 運動が駆動する確率微分方程式が定める過程という，極めて一般的なクラスの確率過程を扱う基盤パッケージである．
 
-### 公式資料
+加えて，シミュレーションと推論のためのメソッドが提供されている．
 
-* [R-Forge](https://r-forge.r-project.org/projects/yuima/)
-* [Stable version on CRAN](https://cran.r-project.org/web/packages/yuima/index.html).
+R で通常の統計推測に用いられる`formula`オブジェクトのように，直感的な記法でモデル（`yuima.model`オブジェクト）を定義できる．
+
+`yuima.model`オブジェクトに対して`toLatex()`関数を適用すると，モデルを LaTeX 記法で記述した文字列に変換することもできる．^[[@Brouste+2014] 第７節も参照．]
+
+このように YUIMA は，確率微分方程式の更なる研究や，より複雑なモデルや推測手続きのための基盤インフラとなることを目指している．^[[@Brouste+2014] 概要より．]
+
+::: {.callout-tip title="リンク集" icon="false" collapse="true"}
+
+* [R-Forge](https://r-forge.r-project.org/projects/yuima/)^[R-Forge とは，SourceForge に似た，R 言語のパッケージ開発者向けの協力的な開発環境を提供するプラットフォーム．]
+* [Stable version on CRAN](https://cran.r-project.org/package=yuima).
 * [GitHub](https://github.com/yuimaproject/yuima)
-* [yuimaGUI](https://cran.r-project.org/web/packages/yuimaGUI/index.html)
+* [yuimaGUI package](https://cran.r-project.org/web/packages/yuimaGUI/index.html)
+* [rdrr.io ページ](https://rdrr.io/rforge/yuima/)^[rdrr は CRAN や GitHub だけでなく，Bioconductor や R-Forge も含めて検索可能にしているサイト．]
+* [論文](https://www.jstatsoft.org/article/view/v057i04) [@Brouste+2014]
+  * パッケージ開発者らによるオープンアクセス論文．
 
-### リンク集
+:::
 
-CRANはリポジトリでありユーザーによるパッケージ検索はとてもしづらいページ．
-
-* [rdrr.io](https://rdrr.io/) Rパッケージのドキュメントを見つけやすくしている．
-  * CRANやGitHubだけでなく，BioconductorやR-Forgeも含めて検索可能にしている．
-* [論文](https://www.jstatsoft.org/article/view/v057i04) [@Brouste+2014]：パッケージ開発者らによるオープンアクセス論文．
-
-### [R-Forge](https://www.rforge.net/)とは
-
-SourceForgeに似た，R言語のパッケージ開発者向けの協力的な開発環境を提供するプラットフォーム．
-
-> SVNリポジトリ、ドキュメントスペース、ダウンロードセクション、メーリングリスト、バグトラッキングシステム、ウィキなどが含まれています。R言語のパッケージ開発に特化した追加機能、例えばコミット時のmake check、パッケージの夜間ビルド、様々なプラットフォームでのテスト実施、CRANのようなリポジトリアクセスも提供しています。SourceForgeやGForgeでは提供されていないR固有の機能に焦点を当てており、GitHubのようなサイトと補完しあい、Rパッケージのバックエンドとして統合することが可能です​​。
-
-### Installation
+::: {.callout-tip title="インストール" icon="false" collapse="true"}
 
 ```r
 install.packages("yuima", repos="http://R-Forge.R-project.org")
@@ -49,6 +49,7 @@ install.packages("yuima", repos="http://R-Forge.R-project.org")
 
 ```{r}
 #| output: false
+#| code-fold: false
 library(yuima)  # ライブラリの読み込み
 ```
 
@@ -56,9 +57,7 @@ library(yuima)  # ライブラリの読み込み
 ??yuima  # Man pageを開く
 ```
 
-### `toLatex`関数
-
-`yuima`または`yuima.model`オブジェクトに対して`toLatex(model)`を適用すると，モデルを数式で表したものを出力する．[@Brouste+2014 第7節]
+:::
 
 ## YUIMAの構造とモデル定義
 
