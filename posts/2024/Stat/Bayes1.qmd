@@ -40,10 +40,12 @@ $$
 まず，何の観測もない場合，$x_*$ の確率分布は $p(x)dx$ である（設定上）．
 
 しかし，すでに観測 $y_1,\cdots,y_n$ を経ている．よってこの事象の上での $x_*$ の条件付き分布を計算すれば良いことになる：
-\begin{align*}
-    p(x|y_1,\cdots,y_n) &= \frac{p(\b{y}|x)p(x)}{p(\b{y})}\\
-    &= \frac{\displaystyle p(y_1|x)\cdots p(y_n|x)p(x)}{\displaystyle\int_\R p(y_1|x)\cdots p(y_n|x)p(x)\,dx}
-\end{align*}
+$$
+p(x|y_1,\cdots,y_n) = \frac{p(\b{y}|x)p(x)}{p(\b{y})}
+$$
+$$
+= \frac{\displaystyle p(y_1|x)\cdots p(y_n|x)p(x)}{\displaystyle\int_\R p(y_1|x)\cdots p(y_n|x)p(x)\,dx}
+$$ {#eq-bayes}
 
 こうして，誤り訂正符号の文脈では，Bayes 事前確率・事後確率が純粋に確率としての解釈を持つ．
 
@@ -93,7 +95,6 @@ prior = MixtureModel([Normal(0.0, 1.0), Normal(0.0, 0.005)], [0.5, 0.5])
     end
 end
 
-# モデルのインスタンス化
 model = mixed_normal_model(data)
 ```
 
@@ -133,6 +134,166 @@ $$
 
 しかし，例 [-@sec-example] をさらに変形することで，次のような事後分布が得られる状況は容易に想像がつく：
 
+```{julia}
+#| code-fold: true
+#| label: fig-1
+function f(x)
+    if -1.8 < x < -1.6
+        return 2.5
+    elseif 0 < x < 1.5
+        return 1
+    else 
+        return 0
+    end
+end
 
+plot(f, -2, 2, size=(600, 400), legend=false, color="#80c4ac")
+```
+
+### ベイズ最適推定量
+
+@fig-1 の状況でも，たしかに１点のみを選ぶならば MAP 推定量で良いかもしれないが，$x\le0$ である確率は $x\ge0$ である確率よりも低いため，この意味では，$x\in[0,3/2]$ の範囲に推定量が収まっていた方が好ましいかもしれない．
+
+推定量 $\wh{x}_n:\R^n\to\R$ を評価するには，何らかのアプリオリな **損失** の概念が必要である．これを損失関数 $L:\R^2\to\R$ という形で与える．
+
+すると，損失の期待値が計算可能になり，これを **危険** という：
+$$
+R(\wh{x}_n):=\E[L(\wh{x}_n(\b{Y}),X)].
+$$
+
+このリスクを最小化する推定量を **ベイズ最適推定量**，その際のリスクを **ベイズリスク** という．^[[@Krzakala-Zdeborova2024 p.119]．]
+
+#### $l^2$-ベイズ最適推定量
+
+::: {.callout-tip title="命題" icon="false"}
+$L(x,y):=\norm{x-y}_2$ と定める．このとき，**事後平均** がベイズリスクを達成する：
+$$
+\wh{x}(\b{y}):=\int_\R xp(x|\b{y})\,
+dx.
+$$
+:::
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+:::
+
+@fig-1 の場合では，事後平均は約 $0.1$ で，かろうじて正になる．
+
+#### $l^1$-ベイズ最適推定量
+
+::: {.callout-tip title="命題" icon="false"}
+$L(x,y):=\abs{x-y}=\norm{x-y}_1$ と定める．このとき，**事後中央値** がベイズリスクを達成する．
+:::
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+:::
+
+@fig-1 の場合では，事後中央値は $0.5$ となる．大変頑健な推定だと言えるだろう．
+
+#### 最適決定規則
+
+今回の誤り訂正符号の文脈の目標は，$x_*$ の復元であることを思い出せば，今回の損失は $L(x,y)=\delta_0(x-y)$ ととり，復号が成功する確率を最大とする推定量が「最良」と言うべきであろう：
+$$
+R(\wh{x}_n)=\P[\wh{x}_n(\b{Y})=X]
+$$
+
+これは結局 MAP 推定量
+$$
+\wh{x}_n:=\argmax_{x\in\R}p(x|\b{y})
+$$
+で与えられることになる．
 
 ## 統計物理からの視点
+
+### 事後分布をある物理系の平衡分布と見る
+
+ベイズの公式 ([-@eq-bayes]) は
+$$
+p(x|\b{y})=\frac{e^{\log p(\b{y}|x)p(x)}}{p(\b{y})}
+$$
+$$
+=\frac{e^{-H(x,\b{y})}}{Z(\b{y})},
+$$
+$$
+H(x,\b{y}):=-\log p(\b{y}|x)-\log p(x),\quad Z(\b{y}):=p(y)
+$$
+と書き換えられる．
+
+すなわち，Bayes 事後分布 $p(x|\b{y})$ は，$\R\times\R^n$ を配位空間に持ち，Hamiltonian $H(x,\b{y})$ を持つ正準集団の平衡分布と捉えることができる．
+
+### もう一つの見方
+
+今回，通信路は加法的に Gauss ノイズを加えるものとした．
+$$
+p(x,y)dy=\rN(x,\sigma)(dy)
+$$
+とした場合，次のように理解することもできる：
+$$
+p(x|\b{y})=\frac{e^{-H(x,\b{y})}}{Z(\b{y})},
+$$
+$$
+H(x,\b{y}):=\frac{1}{2\sigma^2}\sum_{i=1}^n(x^2-2xy_i)-\log p(x),
+$$
+$$
+Z(\b{y}):=\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}\frac{e^{-\frac{\abs{\b{y}}^2}{2\sigma^2}}}{p(\b{y})}.
+$$
+
+この場合，分配関数 $Z(\b{y})$ は，情報源 $p(x)$ と Gauss 型通信路 $p(y|x)$ で与えられた周辺モデル $p(y)$ と，$\rN(0,\sigma^2)$ との [**ベイズ因子**](https://ja.wikipedia.org/wiki/ベイズ因子) になっている．
+
+::: {.callout-note title="式変形" collapse="true" icon="false"}
+\begin{align*}
+    p(x|\b{y})&=p(\b{y}|x)\frac{p(x)}{p(\b{y})}\\
+    &=\frac{p(x)}{p(\b{y})}\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}e^{-\frac{1}{2\sigma^2}\sum_{i=1}^n(x-y_i)^2}\\
+    &=\frac{p(x)}{p(\b{y})}\frac{e^{-\frac{1}{2\sigma^2}\sum_{i=1}^ny_i^2}}{(2\pi\sigma^2)^{\frac{n}{2}}}e^{-\frac{1}{2\sigma^2}\sum_{i=1}^n(x^2-2xy_i)}\\
+    &=\frac{p(x)e^{-\frac{1}{2\sigma^2}\sum_{i=1}^n(x^2-2xy_i)}}{Z(\b{y})}\\
+    &=\frac{1}{Z(\b{y})}\exp\paren{\log p(x)-\frac{1}{2\sigma^2}\sum_{i=1}^n(x^2-2xy_i)}
+\end{align*}
+:::
+
+さらに，このモデル $H$ における自由エントロピーは，$p(\b{y})$ と $\rN(0,\sigma^2)^{\otimes n}$ との間の KL 乖離度となっている：
+$$
+F_n:=\int_{\R^n}\log\frac{p(\b{y})}{q(\b{y})}p(\b{y})\,d\b{y}=\KL(p,q).
+$$
+ただし，$q$ は $\rN(0,\sigma^2)^{\otimes n}$ の密度とした．
+
+::: {.callout-tip title="命題（その他の物理量）^[[@Krzakala-Zdeborova2024 p.122]．]" icon="false"}
+
+この Hamiltonian $H$ を持つ系について，
+
+1. エントロピー $H$ は次で与えられる：
+
+    \begin{align*}
+        H(Y)&:=-\int_{\R^n}(\log p(\b{y}))p(\b{y})\,d\b{y}\\
+        &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{1}{2\sigma^2}\int_{\R^n}\abs{\b{y}}^2p(\b{y})\,d\b{y}-F_n.
+    \end{align*}
+
+2. 相互情報量 $I$ は次で与えられる：
+
+    \begin{align*}
+        I(X,Y)&=\KL(p(x,y),p(x)p(y))\\\\
+        &=\frac{n}{2\sigma^2}\int_{\R}x^2p(x)\,dx.
+    \end{align*}
+
+特に，いずれも自由エネルギーの定数倍である
+
+:::
+
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+1. の式変形は次のとおり：
+
+\begin{align*}
+    H(Y)&:=-\int_{\R^n}(\log p(\b{y}))p(\b{y})\,d\b{y}\\
+    &=-\int_{\R^n}p(\b{y})d\b{y}\log q(\b{y})-F_n\\
+    &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{1}{2\sigma^2}\int_{\R^n}\abs{\b{y}}^2p(\b{y})\,d\b{y}-F_n.
+\end{align*}
+
+2. 次の関係式を用いる：
+$$
+I(X,Y)=H(Y)-H(Y|X)
+$$
+これより，
+\begin{align*}
+    I(X,Y)&=H(Y)-\frac{n}{2}\log(2\pi e\sigma^2)
+\end{align*}
+
+:::
