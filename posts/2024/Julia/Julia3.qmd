@@ -1,0 +1,113 @@
+---
+title: "俺のための Julia 入門（３）関数"
+author: "司馬 博文"
+date: 6/20/2024
+categories: [Julia]
+abstract-title: 概要
+abstract: Julia とは，
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## 関数定義
+
+::: {.callout-tip appearance="simple" icon="false"}
+1. 複数行記述
+
+    ```julia
+    function name(arg, [arg2, …])
+        methods
+    end
+    ```
+
+2. １行記述：極めて数学的に直感的な定義法
+
+    ```julia
+    name(arg, [arg2, …]) = return_value
+    ```
+3. 型の明示
+
+    ```julia
+    name(arg::DataType, [arg2::DataType, …])::DataType = return_value
+    ```
+:::
+* 型の指定は全て任意．
+* 戻り値にも型を指定した場合は，暗黙のうちにそれに変換して返される．変換できない場合は`ERROE: InexactError`
+
+### 返り値について
+* returnの省略
+    * 戻り値がreturn文で指定されなかった場合は，endの直前の１行で評価された値が自動的に返り値となる．
+* returnとだけ書くと，return nothingの略記とみなす．
+* 複数返り値
+    * tupleを返せば良い．
+
+### 引数について
+* 可変長引数
+    * … objectを用いてarg…またはarg::DataType…とすれば，tuple型で受け取れる．
+    * 受け取ったargに対してlnegth(arg)としてforを回せる．
+    * 関数の最後の引数のみに定義可能．
+* optional引数
+    * name=valueとして宣言すると，optionalになる．
+    * 全てのoptional引数は，そうでない引数より前に来ることができない．
+    * positionalである．あまりに多い場合はkeyword引数にすると良い．
+* keyword引数
+    * optional引数の記法において，コンマ”,”の代わりにセミコロン”;”で区切ると，以降は名前付きで呼び出さなきゃいけないkeyword引数となる．
+    * 呼び出すときはコンマ”,”で良い．
+    * 名前付きで呼び出せるので
+* 多重ディスパッチ
+    * 引数の型注釈が違えば，同じ名前の関数をいくつも定義できる．
+    * 呼ぶ時はJuliaが暗黙のうちに正しいものを呼んでくれる．
+
+### 匿名関数：`->`
+
+`->`がconstructorで，大体代入してから使う．map, filter 関数の引数として用いられる．
+
+1. １行記述
+name = arg -> value
+左辺のnameは関数objectに，右辺は匿名関数である．
+2. 複数行記述
+name = arg -> begin
+	suite
+end
+
+* データ型はvar”#1#2”となる．なぜだ？
+
+## 組み込み関数
+
+### `Base.`
+
+* nextind(str::AbstractString, i::Integer, n::Integer=1) -> n-th_index::Int
+    * n==1の時，iでindexされているstrの要素の，次の要素の開始indexの値を返す．
+    * n>1の時，n個次の要素の開始indexの値を返す．
+    * n==0の時，iでindexされているstrの要素が存在する場合，iを返す．
+* prevind()
+
+* rand([rng=GLOBAL_RNG], [S=Float64], [dims…]) -> 
+    * 可変長引数dimをとって，(n,m,...)だとn×m×…のランダム行列を返す．
+
+* map(f, c…) -> collection
+    * collection型であるcの各要素にfを施す．
+    * 積写像である．
+* filter(f,a) -> a’
+    * aはcollection, fは真理値関数．
+    * collection aのcopyであって，fがfalseと判定したものを返す．
+
+#### `Base.Iterators.`
+
+* enumerate(iter) -> (i,x)::iterator
+    * iは1から始まるindex，xはiterのi番目の要素．
+    * iterable object xだけで無く，カウンターiも同時に得られるところが便利．それに常にx = iter[i]とは限らない．
+        * この返り値objectの型はBase.Iterators.Enumerate{NTuple{n,T}}．
+
+#### `Base.MainInclude.`
+
+* eval(expr)
+    * Evaluate an expression in the global scope of the containing module. 
+
+
+### `Core.`
+
+* eval(m::Module, expr)
+* isa(x, type) —> Bool
+    * 中置記法(infix)でx isa typeともかける．
+    * xがtypeのinstandeならtrueを返す．
