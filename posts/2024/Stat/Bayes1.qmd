@@ -1,5 +1,6 @@
 ---
 title: "ベイズ統計学と統計物理学"
+subtitle: "スパース符号の復元を題材として"
 author: "司馬 博文"
 date: 6/20/2024
 categories: [Bayesian, Nature, Information]
@@ -8,7 +9,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: 繰り返し起こる事象の待ち時間をモデル化した Markov 連鎖・過程を例として，Markov 連鎖のエルゴード性に関連する概念を概観する．特に，収束レートと中心極限定理がいつ成り立つかを議論する．
+abstract: ノイズ付きで観測された情報を復元するデノイジング問題を，ベイズ統計学と統計力学の２つの観点から考える．ベイズ統計モデルはスピングラスモデルと同一視することができる．このことからも，一般に事後分布からのサンプリングが困難になりえることがよくわかる．
 format:
     html:
         code-fold: false
@@ -163,10 +164,10 @@ $$
 
 このリスクを最小化する推定量を **ベイズ最適推定量**，その際のリスクを **ベイズリスク** という．^[[@Krzakala-Zdeborova2024 p.119]．]
 
-#### $l^2$-ベイズ最適推定量
+#### $l^2$-ベイズ最適推定量 {#sec-MMSE}
 
 ::: {.callout-tip title="命題" icon="false"}
-$L(x,y):=\norm{x-y}_2$ と定める．このとき，**事後平均** がベイズリスクを達成する：
+$L(x,y):=(x-y)^2$ と定める．このとき，**事後平均** がベイズリスクを達成する：
 $$
 \wh{x}(\b{y}):=\int_\R xp(x|\b{y})\,
 dx.
@@ -181,7 +182,7 @@ $$
 #### $l^1$-ベイズ最適推定量
 
 ::: {.callout-tip title="命題" icon="false"}
-$L(x,y):=\abs{x-y}=\norm{x-y}_1$ と定める．このとき，**事後中央値** がベイズリスクを達成する．
+$L(x,y):=\abs{x-y}$ と定める．このとき，**事後中央値** がベイズリスクを達成する．
 :::
 ::: {.callout-note title="証明" collapse="true" icon="false"}
 
@@ -204,6 +205,8 @@ $$
 
 ## 統計物理からの視点
 
+真のシグナル $x^*\in\R$ を，事後平均によって点推定する問題を考える（次節で一般次元のベクトル $\R^n$ のスパース推定を考える．
+
 ### 事後分布をある物理系の平衡分布と見る
 
 ベイズの公式 ([-@eq-bayes]) は
@@ -220,7 +223,7 @@ $$
 
 すなわち，Bayes 事後分布 $p(x|\b{y})$ は，$\R\times\R^n$ を配位空間に持ち，Hamiltonian $H(x,\b{y})$ を持つ正準集団の平衡分布と捉えることができる．
 
-### もう一つの見方
+### もう一つの見方 {#sec-identification}
 
 今回，通信路は加法的に Gauss ノイズを加えるものとした．
 $$
@@ -269,8 +272,8 @@ $$
 2. 相互情報量 $I$ は次で与えられる：
 
     \begin{align*}
-        I(X,Y)&=\KL(p(x,y),p(x)p(y))\\\\
-        &=\frac{n}{2\sigma^2}\int_{\R}x^2p(x)\,dx.
+        I(X,Y)&:=\KL(p(x,y),p(x)p(y))\\\\
+        &=\frac{n}{2\sigma^2}\int_{\R}x^2p(x)\,dx-F_n.
     \end{align*}
 
 特に，いずれも自由エネルギーの定数倍である
@@ -280,20 +283,231 @@ $$
 ::: {.callout-note title="証明" collapse="true" icon="false"}
 
 1. の式変形は次のとおり：
-
-\begin{align*}
-    H(Y)&:=-\int_{\R^n}(\log p(\b{y}))p(\b{y})\,d\b{y}\\
-    &=-\int_{\R^n}p(\b{y})d\b{y}\log q(\b{y})-F_n\\
-    &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{1}{2\sigma^2}\int_{\R^n}\abs{\b{y}}^2p(\b{y})\,d\b{y}-F_n.
-\end{align*}
-
+   \begin{align*}
+       H(Y)&:=-\int_{\R^n}(\log p(\b{y}))p(\b{y})\,d\b{y}\\
+       &=-\int_{\R^n}p(\b{y})d\b{y}\log q(\b{y})-F_n\\
+       &=-\int_{\R^n}\Paren{-\frac{n}{2}\log(2\pi\sigma^2)-\frac{\abs{\b{y}}^2}{2\sigma^2}}p(\b{y})d\b{y}-F_n\\
+       &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{n}{2\sigma^2}\int_{\R}y_i^2p(y_i)\,dy_i-F_n.
+   \end{align*}
 2. 次の関係式を用いる：
-$$
-I(X,Y)=H(Y)-H(Y|X)
-$$
-これより，
+   $$
+   I(X,Y)=H(Y)-H(Y|X)
+   $$
+   $H(Y)$ は 1. から判明しており，$H(Y|X)$ は次のように計算できる：
+
+   \begin{align*}
+    H(Y|X)&=-\int_{\R^{n+1}}\log p(\b{y}|x)p(\b{y}|x)p(x)\,dxd\b{y}\\
+    &=-\int_{\R^{n+1}}\log\paren{\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}\exp\paren{-\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-x)^2}}p(\b{y}|x)p(x)\,dxd\b{y}\\
+    &=\int_{\R^{n+1}}\paren{\frac{n}{2}\log(2\pi\sigma^2)+\frac{\sum_{i=1}^n(x-y_i)^2}{2\sigma^2}}p(\b{y}|x)p(x)\,dxd\b{y}\\
+    &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{1}{2\sigma^2}\int_\R\paren{\int_{\R^n}\sum_{i=1}^n(x-y_i)^2p(\b{y}|x)\,d\b{y}}\,p(x)dx\\
+    &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{n\sigma^2}{2\sigma^2}\int_\R p(x)\,dx\\
+    &=\frac{n}{2}\log(2\pi\sigma^2)+\frac{n}{2}.
+   \end{align*}
+
+これと，$y_i$ には $x_i$ とこれと独立な分散 $\sigma^2$ のノイズが加わって得られる値であることから，次のように計算できる：
 \begin{align*}
-    I(X,Y)&=H(Y)-\frac{n}{2}\log(2\pi e\sigma^2)
+    I(X,Y)&=H(Y)-\frac{n}{2}\log(2\pi\sigma^2)-\frac{n}{2}\\
+    &=-F_n-\frac{n}{2}+\frac{n}{2\sigma^2}\int_\R y_i^2p(y_i)\,dy_i\\
+    &=-F_n-\frac{n}{2}+\frac{n}{2\sigma^2}\paren{\sigma^2+\int_\R x^2p(x)\,dx}\\
+    &=-F_n+\frac{n}{2\sigma^2}\int_\R x^2p(x)\,dx.
 \end{align*}
+
+:::
+
+### Stein の補題
+
+::: {.callout-tip title="命題 [@Stein1972]" icon="false"}
+
+可積分な確率変数 $X\in\L^1(\Om)$ について，次は同値：
+
+1. $X$ の分布は標準Gaussである：$X\sim\gamma_1$．
+2. 任意の $f\in C^1_b(\R)$ について，
+$$
+\E[f'(X)]=\E[Xf(X)]<\infty.
+$$
+
+:::
+
+::: {.callout-note title="証明" collapse="true" icon="false"}
+* (1)$\Rightarrow$(2)
+
+    $f,f'$ はいずれも有界としたから，
+    $$
+    \E[f'(X)],\E[f(X)]<\infty
+    $$
+    が成り立つ．
+
+    $\gamma_1$ の密度 $\phi$ は $\phi'(x)=-x\phi(x)$ を満たすことに注意すれば，部分積分により，
+    \begin{align*}
+        \E[f'(X)]&=-\int_\R f(x)\phi'(x)dx\\
+        &=\int_\R f(x)x\phi(x)dx=\E[f(X)X].
+    \end{align*}
+
+* (2)$\Rightarrow$(1)
+
+    $X$ は可積分としたから，特性関数 $\varphi(u):=\E[e^{iuX}]$ は少なくとも $C^1(\R)$-級で，その微分は $\phi(x):=e^{iux}$ に関する仮定 $\E[\phi'(X)]=\E[X\phi(X)]$ を通じて
+    \begin{align*}
+        \varphi'(u)&=i\E[Xe^{iuX}]=-u\E[e^{iuX}]\\
+        &=-u\varphi(u),\qquad u\in\R,
+    \end{align*}
+    と計算できる．
+    
+    この微分方程式は規格化条件 $\varphi(0)=1$ の下で一意な解 $\varphi(u)=e^{-\frac{u^2}{2}}$ を持つ．
+:::
+
+### 西森対称性
+
+::: {.callout-tip title="命題 [@西森1980]^[[@Krzakala-Zdeborova2024 p.123] 定理13．]" icon="false"}
+
+$P:\R\to\R^n$ を確率核，$X^*\in\L(\Om)$ は分布 $\nu\in\cP(\R)$ を持ち，$Y\in\L(\Om;\R^n)$ の分布は
+$$
+\mu(dy)=\int_\R\nu(dx)P(x,dy)
+$$
+で定まるとする．ここで，$Y$ で条件づけた $X^*$ の確率分布を $P^{X|Y}$ とする：
+$$
+\nu(dx)=\int_{\R^n}\mu(dy)P^{X|Y}(y,dx).
+$$
+$$
+X^{(1)},\cdots,X^{(k)}\iidsim P^{X|Y}
+$$
+を独立な確率変数列とすると，次が成り立つ：
+$$
+\E\SQuare{f(Y,X^{(1)},\cdots,X^{(k)})}=\E\Square{f(Y,X^{(1)},\cdots,X^{(k-1)},X^*)}.
+$$
+
+:::
+
+$X^{(1)},\cdots,X^{(k)}$ で表した確率変数の $P^{X|Y}$ に関する積分を Boltzmann 積分と呼び，観測を作り出す過程 $(X^*,Y)$ に関する積分を無秩序積分 (disorder expectation) という．
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+この設定の下で，$(X^*,Y)$ の結合分布が次の２通りで表せていることに注意：
+$$
+\nu(dx)P(x,dy)=\mu(dy)P^{X|Y}(y,dx).
+$$
+従って，
+\begin{align*}
+    &\quad\nu(dx)P(x,dy)P^{X|Y}(y,dx^{(1)},\cdots,dx^{(k)})\\
+    &=\mu(dy)P^{X|Y}(y,dx)P^{X|Y}(y,dx^{(1)},\cdots,dx^{(k)})
+\end{align*}
+に関して $f(Y,X^{(1)},\cdots,X^{(k)})$ の期待値を取ると，次のように計算できる：
+\begin{align*}
+    &\quad\E\SQuare{f(Y,X^{(1)},\cdots,X^{(k)})}\\
+    &=\int_{\R^{n+k}}f(y,x^{(1)},\cdots ,x^{(k-1)},x^{(k)})P^{X|Y}(y,dx^{(1)})\cdots P^{X|Y}(y,dx^{(k)})\mu(dy)\\
+    &=\int_{\R^{n+k}}f(y,x^{(1)},\cdots,x^{(k-1)},x)P^{X|Y}(y,dx^{(1)})\cdots P^{X|Y}(y,dx^{(k-1)})\nu(dx)P(x,dy)\\
+    &=\E\Square{f(Y,X^{(1)},\cdots,X^{(k-1)},X^*)}.
+\end{align*}
+
+確率核 $P$ にまつわる記法は次の記事も参照：
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/static/Notations.html" target="_blank">
+            <img src="https://162348.github.io/static/Notations.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">数学記法一覧</h3>
+                <p class="article-description">本サイトで用いる記法と規約</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+:::
+
+::: {.callout-important title="物理的な解釈" collapse="true" icon="false"}
+
+$P^{X|Y}$ に関する積分を $\brac{-}$ で表すことで，何をどのように物理的に解釈しているかが明確になる：
+$$
+\brac{X}=\E[X|Y].
+$$
+
+この見方を採用すると，期待値を
+$$
+\E\SQuare{f(Y,X^{(1)},\cdots,X^{(k)})}=\E^Y\Square{\Brac{f(Y,X^{(1)},\cdots,X^{(k)})}}
+$$
+と二段階で捉えていることになる．右辺の外側の期待値は単に $Y$ のみに関してとっていることになる．
+
+第 [-@sec-identification] 節で考えたモデル $H$ における Boltzmann 分布が $P^{X|Y}$ となり，平均 $\brac{-}$ はこれに関する平均となる．
+
+一方で，Hamiltonian $H$ にもランダム性が残っているのであり，これに関する平均が $(X^*,Y)$ に関する平均に当たる．
+
+こうして，ベイズ統計モデルはスピングラス系（特にランダムエネルギーモデル [@Derrida1980]）と同一視できるようになる．
+
+だが同時に，スピングラスのサンプリングを困難にする多谷構造も，ベイズ統計に輸入されるのである……．
+
+スピングラスについては，次の記事も参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Nature/StatisticalMechanics1.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Nature/SG.png" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">数学者のための統計力学１</h3>
+                <p class="article-description">Ising 模型とスピングラス</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+:::
+
+### 最小自乗誤差推定量 {#sec-MMSE-via-Nishimori}
+
+第 [-@sec-MMSE] 節で扱った最小自乗誤差推定量の自乗誤差は次のように計算できる：
+
+::: {.callout-tip title="命題（最小自乗誤差の表示）" icon="false"}
+
+事後平均推定量の自乗誤差は次のように表せる：
+\begin{align*}
+    \DeclareMathOperator{\MMSE}{MMSE}
+    \MMSE&:=\E\SQuare{\Paren{X-\E[X|Y]}^2}\\
+    &=\E[X^2]-\E\SQuare{\E[X|Y]^2}.
+\end{align*}
+
+:::
+
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+\begin{align*}
+    \E[\V[X|Y]]&=\E\SQuare{\Paren{\E[X|Y]-X}^2}\\
+    &=\E\SQuare{\E[X|Y]^2-2X\E[X|Y]+X^2}\\
+    &=\E\SQuare{\E[X|Y]^2}-2\E\SQuare{X\E[X|Y]}+\E[X^2]\\
+    &=\E[X^2]-\E\SQuare{\E[X|Y]^2}.
+\end{align*}
+
+この変形では，繰り返し期待値の法則
+\begin{align*}
+    \E\SQuare{X\E[X|Y]}&=\E\SQuare{\SQuare{X\E[X|Y]\,\bigg|\,Y}}\\
+    &=\E\SQuare{\E[X|Y]^2}
+\end{align*}
+を西森の対称性の代わりに用いたことになる．
+
+換言すれば，西森の対称性を証明したのと同様の方法を本命題にも適用したため，直接命題の適用は回避したことになる．
+
+:::
+
+::: {.callout-tip title="命題（自由エネルギーによる特徴付け）^[[@Krzakala-Zdeborova2024 p.124] 定理14．]" icon="false"}
+
+簡単のため，$n=1$ とする．このとき，$\beta:=\sigma^{-1}$ に関して，次の式が成り立つ：
+
+1. 相互情報量 $I(X,Y)$ について，
+
+\begin{align*}
+    \pp{I(X,Y)}{\beta}&=\frac{\MMSE}{2}\\
+    &=\frac{\E[X^2]-\E\SQuare{\E[X|Y]^2}}{2}
+\end{align*}
+
+2. 自由エネルギー $F_1$ について，
+$$
+\pp{F_1}{\beta}=\frac{\E\SQuare{\E[X|Y]^2}}{2}.
+$$
+
+:::
+
+::: {.callout-note title="証明" collapse="true" icon="false"}
+
+
 
 :::
