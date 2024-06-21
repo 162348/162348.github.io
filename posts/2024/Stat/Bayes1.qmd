@@ -29,18 +29,18 @@ execute:
 
 情報源は無記憶で，確率分布 $p(x)dx$ に従うとし，通信路は，確率核 $p(y|x)dy$ に従うとする．
 
-送信符号は１つの値 $x_*\sim p(x)dx$ であったとし，この単一の入力 $x_*$ を $n$ 回独立に観測する：
+送信符号は１つの値 $x^*\sim p(x)dx$ であったとし，この単一の入力 $x^*$ を $n$ 回独立に観測する：
 $$
-y_1,\cdots,y_n\iidsim p(y|x_*)dy.
+y_1,\cdots,y_n\iidsim p(y|x^*)dy.
 $$
 
-この観測を経たあと，送信符号 $x_*$ はいったい何だったのかを推定することを考えると，極めて自然に Bayes 推定が選択される．
+この観測を経たあと，送信符号 $x^*$ はいったい何だったのかを推定することを考えると，極めて自然に Bayes 推定が選択される．
 
 ::: {.callout-caution title="純粋な解釈を持つ Bayes 推定" collapse="true" icon="false"}
 
-まず，何の観測もない場合，$x_*$ の確率分布は $p(x)dx$ である（設定上）．
+まず，何の観測もない場合，$x^*$ の確率分布は $p(x)dx$ である（設定上）．
 
-しかし，すでに観測 $y_1,\cdots,y_n$ を経ている．よってこの事象の上での $x_*$ の条件付き分布を計算すれば良いことになる：
+しかし，すでに観測 $y_1,\cdots,y_n$ を経ている．よってこの事象の上での $x^*$ の条件付き分布を計算すれば良いことになる：
 $$
 p(x|y_1,\cdots,y_n) = \frac{p(\b{y}|x)p(x)}{p(\b{y})}
 $$
@@ -62,7 +62,7 @@ $$
 $$
 p(x,y)=\frac{1}{\sqrt{2\pi}}\exp\left(-\frac{(x-y)^2}{2}\right).
 $$
-では真値を $x_*=1$ として，$n=10$ 回の観測データを生成してみる：
+では真値を $x^*=1$ として，$n=10$ 回の観測データを生成してみる：
 
 ```{julia}
 data = 1 .+ randn(10)
@@ -86,9 +86,11 @@ print(data)
 
 ```{julia}
 #| output: false
-using Turing, Distributions
+using Turing, Distributions, Random
 
 data = [0.99978688, 1.7956116, −0.43158072, 3.07234211, 1.11920946, 0.53248943, 0.80011329, −0.52783428, 0.40378413, −0.00223177]
+
+Random.seed!(124)
 
 prior = MixtureModel([Normal(0.0, 1.0), Normal(0.0, 0.005)], [0.5, 0.5])
 
@@ -110,16 +112,18 @@ chain = sample(model, NUTS(), 100000)
 ```{julia}
 using MCMCChains, Plots, StatsPlots
 
+backend(:svg)
+
 plot(chain[:μ], seriestype = :density, xlabel = "x*", ylabel = "Density", title = "Posterior Distribution", color = "#80c4ac")
 
-vline!([1], color = :pink, linewidth = 2, label = "x_* = 1")
+vline!([1], color = :pink, linewidth = 2, label = "x^* = 1")
 ```
 
-::: {.callout-caution title="注（$x_*=0$ でのアトムについて）" collapse="true" icon="false"}
+::: {.callout-caution title="注（$x^*=0$ でのアトムについて）" collapse="true" icon="false"}
 
-$x_*=0$ に原子が存在する．
+$x^*=0$ に原子が存在する．
 
-ここでは密度関数は滑らかに見えるが，実際には $x_*=0$ で不連続である．
+ここでは密度関数は滑らかに見えるが，実際には $x^*=0$ で不連続である．
 
 これは，計算の都合上，$\delta_0$ を $\rN(0,0.005)$ で代用したためである．
 
@@ -195,7 +199,7 @@ $L(x,y):=\abs{x-y}$ と定める．このとき，**事後中央値** がベイ�
 
 #### 最適決定規則
 
-今回の誤り訂正符号の文脈の目標は，$x_*$ の復元であることを思い出せば，今回の損失は $L(x,y)=\delta_0(x-y)$ ととり，復号が成功する確率を最大とする推定量が「最良」と言うべきであろう：
+今回の誤り訂正符号の文脈の目標は，$x^*$ の復元であることを思い出せば，今回の損失は $L(x,y)=\delta_0(x-y)$ ととり，復号が成功する確率を最大とする推定量が「最良」と言うべきであろう：
 $$
 R(\wh{x}_n)=\P[\wh{x}_n(\b{Y})=X]
 $$
