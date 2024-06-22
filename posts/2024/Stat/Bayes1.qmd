@@ -242,7 +242,7 @@ $$
 
 今回，通信路は加法的に Gauss ノイズを加えるものとした．
 $$
-p(y|x)dy=\rN(x,\sigma)^{\otimes n}(dy)
+p(y|x)dy=\rN(x,\sigma^2)^{\otimes n}(dy)
 $$
 とした場合，次のように理解することもできる：
 $$
@@ -252,10 +252,10 @@ $$
 H(x,\b{y}):=\frac{1}{2\sigma^2}\sum_{i=1}^n(x^2-2xy_i)-\log p(x),
 $$
 $$
-Z(\b{y}):=\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}\frac{e^{-\frac{\abs{\b{y}}^2}{2\sigma^2}}}{p(\b{y})}.
+Z(\b{y}):=\paren{\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}\frac{e^{-\frac{\abs{\b{y}}^2}{2\sigma^2}}}{p(\b{y})}}^{-1}.
 $$
 
-この場合，分配関数 $Z(\b{y})$ は，情報源 $p(x)$ と Gauss 型通信路 $p(y|x)$ で与えられた周辺モデル $p(y)$ と，$\rN(0,\sigma^2)$ との [**ベイズ因子**](https://ja.wikipedia.org/wiki/ベイズ因子) になっている．
+この場合，分配関数 $Z(\b{y})$ は，情報源 $p(x)$ と Gauss 型通信路 $p(y|x)$ で与えられた周辺モデル $p(y)$ と，完全にランダムとした場合 $\rN(0,\sigma^2)^{\otimes n}$ との尤度比，または [**ベイズ因子**](https://ja.wikipedia.org/wiki/ベイズ因子) になっている．
 
 ::: {.callout-note title="式変形" collapse="true" icon="false"}
 \begin{align*}
@@ -466,7 +466,9 @@ $\brac{X}:=\E[X|Y]$ と表す．事後平均推定量の自乗誤差は次のよ
 
 :::
 
-### KL 乖離度の微分としての分散
+### KL 乖離度の微分としての分散 {#sec-I-MMSE}
+
+次の定理は，相互情報量 $I$ と MMSE を結びつける定理であるため，[@Guo+2005] 以来，**I-MMSE 定理** と呼ばれている．
 
 ::: {.callout-tip title="命題（自由エネルギーによる特徴付け）[@Guo+2005]^[[@Krzakala-Zdeborova2024 p.124] 定理14．]" icon="false"}
 
@@ -726,5 +728,134 @@ $$
     &=\sqrt{\beta}\E[\brac{X^2}]+\sqrt{\beta}\E[\brac{X}^2]
 \end{align*}
 -->
+
+:::
+
+## スパースベクトルの復号
+
+### 設定 {#sec-settings}
+
+ここまで，$x,x^*$ は $\R$ の点としてきたが，$\R^d,d=2^N$ の one-hot ベクトルであるとする．
+
+これを Gauss ノイズを通じて観測する：
+$$
+Y\sim\rN_d\paren{x^*,\frac{\sigma^2}{N}I_d}.
+$$
+
+事前分布を $p(x)$，$Y$ の分布を $p(y)$ とすると，Bayes の定理より，
+\begin{align*}
+    p(x|y)&=\frac{p(x)}{p(y)}\prod_{i=1}^d\frac{e^{-\frac{(y_i-x_i)^2}{2\sigma^2/N}}}{\sqrt{2\pi\sigma^2/N}}\\
+    &=\frac{\prod_{i=1}^d\phi(y_i;0,\sigma^2/N)}{p(y)}\\
+    &\qquad\times p(x)\prod_{i=1}^d\exp\paren{-\frac{x_i^2-2x_iy_i}{2\sigma^2/N}}.
+\end{align*}
+
+ただし，$\phi(-;\mu,\sigma):=\dd{\rN_1(\mu,\sigma)}{\ell_1}$ を正規密度とした．
+
+ここで，事前分布 $p(x)dx$ は，one-hot ベクトルのなす有限集合
+$$
+\Delta_d:=\Brace{x\in\bZ^d\mid\norm{x}_1=1}
+$$
+上の一様分布とする．このとき，事後分布 $p(x|y)dx$ もやはり $\Delta_d$ 上の分布で，その質量関数は
+$$
+p(x^{(i)}|y)=\frac{1}{\cZ}\frac{1}{2^N}\exp\paren{\frac{2y_i-1}{2\sigma^2/N}},
+$$
+$$
+\cZ:=\frac{1}{2^N}\sum_{i=1}^d\exp\paren{\frac{Ny_i}{\sigma^2}-\frac{N}{2\sigma^2}},
+$$
+と表される．ただし，$x^{(i)}$ は第 $i\in[d]$ 成分のみが $1$ の one-hot ベクトルとした．
+
+### 自由エネルギーの計算
+
+自由エネルギー密度 $\Phi$ は，熱力学極限を通じて
+$$
+\Phi(\beta):=\lim_{N\to\infty}\frac{\E[\log\cZ]}{N}
+$$
+と定まる．
+
+I-MMSE 定理（第 [-@sec-I-MMSE] 節）はこの多次元の $X$ に関しても有効であり，
+$$
+\pp{\Phi(\beta)}{\beta}=\frac{\E[\brac{X}^2]}{2}
+$$
+が成り立つ．よって，$\Phi$ は $\beta$ の一次関数の形であるはずである．
+
+実際，次が示せる：
+
+::: {.callout-tip title="命題^[[@Krzakala-Zdeborova2024 p.125]定理15．]" icon="false"}
+$\Delta:=\sigma^2$ の関数として，自由エネルギー密度 $\Phi$ は次で定まる関数 $f:\R\to\R$ に一致する：
+$$
+f(\Delta):=
+\begin{cases}
+\frac{1}{2\Delta}-\log 2&\Delta\le\Delta_c,\\
+0&\Delta\ge\Delta_c.
+\end{cases}
+$$
+$$
+\Delta_c:=\frac{\log 2}{2}
+$$
+:::
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+:::
+
+### 自由エネルギーの評価
+
+レプリカ法を回避し，数学的に厳密な証明を与えるには，次のように上下から評価することになる．
+
+::: {.callout-tip title="補題^[[@Krzakala-Zdeborova2024 p.125]補題８．]" icon="false"}
+$$
+\Phi_N(\Delta)\ge f(\Delta)
+$$
+:::
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+:::
+
+::: {.callout-tip title="補題^[[@Krzakala-Zdeborova2024 p.126]補題９．]" icon="false"}
+$$
+\Phi_N(\Delta)\le f(\Delta)+o(1)\quad(N\to\infty)
+$$
+:::
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+:::
+
+### 解釈
+
+$N\to\infty$ の極限において，$\Delta>\Delta_c$ の場合，最小自乗誤差（MMSE）は $1$ であり，何をどうしても復号することはできない．Gauss ノイズ $\Delta=\sigma^2$ が大きすぎるのである．
+
+一方で，$\Delta<\Delta_c$ の場合，$\partial_\beta f=\frac{1}{2}$ であり，従って MMSE は $0$ になる．よって完全な誤りのない復号が可能であるはずである．
+
+::: {.callout-important appearance="simple" icon="false"}
+設定（第 [-@sec-settings] 節）が与えられたならば，立ち所に，$\Delta$ が大きいほど復号が難しいことは予想がつく．しかし，ある閾値 $\Delta_c$ に依存して，少なくとも $N\to\infty$ の極限では，
+
+* 全く異なる２つの振る舞いをすること
+* ２つの振る舞いのみに分類される（ある一定以上の確率で復号が可能である，などの中間状態がない）
+
+ことは驚きである．
+:::
+
+実は，$\Delta>\Delta_c$ の際，自由エネルギー $F_N$ 自体も $0$ に（指数）収束している．$F_N$ とは，ランダムエネルギーモデル
+$$
+q(y)dy:=\rN_d\Paren{y,\frac{\Delta}{N}I_d}
+$$
+と $p(y)$ との距離であったから，そもそも観測が，完全に乱雑な状態と高速に一致していくのである．
+
+### 自由エネルギーのさらに鋭い評価
+
+::: {.callout-tip title="命題（KL 乖離度は指数収束する）^[[@Krzakala-Zdeborova2024 p.132]補題10．]" icon="false"}
+
+$\Delta>\Delta_c$ のとき，任意の $N\in\N^+$ について次が成り立つ：
+
+\begin{align*}
+    NF_N(\Delta)&=\KL\Paren{p(y)\,\bigg|\,q(y)}\\
+    &\le Ne^{-KN}
+\end{align*}
+
+:::
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
 
 :::
