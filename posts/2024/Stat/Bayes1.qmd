@@ -10,7 +10,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: ノイズ付きで観測された情報を復元するデノイジング問題を，ベイズ統計学と統計力学の２つの観点から考える．ベイズ統計モデルはスピングラスモデルと同一視することができる．このことからも，一般に事後分布からのサンプリングが困難になりえることがよくわかる．
+abstract: ノイズ付きで観測された情報を復元するデノイジング問題は，ベイズ推定問題として扱える．これを統計力学の観点から解析することで，データ数無限大の極限における振る舞いを理解できる．一般に，ベイズ統計モデルはスピングラスモデルと同一視することができる．
 format:
     html:
         code-fold: false
@@ -22,15 +22,15 @@ execute:
 
 ## Bayes 推定
 
-誤り訂正符号の文脈で Bayes （点）推定を考える．
+符号の誤り訂正，または denoising の文脈で Bayes 推定を考える．
 
-誤り訂正符号は，Bayes 推定が自然に選好される格好の題材である．
+雑音が加わる通信路から受け取った観測から真の信号を推定するというデノイジング問題は，Bayes 推定が自然に選好される格好の設定である．
 
-### 設定
+### デノイジング問題としての設定
 
 情報源は無記憶で，確率分布 $p(x)dx$ に従うとし，通信路は，確率核 $p(y|x)dy$ に従うとする．
 
-送信符号は１つの値 $x^*\sim p(x)dx$ であったとし，この単一の入力 $x^*$ を $n$ 回独立に観測する：
+送信符号は１つの実数 $x^*\sim p(x)dx$ であったとし，この単一の入力 $x^*$ を $n$ 回独立に観測する：
 $$
 y_1,\cdots,y_n\iidsim p(y|x^*)dy.
 $$
@@ -53,7 +53,7 @@ $$ {#eq-bayes}
 
 :::
 
-### 例 {#sec-example}
+### 例：Delta-Gauss 混合 {#sec-example}
 
 入力は $1/2$ の確率で $x=0$ だが，もう $1/2$ の確率で標準正規分布 $\rN(0,1)$ に従うとする：
 $$
@@ -66,11 +66,14 @@ $$
 では真値を $x^*=1$ として，$n=10$ 回の観測データを生成してみる：
 
 ```{julia}
+using Random
+
+Random.seed!(123)
 data = 1 .+ randn(10)
 print(data)
 ```
 
-愚直な計算から，$p(\b{y})$ は次の積分で計算される：
+愚直な計算から，$p(\b{y})$ は次の積分から得られる：
 
 ::: {.script-size}
 \begin{align*}
@@ -87,11 +90,7 @@ print(data)
 
 ```{julia}
 #| output: false
-using Turing, Distributions, Random
-
-data = [0.99978688, 1.7956116, −0.43158072, 3.07234211, 1.11920946, 0.53248943, 0.80011329, −0.52783428, 0.40378413, −0.00223177]
-
-Random.seed!(124)
+using Turing, Distributions
 
 prior = MixtureModel([Normal(0.0, 1.0), Normal(0.0, 0.005)], [0.5, 0.5])
 
@@ -217,11 +216,13 @@ $$
 
 ## 統計物理からの視点
 
-真のシグナル $x^*\in\R$ を，事後平均によって点推定する問題を考える（次節で一般次元のベクトル $\R^n$ のスパース推定を考える．
+真のシグナル $x^*\in\R$ を，Bayes 事後平均によって点推定する問題を，統計力学の観点から考察する．
 
-### 事後分布をある物理系の平衡分布と見る
+次節 [-@sec-sparse-vector-denoising] で，スパースな一般次元のベクトル $x^*\in\R^d$ を復元する問題に拡張する．
 
-ベイズの公式 ([-@eq-bayes]) は
+### 事後分布をある物理系の平衡分布と見る {#sec-straightforward-identification}
+
+ベイズの公式 ([-@eq-bayes]) が与える事後分布 $p(x|\b{y})$ は，次の Boltzmann-Gibbs 分布として理解できる：
 $$
 p(x|\b{y})=\frac{e^{\log p(\b{y}|x)p(x)}}{p(\b{y})}
 $$
@@ -232,19 +233,20 @@ $$
 H(x,\b{y}):=-\log p(\b{y}|x)-\log p(x),
 $$
 $$
-Z(\b{y}):=p(y),
+Z(\b{y}):=p(y).
 $$
-と書き換えられる．
 
 すなわち，Bayes 事後分布 $p(x|\b{y})$ は，$\R\times\R^n$ を配位空間に持ち，Hamiltonian $H(x,\b{y})$ を持つ正準集団の平衡分布と捉えることができる．
 
+しかし，この系の，物理的な意義どころか，統計的な意義も定かではない．
+
 ### もう一つの見方 {#sec-identification}
 
-今回，通信路は加法的に Gauss ノイズを加えるものとした．
+今回，通信路は加法的に Gauss ノイズを加えるものとしたのであった：
 $$
-p(y|x)dy=\rN(x,\sigma^2)^{\otimes n}(dy)
+p(\b{y}|x)d\b{y}=\rN(x,\sigma^2)^{\otimes n}(d\b{y})
 $$
-とした場合，次のように理解することもできる：
+この場合，前節 [-@sec-straightforward-identification] でみた方法の他に，事後分布 $p(x|\b{y})$ を次のように理解することもできる：
 $$
 p(x|\b{y})=\frac{e^{-H(x,\b{y})}}{Z(\b{y})},
 $$
@@ -255,7 +257,7 @@ $$
 Z(\b{y}):=\paren{\frac{1}{(2\pi\sigma^2)^{\frac{n}{2}}}\frac{e^{-\frac{\abs{\b{y}}^2}{2\sigma^2}}}{p(\b{y})}}^{-1}.
 $$
 
-この場合，分配関数 $Z(\b{y})$ は，情報源 $p(x)$ と Gauss 型通信路 $p(y|x)$ で与えられた周辺モデル $p(y)$ と，完全にランダムとした場合 $\rN(0,\sigma^2)^{\otimes n}$ との尤度比，または [**ベイズ因子**](https://ja.wikipedia.org/wiki/ベイズ因子) になっている．
+この Hamiltonian $H$ により定まる系の分配関数 $Z(\b{y})$ は，情報源 $p(x)$ と Gauss 型通信路 $p(\b{y}|x)$ で与えられた観測 $\b{y}$ に関する周辺モデル $p(\b{y})$ と，完全にランダムなホワイトノイズ $\rN(0,\sigma^2)^{\otimes n}$ との尤度比，または [**ベイズ因子**](https://ja.wikipedia.org/wiki/ベイズ因子) になっている．
 
 ::: {.callout-note title="式変形" collapse="true" icon="false"}
 \begin{align*}
@@ -267,13 +269,15 @@ $$
 \end{align*}
 :::
 
-さらに，このモデル $H$ における自由エントロピーは，$p(\b{y})$ と $\rN(0,\sigma^2)^{\otimes n}$ との間の KL 乖離度となっている：
+さらに，この系 $H$ における自由エントロピーは，$p(\b{y})$ と $\rN(0,\sigma^2)^{\otimes n}$ との間の KL 乖離度となっている：
 $$
 F_n:=\int_{\R^n}\log\frac{p(\b{y})}{q(\b{y})}p(\b{y})\,d\b{y}=\KL(p,q).
 $$
 ただし，$q$ は $\rN(0,\sigma^2)^{\otimes n}$ の密度とした．
 
-::: {.callout-tip title="命題（その他の物理量）^[[@Krzakala-Zdeborova2024 p.122]．]" icon="false"}
+この系の他の物理量も，自由エネルギーと定数倍違うのみとなっている：
+
+::: {.callout-tip title="命題（エントロピーと相互情報量）^[[@Krzakala-Zdeborova2024 p.122]．]" icon="false"}
 
 この Hamiltonian $H$ を持つ系について，
 
@@ -731,7 +735,7 @@ $$
 
 :::
 
-## スパースベクトルの復号
+## スパースベクトルの復号 {#sec-sparse-vector-denoising}
 
 ### 設定 {#sec-settings}
 
@@ -755,14 +759,21 @@ $$
 $$
 \Delta_d:=\Brace{x\in\bZ^d\mid\norm{x}_1=1}
 $$
-上の一様分布とする．このとき，事後分布 $p(x|y)dx$ もやはり $\Delta_d$ 上の分布で，その質量関数は
+上の一様分布
 $$
-p(x^{(i)}|y)=\frac{1}{\cZ}\frac{1}{2^N}\exp\paren{\frac{2y_i-1}{2\sigma^2/N}},
+p(x^{(i)})=\frac{1}{d}=\frac{1}{2^N}
 $$
+とする．ただし，$x^{(i)}$ は第 $i\in[d]$ 成分のみが $1$ の one-hot ベクトルとした．
+
+このとき，事後分布 $p(x|y)dx$ もやはり $\Delta_d$ 上の分布で，その質量関数は
+\begin{align*}
+    p(x^{(i)}|y)&=\frac{1}{\cZ}\frac{1}{2^N}\exp\paren{\frac{2y_i-1}{2\sigma^2/N}}\\
+    &=\frac{e^{-N}}{\cZ},
+\end{align*}
 $$
-\cZ:=\frac{1}{2^N}\sum_{i=1}^d\exp\paren{\frac{Ny_i}{\sigma^2}-\frac{N}{2\sigma^2}},
+\cZ:=\frac{1}{2^N}\sum_{i=1}^d\exp\paren{\frac{N}{2\sigma^2}(2y_i-1)},
 $$
-と表される．ただし，$x^{(i)}$ は第 $i\in[d]$ 成分のみが $1$ の one-hot ベクトルとした．
+と表される．
 
 ### 自由エネルギーの計算
 
