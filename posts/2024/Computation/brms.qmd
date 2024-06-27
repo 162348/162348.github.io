@@ -3,7 +3,7 @@ title: "R によるベイズ混合モデリング入門"
 subtitle: "brms を用いた混合効果モデリング入門"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 6/17/2024
+date-modified: 6/27/2024
 categories: [MCMC, Stan, R]
 image: ./brms_files/figure-html/unnamed-chunk-4-1.png
 bibliography: 
@@ -61,7 +61,7 @@ fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
 
 `zBase * Trt`という記法は，この２つの交互作用もモデルに含めることを意味する．
 
-また，59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．`patient`が患者を識別する ID であり，`(1|patient)`は患者ごとのランダム効果ということになる．
+`epilepsy`は59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．`patient`が患者を識別する ID であり，`(1|patient)`は患者ごとのランダム効果ということになる．
 
 従って本モデルは`zAge`, `zBase`, `Trt`, `Trt*zBase`という固定効果，`(1|patient)`というランダム効果を取り入れた混合効果モデルということになり，回帰式は次の通りである：
 $$
@@ -145,9 +145,9 @@ fitted(fit1, newdata = newdata, re_formula = NA)
 
 ### モデルの比較 {#sec-model-comparison}
 
-モデル`fit1`で行った Poisson 回帰分析は，個々の観測が独立であるという仮定の上に成り立っている（第 [-@sec-ubsubsec-covariance-structure] 節）．
+モデル`fit1`で行った Poisson 回帰分析は，`fit1`に含めた説明変数の違いを除けば，個々の観測が独立になる，という仮定の上に成り立っている（第 [-@sec-ubsubsec-covariance-structure] 節）．
 
-この仮定が破れているとき，Poisson 分布の性質
+この仮定が破れているとき＝全ての説明変数をモデルに含めきれていないとき，Poisson 分布の性質
 $$
 \E[X]=\V[X]=\lambda\qquad (X\sim\Pois(\lambda))
 $$
@@ -155,7 +155,7 @@ $$
 
 #### 観測レベルランダム効果
 
-ということで，Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
+ということで，他の説明変数が存在した場合を想定して， Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
 
 そこで，追加の変動をモデルに追加するべく，モデル`fit1`に観測ごとの切片項 $\eta_{it}$ を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 [-@sec-subsec-count-data] 節参照）．
 
@@ -218,7 +218,7 @@ methods(class="brmsfit")
 
 #### 患者内の相関構造のモデリング
 
-また，`fit1`において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．
+また，`fit1`において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．^[通常は時間的に離れている観測は相関が薄いとしても，直近の観測と関連性が高いだろう．]
 
 患者内の相関構造は，`brm()`関数の`autocor`引数で指定できる（第 [-@sec-autocor-argument] 節）．
 
@@ -250,13 +250,15 @@ loo(fit2,fit3)
 
 :::
 
+思ったよりも`fit2`の当てはまりが良いため，Poisson-対数正規混合モデリングを本格的に実施してみることが，次の選択肢になり得る（第 [-@sec-subsec-count-data] 節参照）．
+
 ### その他の例
 
 Sebastian Weber らにより，[新薬の治験における実際の解析事例をまとめたウェブサイト](https://opensource.nibr.com/bamdd/) が公開されている．^[Statistical Modeling, Causal Inference, and Social Science における [こちらのエントリ](https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/) も参照．]
 
 特に，[13 章](https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation)で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．
 
-## 混合効果モデルに関する補足
+## ランダム効果モデルの正しい使い方
 
 ::: {.callout-important appearance="simple" icon="false" title="概要"}
 
@@ -267,7 +269,7 @@ Sebastian Weber らにより，[新薬の治験における実際の解析事例
 
 :::
 
-### ランダム効果のモデル
+### ランダム効果のモデル {#sec-RF}
 
 ランダム効果は，変動する切片項と呼んだ方がわかりやすい [@Bafumi-Gelman2007] と言われるように，サブグループ毎に異なる切片を加えたモデルである．
 
@@ -375,7 +377,7 @@ $$
 
 > Practitioners can get around this problem by taking advantage of the multilevel structure of their regression equation. [@Bafumi-Gelman2007 p.12]
 
-### 混合効果モデル
+### 名前の混乱をどうするか？
 
 以上，解説してきた「ランダム効果モデル」であるが，混合効果モデルとも呼ばれる．^[[@Hubbard+2010] では両方の名前で呼んでいる．]
 
@@ -454,6 +456,15 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 この節はこれで終わり．
 
+## 混合効果モデリングにおける注意点
+
+::: {.callout-important appearance="simple" icon="false" title="概要"}
+
+* 混合効果モデルの推定において，グループレベル変動 $\al_{s[i]}$ の共分散行列 $\V[\eta_s]$ の推定が不安定になり得る．特に，グループ数 $S$ が小さい場合に顕著である．
+* カウントデータの Poisson モデルでは，観測レベルのランダム効果を追加することで，実質的に Poisson-対数正規混合モデリングを実行できる．
+
+:::
+
 ### グループレベル分散の推定 {#sec-group-level-variance-estimation}
 
 混合効果モデル（階層モデル）の推定において，特にグループ数 $S$ が小さい場合，グループレベルの変動切片項 $\al_{s[i]}$ の共分散行列 $\V[\eta_s]$ の推定が不安定になるという問題点が古くからの問題である [@Harville1977]．^[[@Laird-Ware1982]，[@Chung+2013]，[@Chung+2015]，[Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023](https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/)．]
@@ -522,7 +533,7 @@ $$
 
 この，Poisson-対数正規分布族は，[@Bulmer1974] により生物種の個体数分布のモデリングで，過分散を説明するために用いられている．
 
-すなわち，第 [-@sec-example] 節のモデルの比較 [-@sec-model-comparison] で扱った，**観測レベルランダム効果** (OLRE: Observation-level Random Effects) の方法は，観測毎に $\eta_{it}$ というランダム切片項を追加するだけで，本質的には混合モデリングを実施するという，いわばハックのような使い方である．^[[Solomon Kurtz (2021)](https://solomonkurz.netlify.app/blog/2021-07-12-got-overdispersion-try-observation-level-random-effects-with-the-poisson-lognormal-mixture/#negative-binomial-counts) による解説，[RPubs](https://rpubs.com/INBOstats/OLRE) も参照．]
+すなわち，第 [-@sec-example] 節のモデルの比較 [-@sec-model-comparison] で扱った，**観測レベルランダム効果** (OLRE: Observation-level Random Effects) の方法は，[観測毎に $\eta_{it}$ というランダム切片項を追加するだけで，本質的には Poisson-対数正規混合モデリングを実施する]{.underline} という，いわばハックのような使い方である．^[[Solomon Kurtz (2021)](https://solomonkurz.netlify.app/blog/2021-07-12-got-overdispersion-try-observation-level-random-effects-with-the-poisson-lognormal-mixture/#negative-binomial-counts) による解説，[RPubs](https://rpubs.com/INBOstats/OLRE) も参照．]
 
 今回はモデル比較の結果が良かったため，本格的に対数正規混合を実施してみるのも良いかもしれない．
 
@@ -540,27 +551,35 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 :::
 
-### モデリング機能
-
-#### 事前分布
+### 事前分布
 
 [`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) では，デフォルトでは無情報事前分布が用いられる．
 
 > Default priors are chosen to be non or very weakly informative so that their influence on the results will be negligible and you usually don't have to worry about them. However, after getting more familiar with Bayesian statistics, I recommend you to start thinking about reasonable informative priors for your model parameters: Nearly always, there is at least some prior information available that can be used to improve your inference.<br>[brm(): Fit Bayesian Generalized (Non-)Linear Multivariate Multilevel Models](https://paul-buerkner.github.io/brms/reference/brm.html)
 
-#### 回帰式
+### 回帰式
 
-`brm()`関数の第一引数は`brmsformula`オブジェクトを取る．
+`brm()`関数の第一引数は，`validate_formula`関数に渡される．
 
-[`brmsformula()`関数](http://paul-buerkner.github.io/brms/reference/brmsformula.html) は，R の`formula`オブジェクトを通じて，階層モデルを定義できるようになっている（実装は[リスト](R3.qmd)）．
+この関数は S3 のメソッドのディスパッチを用いて実装されており，`brmsformula`オブジェクトに対しては，`validate_formula.brmsformula`関数が呼び出される．
 
-#### 共分散構造 {#sec-ubsubsec-covariance-structure}
+ここでは`autocor`引数が引かれている場合，出力の`formula`属性に追加される：^[[Line 1363](https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363)．]
+
+```{r}
+fit3$formula
+```
+
+なお，`brmsformula`オブジェクトのコンストラクタは [`brmsformula()`関数](http://paul-buerkner.github.io/brms/reference/brmsformula.html) である．これは，R の`formula`オブジェクトを通じて，階層モデルを定義できるようになっている（実装は[リスト](R3.qmd)）．
+
+### 共分散構造 {#sec-ubsubsec-covariance-structure}
 
 共分散構造は２つの観点から，`brmsformula`オブジェクトから自動的に指定される．
 
-１つ目がグルーピング構造（共分散行列のブロック構造）であり，これは[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) が使用される．２つ目がグループ内の相関構造であり，これは`brm()`関数の`autocor`引数を用いる．
+１つ目がグルーピング構造（共分散行列のブロック構造）であり，これは[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) が使用される．
 
-##### `gr`関数
+２つ目がグループ内の相関構造であり，これは`brm()`関数の`autocor`引数を用いる．
+
+#### `gr`関数
 
 この関数は`brm`関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．
 
@@ -570,18 +589,21 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 ::: {.callout-tip appearance="simple" icon="false"}
 * グループ間の相関構造は想定されている：`cor=True`．
+
+    > If `TRUE` (the default), group-level terms will be modelled as correlated.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
+
 * 一方で，グループ内の相関構造は想定されておらず，独立とされている．具体的に指定したい場合は引数`cov`を用いる．
 
     > By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
-すなわち，$\V[\eta_s]$ には一才仮定が置かれておらず（第 [-@sec-group-level-variance-estimation] 節），一方で $\{\ep_{it}\}_{t=1}^T$ は互いに独立とされている．
+すなわち，$\V[\eta_s]$ には一切仮定が置かれておらず（第 [-@sec-group-level-variance-estimation] 節），一方で $\{\ep_{it}\}_{t=1}^T$ は互いに独立とされている．
 :::
 
-また，この二階層目の分布族（第 [-@sec-example] 節での $\al_i$ と $\eta_{it}$）は，分散共分散行列 $\V[\eta_s]$ を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．
+また，この二階層目の分布族（第 [-@sec-RF] 節での $\al_i$ と $\eta_{it}$）は，分散共分散行列 $\V[\eta_s]$ を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．
 
 > dist: Name of the distribution of the group-level effects. Currently "gaussian" is the only option.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
-##### `autocor`引数 {#sec-autocor-argument}
+#### `autocor`引数 {#sec-autocor-argument}
 
 `brm()`関数には，[`autocor`引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．
 
@@ -592,21 +614,10 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 * `AR`：一次の自己相関構造．
 :::
 
-### モデリング実装
-
-#### 回帰式
-
-`brm`関数に与えられた`formula`は，`validate_formula`関数に渡される．
-
-この関数は S3 のメソッドのディスパッチを用いて実装されており，`brmsformula`オブジェクトに対しては，`validate_formula.brmsformula`関数が呼び出される．
-
-ここでは`autocor`引数が引かれている場合，出力の`formula`属性に追加される：^[[Line 1363](https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363)．]
-
-```{r}
-fit3$formula
-```
-
-
 ### 推論エンジン
 
 [`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) は，Stan による MCMC サンプリングを通じて，事後分布を計算する．
+
+## Acknowledgements {.appendix}
+
+I would like to extend my gratitude to Robert Long, who kindly shared me the knowledge about the covariance structure implicitly defined via `brms` formula on [this Cross Validated post](https://stats.stackexchange.com/questions/649358/the-default-covariance-structure-implicitly-assumed-in-the-brms-formula/650015#650015). His insights were instrumental in enhancing this work.
