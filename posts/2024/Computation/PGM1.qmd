@@ -3,7 +3,7 @@ title: "数学者のための確率的グラフィカルモデル１"
 subtitle: ベイジアンネットワークとマルコフネットワーク
 author: "司馬博文"
 date: 12/20/2023
-date-modified: 6/16/2024
+date-modified: 6/27/2024
 categories: [Bayesian, Computation]
 toc: true
 image: PGM1.png
@@ -12,7 +12,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: 数学者のために，PGM (Probabilistic Graphical Modelling) で用いられる代表的なモデル３つ（ベイジアンネットワーク，マルコフネットワーク，ファクターグラフ）を定義し，その性質を抽象的に説明する．これらは，複雑な高次元分布の分解を，計算機に理解可能な形で与える，計算幾科学的技術であるとみなせる．
+abstract: PGM (Probabilistic Graphical Modelling) で用いられる代表的なモデル３つ（ベイジアンネットワーク，マルコフネットワーク，ファクターグラフ）を定義し，その性質を抽象的に説明する．これらは，複雑な高次元分布の分解を，計算機に理解可能な形で与える技法である．マルコフネットワークの形で与えられる分布に対しては，たとえ高次元であろうとも，MCMC によって効率的なサンプリングが可能である．
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -30,21 +30,27 @@ $$
 
 ### 例
 
-::: {.callout-tip appearance="simple" icon="false"}
+::: {.callout-tip appearance="simple" icon="false" title="ベイジアンネットワークの例^[[@Taroni+2014 p.35]，[@Sucar2021 p.x], [@Clark2018] [Graphical Models](https://m-clark.github.io/sem/graphical-models.html)．[@Jordan+1999 p.191] は 3.2節で Neural Networks as Graphical Models を扱っている．]"}
 
 * 階層モデルや構造方程式モデル，[状態空間モデル](../../2023/Surveys/SSM.qmd)
 * ニューラルネットワーク [@Rumelhart+1987]
 * [決定木](../../2023/数理法務/%E6%B3%95%E5%BE%8B%E5%AE%B6%E3%81%AE%E3%81%9F%E3%82%81%E3%81%AE%E7%B5%B1%E8%A8%88%E6%95%B0%E7%90%863.qmd) や系統図
 * 構造的因果モデル [@Pearl16-Primer]^[この文脈では，ベイジアンネットワークのことは DAG とも，汎函数因果モデル [@Scholkopf2022] とも呼ぶ．[@Murphy2023 p.211] 4.7節．例えば，医療診断では，複数の症状や検査結果，医学的指標との関連・相関・因果に関する知識を Bayesian Network （@sec-BN） で表現する．]
 
-以上は，いずれもベイジアンネットワークの例と見れる．^[[@Taroni+2014 p.35]，[@Sucar2021 p.x], [@Clark2018] [Graphical Models](https://m-clark.github.io/sem/graphical-models.html)．[@Jordan+1999 p.191] は 3.2節で Neural Networks as Graphical Models を扱っている．]
-
-（２次元以下の）[Ising 模型](PGM2.qmd#sec-Ising-model) はマルコフネットワークの例である．ファクターグラフは，マルコフネットワークにさらに情報を付加したものである．
-
-以上，グラフを利用したモデリング法は全て，確率的グラフィカルモデルとも呼ばれる．
+:::
 
 また，ベイジアンネットワークは，[Markov 圏](../../2023/Probability/MarkovCategory.qmd) 上の図式のうち，特定のグラフ理論的な条件 [-@sec-DAG] を満たすものと見れる．
+
+::: {.callout-tip appearance="simple" icon="false" title="マルコフネットワークの例^[[@Mezard-Montanari2009 p.177] 9.1.2 節に，ファクターグラフの例が挙げられている．]"}
+
+* （２次元以下の）[Ising 模型](PGM2.qmd#sec-Ising-model) はマルコフネットワークの例である．
+* 画像データはマルコフネットワークとみなされ，デノイジングなどに用いられる．
+
 :::
+
+ファクターグラフは，マルコフネットワークと，その上に局所的に定義されたポテンシャルに関する情報との組である．
+
+以上，グラフを利用したモデリング法は全て，確率的グラフィカルモデルとも呼ばれる．
 
 ### 導入
 
@@ -54,21 +60,11 @@ $$
 
 **グラフィカルモデル** とは，このような変数間の依存性・独立性を表現したグラフに，特定の分布族を対応させる数学的枠組みである．^[[@Koller-Friedman2009 p.3] 1.2.1，[@Murphy2023 p.143] 第4章．[@Balgi+2024] "As non-parametric causal models, DAGs require no assumptions about the functional form of the hypothesized relationships."]
 
-この手法は初め，自立して推論・意思決定を行うエキスパート・システムの構築のために人工知能分野で用いられ始めた．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．これはこの分野が不確実性を定量的に扱う必要があり，それ故確率的モデリングを必要としたためである．一般に，特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するためには，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる [@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．これは対象となるシステムの構造に関する知識を，計算機が理解可能な形で表現するモデルベースな接近であり，「知識」と「推論」という異なるタスクを分離する点に妙がある．]
-
-ベイズ流のアプローチでは，事前分布を定める上で，系に対する客観的な事前知識と主観的な事前知識とを分けることが重要であるが，グラフィカルモデルや階層モデリングはこの分離を自然に行うことができる [@Robert2007 pp.457-458]．
-
-世界に対する知識には不確実性がつきものであり，実世界応用ではこの「不確実性」を反映したモデリング手法が有効であることが多い．そこで，近年の機械学習へのベイズ流アプローチでも，グラフィカルモデルは盛んに応用されている（第 [-@sec-probabilistic-methods] 節）．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
-
-> I have approximate answers and possible beliefs with different degrees of uncertainty about different things, but I am not absolutely sure of anything. -- [Richard Feynman](https://www.youtube.com/watch?v=P-Qdl6Gbx0k)
-
-加えてグラフという表現方法は，人間にとって視覚的にわかりやすいだけでなく，周辺化，極値計算，条件付き確率の計算を高速化するという点で計算機的にも利点がある．^[[@Theodoridis2020 p.772] なども参照．用いるアルゴリズムの計算複雑性も，グラフ理論の言葉で記述できることが多い [@Wainwright-Jordan2008 p.4]．]
-
 ### 諸科学での知識表現の歴史
 
-多くの科学分野において，知識表現の知識とは，特に因果関係に関する知識のことを指すようである．これを捉えるために，グラフを用いることは自然な発想であり，計算機の登場以前にも，純粋に人間が理解を深めるための用途に，歴史上極めて早い時期から用いられていた．
+多くの科学分野において，「知識表現」の「知識」とは，特に因果関係に関する知識のことを指すようである．これを捉えるために，グラフを用いることは自然な発想であり，計算機の登場以前にも，純粋に人間が理解を深めるための用途に，歴史上極めて早い時期から用いられていた．
 
-:::{.callout-caution icon="false" collapse="true" title="歴史^[[@Koller-Friedman2009 pp.12-14] 1.4節 など．]"}
+:::{.callout-caution icon="false" collapse="true" title="グラフ表現の歴史^[[@Koller-Friedman2009 pp.12-14] 1.4節 など．]"}
 
 高次元分布において，成分間の独立性をグラフを用いて表現しようという発想は，その計算機との親和性が見つかる前に，種々の科学分野で試みられていた．
 
@@ -85,30 +81,48 @@ $$
 
 人工知能分野が確率的手法を採用したのは，エキスパートシステムの構築が志向された 1960 年代であった．^[[@Koller-Friedman2009 pp.12-14] 1.4節．]
 
-医療診断や油源探索における専門家に匹敵する判断力を持つアルゴリズムを構築する途上で，不確実性の度合いの定量化が必要となり，naive Bayes model と呼ばれる確率的モデルが採用された．特に [@Dombal+1972] は限られた分野であるが人間を凌駕する診断正答率を示した．
+医療診断や油源探索における専門家に匹敵する判断力を持つアルゴリズムを構築する途上で，不確実性の度合いの定量化が必要となり，naive Bayes model （第 [-@sec-naive-Bayes] 節）と呼ばれる確率的モデルが採用された．特に [@Dombal+1972] は限られた分野であるが人間を凌駕する診断正答率を示した．
 
 だがこの確率的アプローチは，主にその計算複雑性から 1970 年代では冬の時代を経験することとなり，エキスパートシステムも production rule framework や [ファジー論理](https://ja.wikipedia.org/wiki/%E3%83%95%E3%82%A1%E3%82%B8%E3%82%A3%E8%AB%96%E7%90%86) [@Zadeh1989] など，確率論に代わって他のアーキテクチャが試みられるようになっていった．
 
-### Bayesian Network の登場
+::: {.callout-important title="Bayesian network とエキスパートシステム" collapse="true" icon="false"}
+
+グラフィカルモデリングは初め，自立して推論・意思決定を行うエキスパート・システムの構築のために人工知能分野で用いられ始めた．^[[@Koller-Friedman2009 p.1] 1.1 Motivation．これはこの分野が不確実性を定量的に扱う必要があり，それ故確率的モデリングを必要としたためである．一般に，特定のタスクに特化しながら，汎用性も持つエキスパートシステムを構築するためには，[宣言型の知識表現](https://ja.wikipedia.org/wiki/%E5%AE%A3%E8%A8%80%E5%9E%8B%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0) が良い接近として用いられる [@Koller-Friedman2009 p.1] 1.1 Motivation．declarative representation の他に model-based approach ともいう．これは対象となるシステムの構造に関する知識を，計算機が理解可能な形で表現するモデルベースな接近であり，「知識」と「推論」という異なるタスクを分離する点に妙がある．]
+
+ベイズ流のアプローチでは，事前分布を定める上で，系に対する客観的な事前知識と主観的な事前知識とを分けることが重要であるが，グラフィカルモデルや階層モデリングはこの分離を自然に行うことができる [@Robert2007 pp.457-458]．
+
+世界に対する知識には不確実性がつきものであり，実世界応用ではこの「不確実性」を反映したモデリング手法が有効であることが多い．そこで，近年の機械学習へのベイズ流アプローチでも，グラフィカルモデルは盛んに応用されている（第 [-@sec-probabilistic-methods] 節）．^[[@Koller-Friedman2009 p.2] 1.1 Motivation．Probabilistic models allow us to make this fact (= many systems cannot be specified deterministically.) explicit, and therefore often provide a model which is more faithful to reality.]
+
+> I have approximate answers and possible beliefs with different degrees of uncertainty about different things, but I am not absolutely sure of anything. -- [Richard Feynman](https://www.youtube.com/watch?v=P-Qdl6Gbx0k)
+
+加えてグラフという表現方法は，人間にとって視覚的にわかりやすいだけでなく，周辺化，極値計算，条件付き確率の計算を高速化するという点で計算機的にも利点がある．^[[@Theodoridis2020 p.772] なども参照．用いるアルゴリズムの計算複雑性も，グラフ理論の言葉で記述できることが多い [@Wainwright-Jordan2008 p.4]．]
+
+:::
+
+### Bayesian Network と確率的モデリングの登場
 
 これを打開したのが
+
+::: {.callout-important appearance="simple" icon="false"}
 
 1. [@Pearl88-IntelligentSystem] による Bayesian network framework と，[@Lauritzen-Spiegelhalter1988] による効率的な推論手法という理論的発展．
 2. [@Heckerman+1992], [@Heckerman-Nathwani1992] が Bayesian network を病理学標本に応用して大きな成功を挙げたこと．
 
-の2つである．これにより，確率的グラフィカルモデル，また一般に確率的アプローチが広く受け入れられるようになった．
+:::
 
-### Markov Network の登場
+の２つである．
 
-MCMC が真に統計界隈に輸入されるきっかけとなった [@Gelfand-Smith1990] も Gibbs サンプラーを重視しており，[@Geman-Geman1984] による Gibbs サンプラーの提案も，画像分析，広く空間統計学においてなされた．
+これにより，確率的グラフィカルモデル，また一般に確率的アプローチが広く受け入れられるようになった．
 
-統計物理学における Ising モデルが空間統計学における Markov random field として広く受け入れられ [@Besag1974]，これにより統計界隈に階層モデルと Gibbs サンプラーが広く受け入れられるようになったのである．
+### Markov Network の登場と MCMC の普及
 
-特に，Markov random field が，Gibbs 分布の局所的な条件付き分布からの特徴付けを与える（Hammersley-Clifford の定理[-@sec-separation-in-markov-network]）という認識を導き，このことが MCMC を一般の Bayes 計算手法たらしめたと強調している [@Besag-Green1993]．
+MCMC が真に統計界隈に輸入されるきっかけとなった [@Gelfand-Smith1990] は Gibbs サンプラーに関するものであった．[@Geman-Geman1984] による Gibbs サンプラーの提案も，画像分析，広く空間統計学においてなされたものであった．
+
+統計物理学における Ising モデルが，空間統計学において Markov random field として広く受け入れられ [@Besag1974]，これにより統計界隈に階層モデルと Gibbs サンプラーが広く受け入れられるようになったのである．
+
+特に，Markov random field が，Gibbs 分布の局所的な条件付き分布からの特徴付けを与える（Hammersley-Clifford の定理[-@sec-separation-in-markov-network]）という認識を導き，このことが MCMC を一般の Bayes 計算手法たらしめたと強調している [@Besag-Green1993]．^[その最重要文献として，[@Grenander1983]，特に画像分析への Bayesian アプローチを取り扱った 4-6 章を挙げている．Gibbs サンプラーの語を導入したのは [@Geman-Geman1984] であるが，すでに [@Grenander1983] において極めて重要な Bayes 計算手法として扱われていた．]
 
 > it is no coincidence that the original concept and the early development of MCMC in Bayesian inference should take place exclusivelyin the spatial statistics literature. [@Besag-Green1993 p.26]
-
-その最重要文献として，[@Grenander1983]，特に画像分析への Bayesian アプローチを取り扱った 4-6 章を挙げている．Gibbs サンプラーの語を導入したのは [@Geman-Geman1984] であるが，すでに [@Grenander1983] において極めて重要な Bayes 計算手法として扱われていた．
 
 <!-- ### 確率的グラフィカルモデリングの美点
 
@@ -124,7 +138,7 @@ MCMC が真に統計界隈に輸入されるきっかけとなった [@Gelfand-S
 
 ## Bayesian Network {#sec-BN}
 
-### 例：ナイーブ Bayes モデル
+### 例：ナイーブ Bayes モデル {#sec-naive-Bayes}
 
 [naive Bayes model](https://en.wikipedia.org/wiki/Naive_Bayes_classifier) は Idiot Bayes model とも呼ばれる Bayesian Network の簡単な例である．
 
@@ -154,7 +168,7 @@ $$
 
 ### DAG {#sec-DAG}
 
-:::{.callout-tip icon="false" collapse="false" title="定義^[[@Koller-Friedman2009 p.57]] （Bayesian Network structure）"}
+:::{.callout-tip icon="false" collapse="false" title="定義^[[@Koller-Friedman2009 p.57]，[@Mezard-Montanari2009 p.269]．] （Bayesian Network structure）"}
 
 確率変数 $\b{X}:=(X_1,\cdots,X_n)$ に関して，成分の全体 $\cX:=\{\cX_1,\cdots,\cX_n\}$ を節集合とした [**有向非循環グラフ**](https://ja.wikipedia.org/wiki/%E6%9C%89%E5%90%91%E9%9D%9E%E5%B7%A1%E5%9B%9E%E3%82%B0%E3%83%A9%E3%83%95) (directed acyclic graph, DAG) $\cG=(\cX,\cE)$ を **Bayesian Network 構造** といい，これが親ノードから子ノードへの確率核 $P_i:\pi(\cX_i)\to\cX_i$ を通じて定める
 $$
@@ -519,14 +533,22 @@ Bayesian Network の $d$-分離性に対応する分離性の概念を導入し�
 
 そして２通りの定義が考え得る．局所依存性は，大域的依存性のサブセットであることに注意．そして，台を全体 $\cX$ に持つ分布については，大域的依存性も含めて３つの定義は全て同値である．^[これは台が縮退している場合は，自明な（決定論的な）独立性が生じてしまうためである．]
 
-### Factor Graph {#sec-Factor-Graph}
+## Factor Graph {#sec-Factor-Graph}
 
-Markov network は Gibbs 分布の依存性を十分に表現できているわけではなかった（ @sec-separation-in-markov-network ）．これは特に，クリーク間の大小関係を把握できていないことに因る．
+Markov network は Gibbs 分布の依存性を十分に表現できているわけではなかった（第 [-@sec-separation-in-markov-network] 節）．これは特に，クリーク間の大小関係を把握できていないことに因る．
 
-:::{.callout-tip icon="false" collapse="false" title="定義^[[@Koller-Friedman2009 p.123] 4.4.1.1．] （Factor Graph）"}
+### 定義
+
+:::{.callout-tip icon="false" collapse="false" title="定義^[[@Koller-Friedman2009 p.123] 4.4.1.1，[@Mezard-Montanari2009 p.175] 9.1.1 節．] （Factor Graph）"}
 
 Markov newtork から，ファクターを表す節を（四角形で囲うなどして区別した形で）追加し，ファクターをそのスコープに入る変数と隣接するようにし，一方で変数を表す（元々の）節とファクターを表す節とが隣接しないように修正した [２部グラフ](https://ja.wikipedia.org/wiki/2%E9%83%A8%E3%82%B0%E3%83%A9%E3%83%95) $\F$ を [**因子グラフ**](https://en.wikipedia.org/wiki/Factor_graph) という．
 
 分布 $P\in\cP(\cX)$ が $\F$ に関して **分解する** とは，$\F$ が定める確率変数の組とその上のファクターが定める Gibbs 分布であることをいう．
 
 :::
+
+## 終わりに {.appendix}
+
+MCMC，特に Gibbs サンプラーは，Markov network の形で与えられる局所的な情報を利用したダイナミクスを持つ．
+
+それ故，デザインから，大域的な探索が不得手であると言える．
