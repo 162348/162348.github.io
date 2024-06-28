@@ -3,7 +3,7 @@ title: "ベイズ統計学と統計物理学"
 subtitle: "スパース符号の復元を題材として"
 author: "司馬博文"
 date: 6/20/2024
-date-modified: 6/25/2024
+date-modified: 6/28/2024
 image: posterior.svg
 categories: [Bayesian, Nature, Information]
 bibliography: 
@@ -766,13 +766,18 @@ $$
 
 ## スパースベクトルの復号 {#sec-sparse-vector-denoising}
 
-スパースベクトルの信号推定問題を考える．
+スパースベクトルの信号推定問題を考える．ここまで，$x,x^*$ は $\R$ の点としてきたが，本節では，$\R^d,d=2^N$ の one-hot ベクトルであるとする．
 
 ### 設定 {#sec-settings}
 
-ここまで，$x,x^*$ は $\R$ の点としてきたが，$\R^d,d=2^N$ の one-hot ベクトルであるとする．
+真の信号 $x^*\in\R^d$ は，$d$ 次元の one-hot ベクトルであるとする．すなわち，次の集合 $\Delta_d$ の元であるとする：
+$$
+\Delta_d:=\Brace{x\in\bZ^d\mid\norm{x}_1=1}.
+$$
 
-これを Gauss ノイズを通じて観測する：
+加えて，$\Delta_d$ 上の一様分布に従うとする：$x^*\sim\rU(\Delta_d)$．
+
+これを分散 $\frac{\sigma^2}{N}$ を持った Gauss ノイズを通じて観測する：
 $$
 Y\sim\rN_d\paren{x^*,\frac{\sigma^2}{N}I_d}.
 $$
@@ -781,28 +786,48 @@ $$
 \begin{align*}
     p(x|y)&=\frac{p(x)}{p(y)}\prod_{i=1}^d\frac{e^{-\frac{(y_i-x_i)^2}{2\sigma^2/N}}}{\sqrt{2\pi\sigma^2/N}}\\
     &=\frac{\prod_{i=1}^d\phi(y_i;0,\sigma^2/N)}{p(y)}\\
-    &\qquad\times p(x)\prod_{i=1}^d\exp\paren{-\frac{x_i^2-2x_iy_i}{2\sigma^2/N}}.
+    &\qquad\times \frac{1}{2^N}\prod_{i=1}^d\exp\paren{-\frac{x_i^2-2x_iy_i}{2\sigma^2/N}}
 \end{align*}
 
 ただし，$\phi(-;\mu,\sigma):=\dd{\rN_1(\mu,\sigma)}{\ell_1}$ を正規密度とした．
 
-ここで，事前分布 $p(x)dx$ は，one-hot ベクトルのなす有限集合
-$$
-\Delta_d:=\Brace{x\in\bZ^d\mid\norm{x}_1=1}
-$$
-上の一様分布とする．
+### スピングラス系との同一視
 
-このとき，事後分布 $p(x|y)dx$ もやはり $\Delta_d$ 上の分布で，その質量関数は $x\in\Delta_d$ で $i^*\in[d]$ のみ $x_{i^*}=1$ であるものに対して，
+この事後分布 $p(x|y)$ は，次の Hamiltonian $H$ に関する，逆温度 $\beta=\sigma^{-2}$ での Boltzmann 分布とみなせる：
+
+\begin{align*}
+    p(x|y)&=\frac{1}{\cZ}e^{-\beta H(x,y)}\\
+    H(x,y)&:=-N\sigma^2\log2\\
+    &\qquad-\frac{N}{2}\sum_{i,j=1}^dx_i^*x_j^*\sqrt{(1-2y_i)(1-2y_j)}
+\end{align*}
+
+::: {.callout-important title="注" collapse="true" icon="false"}
+
+この Hamiltonian は非物理的なものであり，planted ensemble とも呼ばれる．詳しくは次項参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Stat/Bayes2.html" target="_blank">
+            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">ベイズ統計学とスピングラス</h3>
+                <p class="article-description">誤り訂正符号を題材にして</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+また，$H$ の表示については，$x^*\in\Delta_d$ であるから，$i,j\in[d]$ と２つの和をとっているように見えるが，二つの添え字が一致している場合しか非零な値は取らず，結局
 $$
-p(x|y)=\frac{1}{\cZ}\frac{1}{2^N}\exp\paren{\frac{2y_i-1}{2\sigma^2/N}}
+H(x,y)=-\frac{N}{2}\sum_{j=1}^d(2y_j-1)x_j+N\sigma^2\log2
 $$
-よって一般には，
-$$
-p(x|y)=\frac{e^{-H(x^{(i)},y)}}{\cZ},
-$$
-$$
-H(x,y)=-\frac{N}{2\sigma^2}\sum_{j=1}^d(2y_j-1)x_j+N\log 2,
-$$
+であることに注意．
+
+:::
+
+なお，分配関数は
 $$
 \cZ:=\frac{1}{2^N}\sum_{i=1}^d\exp\paren{\frac{N}{2\sigma^2}(2y_i-1)},
 $$
