@@ -1,10 +1,11 @@
 ---
-title: "数学者のための統計力学１"
-subtitle: "Ising 模型とスピングラス"
+title: "統計力学における基本的な模型の総覧"
+subtitle: "数学者のための統計力学１：Ising 模型とスピングラス"
 author: "司馬博文"
 date: 4/7/2024
-date-modified: 6/28/2024
+date-modified: 6/29/2024
 categories: [Nature, Deep]
+image: Lennard-Jones.svg
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
@@ -150,7 +151,7 @@ $$
 
 この剛体円板模型における相転移を基本として，種々のより複雑なソフトマター（フィルム，懸濁液など）の液相転移の研究に応用が進んでいる．
 
-#### 柔らかい円板模型
+#### 柔らかい円板模型 {#sec-soft-disk}
 
 次のポテンシャル $U$ を持った粒子系を **柔らかい円板模型** (soft-disk model) という：
 $$
@@ -170,7 +171,74 @@ $$
 
 #### Lennard-Jones 模型 {#sec-Lennard-Jones}
 
+次で定まるポテンシャルを持つ，$\bT^3$ 上の模型を **Lennard-Jones 模型** という：
+$$
+U(x;\eta,\sigma,\ep,N):=\sum_{i<j}U'(x_i,x_j;\sigma,\ep),
+$$
+$$
+U'(x_i,x_j;\sigma,\ep):=4\ep\paren{\paren{\frac{\sigma}{d(x_i,x_j)}}^{12}-\paren{\frac{\sigma}{d(x_i,x_j)}}^6}.
+$$
 
+```{julia}
+using Plots
+
+function lennard_jones(r, σ, ε)
+    return 4 * ε * ((σ / r)^12 - (σ / r)^6)
+end
+
+ε = 1.0  # スケーリング
+σ = 1.0  # 粒子の半径
+
+r_range = 0.8:0.01:3.0
+
+V = [lennard_jones(r, σ, ε) for r in r_range]
+
+# プロットを作成
+plt = plot(r_range, V, 
+    xlabel="r/σ", ylabel="V(r)/ε", 
+    title="Lennard-Jones Potential",
+    label="LJ Potential",
+    lw=2, 
+    legend=:topright,
+    ylims=(-1.2, 1),
+    color="#80c4ac")
+
+# x軸とy軸に0の線を追加
+hline!([0], color=:black, linestyle=:dash, label="")
+# vline!([0], color=:black, linestyle=:dash, label="")
+
+display(plt)
+# savefig(plt, "Lennard-Jones.svg")
+```
+
+柔らかい円板模型（第 [-@sec-soft-disk] 節）の，３次元における精緻化として理解できる．電気的に中性な原子からなる粒子系のモデルである．
+
+$r^{-12}$ の項を Pauli 斥力項，$-r^{-6}$ の項を van der Waals 引力項という．^[瞬間的な電気的双極子が互いに引きつけ合うことにより生じる引力のことである．[@Faulkner-Livingstone2024 p.11] 3.3 節も参照．]
+
+#### Coulomb ポテンシャル
+
+水などの分極を持った分子を考える場合，Lennard-Jones ポテンシャルに，次の Coulomb ポテンシャルを加えてモデリングする：
+$$
+U_c(x_i,x_j;c_i,c_j)=\frac{1}{4\pi\ep_0}\frac{c_ic_j}{d(x_i,x_j)}.
+$$
+
+#### 結合ポテンシャル
+
+水などの分子では，分子同士の相互作用のほかに，分子内の原子同士の化学結合を通じた相互作用を考える必要がある．^[[@Faulkner-Livingstone2024 p.13] 3.6 節も参照．]
+
+$\bT^3$ 上の３原子分子に対する調和伸縮ポテンシャル (harmonic bond-stretching potential) は^[これが二次関数になっていることは，[Hooke の法則](https://ja.wikipedia.org/wiki/フックの法則) による．しかし，例えばグラフェンなどに対しては，その結合の強さを加味するために４次関数を用いる [@Wei+2011]．[@Faulkner-Livingstone2024 p.12] 3.5 節も参照．]
+$$
+U_s(x_i,x_j;r_0,k_b):=\frac{k_b}{2}\Paren{d(x_i,x_j)-r_0}^2,
+$$
+調和角度ポテンシャル (harmonic bond-angle potential) は
+$$
+U_a(x_i,x_j,x_k;\phi_0,k_a):=\frac{k_a}{2}\Paren{\phi(x_i,x_j,x_k)-\phi_0}^2.
+$$
+ただし，
+$$
+\phi(x_i,x_j,x_k):=\arccos\paren{\frac{x_{ij}^\top x_{jk}}{d(x_i,x_j)d(x_j,x_k)}}
+$$
+は結合角とした．
 
 ## 格子模型 {#sec-hard-matter}
 
@@ -360,9 +428,10 @@ Parisi はこの業績で 2021 年にノーベル物理学賞を受賞した．�
 一方で，SK 模型に対して高温摂動展開により自由エネルギーを与えるアプローチもある．
 
 特に，熱力学極限に向かって漸近的に成り立つ次の方程式を TAP 方程式という：
-$$
-\brac{\sigma_i}\approx\tanh\paren{\frac{\beta}{\sqrt{N}}\sum_{j\ne i}J_{ij}\brac{\sigma_j}+h-\beta^2(1-q)\brac{\sigma_i}}
-$$
+\begin{align*}
+    \brac{\sigma_i}&\approx\tanh\Paren{\frac{\beta}{\sqrt{N}}\sum_{j\ne i}J_{ij}\brac{\sigma_j}\\
+    &\qqquad\qqquad+h-\beta^2(1-q)\brac{\sigma_i}}
+\end{align*}
 
 これの数学からの証明も近年試みられている [@Talagrand2003], [@Chatterjee2010]．しかし，厳密な証明は高温に限られ，低温域では解の一意性が失われるのが困難を窺わせる．２つの層の分離面としては Almeida-Thouless 線が提案されている．
 
