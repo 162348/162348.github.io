@@ -1,0 +1,283 @@
+---
+title: "Poisson 過程を見てみよう"
+subtitle: "YUIMA パッケージを用いたシミュレーションを通じて"
+author: "司馬 博文"
+date: 6/29/2024
+categories: [Process, Simulation, Stan, YUIMA, R]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: Poisson 過程
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+
+YUIMAについては次の記事も参照：
+
+```{=html}
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/YUIMA.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title">YUIMA 入門</h3>
+        <p class="article-description">確率微分方程式のシミュレーションと推測のためのパッケージ`yuima`の構造と使い方をまとめます．</p>
+      </div>
+    </a>
+  </div>
+</div>
+```
+
+## Poisson 過程
+
+### 導入
+
+Poisson 過程と言った場合，Poisson 点過程と Poisson 計数過程の２つを峻別する必要がある．
+
+::: {.callout-important appearance="simple" icon="false"}
+
+$E=[0,T]$ とした場合，
+
+* $E$ 上の（一様な） Poisson 点過程 $\eta$ とは，$X_k\iidsim\rU([0,T])$ を一様確率変数，$\kappa\sim\Pois(\lambda)$ を Poisson 確率変数として，
+    $$
+    \eta=\sum_{k=1}^\kappa\delta_{X_k}
+    $$
+    で表せる確率核 $\Om\to E$ をいう．
+* $E$ 上の（一様な） Poisson 計数過程 $N$ とは，$\eta$ に対して
+    $$
+    N_t:=\#\Brace{n\in\N\mid X_n\le t}=\sum_{n=1}^\infty1_{\Brace{X_n\le t}}
+    $$
+    で定まる Lévy 過程をいう．
+
+:::
+
+このとき，
+$$
+\eta([0,t])\sim\Pois(\lambda t),
+$$
+$$
+N_t\sim\Pois(\lambda t),
+$$
+が成り立つ．
+
+$N$ は大きさ１の跳躍のみで増加する Lévy 過程として特徴付けられる．^[[@Revuz-Yor1999 p.472] 命題XII.1.4など．]
+
+後者は，前者を駆動過程とした確率積分
+$$
+N_t:=\int_0^td\eta_s
+$$
+と理解できる．
+
+### 点過程の定義
+
+::: {.callout-tip title="定義 (point process)^[[@Kallenberg2017 p.49]，[@Last_Penrose2017 p.11] 定義2.1 に倣った．全く同じ概念を [@伊藤清1991 p.298] は **偶然配置** と呼ぶ．]" icon="false"}
+
+$(E,\cE)$ を測度空間とする．$E$ 上の **点過程** とは，次の条件を満たす確率核 $\eta:\Om\to E$ をいう：
+$$
+\eta(\om,B)\in\N\cup\{\infty\},\qquad\om\in\Om,B\in\cE.
+$$
+
+:::
+
+**真の点過程** とは，ある $E$-値確率変数の列 $X_1,X_2,\cdots$ と，$\N\cup\{\infty\}$-値確率変数 $\kappa$ が存在して，
+$$
+\eta=\sum_{n=1}^\kappa \delta_{X_n}\;\as
+$$
+と表せる点過程をいうこととする．
+
+::: {.callout-important title="注（より直感的な定義）" collapse="true" icon="false"}
+
+[@Revuz-Yor1999 p.471] 定義XII.1.1 は違う定義を与えている：
+
+$E$ 上の点過程とは，$E_\delta:=E\cup\{\delta\}$ 上の確率過程 $\{e_t\}_{t\in\R_+}\subset\L(\Om;E_\delta)$ であって，次の２条件を満たすものをいう：
+
+1. $(t,\om)\mapsto e_t(\om)$ は $\B(\R^+)\otimes\F$-可測である．
+2. $D_\om:=\Brace{t\in\R_+\mid e_t(\om)\ne\delta}$ は殆ど確実に可算である．
+
+[@Kingman2006] の定義は「$E$ 内のランダムに決まる可算集合」というもので，これに似ている．この定義は，上で与えた確率核による定義よりも強いものである．
+
+確率核の意味での点過程が，追加で次の条件を満たすとき，真の点過程になる：^[[@Last_Penrose2017 p.48] 系6.5 を参照．] 特に，[@Revuz-Yor1999] の意味でも点過程である．
+
+> ある可算な分割 $\sqcup_{n\in\N}B_n=E$ が存在して，
+    $$
+    \P[\eta(B_n)<\infty]=1
+    $$
+    である．
+
+$E$ が Polish 空間で，$\eta(\om,-)$ が（殆ど確実に）任意の有界集合上で有限ならば，これを満たす．よって特に，$\sigma$-有限な強度測度を持つ Poisson 過程はこれを満たす．すなわち，いずれの意味でも点過程である．
+
+:::
+
+### 強度測度
+
+点過程には「各集合 $B\in\cE$ に平均何個の点が入るか」を表す **強度測度** が定まる．
+
+この強度測度に関して，Fubini の定理のような性質
+$$
+\E\Square{\int_E u\,d\eta}=\int_Eu\E[d\eta]
+$$
+が成り立つ．
+
+::: {.callout-tip title="定義 (intensity measure)^[[@伊藤清1991 p.298] に倣った．]" icon="false"}
+
+$\eta$ を点過程とする．$\eta$ の **強度測度** とは，次で定まる測度 $\mu:\cE\to[0,\infty]$ をいう：
+$$
+\lambda(B):=\E[\eta(B)],\qquad B\in\cE.
+$$
+
+:::
+
+::: {.callout-tip title="命題 (Campbell)^[[@Last_Penrose2017 p.13] 命題2.7 に倣った．]" icon="false"}
+
+$\eta$　を点過程，$\lambda$ をその強度測度とする．任意の $u\in\L(E)$ について，$(\eta|u)$ は確率変数であり，加えて $u\in\L^1(\lambda)$ または $u\ge0$ である場合，次が成り立つ：
+$$
+\E\Square{\int_Eu(x)\eta(dx)}=\int_Eu(x)\lambda(dx).
+$$
+
+:::
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+$u$ がある $B\in\cE$ の特性関数 $u=1_B$ である場合，
+$$
+\int_Eu(x)\eta(dx)=\eta(B)
+$$
+であり，点過程 $\eta$ の定義からこれは確率変数である．
+
+期待値の線型性より一般の単関数，単調収束定理より一般の可測関数についても成り立つ．
+
+$u\in\L^1(\lambda)$ であるとき，$u$ に収束する単関数列
+$$
+u_n:=\sum_{i=1}^{m_n}a_i^{(n)}1_{B_i^{(n)}}\nearrow u
+$$
+を取ると，Lebesgue の優収束定理より次のように結論づけられる：
+\begin{align*}
+    \E\Square{\int_Eu(x)\eta(dx)}&=\lim_{n\to\infty}\E\Square{\int_Eu_n(x)\eta(dx)}\\
+    &=\lim_{n\to\infty}\E\Square{\sum_{i=1}^{m_n}a_i^{(n)}\eta(B_i^{(n)})}\\
+    &=\lim_{n\to\infty}\sum_{i=1}^{m_n}a_i^{(n)}\lambda(B_i^{(n)})\\
+    &=\int_Eu(x)\lambda(dx)=(\lambda|u)<\infty.
+\end{align*}
+
+$u\ge0$ の場合も同様で，Lebesgue の優収束定理が単調収束定理に変わるのみである．
+
+:::
+
+### Poisson 点過程の定義
+
+::: {.callout-tip title="定義 (Poisson process)^[[@Sato2013 p.119] 第4章19節，[@Resnick2002 p.303]，[@Last_Penrose2017 p.19] 定義3.1 に倣った．]" icon="false"}
+
+$(E,\cE)$ を可測空間，$\lambda:\cE\to[0,\infty]$ を測度とする．強度 $\lambda$ の **Poisson 過程** とは，次の２条件を満たす点過程 $\eta$ をいう：
+
+1. 任意の $B\in\cE$ に対して，$\eta(B)\sim\Pois(\lambda(B))$．
+2. 任意の $m\in\N$ と互いに素な可測集合 $B_1,\cdots,B_m\in\cE$ について，$\eta(B_1),\cdots,\eta(B_m)$ は独立である．
+
+:::
+
+$\lambda,\lambda'$ が $\sigma$-有限であるとする．このとき，$\lambda=\lambda'$ ならば，これを強度とする Poisson 過程は分布同等である．^[[@Revuz-Yor1999 p.476] 命題 XII.1.12，[@Last_Penrose2017 p.20] 命題3.2 も参照．]
+
+::: {.callout-tip title="命題（Poisson 過程は Poisson 点過程と分布同等である）^[[@Last_Penrose2017 p.22] 系3.7 も参照．]" icon="false"}
+
+$\lambda$ を $\sigma$-有限とする．このとき，ある確率変数の列 $\{X_n\}\subset\L(\Om;E)$ と $\N\cup\{\infty\}$-値確率変数 $\kappa$ が存在して，
+$$
+\eta:=\sum_{n=1}^\kappa\delta_{X_n}
+$$
+は強度 $\lambda$ の Poisson 過程となる．
+
+:::
+
+### 例
+
+#### 二項過程の一般化
+
+$\mu\in\cP(E),\pi\in\cP(\N)$ とする．$X_k\iidsim\mu$ と $\kappa\sim\pi$ について，
+$$
+\eta:=\sum_{k=1}^\kappa\delta_{X_k}
+$$
+は点過程を定める．これを **サンプリング分布 $\mu$ を持った $\pi$-複合二項過程** という．^[[@Last_Penrose2017 p.20] 定義3.4も参照．]
+
+ある $\gamma>0$ に関して $\pi=\Pois(\gamma)$ と取った場合，$\eta$ は強度 $\gamma\mu$ を持った Poisson 過程となる．
+
+これについて，次が成り立つ：
+
+::: {.callout-tip title="命題（有限な強度を持つ Poisson 過程の特徴付け）^[[@Last_Penrose2017 p.23] 命題3.8も参照．]" icon="false"}
+
+$\lambda:\cE\to(0,\infty)$ を有限測度とする．このとき，点過程 $\eta$ について，次の２条件は同値である：
+
+1. $\eta$ は $\lambda$ を強度測度とする Poisson 過程である．
+2. サンプリング分布 $\mu:=\lambda(E)^{-1}\lambda$ を持つ $\Pois(\lambda(E))$-複合二項過程である．
+
+特に，$\eta(E)=m$ で条件づけた分布は，$\delta_{X_1}+\cdots+\delta_{X_m}$ に等しい．
+
+:::
+
+#### $\R_+$ 上の Poisson 過程
+
+$\R_+$ の Poisson 過程で，強度が $\R_+$ 上の Lebesgue 測度の定数倍であるものを **一様 Poisson 過程** といい，$\lambda>0$ を **レート** ともいう．
+
+::: {.callout-tip title="命題^[[@Last_Penrose2017 p.59] 定理7.2参照．]" icon="false"}
+
+$\eta$ を $\R_+$ 上の点過程とする．このとき，$\lambda>0$ に関して次は同値：
+
+1. $\eta$ はレート $\lambda$ を持った一様 Poisson 過程である．
+2. 到着時刻
+    $$
+    T_n(\om):=\inf\Brace{t\ge0\mid \eta(\om,[0,t])\ge n}
+    $$
+    の間隔は $\Exp(\lambda)$ の独立同分布である．
+
+:::
+
+### 剪定
+
+::: {.callout-tip title="定義 ($K$-marking)^[[@Last_Penrose2017 p.40] 定義5.3 に倣った．[@Kingman1992 p.55] 5.2節も参照．]" icon="false"}
+
+$\eta$ を $E$ 上の真の点過程，$K:E\to F$ を確率核，$\{Y_n\}\subset\L(\Om;F)$ を確率変数列とする．加えて，任意の $m\in\N\cup\{\infty\}$ について
+$$
+(Y_n)_{n\le m}\mi\kappa=m,(X_n)_{n\le m}\dto \otimes_{n=1}^mK(X_n,-)
+$$
+が成り立つとする．このとき，$X$ の **$K$-印字過程** とは，$E\times F$ 上の真の点過程
+$$
+M:=\sum_{n=1}^\kappa\delta_{(X_n,Y_n)}
+$$
+をいう．
+
+:::
+
+$\eta$ を $\sigma$-有限な強度 $\lambda$ を持つ Poisson 過程とするとき，$\eta$ の任意の可測写像 $T:E\to F$ による像は $T_*\lambda$ を強度とする Poisson 過程となり，$\eta$ の任意の $K$-印字過程もやはり Poisson 過程になる．^[例えば [@Kingman1992 p.55]，[@Last_Penrose2017 p.42] 命題5.5 を参照．]
+
+::: {.callout-tip title="定義 ($p$-thinning)^[[@Last_Penrose2017 p.43] 定義5.7 に従った．]" icon="false"}
+
+$p:E\to[0,1]$ を可測関数とし，確率核 $K:E\to2$ を次で定める：
+$$
+K_p(x,-):=\Paren{1-p(x)}\delta_0+p(x)\delta_1.
+$$
+
+$E$ 上の真の点過程 $X$ の，この確率核に関する $E\times2$ 上の $K$-印字過程 $M$ に対して，
+$$
+(\om,B)\mapsto M(\om,B\times\{1\})
+$$
+で定まる $E$ 上の真の点過程を $X$ の **$p$-剪定** という．
+
+:::
+
+すなわち，点 $x\in E$ に定まる所定の確率 $p(x)$ に関して，確率 $p(X_n)$ で点 $X_n$ を脱落させて得る点過程を，$p$-選定という．
+
+$p$-選定は強度 $p(x)\lambda(dx)$ を持つ Poisson 過程となる．加えて，$1-p$-選定と違いに独立になる．^[[@Last_Penrose2017 p.44] 系5.9 参照．]
+
+## 複合 Poisson 過程
+
+### 定義
+
+::: {.callout-tip title="定義 (compound Poisson processes)^[[@Iacus-Yoshida2018 p.137]，[@Sato2013 p.18] 定理4.3，[@Protter2005 p.33] 例2，[@Baudoin2014-DiffusionProcess p.90] 演習3.44，[@Applebaum2009 p.49] 命題1.3.11 に倣った．]" icon="false"}
+
+$\lambda>0$ を正数，$\mu\in\cP(\R^d)$ を確率分布とする．
+
+1. **複合 Poisson 過程** とは，次で定まる Lévy 過程 $\{X_t\}\subset\L(\Om;\R^d)$ をいう：
+    $$
+    X_t:=
+    $$
+
+:::
