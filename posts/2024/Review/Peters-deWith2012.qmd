@@ -2,7 +2,7 @@
 title: "Peters and de With (2012) Rejection-Free Monte Carlo Sampling for General Potentials"
 author: "司馬博文"
 date: 4/6/2024
-date-modified: 4/27/2024
+date-modified: 6/29/2024
 categories: [Review]
 image: Peters-deWith2012.svg
 bibliography: 
@@ -20,139 +20,98 @@ abstract: |
 
 統計用語でいう Bouncy Particle Sampler を，Metropolis-Hastings 法の連続時間極限として初めて提案した論文であるが，これが [@Bouchard-Cote+2018-BPS] に発見されるには６年の時間を要した．
 
-これを正準分布からのサンプリング法として導入した [@Peters-deWith2012] ではこの手法を event-driven rejection-free Monte Carlo 法と呼ぶ．連続なポテンシャル $E$ を用いることが可能なことが特徴．event-driven アプローチだけでなく，event-chain アプローチでの実装も扱った．Lennard-Jones ポテンシャルを持った流体のシミュレーションで検証した．
+これを正準分布からのサンプリング法として導入した [@Peters-deWith2012] では，この手法を **event-driven rejection-free Monte Carlo** 法と呼ぶ．
 
-### 備考
+連続なポテンシャル $E$ を用いることが可能なことが特徴．event-driven アプローチだけでなく，event-chain アプローチ [@Bernard+2009] での実装も扱った．Lennard-Jones ポテンシャルを持った流体のシミュレーションで検証した．
+
+::: {.callout-important title="注" collapse="true" icon="false"}
 
 * ここでは本質的には連続時間極限をとっているが，直接議論されているのはポテンシャルの細分化の連続極限である．
   * $U(x(t))$ があったとき，$\Delta U\to0$ の極限を考えているために，実質的に $\Delta t\to0$ を議論している．
 * 多粒子系のなすカノニカル分布からのサンプリングを考えているため，分布が積の形に分解できることを前提としている．
 * SEC [@Bernard+2009] からの改良と読める．
 
-## 背景
+:::
+
+::: {.callout-caution title="関連文献" collapse="true" icon="false"}
+
+Metropolis 法については
+
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Review/Metropolis+1953.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Review/Metropolis+1953.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Metropolis+ (1953) Equation of State Calculations by Fast Computing Machines</h3>
+                <p class="article-description">Metropolis et. al. [The Journal of Chemical Physics 21(1953) 1087-1092] は初の MCMC（乱歩 Metropolis 法）を，対称分布を Gibbs の正準分布として，“modified Monte Carlo scheme” という名前の下で提案した論文である．重点サンプリングを “Monte Carlo method” と呼び，「目標分布から直接サンプルを生成できるために提案分布と目標分布とのズレによる性能劣化がない」ことを美点として挙げている．この手法は後の (Hastings, 1970) による改良と併せて，Metropolis-Hastings 法と呼ばれるようになる．</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Nature/MD.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Nature/Lennard-Jones.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">分子動力学法</h3>
+                <p class="article-description">物理に寄り添った Monte Carlo 法</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+:::
+
+## 導入
 
 ### time-driven から event-driven へ
 
-（古典）統計力学に従って粒子系をシミュレーションする際には，MD (molecular dynamics) と MC (Monte Carlo methods) の組み合わせ [@Duane+1987] を用いることになるが，現状いずれも Metropolis [@Metropolis+1953] の採択-棄却の枠組みで実行されるのが最も一般的である．
+平衡統計力学に従って粒子系をシミュレーションする際には，MD (molecular dynamics) と MC (Monte Carlo methods) の２つのアプローチがあり得る．
 
-Metropolis の方法だと，
+しかし現状，いずれも [@Metropolis+1953] の採択-棄却の枠組みで実行されるのが一般的である．
 
-* 凝縮系では MD 法としてのタイムステップは小さく取る必要があると同時に，他の粒子と重なってしまいやすく，棄却率が高くなる．
-* 希薄系ではタイムスケールは分子の衝突過程に依存するので，シミュレーション時間のほとんどは無駄に使う必要が出る．
+棄却を取り入れた MD 法を，剛体球の系に適用すると，
+
+* 高濃度領域では，タイムステップは小さく取らないと，すぐに他の粒子と重なってしまいやすく，棄却率が高くなる．かといってタイムステップを小さくすると計算量が増大する．
+* 低濃度領域では，タイムスケールは分子の衝突過程に依存するので，シミュレーション時間のほとんどは無駄に使うことになる．
 
 という難点がある．
 
-同様にして，time-driven MD も剛体球などの撃力相互作用を及ぼしあう系ではうまく働かないため，明らかに event-driven な方がいい．これは最初の MD 法 [@Alder-Wainwright1959] で取られた通りの作戦である．
+そこで元来 MD 法では，**event-driven** と呼ばれるアプローチが早期に提案された [@Alder-Wainwright1959]．
 
-いずれの場合も event-driven な手法を用いることで効率化される可能性がある．
+実際，このアプローチは，[@Metropolis+1953] では叶わなかった，剛体円板系の液相転移のシミュレーションに成功している [@Alder-Wainwright1962]．^[そしてこの発見は，[@Kosterlitz-Thouless1973] による液相転移の「２段階モデル」の理論が生まれるきっかけとなった． [@Faulkner-Livingstone2024 p.15] 4.3 節も参照．]
 
-### ED-MD の改良
+従って，Monte Carlo 法の方にも，event-driven なアプローチを取り入れると，大きな効率改善が望めるだろう．
 
-かといって event-driven MD にも難点がある．
+### ED-MD から改良された点
 
-ED-MD はポテンシャルが単関数である場合にまでしか一般化できない．単関数でないと，いつイベントが起こるかが予測できないのである．
+かといって event-driven MD にも難点がある．まず [@Alder-Wainwright1962] がシミュレーションに成功したのは剛体円板系であり，ポテンシャルは単関数である．
 
-しかし本手法は，イベントを Poisson 過程でシミュレーションすることにしたので，一般のポテンシャルに適用できる（ @sec-effectiveness-of-potentials も参照）．
+悪いことに，ED-MD はポテンシャルが単関数である場合にまでしか一般化できない．単関数でないと，いつイベントが起こるかが予測できないのである．
 
-また，衝突のモデリングも event-chain 手法 [@Bernard+2009], [@Bernard-Krauth2011] 同様，選択の余地があり，SEC のように衝突時の動きを被衝突粒子が模倣するでも良いし，普通にビリヤードのように Newton 力学的衝突をモデリングするのでも良い．
+しかし本論文で提案する手法は，イベント発生時刻を Poisson 過程でシミュレーションすることにしたので，一般のポテンシャルに適用できる（[分子動力学の稿](../Nature/MD.qmd#sec-effectiveness-of-potentials) も参照）．
 
-### 他の手法との比較
+### 衝突のモデリングには自由度が残る
+
+提案手法では，Metropolis 的な棄却を実施するのではなく，衝突によって向きを変えるというイベントが起こる．
+
+この衝突のモデリングは，MD 法のように，Newton 力学から衝突の様子をシミュレーションしても良い．
+
+しかし，event-chain Monte Carlo 法 [@Bernard+2009], [@Bernard-Krauth2011] のように，衝突をしたら，衝突を受けた粒子が運動を引き継ぐ，というルールにしても良い．（Monte Carlo 法だから，背後の物理過程に忠実である必要はない．）
+
+### 他のアルゴリズムとの比較
 
 アルゴリズム的には kinetic / dynamic MC  [@Fichthorn-Weinberg1991] $n$-fold way MC simulation [@Bortz+1975] に似て Poisson 過程のシミュレーションに帰着する．
 
-だが本手法は，イベントをシミュレーションしたのちに，そのイベントの間の粒子系の動きは線形に補間される．
+だが上述の手法は，Poisson イベント間は何も起こらないとしている．
 
-### 分子動力学
-
-分子動力学法 (MD: Molecular Dynamics simulation) は，系のミクロなダイナミクスを実験的に調べる代わりに，シミュレーションによって必要条件を絞り込んでいく構成的な・計算機集約的なアプローチである．
-
-特に，多体系の運動方程式を計算機を用いて数値的に解くことを指す [@Alder-Wainwright1959]．それ故，物理や化学はもちろん，生化学，物質科学，さらには工学分野にまで幅広く用いられるシミュレーション法になる．
-
-> the inescapable conclusion is that MD will — if it hasn’t already — become an indispensable part of the theorist’s toolbox. [@Rapaport2004 p.ix]
-
-従来は実験と理論が相補的な関係にあったが，まるで基盤モデルが強化学習のための効率的な世界モデルになるように，計算機シミュレーションと Monte Carlo 法が新時代の科学の第三の要素になるのかも知れない．^["What distinguishes computer simulation in general from other forms of computation, if such a distinction can be made, is the manner in which the computer is used: instead of merely performing a calculation, the computer becomes the virtual laboratory in which a system is studied - a numerical experiment." [@Rapaport2004 p.3]．]
-
-アイデア自体は当然極めてナイーブであり，Laplace の悪魔や気体分子運動論の時代から大変に意識されたが，その最初の非自明な適用はデジタルコンピュータ完成のあとであった [@Alder-Wainwright1958], [@Alder-Wainwright1959]．
-
-彼らの関心は，ポロニウムなどの剛体球 (hard-sphere) の系とみれる物質の温度に依存した相転移現象にあった [@Alder-Wainwright1957]．[@Alder-Wainwright1959] では撃力相互作用 (impulsive interaction) が問題であったので，event-driven なシミュレーション (ED-MD scheme) が取られていたことは [@Peters-deWith2012] でも言及されている．当時の計算機では，500個の粒子を扱うことが限界であったことが興味深い．
-
-その他に，粒子に内部構造がない場合は time-driven な Newton 力学のシミュレーションで良いかもしれないが，剛体で体積を持つ場合は Euler 方程式，内部構造を持つ場合は Langrange 方程式のシミュレーションも伴うかもしれない [@Rapaport2004 p.4]．
-
-通常の平衡状態の（エネルギー・体積・粒子数一定の）分子系は小正準集団に対応するが，特定の温度条件下での物性を考えたい場合は，運動方程式を修正してシミュレーションする方法もある．この方法の欠点は，物性を再現できても，個々の分子の軌道を正しく模倣しているわけではないという点であるが，そもそもそのカオス的な振る舞いから，正しい軌道を得ることは諦めることが多い．このこともあり，MD 法で用いられる数値積分法は比較的低次元で軽量なものでも十分なのである [@Rapaport2004 p.4]．^[内部構造がある分子をシミュレーションする場合はよりやわらかい相互作用を考える必要があり，その際は積分は高次元になる上に，内部の運動が高速であるためにタイムステップも細かくする必要が出てくる．さらに拘束条件が存在する場合は，積分法よりも高い精度で取り扱う必要があり，特別な注意を要する．]
-
-#### 他手法の可能性
-
-セルオートマトンや格子ボルツマン法などの格子ベースの手法の方が計算量は安価であるが，表現力に劣ることになる．
-
-Lanvegin 方程式に基づいた Brownian dynamics などのさらに連続時間ベースの手法もある．
-
-### 統計力学で用いる分子動力学法
-
-統計力学で用いられる Monte Carlo 法と molecular dynamics には極めて深い繋がりがある．
-
-#### 布置平均を取る方法
-
-一度 MD の文脈を取り去り，純粋に統計力学的な量を Monte Carlo 法によって計算したいとする．
-
-やりたいことは抽象的には，その統計的集団の Boltzmann 分布から系をサンプリングできれば良い [@Liu2004 p.184]．
-
-典型的には MCMC によって行うこととなるが，結局その提案は MD によって示唆されたものの方が効率が良くなる．
-
-> The advantage of the MD proposal is that the resulting MCMC moves follow the dynamics of the target distribution more closely. [@Liu2004 p.184]
-
-これは結局，背後の物理学的な本質を捉えているためとも言える
-
-> A major advantage of molecular dynamics simulation in physical systems is its reliance on basic physics principles (e.g. Newton's equation), which has been shown by nature to work well. [@Liu2004 p.189]
-
-#### 時間平均を取る方法
-
-統計力学において，マクロ物理量はアンサンブル平均として計算され，エルゴード仮説の下では１つの系の時間発展を追うことで計算できることになる．
-
-これに MD を用いるとすると，自然と Monte Carlo シミュレーションのサブルーチンとして MD を用いることになるが，タイムステップが系の特徴的な事象をよく捉えるように注意して取る必要がある．特に，系のハミルトニアンが変化しすぎないように離散化誤差を抑える必要がある [@Liu2004 p.184]．
-
-特に MD シミュレーション自体が（温度と粒子数が一定な）小正準集団に対応することになる [@Rapaport2004 p.6]．
-
-> **混合モンテカルロ／分子動力学法**：モンテカルロ法を用いた構造分布の生成において，試行に用いる構造をニュートンの運動方程式など決定論的手法に従って用意する手法．分子凝集系などの複雑な系に対して，効率的に構造空間探索を行えると期待される．[@用語解説2022]
-
-#### Optimal scaling の問題
-
-ここで，optimal scaling と並行な，**タイムステップ選択の問題** がやはり中核となることが確認された．
-
-> how to choose a good step size has always been an art in the field. [@Liu2004 p.183]
-
-特に，凝縮系において系を放置し過ぎると，すぐにハミルトニアンが保存されなくなってしまうため，MD を用いた Monte Carlo 法では極めてタイムステップを細かくすることが必須であることが一番の問題である．
-
-> a main problem with MD simulation is the stringent requirement of a small time-step size. [@Liu2004 p.189]^["For example, the protein folding process takes about $10^{-3}$ seconds in nature. A proper MD simulation of such a process needs a step size of order $10^{-12}$ and will take about $10^6$ days using a current computer."]
-
-かといって，MD から遊離した MCMC を実行して性能を上げるためには，何かしらの形で遷移核に分布の形状を通知したいところであるが，これは MD 法なしには難しいということになる．^[For example, if the system of interest consists of closely packed particles, a random proposal for moving a particle is most likely rejected because the proposed new position has been partially occupied by others. [@Liu2004 p.189]]
-
-明らかに分布が特殊な形状をしているのに，ランダムウォークがその方向を見つけるまで待つのでは効率が悪い．
-
-#### Hamiltonian Monte Carlo 法
-
-そこで，完全な MD シミュレーションは行わず，Hamiltonian からの知識を部分的に提案核に取り入れるというアイデアが HMC (hybrid Monte Carlo) [@Duane+1987] として示された．^[特に格子場の理論において，Fermion 自由度が存在する場合のシミュレーションを問題として扱っていた．]
-
-後に，統計力学的な背景を持たないサンプリング問題についても，Hamilton 系から示唆された提案分布を用いる方が MCMC として性能が良いことが発見された．これが HMC (Hamiltonian Monte Carlo) 法 [@Neal1996] である．
-
-### ポテンシャルの役割 {#sec-effectiveness-of-potentials}
-
-例え量子系のシミュレーションであろうとも，Born-Oppenheimer などの近似を重ねて，原子に働く有効ポテンシャルにのみ注目することにより，古典系のシミュレーションと同様の方法で実行することができ，多くのマクロ的な性質を再現することが出来ることが，[@Griebel+2007 pp.17-] に詳細に説明されている．
-
-実際の系での粒子間相互作用を決定する際，純粋に Schrödinger 方程式などから理論的に導出するだけでなく，解析的に記述されたポテンシャルをフィッティングしてみてそれが理論や実験に合致するかどうかを見る統計的な方法もとられる [@Griebel+2007 p.27]．このようなモデル選択の立場に立つのが良い [@戸田+2011 p.34]．
-
-多くの場合ポテンシャルは，粒子間距離や角度，座標などの変数が入っており，これらのパラメータを推定することで探されるが，当然このステップは難しいものである：
-
-> The construction of good potentials is still a form of art and requires much skill, work, and intuition. [@Griebel+2007 p.28]
-
-Morse ポテンシャルや Lennard-Jones ポテンシャルがその代表例である．いわば，これらのポテンシャルも模型なのである．半導体のモデリングなどでは，さらに複雑なポテンシャルが必要になる [@Griebel+2007 p.30]．
-
-このように，多体問題をポテンシャル関数によって解く手法は 1980 年代からである [@Griebel+2007 p.30]．ポテンシャル関数の形によって、適した数値計算アルゴリズムが異なる。特に、長距離力の高速計算のためには、ポテンシャルの性質を巧みに利用したアルゴリズムが必要である。
-
-#### システム同定としての物理学
-
-> What do we mean by “understanding” something? We can imagine that this complicated array of moving things which constitutes “the world” is something like a great chess game being played by the gods, and we are observers of the game. [@Fenyman+1963]
-
-> 今まで見てきたように，状態空間モデルは運動学習過程を統一的に説明するモデルであり，最適推定や最適制御の定式化に欠かせない．一方，状態空間モデルに含まれる行列の値は，運動方程式などといった物理的要請から決定できることもあるが，運動適応の学習係数などは未知のパラメータであることが多い．従って，与えられた実験データから状態空間モデルのパラメタを決定する必要がある．このパラメタ推定は制御理論において **システム同定** と呼ばれる．冒頭の引用のように，ファインマンは数学や物理を自然界のシステム同定とみなした．[@田中宏和2019 p.173]
+一方で本手法は，Poisson イベントをシミュレーションしたのちに，そのイベントの間の粒子系の動きは線形に補間される．
 
 ## 本論
 

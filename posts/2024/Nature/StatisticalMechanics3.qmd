@@ -1,0 +1,302 @@
+---
+title: "分子動力学法"
+subtitle: "数学者のための統計力学３：物理に寄り添った Monte Carlo 法"
+author: "司馬博文"
+date: 6/29/2024
+categories: [Nature, Computation]
+image: Lennard-Jones.svg
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: 本質的に Metropolis 法がサンプリング法であるならば，MD 法は $N$-体問題に対する数値解法であると言える．しかし，Hamiltonian Monte Carlo は元々 Monte Carlo 法と MD 法との融合を目指したものであること，Event-Chain Monte Carlo 法も MD 法における古典的手法の輸入と理解できること，Langevin 動力学も正準集団に対する MD 法と捉えられることを考えると，尽きぬ計算テクニックの源泉であると言える．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## 概観
+
+### 導入
+
+分子動力学法 (MD: Molecular Dynamics simulation) は，系のミクロなダイナミクスを実験的に調べる代わりに，シミュレーションによって必要条件を絞り込んでいく構成的な・計算機集約的なアプローチである．
+
+特に，多体系の運動方程式を計算機を用いて数値的に解くことを指す [@Alder-Wainwright1959]．それ故，物理や化学はもちろん，生化学，物質科学，さらには工学分野にまで幅広く用いられるシミュレーション法になる．
+
+> the inescapable conclusion is that MD will — if it hasn’t already — become an indispensable part of the theorist’s toolbox. [@Rapaport2004 p.ix]
+
+::: {.callout-important title="計算科学の今後の展望" collapse="true" icon="false"}
+
+従来は実験と理論が相補的な関係にあったが，まるで基盤モデルが強化学習のための効率的な世界モデルになるように，計算機シミュレーションと Monte Carlo 法が新時代の科学の第三の要素になるのかも知れない．
+
+> "What distinguishes computer simulation in general from other forms of computation, if such a distinction can be made, is the manner in which the computer is used: instead of merely performing a calculation, the computer becomes the virtual laboratory in which a system is studied - a numerical experiment." [@Rapaport2004 p.3]．
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Computation/AboutSimulation.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Computation/Files/computation.png" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">計算とは何か</h3>
+                <p class="article-description">数値実験と LLM とはいずれもシミュレーションに使えるが，用いる形式が違う（数字と文字）．これにより，物理的な用途と社会的な用途とに別れている．この形式の違いを超克するのが機械学習の悲願であるとするならば，計算とはなんだろうか？ Monte Carlo 法とはシミュレーションと計算を架橋する存在であるならば，今後どのような貢献ができるのであろうか？</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+:::
+
+### 歴史
+
+アイデア自体は当然極めてナイーブであり，Laplace の悪魔や気体分子運動論の時代から大変に意識されたが，その最初の非自明な適用はデジタルコンピュータ完成のあとであった [@Alder-Wainwright1958], [@Alder-Wainwright1959]．
+
+彼らの関心は，ポロニウムなどの剛体球 (hard-sphere) の系とみれる物質の温度に依存した相転移現象にあった [@Alder-Wainwright1957]．
+
+[@Alder-Wainwright1959] では一般の撃力相互作用 (impulsive interaction) に拡張され，event-driven アプローチ (ED-MD scheme) が取られた．^[とは [@Peters-deWith2012] でも言及されている．当時の計算機では，500個の粒子を扱うことが限界であったことが興味深い．]
+
+::: {.callout-important title="種々の MD 法" collapse="true" icon="false"}
+
+その他に，粒子に内部構造がない場合は time-driven な Newton 力学のシミュレーションで良いかもしれないが，剛体で体積を持つ場合は Euler 方程式，内部構造を持つ場合は Langrange 方程式のシミュレーションも伴うかもしれない [@Rapaport2004 p.4]．
+
+通常の平衡状態の（エネルギー・体積・粒子数一定の）分子系は小正準集団に対応するが，特定の温度条件下での物性を考えたい場合は，運動方程式を修正してシミュレーションする方法もある．この方法の欠点は，物性を再現できても，個々の分子の軌道を正しく模倣しているわけではないという点であるが，そもそもそのカオス的な振る舞いから，正しい軌道を得ることは諦めることが多い．このこともあり，MD 法で用いられる数値積分法は比較的低次元で軽量なものでも十分なのである [@Rapaport2004 p.4]．^[内部構造がある分子をシミュレーションする場合はよりやわらかい相互作用を考える必要があり，その際は積分は高次元になる上に，内部の運動が高速であるためにタイムステップも細かくする必要が出てくる．さらに拘束条件が存在する場合は，積分法よりも高い精度で取り扱う必要があり，特別な注意を要する．]
+
+セルオートマトンや格子ボルツマン法などの格子ベースの手法の方が計算量は安価であるが，表現力に劣ることになる．
+
+Lanvegin 方程式に基づいた Brownian dynamics などのさらに連続時間ベースの手法もある．
+
+:::
+
+### タイムステップの問題
+
+ここで，optimal scaling と並行な，**タイムステップ選択の問題** がやはり中核となることが確認された．
+
+> how to choose a good step size has always been an art in the field. [@Liu2004 p.183]
+
+タイムステップが系の特徴的な事象をよく捉えるように注意して取る必要がある．特に，系のハミルトニアンが変化しすぎないように離散化誤差を抑える必要がある [@Liu2004 p.184]．
+
+特に，凝縮系において系を放置し過ぎると，すぐにハミルトニアンが保存されなくなってしまうため，MD を用いた Monte Carlo 法では極めてタイムステップを細かくすることが必須であることが一番の問題である．
+
+> a main problem with MD simulation is the stringent requirement of a small time-step size. [@Liu2004 p.189]^["For example, the protein folding process takes about $10^{-3}$ seconds in nature. A proper MD simulation of such a process needs a step size of order $10^{-12}$ and will take about $10^6$ days using a current computer."]
+
+かといって，MD から遊離した MCMC を実行して性能を上げるためには，何かしらの形で遷移核に分布の形状を通知したいところであるが，これは MD 法なしには難しいということになる．^[For example, if the system of interest consists of closely packed particles, a random proposal for moving a particle is most likely rejected because the proposed new position has been partially occupied by others. [@Liu2004 p.189]]
+
+明らかに分布が特殊な形状をしているのに，ランダムウォークがその方向を見つけるまで待つのでは効率が悪い．
+
+### ポテンシャルの役割 {#sec-effectiveness-of-potentials}
+
+#### モデル選択の見方
+
+例え量子系のシミュレーションであろうとも，Born-Oppenheimer などの近似を重ねて，原子に働く有効ポテンシャルにのみ注目することにより，古典系のシミュレーションと同様の方法で実行することができ，多くのマクロ的な性質を再現することが出来ることが，[@Griebel+2007 p.17] に詳細に説明されている．
+
+実際の系での粒子間相互作用を決定する際，純粋に Schrödinger 方程式などから理論的に導出するだけでなく，解析的に記述されたポテンシャルをフィッティングしてみてそれが理論や実験に合致するかどうかを見る統計的な方法もとられる [@Griebel+2007 p.27]．
+
+このようなモデル選択の立場に立つのが良い [@戸田+2011 p.34]．
+
+#### ポテンシャルの推定
+
+多くの場合ポテンシャルは，粒子間距離や角度，座標などの変数が入っており，これらのパラメータを推定することで探されるが，当然このステップは難しいものである：
+
+> The construction of good potentials is still a form of art and requires much skill, work, and intuition. [@Griebel+2007 p.28]
+
+Morse ポテンシャルや Lennard-Jones ポテンシャルがその代表例である．いわば，これらのポテンシャルも模型なのである．半導体のモデリングなどでは，さらに複雑なポテンシャルが必要になる [@Griebel+2007 p.30]．
+
+このように，多体問題をポテンシャル関数によって解く手法は 1980 年代からである [@Griebel+2007 p.30]．
+
+> ポテンシャル関数の形によって、適した数値計算アルゴリズムが異なる。特に、長距離力の高速計算のためには、ポテンシャルの性質を巧みに利用したアルゴリズムが必要である。
+
+#### システム同定としての物理学
+
+> What do we mean by “understanding” something? We can imagine that this complicated array of moving things which constitutes “the world” is something like a great chess game being played by the gods, and we are observers of the game. [@Fenyman+1963]
+
+> 今まで見てきたように，状態空間モデルは運動学習過程を統一的に説明するモデルであり，最適推定や最適制御の定式化に欠かせない．一方，状態空間モデルに含まれる行列の値は，運動方程式などといった物理的要請から決定できることもあるが，運動適応の学習係数などは未知のパラメータであることが多い．従って，与えられた実験データから状態空間モデルのパラメタを決定する必要がある．このパラメタ推定は制御理論において **システム同定** と呼ばれる．冒頭の引用のように，ファインマンは数学や物理を自然界のシステム同定とみなした．[@田中宏和2019 p.173]
+
+## 分子動力学法
+
+### 剛体円板のシミュレーション {#sec-MD-for-hard-disk}
+
+剛体円板のシミュレーションは，衝突イベントを先に予測し，その間を線型に補間すれば良いから，典型的には **event-driven** で行われる．
+
+#### アルゴリズムの概略
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* 初期位置と初期速度 $\{v_i\}_{i=1}^N\subset\R^2$ をランダムに定める．
+* 次のように系を発展させていく：
+$$
+x_i(t)\gets x_i(t_0)+(t-t_0)v_i(t),
+$$ {#eq-evolution1}
+$$
+v_i(t)\gets v_i(t_0).
+$$
+* 衝突イベントの発生時刻 $t^*$ は次の方程式によって予測できる：
+    $$
+    d(x_i(t^*),x_j(t^*))=2\sigma.
+    $$
+    衝突が起こると，衝突の角度に応じて，速度を反転させる：
+    $$
+    v_i(t^*)\gets v_i(t_0)-\paren{\frac{v_{ij}(t_0)^\top x_{ij}(t^*)}{4\sigma^2}}x_{ij}(t^*).
+    $$
+
+:::
+
+#### 数値誤差の蓄積
+
+式 ([-@eq-evolution1]) が正確な時間発展を記述できている以上，誤差は衝突イベントの処理の際の数値誤差にのみ起因する．
+
+しかし，角度計算の小さな誤差は，大きな軌道の違いを生むため，この数値誤差の蓄積が典型的に起こる．^[[@Faulkner-Livingstone2024 p.17] 4.3.1 節も参照．]
+
+#### アルゴリズムのエルゴード性
+
+$\bT^2$ 上の剛体円板ダイナミクスのエルゴード性（Bernoulli 撹拌性）は [@Simanyi2003] によって示された．
+
+特にエルゴード理論の観点からは，ビリヤード問題とも呼ばれる [@Tabachnikov2005]．
+
+### 滑らかなポテンシャルを持つ小正準集団のシミュレーション
+
+剛体円板のポテンシャルは単関数であった．より現実的な系は，滑らかなポテンシャルによって記述される．
+
+#### 力学
+
+ポテンシャル $U$ に対して，Newton の運動方程式は
+$$
+m_t\dd{^2x_i}{t^2}=-D_iU(x)
+$$
+で表される．
+
+これを一階系
+$$
+\dot{x}_i=v_i
+$$
+$$
+\dot{v}_i=-\frac{D_iU(x)}{m_i}
+$$
+にすることで，数値的に可解になる．
+
+この系，または Hamiltonian 系の数値計算法については，[@Bou-Rabee_Sanz-Serna2018] などのレビューも参照．
+
+#### 速度に関する [@Verlet1967] 法
+
+Hamiltonian 系の数値解法において，最も一般的なアルゴリズムは次のようなものである：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+ステップサイズ $\ep>0$ を設定しておく．
+
+1. 運動量を半分だけ進める：
+$$
+p_i\paren{\frac{\ep}{2}}\gets p_i(0)+\frac{\ep}{2}F_i(x(0)).
+$$
+2. 次のように位置と運動量を更新する：
+$$
+x_i(n\ep)\gets x_i((n-1)\ep)+\ep p_i\Paren{\frac{(n-1/2)\ep}{m_i}},
+$$
+$$
+p_i\Paren{(n+1/2)\ep}\gets p_i\Paren{(n-1/2)\ep}+\ep F_i(x(n\ep)).
+$$
+3. 残りの運動量を進める．
+
+:::
+
+２のダイナミクスは **leapfrog dynamics** とも呼ばれる．
+
+運動量の更新を **kick**，位置の更新を **drift** と呼ぶこともある．
+
+この手法は，イテレーション毎に $F$ の評価が１回で済むこと，$O(\ep^2)$ 誤差の性能が知られている．^[[@Faulkner-Livingstone2024 p.18] 4.3.2 節，[@Bou-Rabee_Sanz-Serna2018] も参照．]
+
+この手法は [@Stormer1907] もすでに用いていたもので，Störmer-Verlet integration とも呼ばれる．
+
+#### 小正準分布のシミュレーション
+
+上述のダイナミクスは，Hamiltonian の等位集合上のみを探索するという意味で，小正準集団のシミュレーションのみが可能である．
+
+すなわち，Boltzmann-Gibbs 分布のシミュレーションが可能でない．$\Brace{U\le H_0}$ 上しか探索できないためである．
+
+単に剛体円板（第 [-@sec-MD-for-hard-disk] 節）においては $U$ が単関数であったために，任意の $H_0$ に対して集合 $\Brace{U\le H_0}$ が変わらなかったため，問題が起こらなかったのである．
+
+### 滑らかなポテンシャルを持つ正準集団のシミュレーション
+
+#### Langevin 動力学
+
+従って，系が外界とエネルギーを交換するような系（正準集団）を考えたい場合は，単に Hamilton 方程式を数値的に解くだけでは不十分である．
+
+そこで，Hamilton 方程式の運動量の項に，$\beta$ に依存した係数を持つランダムな項を加えて得る (underdamped) Langevin 動力学を考えることができる：^[詳しくは [@Leimkuhler-Matthews2015] 6.3.2 節，[@Pavliotis2014 p.181]，[@Bressloff-StochasticProcessInCellBiology1 p.46] も参照．]
+$$
+dx_i=m_i^{-1}p_idt,
+$$
+$$
+dp_i=-\nabla U(x)dt-\gamma m_i^{-1} p_idt+\sqrt{2\gamma\beta^{-1}}dB_i.
+$$
+
+$\gamma$ は粘性係数，$\beta$ は逆温度である．
+
+#### シミュレーション法
+
+次のようにして underdamped Langevin 動力学を数値的に解くことができる：^[[@Leimkuhler-Reich2005] に詳しい．]
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+$\ep>0$ をタイムステップとする．
+
+1. 確率項を消去した Hamilton 系をシミュレーションし，$\ep>0$ だけ進める．
+2. 残る Ornstein-Uhlenbeck 過程
+    $$
+    dp_i=-\gamma m_i^{-1} p_idt+\sqrt{2\gamma\beta^{-1}}dB_i
+    $$
+    を解き，$\ep>0$ だけ進める．
+
+以上を繰り返す．
+
+:::
+
+#### エルゴード性
+
+カップリングアプローチによるエルゴード性証明は [@Eberle+2019] により初めて行われた．
+
+#### 過減衰 Langevin 法
+
+過減衰極限 $\gamma\to\infty$ を取ることで，１本の方程式にまとまる：^[この過程は，[@Pavliotis2014] 第 6.5 節，そして [@Stoltz2021] 参照．]
+$$
+dy_i=-\nabla U(y)dt+\sqrt{2\beta^{-1}}dB_i,
+$$
+$$
+y(t):=x(\gamma t).
+$$
+
+これを **過減衰 Langevin 動力学** または対称 Langevin 拡散という．統計力学では **Brownian 動力学** とも呼ばれる [@Rossky+1978]．
+
+これに対して，元の underdamped Langevin 拡散は，力学的 Langevin 動力学 (kinetic Langevin dynamics), ２階の Langevin 過程などとも呼ばれる．^[[@Dalalyan-Riou-Durand2020] に倣った．]
+
+#### Langevin 力学によるサンプリング
+
+統計学と機械学習では，特に [@Roberts-Tweedie1996] 以来，上述の過減衰 Langevin 動力学の方がポピュラーである．
+
+しかし，underdamped Langevin 動力学を用いた方が，サンプリング法の収束が速くなることが知られている [@Dalalyan-Riou-Durand2020]．
+
+## Hybrid Monte Carlo
+
+### 導入
+
+MD 法はサンプリングに向いているわけではない．また，Monte Carlo 法も，提案核の設計によって効率は大きく変わる．
+
+そこで，MD 法のように Hamiltonian からの知識を提案核に取り入れた Monte Carlo 法が HMC (hybrid Monte Carlo) [@Duane+1987] として提案された．^[特に格子場の理論において，Fermion 自由度が存在する場合のシミュレーションを問題として扱っていた．]
+
+これは混合モンテカルロ法ともいう：
+
+> **混合モンテカルロ／分子動力学法**：モンテカルロ法を用いた構造分布の生成において，試行に用いる構造をニュートンの運動方程式など決定論的手法に従って用意する手法．分子凝集系などの複雑な系に対して，効率的に構造空間探索を行えると期待される．[@用語解説2022]
+
+### Hamiltonian Monte Carlo
+
+後に，統計力学的な背景を持たないサンプリング問題についても，Hamilton 系から示唆された提案分布を用いる方が MCMC として性能が良いことが発見され，[@Neal1993] 以降機械学習でも広く用いられるようになった．
+
+今日ではこれらの手法は HMC (Hamiltonian Monte Carlo) 法 [@Neal2011-HMC] として機械学習・統計学界隈に普及しており，双方の分野からアルゴリズム改善のアイデアが盛んに生まれている．^[[@Faulkner-Livingstone2024 p.19] 4.4 節も参照．]
+
+### MD に提案をもらう Monte Carlo 法
+
+提案は MD によって示唆されたものの方が効率が良くなる場合がある：
+
+> The advantage of the MD proposal is that the resulting MCMC moves follow the dynamics of the target distribution more closely. [@Liu2004 p.184]
+
+これは結局，背後の物理学的な本質を捉えているためとも言える：
+
+> A major advantage of molecular dynamics simulation in physical systems is its reliance on basic physics principles (e.g. Newton's equation), which has been shown by nature to work well. [@Liu2004 p.189]
