@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - イベント連鎖モンテカルロ法</title>
+<title>Hirofumi Shiba - Lévy 過程を見てみよう</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -21,7 +21,27 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -76,15 +96,44 @@ gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - イベント連鎖モンテカルロ法">
-<meta property="og:description" content="ECMC (Event-chain Monte Carlo) 法は，平衡分布の直接的な評価を一度もすることなく，平衡分布からのサンプリングを達成する新たなモンテカルロ法である．非対称性をもち，従来手法より高い効率を持つ．実際，Metropolis 法の開発以来の興味の対象であった２次元剛体円板系の液相転移のシミュレーションに，約 60 年越しに成功している．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Nature/Lennard-Jones.svg">
+<meta property="og:title" content="Hirofumi Shiba - Lévy 過程を見てみよう">
+<meta property="og:description" content="Lévy 過程は独立定常増分な Feller-Dynkin 過程のことである．このクラスの過程は，Brown 運動と複合 Poisson 過程の独立和として表現される，というのが Lévy-Ito 分解の大雑把な意味であるが，その正確な消息は極めて微妙で理解が難しい．そこで，YUIMA パッケージを通じてシミュレーションを行いながら，Lévy の特性量 \((A,\nu,\gamma)\) が何に対応するかの直感的理解を試みる．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Process/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - イベント連鎖モンテカルロ法">
-<meta name="twitter:description" content="ECMC (Event-chain Monte Carlo) 法は，平衡分布の直接的な評価を一度もすることなく，平衡分布からのサンプリングを達成する新たなモンテカルロ法である．非対称性をもち，従来手法より高い効率を持つ．実際，Metropolis 法の開発以来の興味の対象であった２次元剛体円板系の液相転移のシミュレーションに，約 60 年越しに成功している．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Nature/Lennard-Jones.svg">
+<meta name="twitter:title" content="Hirofumi Shiba - Lévy 過程を見てみよう">
+<meta name="twitter:description" content="Lévy 過程は独立定常増分な Feller-Dynkin 過程のことである．このクラスの過程は，Brown 運動と複合 Poisson 過程の独立和として表現される，というのが Lévy-Ito 分解の大雑把な意味であるが，その正確な消息は極めて微妙で理解が難しい．そこで，YUIMA パッケージを通じてシミュレーションを行いながら，Lévy の特性量 \((A,\nu,\gamma)\) が何に対応するかの直感的理解を試みる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Process/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -134,11 +183,14 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">イベント連鎖モンテカルロ法</h1>
-            <p class="subtitle lead">数学者のための統計力学４：物理過程から離陸した Monte Carlo 法</p>
+      <h1 class="title">Lévy 過程を見てみよう</h1>
+            <p class="subtitle lead">YUIMA パッケージを用いたシミュレーションを通じて</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Nature</div>
-                <div class="quarto-category">Computation</div>
+                <div class="quarto-category">Process</div>
+                <div class="quarto-category">Simulation</div>
+                <div class="quarto-category">Stan</div>
+                <div class="quarto-category">YUIMA</div>
+                <div class="quarto-category">R</div>
               </div>
                   </div>
   </div>
@@ -156,7 +208,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">6/29/2024</p>
+        <p class="date">7/01/2024</p>
       </div>
     </div>
     
@@ -166,7 +218,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      ECMC (Event-chain Monte Carlo) 法は，平衡分布の直接的な評価を一度もすることなく，平衡分布からのサンプリングを達成する新たなモンテカルロ法である．非対称性をもち，従来手法より高い効率を持つ．実際，Metropolis 法の開発以来の興味の対象であった２次元剛体円板系の液相転移のシミュレーションに，約 60 年越しに成功している．
+      Lévy 過程は独立定常増分な Feller-Dynkin 過程のことである．このクラスの過程は，Brown 運動と複合 Poisson 過程の独立和として表現される，というのが Lévy-Ito 分解の大雑把な意味であるが，その正確な消息は極めて微妙で理解が難しい．そこで，YUIMA パッケージを通じてシミュレーションを行いながら，Lévy の特性量 <span class="math inline">\((A,\nu,\gamma)\)</span> が何に対応するかの直感的理解を試みる．
     </div>
   </div>
   
@@ -174,7 +226,24 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#lévy-itô-分解" id="toc-lévy-itô-分解" class="nav-link active" data-scroll-target="#lévy-itô-分解"><span class="header-section-number">1</span> Lévy-Itô 分解</a>
+  <ul class="collapse">
+  <li><a href="#加法過程" id="toc-加法過程" class="nav-link" data-scroll-target="#加法過程"><span class="header-section-number">1.1</span> 加法過程</a></li>
+  </ul></li>
+  <li><a href="#lévy-測度" id="toc-lévy-測度" class="nav-link" data-scroll-target="#lévy-測度"><span class="header-section-number">2</span> Lévy 測度</a>
+  <ul class="collapse">
+  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">2.1</span> 導入</a></li>
+  <li><a href="#強度測度との関係" id="toc-強度測度との関係" class="nav-link" data-scroll-target="#強度測度との関係"><span class="header-section-number">2.2</span> 強度測度との関係</a></li>
+  <li><a href="#lévy-測度が消えたならばgauss-過程である" id="toc-lévy-測度が消えたならばgauss-過程である" class="nav-link" data-scroll-target="#lévy-測度が消えたならばgauss-過程である"><span class="header-section-number">2.3</span> Lévy 測度が消えたならば，Gauss 過程である</a></li>
+  <li><a href="#跳躍時刻" id="toc-跳躍時刻" class="nav-link" data-scroll-target="#跳躍時刻"><span class="header-section-number">2.4</span> 跳躍時刻</a></li>
+  <li><a href="#lévy-過程の単調増加性" id="toc-lévy-過程の単調増加性" class="nav-link" data-scroll-target="#lévy-過程の単調増加性"><span class="header-section-number">2.5</span> Lévy 過程の単調増加性</a></li>
+  </ul></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -208,10 +277,203 @@ $$ %%% 汎用コード列
 <p>%%% 略記 </p>
 <p>%%% 矢印類 $$</p>
 </div>
+<p>YUIMAについては次の記事も参照：</p>
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Computation/YUIMA.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title anchored">YUIMA 入門</h3>
+        <p class="article-description">確率微分方程式のシミュレーションと推測のためのパッケージ`yuima`の構造と使い方をまとめます．</p>
+      </div>
+    </a>
+  </div>
+</div>
+<p>Poisson 過程と複合 Poisson 過程については次の記事を参照：</p>
+<div class="article-card-container">
+  <div class="article-card">
+    <a href="https://162348.github.io/posts/2024/Process/Poisson.html" target="_blank">
+      <img src="https://162348.github.io/posts/2024/Process/Poisson_files/figure-html/unnamed-chunk-2-1.png" alt="Article Image" class="article-image">
+      <div class="article-content">
+        <h3 class="article-title anchored">Poisson 過程を見てみよう</h3>
+        <p class="article-description">YUIMA パッケージを用いたシミュレーションを通じて</p>
+      </div>
+    </a>
+  </div>
+</div>
+<section id="lévy-itô-分解" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="lévy-itô-分解"><span class="header-section-number">1</span> Lévy-Itô 分解</h2>
+<section id="加法過程" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="加法過程"><span class="header-section-number">1.1</span> 加法過程</h3>
+<p>Lévy 過程は，<span class="math inline">\(\widetilde{\nu}(dsdx)=ds\nu(dx)\)</span> と表せる場合に当たる．</p>
+</section>
+</section>
+<section id="lévy-測度" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="lévy-測度"><span class="header-section-number">2</span> Lévy 測度</h2>
+<section id="導入" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">2.1</span> 導入</h3>
+<p>本節の目的は，Lévy 過程の次の３分類の見本道の違いを理解することである：<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>特性量 <span class="math inline">\((A,\nu,\gamma)\)</span> を持つ Lévy 過程について，</p>
+<ul>
+<li>A 型：<span class="math inline">\(A=0\)</span> かつ <span class="math inline">\(\nu(\mathbb{R}^d)&lt;\infty\)</span>．</li>
+<li>B 型：<span class="math inline">\(A=0\)</span> かつ <span class="math inline">\(\int_{B^d}\lvert x\rvert\,\nu(dx)&lt;\infty\)</span> であるが，A 型ではない．</li>
+<li>C 型：それ以外．</li>
+</ul>
+</div>
+</div>
+</div>
+<p><span class="math inline">\(A\)</span> 型は拡散項を持たず，確定的な動きと複合 Poisson 過程の和で表現される．</p>
+<p><span class="math inline">\(B\)</span> 型も拡散項を持たないが，<span class="math inline">\(\mathbb{R}_+\)</span> 上稠密な可算集合上でジャンプを繰り返し，見本道は殆ど至る所連続ではない．</p>
+<p><span class="math inline">\(A,B\)</span> は殆ど確実に任意の有界区間上で有界変動な見本道を持つが，<span class="math inline">\(C\)</span> 型は有界変動ではない．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+</section>
+<section id="強度測度との関係" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="強度測度との関係"><span class="header-section-number">2.2</span> 強度測度との関係</h3>
+<p><span class="math inline">\(\{(A_t,\nu_t,\gamma_t)\}_{t\in\mathbb{R}_+}\)</span> を加法過程の特性量とする．</p>
+<p>このとき， <span class="math display">\[
+\widetilde{\nu}([0,t]\times B):=\nu_t(B),\qquad t\ge0,B\in\mathcal{B}(\mathbb{R}^d)
+\]</span> は <span class="math inline">\(\mathbb{R}_+\times\mathbb{R}^d\)</span> 上に測度を定める．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題（強度測度と特性測度の関係）^[特性測度の名前は [@Revuz-Yor1999 p.478] 演習 XII.1.18 など．命題は [@Sato2013 p.53] 注9.9も参照．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題（強度測度と特性測度の関係）<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>測度の族 <span class="math inline">\(\{\nu_t\}\subset\mathbb{M}(\mathbb{R}^d)\)</span> と測度 <span class="math inline">\(\nu\in\mathcal{M}(\mathbb{R}_+\times\mathbb{R}^d)\)</span> について，次は同値：</p>
+<ol type="1">
+<li><span class="math inline">\(\widetilde{\nu}\)</span> は次の２条件を満たす： <span class="math display">\[
+\widetilde{\nu}(\{t\}\times\mathbb{R}^d)=0,
+\]</span> <span class="math display">\[
+\int_{[0,t]\times\mathbb{R}^d}(1\land\lvert x\rvert^2)\widetilde{\nu}(dsdx)&lt;\infty.
+\]</span></li>
+<li><span class="math inline">\(\{\nu_t\}\)</span> はある加法過程の特性測度である．</li>
+</ol>
+</div>
+</div>
+<p>よって，任意の加法過程について， <span class="math display">\[
+\int_{\mathbb{R}^d}(1\land\lvert x\rvert^2)\nu_t(dx)&lt;\infty
+\]</span> が必要である．</p>
+<p>Lévy 過程であるとき，定常増分であることが必要であるため，跳躍時刻は <span class="math inline">\(\mathbb{R}_+\)</span> 上の一様な Poisson 点過程に従う必要がある．これより， <span class="math display">\[
+\widetilde{\nu}=\ell_+\otimes\nu
+\]</span> と分解できる必要があり，この特性測度 <span class="math inline">\(\nu\)</span> が Lévy 測度である．</p>
+</section>
+<section id="lévy-測度が消えたならばgauss-過程である" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="lévy-測度が消えたならばgauss-過程である"><span class="header-section-number">2.3</span> Lévy 測度が消えたならば，Gauss 過程である</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題^[[@Sato2013 p.135] 定理21.1．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Lévy 過程 <span class="math inline">\(X\)</span> について，次の２条件は同値：</p>
+<ol type="1">
+<li><span class="math inline">\(X\)</span> は殆ど確実に連続な見本道を持つ．</li>
+<li><span class="math inline">\(\nu=0\)</span> である．</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題^[[@Sato2013 p.135] 定理21.2．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Lévy 過程 <span class="math inline">\(X\)</span> ついて，次の３条件は同値：</p>
+<ol type="1">
+<li><span class="math inline">\(X\)</span> の見本道は，殆ど確実に区分的定数である．</li>
+<li><span class="math inline">\(X\)</span> は複合 Poisson 分布であるか，零であるかのいずれかである．</li>
+<li><span class="math inline">\(A=0,\nu(\mathbb{R}^d)&lt;\infty\)</span> かつ <span class="math inline">\(\gamma_0=0\)</span> である．</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="跳躍時刻" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="跳躍時刻"><span class="header-section-number">2.4</span> 跳躍時刻</h3>
+<p>Lévy 過程の見本道は右連続であるから，跳躍回数は殆ど確実に可算回である．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(\nu(\mathbb{R}^d)=\infty\)</span> とする．このとき，跳躍時刻は殆ど確実に <span class="math inline">\(\mathbb{R}_+\)</span> 上稠密である．</p>
+</div>
+</div>
+</section>
+<section id="lévy-過程の単調増加性" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="lévy-過程の単調増加性"><span class="header-section-number">2.5</span> Lévy 過程の単調増加性</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題^[[@Sato2013 p.137] 定理21.5．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(d=1\)</span> とし，<span class="math inline">\(X\)</span> を Lévy 過程とする．このとき，次は同値：</p>
+<ol type="1">
+<li><span class="math inline">\(X\)</span> は殆ど確実に単調増加な見本道を持つ．すなわち，従属過程である．</li>
+<li><span class="math inline">\(A=0,\nu((-\infty,0))=0\)</span> かつ <span class="math display">\[
+\int_{[0,1)}x\,\nu(dx)&lt;\infty
+\]</span> 加えて <span class="math inline">\(\gamma_0\ge0\)</span> である．</li>
+</ol>
+</div>
+</div>
+<p>仮に <span class="math inline">\(A=0,\nu((-\infty,0))=0\)</span> だが， <span class="math display">\[
+\int_0^1x\,\nu(dx)=\infty
+\]</span> であったとする．</p>
+<p>このとき，正なジャンプとドリフトしか持たないはずであるから，場合によっては単調増加過程になっても良さそうなものである．</p>
+<p>しかし，このような過程が発散せずに well-defined であるということは，負の方向に無限に強いドリフトを持っており，これが正なジャンプを打ち消していることが必要である．</p>
+<p>それ故，単調増加にならず，加えて任意の区間において単調増加にならない．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
 
 
 
-</main> <!-- /main -->
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-Revuz-Yor1999" class="csl-entry" role="listitem">
+Revuz, D., &amp; Yor, M. (1999). <em>Continuous martingales and brownian motion</em> (3rd ed.). Springer Berlin, Heidelberg.
+</div>
+<div id="ref-Sato2013" class="csl-entry" role="listitem">
+Sato, K. (2013). <em><a href="">Lévy processes and infinitely divisible distributions</a></em> (2nd ed.). Cambridge University Press.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>この分類は <span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 65</a>)</span> 定義11.9に倣った．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 140</a>)</span> 定理21.9 参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>特性測度の名前は <span class="citation" data-cites="Revuz-Yor1999">(<a href="#ref-Revuz-Yor1999" role="doc-biblioref">Revuz &amp; Yor, 1999, p. 478</a>)</span> 演習 XII.1.18 など．命題は <span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 53</a>)</span> 注9.9も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 135</a>)</span> 定理21.1．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 135</a>)</span> 定理21.2．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 137</a>)</span> 定理21.5．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><span class="citation" data-cites="Sato2013">(<a href="#ref-Sato2013" role="doc-biblioref">Sato, 2013, p. 138</a>)</span> も参照．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
