@@ -146,7 +146,7 @@ Poisson 過程については次の稿も参照：
 
 前節で調べた純粋跳躍過程に，決定論的な動きを加えた Markov 過程のクラスを，[@Davis1984] 以来 **区分的確定的 Markov 過程** (PDMP: Piecewise Deterministic Markov Process) と呼ぶ．
 
-PDMP は拡散項を持たない Lévy 過程とも理解できる．^[ただし，ジャンプが頻繁すぎないことも必要である．[@Davis1993 p.60] 過程24.4 では，有界区間上のジャンプは有限回であると過程している：$\E[N_t]<\infty\;(t\in\R_+)$．すなわち，A 型までの加法過程を PDMP というのであって，B 型と C 型は，シミュレーションが容易な連続時間過程であるという美点を逃してしまう．加法過程の分類については，この [稿](Levy.qmd) も参照．]
+PDMP は拡散項を持たない Lévy 過程とも理解できる．^[ただし，ジャンプが頻繁すぎないことも必要である．[@Davis1993 p.60] 仮定24.4 では，有界区間上のジャンプは有限回であると過程している：$\E[N_t]<\infty\;(t\in\R_+)$．すなわち，A 型までの加法過程を PDMP というのであって，B 型と C 型は，シミュレーションが容易な連続時間過程であるという美点を逃してしまう．加法過程の分類については，この [稿](Levy.qmd) も参照．]
 
 実際，[@Davis1984] は拡散過程に相補的なクラスとして導入し，[@Davis1993] は PDMP が[待ち行列](https://ja.wikipedia.org/wiki/待ち行列理論)，ポートフォリオ最適化，[確率的スケジューリング](https://en.wikipedia.org/wiki/Stochastic_scheduling)，標的追跡，保険数理，[資源最適化](https://www.ism.ac.jp/ism_info_j/labo/visit/112-2.html)など，広く確率的モデリングと最適化において重要な役割を演じることを見事に描き出した．^[当時は連続時間確率過程といえば拡散過程であり，SDE によるモデリングが興隆した時代であった．[@Davis1993] では，必ずしも SDE を使うことが自然なモデリング方法でないにも拘らず，無理やり SDE の枠組みに落とし込もうとする当時の慣行を批判し，PDMP はこのギャップを埋めるために開発した，としている．なお，[@Davis1993] では PDMP ではなく PDP と呼んでいる．]
 
@@ -160,7 +160,7 @@ PDMP は拡散項を持たない Lévy 過程とも理解できる．^[ただし
 <div class="article-card-container">
    <div class="article-card">
       <a href="https://162348.github.io/posts/2024/Computation/MCMC.html" target="_blank">
-         <img src="https://162348.github.io/static/Posters/ISM-OH2024.jpg" alt="Article Image" class="article-image">
+         <img src="https://github.com/162348/162348.github.io/blob/main/posts/2024/Computation/Files/eyecatch.png?raw=true" alt="Article Image" class="article-image">
          <div class="article-content">
             <h3 class="article-title">新時代の MCMC を迎えるために</h3>
             <p class="article-description">連続時間アルゴリズムへの進化</p>
@@ -170,30 +170,85 @@ PDMP は拡散項を持たない Lévy 過程とも理解できる．^[ただし
 </div>
 ```
 
+### 設定
+
+#### 空間
+
+PDMP は動きのモードが移り変わっても良い．これを表すパラメータ $v\in K$ を導入する．^[[@Davis1993 p.57] では $K$ は可算という仮定をおいている．]
+
+このパラメータ空間上に，PDMP が動く範囲の次元を表す関数 $d:K\to\N^+$ を導入し，パラメータが $v\in K$ である際は，$M_v\subset\R^{d(v)}$ として，積空間 $M_v\times\{v\}$ 上を運動するものとする．
+
+総合して，PDMP の状態空間を $M_v$ の直和
+$$
+E:=\bigcup_{v\in K}M_v\times\{v\}
+$$
+と定める．^[積空間としての $\sigma$-代数を導入する．]
+
+#### フロー
+
+$\fX_v$ を $M_v$ 上のベクトル場とし，積分曲線
+$$
+\dd{\phi_v(x,t)}{t}=\fX_v(\phi_v(x,t)),
+$$
+$$
+\phi_v(x,0)=x
+$$
+が存在するとする．^[[@Davis1993] では，$\fX_v$ は局所 Lipcthiz 連続である上に，（暗黙のうちに）完備で，$\phi_v$ は任意の $t\in\R$ について定義されるとしていることに注意．[@Vasdekis-Roberts2023] では違う．]
+
+$\lambda:E\to\R_+$ は $s\mapsto\lambda(\phi_v(x,s),v)$ が局所可積分であるような関数とし，
+$$
+\Lambda(t):=\int^t_0\lambda(\phi(s,x))ds
+$$
+で表す．
+
+#### 境界
+
+$M_v\subset\R^{d(v)}$ の境界のうち，積分曲線が到達し得る部分を
+$$
+\partial^*M_v:=\Brace{y\in\partial M_v\,\middle|\,\exists_{t>0}\;\exists_{x\in M_v}\;\phi_v(x,t)=y}
+$$
+で表し，その直和を $\Gamma^*:=\bigcup_{v\in K}\partial^*M_v\times\{v\}$ とする．
+
+さらにそのうち，正な確率を持って到達可能な部分を
+$$
+\Gamma:=\Brace{(y,v)\in\Gamma^*\mid\lim_{x\to y}\P_{(x,v)}[T_1=t^*(x,v)]=1}
+$$
+
+点 $(x,v)\in E$ からフローに従って運動した場合の境界 $\Gamma^*$ への到達時刻を
+$$
+t^*(x,v):=\inf\Brace{t\ge0\mid\phi_v(x,t)\in\partial^*M_v}
+$$
+とする．
+
+
+
 ### 定義
 
-::: {.callout-tip title="（非形式的な）定義 (PDMP: Piecewise Deterministic Markov Process)^[[@Davis1993 p.58] に倣った．]" icon="false"}
+::: {.callout-tip title="定義 (PDMP: Piecewise Deterministic Markov Process)^[[@Davis1993 p.58] と [@Vasdekis2021 pp.15-16] に倣った．]" icon="false"}
 
-$E$ を有限次元多様体，$\fX$ をその上の滑らかなベクトル場，$\lambda\in\L_\loc(E)_+$ を局所可積分な非負関数，$Q:E\times\B(E)\to[0,1]$ を確率核で，$Q(x,\{x\})=0$ を満たすものとする．
+$(\phi(t,-))$ をフロー，$\lambda:E\to\R_+$ をレート関数，$Q:(E\cup\Gamma^*)\times\cE\to[0,1]$ を確率核とする．
 
-３組 $(\fX,\lambda,Q)$ が定める **PDMP** $X$ とは，あるスタート地点 $x\in E$ から，一様乱数 $U_1\sim\rU([0,1])$ と $\fX$ が定めるフロー $\phi$ が定めるジャンプ時刻
-$$
-T_1:=\inf\Brace{t\ge0\,\middle|\,\exp\paren{-\int^t_0\lambda(\phi(s,x))ds}\le U_1}
-$$
-まで，フローの通りに移動するとし：
-$$
-X_t=\phi(t,x),\quad t< T_1,
-$$
-その後，新しい位置は確率核 $Q$ に従って決まる：
-$$
-X_{T_1}\sim Q(\phi(T_1,x),-).
-$$
+３組 $(\phi,\lambda,Q)$ が定める **PDMP** $Z$ とは，次のように帰納的に定まる確率過程をいう：
 
-これの手続きを，$X_{T_1}$ を次のスタート地点として繰り返すのが特性量 $(\fX,\lambda,Q)$ が定める PDMP $X$ である．
+1. あるスタート地点 $z\in E$ から，一様乱数 $U_1\sim\rU([0,1])$ とフロー $\phi$ が定めるジャンプ時刻
+   $$
+   T_1:=\inf\Brace{t\ge0\,\middle|\,e^{-\Lambda(t)}\le U_1}\lor t^*(x,v)
+   $$
+   まで，フローの通りに移動するとする：
+   $$
+   Z_t=\phi(t,x),\quad t< T_1,
+   $$
+2. 時刻 $T_1$ での位置は確率核 $Q$ に従って決まるとする：
+   $$
+   Z_{T_1}\sim Q\Paren{(\phi(T_1,x),v),-}.
+   $$
+3. この手続きを，$Z_{T_1}$ を次のスタート地点として繰り返すのが特性量 $(\phi,\lambda,Q)$ が定める PDMP $Z$ である．
 
 :::
 
-こうして得た PDMP は，Feller-Dynkin 過程であるとも限らないのに，時間的に一様な強 Markov 過程である．^[[@Davis1993 p.64] 定理25.5も参照．]
+$\lambda$ は局所有限であるから，有限時区間上でのジャンプ数は有限になる．境界への到達によるジャンプ数も同様の性質を満たすと仮定する．^[このことを [@Davis1993 p.60] 仮定24.4としている．]
+
+こうして得た PDMP は，Feller-Dynkin 過程であるとは限らないにも拘らず，時間的に一様な強 Markov 過程である．^[[@Davis1984]，[@Davis1993 p.64] 定理25.5も参照．]
 
 ### PDMP の拡張生成作用素
 
@@ -201,7 +256,7 @@ PDMP の拡張生成作用素は，ちょうど（有限な Lévy 測度を持�
 
 ::: {.callout-tip title="命題（PDMP の拡張生成作用素の定義域の特徴付け）^[[@Davis1993 p.69] 定理26.14．]" icon="false" collapse="true"}
 
-$X$ を PDMP とする．このとき，$X$ の拡張生成作用素 $\wh{A}$ について，可測関数 $f\in\L(E)$ が $f\in\D(\wh{A})$ であるとは，次と同値：
+$X$ を PDMP とする．このとき，$X$ の拡張生成作用素 $\wh{A}$ について，可測関数 $f\in\L(E\cup\Gamma)$ が $f\in\D(\wh{A})$ であるとは，次と同値：
 
 1. 絶対連続性：任意の $x\in E$ について，
    $$
@@ -247,6 +302,19 @@ $$
 
 :::
 
+::: {.callout-important title="注（第一項の well-definedness）^[[@Vasdekis2021 p.18] 系2.3.4 も参照．]" collapse="true" icon="false"}
+
+$\fX$ の標準座標 $\pp{}{x_1},\cdots,\pp{}{x_d}$ に関する成分表示を $g^i$ とすると，$\fX f(x)$ は $(g(x)|\nabla f(x))$ とも表せる．
+
+この $\nabla f$ は，$f\in C^1(M_v)$ である場合は問題がないが，一般に単に絶対連続である場合は問題になる可能性がある．
+
+しかしそれでも，次を満たす関数 $\nabla f$ として用意することができる：
+$$
+f(\phi_v(x,t),v)-f(x,v)=\int^t_0\nabla f(\phi_v(x,s),v)ds.
+$$
+
+:::
+
 ### PDMP が Feller-Dynkin 過程であるとき
 
 ::: {.callout-tip title="命題（PDMP の Feller 性の特徴付け）^[[@Davis1993 p.77] 定理27.6．]" icon="false"}
@@ -274,7 +342,32 @@ $X$ を PDMP とする．次の全てが成り立つならば，$X$ は Feller-D
 :::
 
 
-### PDMP の例とシミュレーション
+### PDMP のシミュレーション
+
+レート関数が $\lambda>0$ であるとき，Poisson イベントのシミュレーションは次のように，指数分布に従う確率変数のシミュレーションによって行える．
+
+累積関数を
+$$
+\Lambda(t):=\int^t_0\lambda(s)ds
+$$
+とすると，$N_t\sim\Pois(\Lambda(t))$ であるから，最初のイベントの到着時刻 $T_1$ は，次の[生存関数](https://ja.wikipedia.org/wiki/生存関数)によって特徴付けられる：
+$$
+\P[T_1\ge t]=\P[N_t=0]=\exp\paren{-\Lambda(t)}.
+$$
+
+ここで，$E\sim\Exp(1)$ とすると，
+$$
+\P[\Lambda^{-1}(E)\ge t]=\P\Square{E\ge\Lambda(t)}=e^{-\Lambda(t)}.
+$$
+従って，$T_1\deq f^{-1}(E)$ である．
+
+すなわち，$E$ を通じて
+$$
+T_1':=\inf\Brace{t\ge0\,\middle|\,\int^t_0\lambda(s)ds=E}
+$$
+を計算すれば，最初の到着時刻が計算できる．^[簡単な対象分布では，$\Lambda(t)=E$ の解が解析的に求まる事が多い．これが intractable である場合は，[剪定](Poisson.qmd#sec-thinning) を用い，$\lambda^*$ としては affine 関数を用いる事が多いが，一般に３次の多項式までならば解の公式があるために，$\Lambda(t)=E$ を解析的に解く方法から効率的にシミュレーションできる．どれくらい $\lambda^*$ として $\lambda$ に近いものを選べば良いかは不明．[@Vasdekis2021 p.13] 命題2.2.2も参照．]
+
+### PDMP の例
 
 Joris Bierkens ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) を通じて実行してみる．
 
