@@ -1,5 +1,6 @@
 ---
 title: "純粋跳躍過程の生成作用素と区分的確定的 Markov 過程"
+subtitle: "ジャンプと確定的な動きによる新たな MCMC 手法"
 author: "司馬博文"
 date: 1/31/2024
 date-modified: 7/2/2024
@@ -10,7 +11,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: 有界なレートを持つ純粋跳躍過程の生成作用素を調べる．確率核 $\mu$ とレート $\lambda$ という２つのパラメータは，それぞれ各地点からのジャンプ先を定める確率核と，ジャンプの起こりやすさを表す．PDMP とは，A 型の加法過程をいう．
+abstract: PDMP は，A 型の Lévy 過程を含む，複合 Poisson 点過程が定めるジャンプと決定論的なドリフトのみからなる確率過程のクラスをいう．この性質をよく理解するために，まずは，有界なレートを持つ純粋に跳躍のみで動く過程の生成作用素を調べる．確率核 $\mu$ とレート $\lambda$ という２つのパラメータは，それぞれ各地点からのジャンプ先を定める確率核と，ジャンプの起こりやすさを表す．最後に，現状もっとも活発に研究されている２つの PDMP である Zig-Zag Sampler と Bouncy Particle Sampler とを紹介する．
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -170,7 +171,7 @@ PDMP は拡散項を持たない Lévy 過程とも理解できる．^[ただし
 </div>
 ```
 
-### 設定
+### 設定 {#sec-settings}
 
 #### 空間
 
@@ -344,6 +345,8 @@ $X$ を PDMP とする．次の全てが成り立つならば，$X$ は Feller-D
 
 ### PDMP のシミュレーション
 
+#### 到着時刻のシミュレーション
+
 レート関数が $\lambda>0$ であるとき，Poisson イベントのシミュレーションは次のように，指数分布に従う確率変数のシミュレーションによって行える．
 
 累積関数を
@@ -367,9 +370,9 @@ T_1':=\inf\Brace{t\ge0\,\middle|\,\int^t_0\lambda(s)ds=E}
 $$
 を計算すれば，最初の到着時刻が計算できる．^[簡単な対象分布では，$\Lambda(t)=E$ の解が解析的に求まる事が多い．これが intractable である場合は，[剪定](Poisson.qmd#sec-thinning) を用い，$\lambda^*$ としては affine 関数を用いる事が多いが，一般に３次の多項式までならば解の公式があるために，$\Lambda(t)=E$ を解析的に解く方法から効率的にシミュレーションできる．どれくらい $\lambda^*$ として $\lambda$ に近いものを選べば良いかは不明．[@Vasdekis2021 p.13] 命題2.2.2も参照．]
 
-### PDMP の例
+#### PDMP のためのパッケージ
 
-Joris Bierkens ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) を通じて実行してみる．
+[Joris Bierkens](https://diamhomes.ewi.tudelft.nl/~jorisbierkens/pdmps.html) ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) を通じて実行してみる．
 
 ```r
 install.packages("Rcpp")
@@ -377,21 +380,195 @@ install.packages("RcppEigen")
 install.packages("RZigZag")
 ```
 
-#### Bouncy Particle Sampler [@Bouchard-Cote+2018-BPS]
+### Zig-Zag Sampler [@Bierkens+2019]
+
+#### 導入
+
+１次元の Zig-Zag 過程は元々，[Curie-Weiss 模型](../Nature/StatisticalMechanics1.qmd#sec-Curie-Weiss) における Glauber 動力学を lifting により非可逆化して得る Markov 連鎖の，スケーリング極限として特定された Feller-Dynkin 過程である [@Bierkens-Roberts2017]．
+
+ただし，[@Goldstein1951] で電信方程式と関連して，同様の過程が扱われた歴史もある．
+
+#### 設定
+
+Zig-Zag 過程 $Z=(X,\Theta)$ の状態空間は $E=\R^d\times\{\pm1\}^d$ と見ることが多い．
+
+$\theta\in\{\pm1\}^d$ は速度を表す．すなわち，全座標系と $45$ 度をなす方向に，常に一定の単位速度で $\R^d$ 上を運動するとする．
+
+換言すれば，決定論的なフローは次のように定める：
+$$
+\dd{\phi_{(x,\theta)}(t)}{t}=\theta,
+$$
+$$
+\dd{\Theta}{t}=0,\qquad\Theta_0=0.
+$$
+
+#### アルゴリズム
+
+後述の関数 $\lambda$ に対して，各座標 $i\in[d]$ におけるレートを
+$$
+m_i(t):=\lambda(x+\theta t,\theta)
+$$
+で定めた $\R^d$ 上の Poisson 過程を考える．
+
+多次元の Poisson 過程の各成分の跳躍は独立だから，^[[@Revuz-Yor1999 p.473] 命題XII.1.7．] それぞれの成分ごとに Poisson 到着時刻 $T_i\;(i\in[d])$ をシミュレーションし，最初に到着したものを $T_j$ とすると，関数
+$$
+F_j(\theta)_i=\begin{cases}-\theta_i&i=j\\\theta_i&i\ne j\end{cases}
+$$
+に従ってジャンプすると考えて良い．
+
+::: {.callout-important title="注（第 [-@sec-settings] 節の設定との対応）" collapse="true" icon="false"}
+
+状態空間は
+$$
+E=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}
+$$
+とみなすところから始める必要がある．
+
+加えて，レート関数は
+$$
+\lambda(x,\theta):=\sum_{i=1}^d\lambda_i(x,\theta)
+$$
+であり，跳躍測度は点過程
+$$
+Q((x,\theta),-):=\sum_{i=1}^d\frac{\lambda_i(x,\theta)}{\lambda(x,\theta)}\delta_{(x,F_i(\theta))}(-)
+$$
+とみなした場合に当たる．
+
+:::
+
+#### レート関数
+
+PDMP の妙は全てレート関数に宿っている．
+
+レート $\lambda:E\to\R_+$ は，目標分布 $\pi(dx)\propt e^{-U(x)}dx$ に対して，
+$$
+\lambda_i(x,\theta):=(\theta_i\partial_iU(x))_++\gamma_i(x,\theta_{-i})\quad(i\in[d])
+$$
+と定める．ただし，$\gamma_i$ は，$\theta_i$ のみには依らない任意の関数 $\gamma_i:E\to\R_+$ とした．^[この関数は，$U$ の情報には依らない追加のリフレッシュ動作を仮定に加える．どのような $\gamma_i$ をとっても，平衡分布には影響を与えない．しかし，高くするごとにアルゴリズムの対称性が上がるため，$\gamma\equiv0$ とすることが Monte Carlo 推定量の漸近分散を最小にするという [@Andrieu-Livingstone2021]．]
+
+::: {.callout-tip title="命題 [@Bierkens+2019]" icon="false"}
+
+$U\in C^1(\R^d)$ は $e^{-U}\in\L^1(\R^d)$ を満たすとする．このとき，$Z$ は次の分布 $\mu=\pi\otimes\Rad\in\cP(E)$ を不変にする：^[ただし，$\Rad:=\delta_{\pm1}/2$ とした．]
+$$
+\mu(dxd\theta)=\frac{1}{2^d\cZ}e^{-U(x)}\,dxd\theta
+$$
+
+:::
+
+#### 部分サンプリング
+
+MCMC の計算複雑性のボトルネックは，尤度の評価にある．各ステップで全てのデータを用いて尤度を計算する必要がある点が，MCMC を深層学習などの大規模データの設定への応用を難しくしている [@Murphy2023 p.647]．
+
+$p(x)$ を事前分布，$p(y|x)$ を観測のモデル（または尤度）とし，データ $y_1,\cdots,y_n$ は互いに独立であるとする．このとき，事後分布 $\pi(x):=p(x|y)$ は
+$$
+\pi(x)\propt\paren{\prod_{k=1}^n p(y_k|x)}p(x)
+$$
+より，Hamiltonian $U$ は
+\begin{align*}
+   U(x)&=-\sum_{k=1}^n\log p(y_k|x)-\log p(x)\\
+   &=\frac{1}{n}\sum_{k=1}^n\Paren{-n\log p(y_k|x)-\log p(x)}.
+\end{align*}
+と表せる．
+
+すなわち，各微分係数 $\partial_i U(x)$ は，独立な観測 $y_1,\cdots,y_n$ が定める統計量
+$$
+E^i_k(x):=\pp{}{x_i}\Paren{-n\log p(y_k|x)-\log p(x)}
+$$
+の平均により推定される値となっている．
+
+よって，精度は劣るかもしれないが，一様に選んだ $K\sim\rU([n])$ から定まる $E^i_K$ の値は $\partial_i U(x)$ の不偏推定量となっている．^[このとき，必ずしも $K\sim\rU([n])$ とする必要はなく，特定の観測に重みをおいても良い [@Sen+2020]．]
+
+::: {.callout-note title="部分サンプリングにより不変分布が変わらないことの証明" icon="false" collapse="true"}
+
+これは，元々のレート関数
+$$
+\lambda_i(x,\theta)=\frac{1}{n}\sum_{k=1}^n(\theta E^i_k(x))_+
+$$
+に対して，
+$$
+\gamma_i(x,\theta):=\frac{1}{n}\sum_{k=1}^n(\theta_iE^i_k(x))_+-\paren{\theta_i\frac{1}{n}\sum_{k=1}^nE^i_k(x)}_+
+$$
+という項を加えて得る Zig-Zag サンプラーとみなせるためである．
+
+こうして定義された $\gamma_i$ が非負関数である限り，平衡分布は $\mu$ のままであるが，これは関数 $(-)_+$ の凸性から従う．
+
+こうして，サブサンプリングの実行による精度の劣化が，[@Andrieu-Livingstone2021] の枠組みで捉えられる，ということでもある．
+
+加えて，レート関数が大きくなっており，したがってそもそも尤度関数の評価の回数が増えていることにも注意．
+
+:::
+
+#### 制御変数による分散低減
+
+上述の $\partial_iU(x)$ の不偏推定量の分散は，制御変数の方法を用いて低減できる．これにより，事前処理の部分を除けば，データのサイズに依存しない計算複雑性で事後分布からの正確なサンプリングが可能になる．
+
+
+
+#### シミュレーション
 
 ```{r}
+#| fig-cap: "$\\rN_2\\paren{\\vctr{2}{2},\\mtrx{3}{1}{1}{3}}$ に対する Zig-Zag 過程"
 library(RZigZag)
 library(ggplot2)
+V <- matrix(c(3,1,1,3),nrow=2)
+mu <- c(2,2)
+result <- ZigZagGaussian(V, mu, 100)
+ggplot() +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   labs(x="", y="", title="Zig-Zag Sampler") +
+   theme_void() +
+   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
+```
+
+```{r}
+#| fig-cap: "Cauchy 分布 $\\rC(0,1)=\\rt(1)$ に対する Zig-Zag 過程"
+set.seed(123)
+dim <- 2
+dof <- 1
+result <- ZigZagStudentT(dof, dim, n_iter=1000, sphericallySymmetric = TRUE)
+ggplot() +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   labs(x="", y="", title="Zig-Zag Sampler") +
+   theme_void() +
+   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
+```
+
+```{=html}
+<div class="article-card-container">
+   <div class="article-card">
+      <a href="記事URL" target="_blank">
+         <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+         <div class="article-content">
+            <h3 class="article-title"></h3>
+            <p class="article-description"></p>
+         </div>
+      </a>
+   </div>
+</div>
+```
+
+### Bouncy Particle Sampler [@Bouchard-Cote+2018-BPS]
+
+#### 部分サンプリング
+
+Zig-Zag サンプラーに対応するサブサンプリングの技術を [@Pakman+2017] が提案している．
+
+#### シミュレーション
+
+```{r}
+#| fig-cap: "$\\rN_2\\paren{\\vctr{2}{2},\\mtrx{3}{1}{1}{3}}$ に対する Zig-Zag 過程"
 V <- matrix(c(3,1,1,3),nrow=2)
 mu <- c(2,2)
 x0 <- c(0,0)
 result <- BPSGaussian(V, mu, n_iter = 100, x0 = x0)
 ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
    labs(x="", y="", title="Bouncy Particle Sampler") +
    theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
+   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
 ```
 
 <!-- 
@@ -403,40 +580,10 @@ mu <- c(2,2)
 x0 <- c(0,0)
 result <- BPSGaussian(V, mu, n_iter = 100, x0 = x0)
 p <- ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
+   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
+   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
    labs(x="", y="", title="Bouncy Particle Sampler") +
    theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
+   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
 ggsave("BPS.svg", p, width=8, height=6)
-``` -->
-
-#### Zig-Zag Sampler [@Bierkens+2019]
-
-```{r}
-V <- matrix(c(3,1,1,3),nrow=2)
-mu <- c(2,2)
-result <- ZigZagGaussian(V, mu, 100)
-ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   labs(x="", y="", title="Zig-Zag Sampler") +
-   theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
-```
-
-<!-- 
-```r
-library(RZigZag)
-library(ggplot2)
-V <- matrix(c(3,1,1,3),nrow=2)
-mu <- c(2,2)
-result <- ZigZagGaussian(V, mu, 100)
-p <- ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#2F579C") +
-   labs(x="", y="", title="Zig-Zag Sampler") +
-   theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#2F579C"), plot.title=element_text(color="#2F579C"))
-ggsave("ZigZag.svg", p, width=8, height=6)
 ``` -->
