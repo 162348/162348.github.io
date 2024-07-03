@@ -10,7 +10,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．
+abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．まず，Zig-Zag サンプラーのダイナミクスの非対称性から，従来の MCMC よりも速い収束が期待されることを見る．続いて，ベイズ推論の文脈において，サンプルサイズに依らない一定のコストで効率的な事後分布サンプリングが可能であるメカニズムを見る．最後に，Zig-Zag サンプラーの実装に用いたパッケージとその利用方法を示す．
 code-fold: false
 ---
 
@@ -18,109 +18,33 @@ code-fold: false
 
 ## 特定の対象分布に対するシミュレーション
 
-### パッケージ
+### １次元での例
 
-#### `R`パッケージ
+ZigZag サンプラーは非対称なダイナミクスを持っており，その点が MALA (Metropolis-adjusted Langevin Algorithm) や HMC (Hamiltonian Monte Carlo) などの従来手法と異なる．
 
-[Joris Bierkens](https://diamhomes.ewi.tudelft.nl/~jorisbierkens/pdmps.html) ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) が最も手軽に実行できる．
+１次元でその違いを確認するために，Cauchy 分布という裾の重い分布を用いる．Cauchy 分布 $\rC(\mu,\sigma)$ は次のような密度を持つ：
+$$
+f(x)=\frac{1}{\pi\sigma}\frac{1}{1+\paren{\frac{x-\mu}{\sigma}}^2}.
+$$
 
-#### `Julia`パッケージ
+その裾の重さ故，平均も分散も存在しない（発散する）．
 
-一方で，[@Bierkens+2022] では Julia によるパッケージ `ZigZagBoomerang`（[GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [ANN](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287) / [docs](https://mschauer.github.io/ZigZagBoomerang.jl/v0.1/)） も提供している．名前によらず，2022.1 月リリースの `v.0.11` 以降は BPS もサポートしている．
-
-```julia
-using Pkg
-Pkg.add("ZigZagBoomerang")
-```
-
-
-
-### ２次元での例
+このとき，次のような観察が得られる：
 
 ::: {.callout-important appearance="simple" icon="false"}
 
-1. 勾配 $-\nabla\log\pi$ を計算し，`∇ϕ(x, i, Γ)` の形で定義する．
-
-:::
-
-$$
-\Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
-$$
-で定まる分散共分散行列 $\Sigma$ を持った中心化された正規分布 $\pi(x)dx=\rN_2(0,\Sigma)(dx)$ に対しては，対数尤度は
-$$
-\log\pi(x)=-\log\paren{(2\pi)^{d/2}(\det\Sigma)^{1/2}}-\frac{1}{2}x^\top\Sigma^{-1}x
-$$
-であるから，$\phi:=-\log\pi$ の第 $i$ 成分に関する微分は
-\begin{align*}
-    \partial_i\phi(x)&=\pp{}{x_i}\Paren{\frac{1}{2}x^\top\Sigma^{-1}x}\\
-    &=\Sigma^{-1}x.
-\end{align*}
-
-```{julia}
-using ZigZagBoomerang
-using SparseArrays
-
-d = 2
-
-# 対数尤度関数 ϕ の第 i 成分に関する微分を計算
-Γ = sparse([1,1,2,2], [1,2,1,2], [2.0,-1.0,-1.0,2.0])  # <1>
-∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)  # <2>
-
-# 初期値
-t0 = 0.0
-x0 = randn(d)
-θ0 = rand([-1.0,1.0], d)
-
-# Rejection bounds
-c = 1.0 * ones(length(x0))
-
-# ZigZag 過程をインスタンス化
-Z = ZigZag(Γ, x0*0)
-
-# シミュレーション実行
-T = 20.0
-@time zigzag_trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=true)
-
-# 軌跡を離散化
-@time traj = collect(discretize(zigzag_trace, 0.1))
-
-# 結果の表示
-println("Final state: ", xT)
-println("Trajectory length: ", length(traj))
-```
-
-1. 勾配関数`∇ϕ`の計算のためには，共分散行列の逆（精度行列ともいう）を`SparseMatrixCSC`型で指定する必要があることに注意．[`idot`の実装](https://github.com/mschauer/ZigZagBoomerang.jl/blob/691afe2200fa99d762b58f5c5fd7894cc9342294/src/sparsestickyzz.jl#L42) も参照．
-2. `idot`は，疎行列`Γ`の第`i`列と，疎ベクトル`x`との内積を高速に計算する関数．
-
-::: {.callout-important title="`idot`の定義" collapse="true" icon="false"}
-
-`idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
-
-```julia
-function idot(A::SparseMatrixCSC, j, u::SparseState)  # <1>
-    rows = rowvals(A)  # <2>
-    vals = nonzeros(A)  # <3>
-    s = 0.0
-    @inbounds for i in nzrange(A, j)  # <4>
-        s += vals[i]'*u[rows[i]][2]  # <5>
-    end
-    s
-end
-```
-
-1. パッケージ内部で，位置 $u\in\R^d$ は全て `SparseSate` 型に統一されている？
-2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
-3. 非零要素の値が格納されている．
-4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
-5. `u`も疎ベクトルであるため，非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+* ZigZag サンプラーは Cauchy 分布に対して，最頻値から十分遠くから開始しても，高速に最頻値に戻ってくる．
+* MALA は diffusive behaviour が見られ，最頻値に戻るまでに時間がかかる．^[特に [@Bierkens+2019] ではとてもセンセーショナルな図示が得られている．]
+* NUTS サンプラーは ZigZag 同様，高速に最頻値を往来する．
 
 :::
 
 ```{julia}
+#| output: false
 #| echo: false
 using Plots
 
-function plot_2dtraj(traj; title="ZigZag Sampler")
+function plot_2dtraj(traj; title="ZigZag Sampler", save=false, savetitle="ZigZag_2D")
     # trajからx座標とy座標を抽出
     x_coords = [state[1] for (t, state) in traj]
     y_coords = [state[2] for (t, state) in traj]
@@ -134,17 +58,23 @@ function plot_2dtraj(traj; title="ZigZag Sampler")
              linewidth=2,
              marker=:circle,
              markersize=2,
-             markeralpha=0.6)
+             markeralpha=0.6,
+             color="#80c4ac")
 
     # 開始点と終了点をマーク
-    scatter!([x_coords[1]], [y_coords[1]], label="Start", color=:green, markersize=6)
-    scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6)
+    Plots.scatter!([x_coords[1]], [y_coords[1]], label="Start", color=:green, markersize=6)
+    Plots.scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6)
 
     # プロットを表示
     display(p)
+
+    if save
+        savefig(p, savetitle * ".svg")
+    end
+    
 end
 
-function plot_1dtraj(traj; title="ZigZag Sampler")
+function plot_1dtraj(traj; title="ZigZag Sampler", markersize=2, save=false, savetitle="ZigZag_1D")
     times = [t for (t, state) in traj]
     positions = [state[1] for (t, state) in traj]
 
@@ -156,22 +86,29 @@ function plot_1dtraj(traj; title="ZigZag Sampler")
              ylabel="X",
              linewidth=2,
              marker=:circle,
-             markersize=2,
-             markeralpha=0.6)
+             markersize=markersize,
+             markeralpha=0.6,
+             color="#80c4ac")
 
     # プロットを表示
     display(p)
-end
 
-plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian distribution)")
+    if save
+        savefig(p, savetitle * ".svg")
+    end
+end
 ```
 
-### １次元での例
-
 ```{julia}
+#| code-fold: true
+#| fig-cap: "\rC(0,1) に対する ZigZag サンプラーの軌道"
 using ZigZagBoomerang
 using LinearAlgebra
 using SparseArrays
+using Plots
+using Random
+
+Random.seed!(1234)
 
 # Cauchy分布のポテンシャル関数
 ϕ(x) = log(1 + x[1]^2)
@@ -181,7 +118,7 @@ using SparseArrays
 
 # 初期値
 t0 = 0.0
-x0 = [0.0]
+x0 = [500.0]
 θ0 = [1.0]
 
 # ZigZag過程のパラメータ
@@ -205,12 +142,79 @@ traj = collect(ZigZagBoomerang.discretize(trace, dt))
 
 # サンプルの表示
 
-plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy distribution)")
+plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy distribution)", markersize=0)
+```
+
+一方で．NUTS は随分と良い動きをする．
+
+```{julia}
+#| echo: false
+#| fig-cap: "\rC(0,1) に対する NUTS サンプラーの軌道"
+using AdvancedHMC, ForwardDiff
+using LogDensityProblems
+using LinearAlgebra
+
+# Define the target distribution (1D Cauchy) using the `LogDensityProblem` interface
+struct LogTargetDensityCauchy
+    loc::Float64
+    scale::Float64
+end
+
+LogDensityProblems.logdensity(p::LogTargetDensityCauchy, θ) = -log(π) - log(p.scale) - log(1 + ((θ[1] - p.loc)/p.scale)^2)
+LogDensityProblems.dimension(p::LogTargetDensityCauchy) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensityCauchy}) = LogDensityProblems.LogDensityOrder{0}()
+
+# Choose initial parameter value for 1D
+initial_θ = [500.0]
+
+# Define the Cauchy distribution with location and scale
+loc, scale = 0.0, 1.0
+ℓπ = LogTargetDensityCauchy(loc, scale)
+
+# Set the number of samples to draw and warmup iterations
+n_samples, n_adapts = 200, 0
+
+# Define a Hamiltonian system
+metric = DiagEuclideanMetric(1)
+hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+
+# Define a leapfrog solver, with the initial step size chosen heuristically
+initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
+integrator = Leapfrog(initial_ϵ)
+
+# Define an HMC sampler with the following components
+#   - multinomial sampling scheme,
+#   - generalised No-U-Turn criteria, and
+#   - windowed adaption for step-size and diagonal mass matrix
+kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn()))
+adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator))
+
+# Run the sampler to draw samples from the specified Cauchy distribution, where
+#   - `samples` will store the samples
+#   - `stats` will store diagnostic statistics for each sample
+samples, stats = sample(hamiltonian, kernel, initial_θ, n_samples, adaptor, n_adapts; progress=true)
+
+# Print the results
+using Plots
+
+sample_values = [s[1] for s in samples]
+
+p = plot(1:length(samples), sample_values,
+             label="NUTS trajectory",
+             title="1D NUTS Sampler (Cauchy distribution)",
+             xlabel="t",
+             ylabel="X",
+             linewidth=2,
+             marker=:circle,
+             markersize=2,
+             markeralpha=0.6,
+             color="#80c4ac")
 ```
 
 ### ２次元での例
 
 ```{julia}
+#| code-fold: true
 using ZigZagBoomerang, Distributions, ForwardDiff, LinearAlgebra, SparseArrays, StructArrays
 const ZZB = ZigZagBoomerang
 ## Problem
@@ -293,4 +297,114 @@ ax = Axis(fig[1:2,2], title = "phase")
 lines!(ax, getindex.(xs1[r], 1), getindex.(xs1[r], 2))
 
 # display(fig1)
+```
+
+## ZigZag サンプラーの実装
+
+### 一覧
+
+#### `R`パッケージ
+
+[Joris Bierkens](https://diamhomes.ewi.tudelft.nl/~jorisbierkens/pdmps.html) ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) が最も手軽に実行できる．
+
+#### `Julia`パッケージ
+
+一方で，[@Bierkens+2022] では Julia によるパッケージ `ZigZagBoomerang`（[GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [ANN](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287) / [docs](https://mschauer.github.io/ZigZagBoomerang.jl/v0.1/)） も提供している．名前によらず，2022.1 月リリースの `v.0.11` 以降は BPS もサポートしている．
+
+```julia
+using Pkg
+Pkg.add("ZigZagBoomerang")
+```
+
+
+
+### `ZigZagBoomerang` の使い方
+
+::: {.callout-important appearance="simple" icon="false"}
+
+1. 勾配 $-\nabla\log\pi$ を計算し，`∇ϕ(x, i, Γ)` の形で定義する．
+
+:::
+
+$$
+\Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
+$$
+
+で定まる分散共分散行列 $\Sigma$ を持った中心化された正規分布 $\pi(x)dx=\rN_2(0,\Sigma)(dx)$ に対しては，対数尤度は
+
+$$
+\log\pi(x)=-\log\paren{(2\pi)^{d/2}(\det\Sigma)^{1/2}}-\frac{1}{2}x^\top\Sigma^{-1}x
+$$
+
+であるから，$\phi:=-\log\pi$ の第 $i$ 成分に関する微分は
+
+\begin{align*}
+    \partial_i\phi(x)&=\pp{}{x_i}\Paren{\frac{1}{2}x^\top\Sigma^{-1}x}\\
+    &=\Sigma^{-1}x.
+\end{align*}
+
+```{julia}
+using ZigZagBoomerang
+using SparseArrays
+
+d = 2
+
+# 対数尤度関数 ϕ の第 i 成分に関する微分を計算
+Γ = sparse([1,1,2,2], [1,2,1,2], [2.0,-1.0,-1.0,2.0])  # <1>
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)  # <2>
+
+# 初期値
+t0 = 0.0
+x0 = randn(d)
+θ0 = rand([-1.0,1.0], d)
+
+# Rejection bounds
+c = 1.0 * ones(length(x0))
+
+# ZigZag 過程をインスタンス化
+Z = ZigZag(Γ, x0*0)
+
+# シミュレーション実行
+T = 20.0
+@time zigzag_trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=true)
+
+# 軌跡を離散化
+@time traj = collect(discretize(zigzag_trace, 0.1))
+
+# 結果の表示
+println("Final state: ", xT)
+println("Trajectory length: ", length(traj))
+```
+
+1. 勾配関数`∇ϕ`の計算のためには，共分散行列の逆（精度行列ともいう）を`SparseMatrixCSC`型で指定する必要があることに注意．[`idot`の実装](https://github.com/mschauer/ZigZagBoomerang.jl/blob/691afe2200fa99d762b58f5c5fd7894cc9342294/src/sparsestickyzz.jl#L42) も参照．
+2. `idot`は，疎行列`Γ`の第`i`列と，疎ベクトル`x`との内積を高速に計算する関数．
+
+::: {.callout-important title="`idot`の定義" collapse="true" icon="false"}
+
+`idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
+
+```julia
+function idot(A::SparseMatrixCSC, j, u::SparseState)  # <1>
+    rows = rowvals(A)  # <2>
+    vals = nonzeros(A)  # <3>
+    s = 0.0
+    @inbounds for i in nzrange(A, j)  # <4>
+        s += vals[i]'*u[rows[i]][2]  # <5>
+    end
+    s
+end
+```
+
+1. パッケージ内部で，位置 $u\in\R^d$ は全て `SparseSate` 型に統一されている？
+2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
+3. 非零要素の値が格納されている．
+4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
+5. `u`も疎ベクトルであるため，非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+
+:::
+
+```{julia}
+#| echo: false
+
+plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian distribution)")
 ```
