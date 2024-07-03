@@ -3,7 +3,7 @@ title: "Zig-Zag サンプラー"
 subtitle: "ジャンプと確定的な動きによる新たな MCMC 手法"
 author: "司馬 博文"
 date: 7/3/2024
-categories: [Process, Simulation, R, MCMC]
+categories: [Process, Simulation, Julia, MCMC]
 image: ZZ2D.svg
 bibliography: 
     - ../../../mathematics.bib
@@ -120,27 +120,50 @@ end
 #| echo: false
 using Plots
 
-# trajからx座標とy座標を抽出
-x_coords = [state[1] for (t, state) in traj]
-y_coords = [state[2] for (t, state) in traj]
+function plot_2dtraj(traj; title="ZigZag Sampler")
+    # trajからx座標とy座標を抽出
+    x_coords = [state[1] for (t, state) in traj]
+    y_coords = [state[2] for (t, state) in traj]
 
-# 軌跡のプロット
-p = plot(x_coords, y_coords, 
-         label="ZigZag trajectory",
-         title="2D ZigZag Process",
-         xlabel="X",
-         ylabel="Y",
-         linewidth=2,
-         marker=:circle,
-         markersize=2,
-         markeralpha=0.6)
+    # 軌跡のプロット
+    p = plot(x_coords, y_coords, 
+             label="ZigZag trajectory",
+             title=title,
+             xlabel="X",
+             ylabel="Y",
+             linewidth=2,
+             marker=:circle,
+             markersize=2,
+             markeralpha=0.6)
 
-# 開始点と終了点をマーク
-scatter!([x_coords[1]], [y_coords[1]], label="Start", color=:green, markersize=6)
-scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6)
+    # 開始点と終了点をマーク
+    scatter!([x_coords[1]], [y_coords[1]], label="Start", color=:green, markersize=6)
+    scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6)
 
-# プロットを表示
-display(p)
+    # プロットを表示
+    display(p)
+end
+
+function plot_1dtraj(traj; title="ZigZag Sampler")
+    times = [t for (t, state) in traj]
+    positions = [state[1] for (t, state) in traj]
+
+    # 軌跡のプロット
+    p = plot(times, positions,
+             label="ZigZag trajectory",
+             title=title,
+             xlabel="t",
+             ylabel="X",
+             linewidth=2,
+             marker=:circle,
+             markersize=2,
+             markeralpha=0.6)
+
+    # プロットを表示
+    display(p)
+end
+
+plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian distribution)")
 ```
 
 ### １次元での例
@@ -178,12 +201,11 @@ trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, 
 
 # 軌跡の離散化とサンプリング
 dt = 0.1
-samples = collect(ZigZagBoomerang.discretize(trace, dt))
+traj = collect(ZigZagBoomerang.discretize(trace, dt))
 
 # サンプルの表示
-using Plots
-histogram([x[1] for (t, x) in samples], normalize=true, label="ZigZag samples")
-plot!(x -> 1/(π*(1+x^2)), -5, 5, label="Cauchy density")
+
+plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy distribution)")
 ```
 
 ### ２次元での例
