@@ -35,7 +35,13 @@ Pkg.add("ZigZagBoomerang")
 
 
 
-### ２次元の場合
+### ２次元での例
+
+::: {.callout-important appearance="simple" icon="false"}
+
+1. 勾配 $-\nabla\log\pi$ を計算し，`∇ϕ(x, i, Γ)` の形で定義する．
+
+:::
 
 $$
 \Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
@@ -111,6 +117,7 @@ end
 :::
 
 ```{julia}
+#| echo: false
 using Plots
 
 # trajからx座標とy座標を抽出
@@ -135,6 +142,51 @@ scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6
 # プロットを表示
 display(p)
 ```
+
+### １次元での例
+
+```{julia}
+using ZigZagBoomerang
+using LinearAlgebra
+using SparseArrays
+
+# Cauchy分布のポテンシャル関数
+ϕ(x) = log(1 + x[1]^2)
+
+# ポテンシャル関数の勾配
+∇ϕ(x, i, Γ) = 2x[i] / (1 + x[i]^2)
+
+# 初期値
+t0 = 0.0
+x0 = [0.0]
+θ0 = [1.0]
+
+# ZigZag過程のパラメータ
+T = 1000.0  # 総シミュレーション時間
+
+# スパース精度行列（1次元の場合は1x1行列）
+Γ = sparse([1], [1], [1.0], 1, 1)
+
+# ZigZag過程の設定
+Z = ZigZag(Γ, zeros(1))
+
+# リジェクションバウンド（必要に応じて調整）
+c = [1.0]
+
+# ZigZag過程の実行
+trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=false)
+
+# 軌跡の離散化とサンプリング
+dt = 0.1
+samples = collect(ZigZagBoomerang.discretize(trace, dt))
+
+# サンプルの表示
+using Plots
+histogram([x[1] for (t, x) in samples], normalize=true, label="ZigZag samples")
+plot!(x -> 1/(π*(1+x^2)), -5, 5, label="Cauchy density")
+```
+
+### ２次元での例
 
 ```{julia}
 using ZigZagBoomerang, Distributions, ForwardDiff, LinearAlgebra, SparseArrays, StructArrays
