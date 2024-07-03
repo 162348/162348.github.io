@@ -4,58 +4,219 @@ subtitle: "ジャンプと確定的な動きによる新たな MCMC 手法"
 author: "司馬 博文"
 date: 7/3/2024
 categories: [Process, Simulation, R, MCMC]
-image: PureJump.png
+image: ZZ2D.svg
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: Zig-Zag サンプラーの挙動を詳細に解析する．
+abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．
+code-fold: false
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-## シミュレーション
+## 特定の対象分布に対するシミュレーション
 
 ### パッケージ
 
+#### `R`パッケージ
+
 [Joris Bierkens](https://diamhomes.ewi.tudelft.nl/~jorisbierkens/pdmps.html) ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) が最も手軽に実行できる．
 
-```r
-install.packages("Rcpp")
-install.packages("RcppEigen")
-install.packages("RZigZag")
+#### `Julia`パッケージ
+
+一方で，[@Bierkens+2022] では Julia によるパッケージ `ZigZagBoomerang`（[GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [ANN](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287) / [docs](https://mschauer.github.io/ZigZagBoomerang.jl/v0.1/)） も提供している．名前によらず，2022.1 月リリースの `v.0.11` 以降は BPS もサポートしている．
+
+```julia
+using Pkg
+Pkg.add("ZigZagBoomerang")
 ```
 
-一方で，[@Bierkens+2022] では Julia によるパッケージ `ZigZagBoomerang`（[GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [ANN](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287)） も提供している．
+
 
 ### ２次元の場合
 
-```{r}
-#| fig-cap: "$\\rN_2\\paren{\\vctr{2}{2},\\mtrx{3}{1}{1}{3}}$ に対する Zig-Zag 過程"
-library(RZigZag)
-library(ggplot2)
-V <- matrix(c(3,1,1,3),nrow=2)
-mu <- c(2,2)
-result <- ZigZagGaussian(V, mu, 100)
-ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
-   labs(x="", y="", title="Zig-Zag Sampler") +
-   theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
+$$
+\Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
+$$
+で定まる分散共分散行列 $\Sigma$ を持った中心化された正規分布 $\pi(x)dx=\rN_2(0,\Sigma)(dx)$ に対しては，対数尤度は
+$$
+\log\pi(x)=-\log\paren{(2\pi)^{d/2}(\det\Sigma)^{1/2}}-\frac{1}{2}x^\top\Sigma^{-1}x
+$$
+であるから，$\phi:=-\log\pi$ の第 $i$ 成分に関する微分は
+\begin{align*}
+    \partial_i\phi(x)&=\pp{}{x_i}\Paren{\frac{1}{2}x^\top\Sigma^{-1}x}\\
+    &=\Sigma^{-1}x.
+\end{align*}
+
+```{julia}
+using ZigZagBoomerang
+using SparseArrays
+
+d = 2
+
+# 対数尤度関数 ϕ の第 i 成分に関する微分を計算
+Γ = sparse([1,1,2,2], [1,2,1,2], [2.0,-1.0,-1.0,2.0])  # <1>
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)  # <2>
+
+# 初期値
+t0 = 0.0
+x0 = randn(d)
+θ0 = rand([-1.0,1.0], d)
+
+# Rejection bounds
+c = 1.0 * ones(length(x0))
+
+# ZigZag 過程をインスタンス化
+Z = ZigZag(Γ, x0*0)
+
+# シミュレーション実行
+T = 20.0
+@time zigzag_trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=true)
+
+# 軌跡を離散化
+@time traj = collect(discretize(zigzag_trace, 0.1))
+
+# 結果の表示
+println("Final state: ", xT)
+println("Trajectory length: ", length(traj))
 ```
 
-```{r}
-#| fig-cap: "Cauchy 分布 $\\rC(0,1)=\\rt(1)$ に対する Zig-Zag 過程"
-set.seed(123)
-dim <- 2
-dof <- 1
-result <- ZigZagStudentT(dof, dim, n_iter=1000, sphericallySymmetric = TRUE)
-ggplot() +
-   geom_path(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
-   geom_point(aes(x=result$Positions[1,], y=result$Positions[2,]), color="#80c4ac") +
-   labs(x="", y="", title="Zig-Zag Sampler") +
-   theme_void() +
-   theme(text=element_text(size=12), axis.title=element_text(color="#80c4ac"), plot.title=element_text(color="#80c4ac"))
+1. 勾配関数`∇ϕ`の計算のためには，共分散行列の逆（精度行列ともいう）を`SparseMatrixCSC`型で指定する必要があることに注意．[`idot`の実装](https://github.com/mschauer/ZigZagBoomerang.jl/blob/691afe2200fa99d762b58f5c5fd7894cc9342294/src/sparsestickyzz.jl#L42) も参照．
+2. `idot`は，疎行列`Γ`の第`i`列と，疎ベクトル`x`との内積を高速に計算する関数．
+
+::: {.callout-important title="`idot`の定義" collapse="true" icon="false"}
+
+`idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
+
+```julia
+function idot(A::SparseMatrixCSC, j, u::SparseState)  # <1>
+    rows = rowvals(A)  # <2>
+    vals = nonzeros(A)  # <3>
+    s = 0.0
+    @inbounds for i in nzrange(A, j)  # <4>
+        s += vals[i]'*u[rows[i]][2]  # <5>
+    end
+    s
+end
+```
+
+1. パッケージ内部で，位置 $u\in\R^d$ は全て `SparseSate` 型に統一されている？
+2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
+3. 非零要素の値が格納されている．
+4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
+5. `u`も疎ベクトルであるため，非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+
+:::
+
+```{julia}
+using Plots
+
+# trajからx座標とy座標を抽出
+x_coords = [state[1] for (t, state) in traj]
+y_coords = [state[2] for (t, state) in traj]
+
+# 軌跡のプロット
+p = plot(x_coords, y_coords, 
+         label="ZigZag trajectory",
+         title="2D ZigZag Process",
+         xlabel="X",
+         ylabel="Y",
+         linewidth=2,
+         marker=:circle,
+         markersize=2,
+         markeralpha=0.6)
+
+# 開始点と終了点をマーク
+scatter!([x_coords[1]], [y_coords[1]], label="Start", color=:green, markersize=6)
+scatter!([x_coords[end]], [y_coords[end]], label="End", color=:red, markersize=6)
+
+# プロットを表示
+display(p)
+```
+
+```{julia}
+using ZigZagBoomerang, Distributions, ForwardDiff, LinearAlgebra, SparseArrays, StructArrays
+const ZZB = ZigZagBoomerang
+## Problem
+d = 2
+n = 10
+xtrue = [-3.0, 3.0]
+data = rand(Normal(xtrue[1], xtrue[2]), n)
+g(x) = sum(logpdf(Normal(x[1], x[2]), dt) for dt in data) 
+
+## Negative partial derivative maker
+function negpartiali(f, d)
+   id = collect(I(d))
+   ith = [id[:,i] for i in 1:d]
+   function (x, i, args...)
+       sa = StructArray{ForwardDiff.Dual{}}((x, ith[i]))
+       δ = -f(sa, args...).partials[]
+       return δ
+   end
+end
+
+## Sampler
+
+# Starting point
+t0 = 0.0
+x0 = [2.0, 5.0]
+θ0 = rand([-1.0,1.0], d)
+u0 = ZZB.stickystate(x0)
+
+# Dynamics
+Z = ZigZag(sparse(I(n)), x0*0);
+flow = ZZB.StickyFlow(Z)
+
+# Duration
+T = 2000.0
+end_time = ZZB.EndTime(T)
+
+
+# Target 
+G = [i=>collect(1:d) for i in 1:d] # Sparsity target (full)
+target = ZZB.StructuredTarget(G, negpartiali(g, d))
+
+# Barriers
+c = 1.0*ones(length(x0))
+κ = Inf # Inverse waiting time
+barriers = [ZZB.StickyBarriers(), # No barrier
+            ZZB.StickyBarriers((2.5, Inf), (:reflect, :reflect), (κ, κ)) # instantaneously reflect at 0 and at "infinity"
+   ]
+
+# Rejection bounds
+strong = false
+c = 20*[1.0 for i in 1:d]
+adapt = true # adapt bounds
+multiplier = 1.5
+G1 = [i => [i] for i in 1:d] # Sparsity pattern bounds (diagonal)
+upper_bounds = ZZB.StickyUpperBounds(G, G1, 1.0sparse(I(d)), c; adapt=adapt, strong=strong, multiplier= multiplier)
+  
+# Sample
+zigzag_trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+println("acc ", acc.acc/acc.num)
+
+# Discretize on dynamic grid for plotting
+@time ts1, xs1 = ZZB.sep(collect(zigzag_trace))
+
+# Discretize on fixed grid for means
+dt = 0.5
+ts, xs = ZZB.sep(collect(discretize(zigzag_trace, dt)))
+@show mean(xs)
+
+
+# Visualize
+using GLMakie
+fig1 = fig = Figure()
+r = 1:length(ts1)
+ax = Axis(fig[1,1], title = "zigzag_trace 1")
+lines!(ax, ts1[r], getindex.(xs1[r], 1))
+ax = Axis(fig[2,1], title = "zigzag_trace 2")
+lines!(ax, ts1[r], getindex.(xs1[r], 2))
+
+ax = Axis(fig[1:2,2], title = "phase")
+lines!(ax, getindex.(xs1[r], 1), getindex.(xs1[r], 2))
+
+# display(fig1)
 ```
