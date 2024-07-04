@@ -1,0 +1,156 @@
+---
+title: "俺のための Julia 入門（５）モジュール"
+subtitle: "モジュールとパッケージ作成"
+author: "司馬 博文"
+date: 9/9/2020
+categories: [Julia, 俺のためのJulia入門]
+abstract-title: 概要
+abstract: Julia は 2012 年に公開された科学計算向きの動的型付け言語である．
+format:
+    html:
+        code-fold: false
+execute:
+    cache: true
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## Module
+
+### 導入
+
+Module は，Julia において名前空間を提供する．
+
+documentation における `Base.map` などである．現在 Module 内では大域的な名前を，外部から参照不可能にする方法はない．
+現在の Module は `@__MODULE__` マクロで確認できる．
+
+```{julia}
+println(@__MODULE__)
+```
+
+この時の ”method” の語は，OOP に似ている使い方であるが，やはり多重ディスパッチが意識されている．Julia の多重ディスパッチにおいて，関数とは method の張り合わせである．
+
+### `module`文と`export`文：Module 定義
+
+```julia
+module MyModule
+
+export my_function
+
+const global_var = 42
+
+function my_function(x)
+    return x * global_var
+end
+
+end  # module MyModule
+```
+
+::: {.callout-caution title="例（スコープの変化）" collapse="true" icon="false"}
+
+ブロック内では`@__MODULE__`マクロの値は更新される．
+
+```{julia}
+module MyModule
+
+export my_function
+
+const global_var = 42
+
+function my_function(x)
+    return x * global_var
+end
+
+println(@__MODULE__)
+
+end  # module MyModule
+
+println(@__MODULE__)
+```
+
+:::
+
+`my_function`は`MyModule.my_function`の外部からアクセス可能な関数になる．
+
+`export`文は，この module を`using`した時に，何が取り込まれるかを指定する．
+
+::: {.callout-caution title="例（外部からの参照）" collapse="true" icon="false"}
+
+`export`していなかったグローバル変数`global_var`はモジュール内部では直接参照できても，外部からは`MyModule.global_var`としてアクセスしないといけない．
+
+```{julia}
+using .MyModule
+
+result = my_function(2)
+println(result)
+```
+
+```{julia}
+#| error: true
+println(MyModule.global_var)
+```
+
+```{julia}
+#| error: true
+println(global_var)
+```
+
+:::
+
+module は入れ子式にできる．その際は`A.B.foo`というように参照する．
+
+### `using`文：既存の外部 Module から名前を輸入する
+
+#### `:`演算子：個別の名前だけを選んで取り込む
+
+```julia
+using Statistics: mean, std
+```
+
+```julia
+using Statistics: Statistics
+```
+とすると，Module 内部の変数・関数名は一切入れずに，Module 名だけ取り込む．
+
+すると，`Statistics.mean` という形で利用できるようになる．`using` じゃ届かない `import` されていない名前も，全てこの方法でアクセスできる．^[これで指定しないと何を取り込んだのかの制御が外部にあるままなので（module 定義内の`export`文），共同開発の時は指定するのが良い．]
+
+#### `using .MyModule`
+
+名前は`LOAD_PATH`変数に沿って検索される．
+
+REPL で定義した直後の module は `Main.Module` になっており，`LOAD_PATH` が通っていないので，`using Module` と言われてもわからない．
+
+この場合は，相対 path で読み込む必要がある．`.Module`でアクセスできる．`..`は親の子モジュール，`...`は祖父母の子モジュールにアクセスする．ShellScript と同じ要領である．
+
+
+### `include`文：ファイルの分割
+
+```julia
+include(String)
+```
+
+`String`を path として評価し，そのファイルを見つけ出し，Julia 文として評価する．
+
+path の構文は `/` を用いる．^[Windows のように\を使う環境にかかわらず，Julia は/を使う．]
+
+include 関数を REPL で使うと，相対 path は working directory からのものと解釈される．
+
+### `Import`文：拡張を許す取り込み
+
+また`using`文と違って，`export`に制御された暗黙の取り込みがない．
+
+```julia
+import Base: length
+
+length(v::MyType) = 3
+```
+
+`import`を使わない方法：
+
+```
+Base.length(v::MyType) = 3
+```
+
+構文と`:`演算子は`using`と同じ．
+
+## パッケージ
