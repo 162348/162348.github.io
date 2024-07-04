@@ -1,0 +1,123 @@
+---
+title: "Julia による Hamiltonian Monte Carlo"
+subtitle: "Turing エコシステムを用いて"
+author: "司馬 博文"
+date: 7/3/2024
+categories: [Process, Simulation, Julia, MCMC]
+image: ZZ2D.svg
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: Julia に存在する HMC 関連のパッケージの実装と，その使い方をまとめる．
+code-fold: false
+execute:
+    cache: true
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+Julia による MCMC パッケージの概観は次の稿も参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Process/MCMCwithJulia.html" target="_blank">
+            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Julia による MCMC サンプリング</h3>
+                <p class="article-description">新時代の確率的プログラミング環境の構築に向けて</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+## `AdvancedHMC.jl`
+
+Cauchy 分布に HMC を適用するとぶっ壊れる！？
+
+```{julia}
+#| fig-cap: "スタート地点を 50 にした場合"
+using AdvancedHMC, ForwardDiff
+using LogDensityProblems
+using LinearAlgebra
+using Plots
+
+struct LogTargetDensityCauchy
+    loc::Float64
+    scale::Float64
+end
+
+# Define the target distribution (1D Cauchy) using the `LogDensityProblem` interface
+
+LogDensityProblems.logdensity(p::LogTargetDensityCauchy, θ) = -log(π) - log(p.scale) - log(1 + ((θ[1] - p.loc)/p.scale)^2)
+LogDensityProblems.dimension(p::LogTargetDensityCauchy) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensityCauchy}) = LogDensityProblems.LogDensityOrder{0}()
+
+function HMC_sample(initial_θ)
+
+    # Choose initial parameter value for 1D
+    initial_θ = [initial_θ]
+
+    # Define the Cauchy distribution with location and scale
+    loc, scale = 0.0, 1.0
+    ℓπ = LogTargetDensityCauchy(loc, scale)
+
+    # Set the number of samples to draw and warmup iterations
+    n_samples, n_adapts = 2_000, 1
+
+    # Define a Hamiltonian system
+    metric = DiagEuclideanMetric(1)
+    hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+
+    # Define a leapfrog solver, with the initial step size chosen heuristically
+    initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
+    integrator = Leapfrog(initial_ϵ)
+
+    # Define an HMC sampler with the following components
+    #   - multinomial sampling scheme,
+    #   - generalised No-U-Turn criteria, and
+    #   - windowed adaption for step-size and diagonal mass matrix
+    kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn()))
+    adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator))
+
+    # Run the sampler to draw samples from the specified Cauchy distribution, where
+    #   - `samples` will store the samples
+    #   - `stats` will store diagnostic statistics for each sample
+    samples, stats = sample(hamiltonian, kernel, initial_θ, n_samples, adaptor, n_adapts; progress=true)
+
+    # Print the results
+    sample_values = [s[1] for s in samples]
+
+    p = plot(1:length(samples), sample_values,
+                label="HMC trajectory",
+                title="1D HMC Sampler (Cauchy distribution)",
+                xlabel="t",
+                ylabel="X",
+                linewidth=2,
+                marker=:circle,
+                markersize=2,
+                markeralpha=0.6,
+                color="#80c4ac")
+end
+
+HMC_sample(50.0)
+```
+
+```{julia}
+#| fig-cap: "スタート地点を 0 にした場合"
+HMC_sample(0.0)
+```
+
+```{julia}
+#| fig-cap: "スタート地点を 500 にした場合"
+HMC_sample(500.0)
+```
+
+```{julia}
+#| fig-cap: "スタート地点を 100 にした場合"
+HMC_sample(100.0)
+```
+
