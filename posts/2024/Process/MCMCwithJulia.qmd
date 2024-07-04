@@ -3,7 +3,7 @@ title: "Julia による MCMC サンプリング"
 subtitle: "新時代の確率的プログラミング環境の構築に向けて"
 author: "司馬 博文"
 date: 7/3/2024
-categories: [Process, Simulation, Julia, MCMC]
+categories: [Process, Simulation, Julia, MCMC, 俺のためのJulia入門]
 image: ZZ2D.svg
 bibliography: 
     - ../../../mathematics.bib
@@ -100,9 +100,30 @@ Pkg.add("KissMCMC")
 ```
 
 ```{julia}
+using KissMCMC
+# the distribution to sample from,
+logpdf(x::T) where {T} = x<0 ? -convert(T,Inf) : -x  # <1>
+# initial point of walker
+theta0 = 0.5
 
+# Metropolis MCMC sampler:
+sample_prop_normal(theta) = 1.5*randn() + theta # samples the proposal (or jump) distribution
+thetas, accept_ratio = metropolis(logpdf, sample_prop_normal, theta0, niter=10^5)
+println("Accept ratio Metropolis: $accept_ratio")
+
+# emcee MCMC sampler:
+thetase, accept_ratioe = emcee(logpdf, make_theta0s(theta0, 0.1, logpdf, 100), niter=10^5)
+# check convergence using integrated autocorrelation
+thetase, accept_ratioe = squash_walkers(thetase, accept_ratioe) # puts all walkers into one
+println("Accept ratio emcee: $accept_ratio")
+
+using Plots
+histogram(thetas, normalize=true, fillalpha=0.4)
+histogram!(thetase, normalize=true, fillalpha=0.1)
+plot!(0:0.01:5, map(x->exp(logpdf(x)[1]), 0:0.01:5), lw=3)
 ```
 
+1. `where {T<:Any}`の略記が入っている．任意の型を変数と取る（危ない）関数`logpdf`を定義している．`convert(T,Inf)`は，値`Int`を型`T`に変換している．これは $\Exp(1)$ の対数尤度を表す．
 
 ## `Turing.jl`
 
