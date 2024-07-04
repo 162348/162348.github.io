@@ -12,9 +12,27 @@ csl: ../../../apa.csl
 abstract-title: 概要
 abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．まず，Zig-Zag サンプラーのダイナミクスの非対称性から，従来の MCMC よりも速い収束が期待されることを見る．続いて，ベイズ推論の文脈において，サンプルサイズに依らない一定のコストで効率的な事後分布サンプリングが可能であるメカニズムを見る．最後に，Zig-Zag サンプラーの実装に用いたパッケージとその利用方法を示す．
 code-fold: false
+execute:
+    cache: true
 ---
 
 {{< include ../../../_preamble.qmd >}}
+
+PDMP については次の記事も参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Process/PureJump.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Process/PureJump_files/figure-html/unnamed-chunk-1-1.png" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">純粋跳躍過程の生成作用素と区分的確定的 Markov 過程</h3>
+                <p class="article-description">ジャンプと確定的な動きによる新たな MCMC 手法</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
 
 ## 特定の対象分布に対するシミュレーション
 
@@ -35,7 +53,6 @@ $$
 
 * ZigZag サンプラーは Cauchy 分布に対して，最頻値から十分遠くから開始しても，高速に最頻値に戻ってくる．
 * MALA は diffusive behaviour が見られ，最頻値に戻るまでに時間がかかる．^[特に [@Bierkens+2019] ではとてもセンセーショナルな図示が得られている．]
-* NUTS サンプラーは ZigZag 同様，高速に最頻値を往来する．
 
 :::
 
@@ -101,58 +118,125 @@ end
 
 ```{julia}
 #| code-fold: true
+#| echo: false
+using ZigZagBoomerang
+const ZZB = ZigZagBoomerang
+function freezing_time(x, θ)
+    if θ*x > 0
+        return Inf
+    else
+        return -x/θ
+    end
+end
+
+# k determines the weight on the Dirac measure. The smaller k, the higher the wegiht
+function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
+    t = zero(T)
+    Ξ = [(t, x, θ)]
+    num = acc = 0
+    a, b = ZZB.ab(x, θ, c, Flow)
+    t_ref = t + ZZB.waiting_time_ref(Flow)
+    t′ =  t + poisson_time(a, b, rand(rng))
+    tˣ = t + freezing_time(x, θ)
+    while t < T
+        if  tˣ < min(t_ref, t′)
+            t, x, θ = ZZB.move_forward(tˣ - t, t, x, θ, Flow) # go to 0
+            @assert -0.0001 < x < 0.0001 #check
+            #t, x , θ = tˣ, 0.0, θ #go to 0
+            push!(Ξ, (t, x, 0.0))
+            t = t - log(rand(rng))/k #wait exponential time
+            push!(Ξ, (t, x, θ))
+            tˣ  = Inf
+        elseif t_ref < t′
+            t, x, θ = ZZB.move_forward(t_ref - t, t, x, θ, Flow)
+            θ = sqrt(Flow.Σ)*randn(rng)
+            t_ref = t +  ZZB.waiting_time_ref(Flow)
+            tˣ = t + freezing_time(x, θ)
+            push!(Ξ, (t, x, θ))
+        else
+            τ = t′ - t
+            t, x, θ = ZZB.move_forward(τ, t, x, θ, Flow)
+            l, lb = ZZB.λ(∇ϕ, x, θ, Flow), ZZB.λ_bar(τ, a, b)
+            num += 1
+            if rand(rng)*lb < l
+                acc += 1
+                if l >= lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c *= factor
+                end
+                θ = -θ  # In multi dimensions the change of velocity is different:
+                        # reflection symmetric on the normal vector of the contour
+                tˣ = t + freezing_time(x, θ)
+                push!(Ξ, (t, x, θ))
+            end
+        end
+        a, b = ZZB.ab(x, θ, c, Flow)
+        t′ = t + poisson_time(a, b, rand(rng))
+    end
+    return Ξ, acc/num
+end
+```
+
+```{julia}
+#| code-fold: true
+#| echo: false
 #| fig-cap: "\rC(0,1) に対する ZigZag サンプラーの軌道"
 using ZigZagBoomerang
 using LinearAlgebra
 using SparseArrays
 using Plots
-using Random
+using RandomNumbers.Xorshifts
 
-Random.seed!(1234)
+rng = Xoroshiro128Plus(2022)
 
-# Cauchy分布のポテンシャル関数
-ϕ(x) = log(1 + x[1]^2)
+# C(0,1) 分布のポテンシャル関数（使わない）
+ϕ(x) = log(1 + x^2)
 
 # ポテンシャル関数の勾配
-∇ϕ(x, i, Γ) = 2x[i] / (1 + x[i]^2)
+∇ϕ(x) = 2x / (1 + x^2)
 
 # 初期値
-t0 = 0.0
-x0 = [500.0]
-θ0 = [1.0]
+x0 = 500.0
+θ0 = 1.0
 
-# ZigZag過程のパラメータ
-T = 1000.0  # 総シミュレーション時間
-
-# スパース精度行列（1次元の場合は1x1行列）
-Γ = sparse([1], [1], [1.0], 1, 1)
+T = 2000.0  # 総シミュレーション時間
 
 # ZigZag過程の設定
-Z = ZigZag(Γ, zeros(1))
+Z = ZigZag1d()
 
 # リジェクションバウンド（必要に応じて調整）
-c = [1.0]
+c = 1.0
+
+k = 1.0
 
 # ZigZag過程の実行
-trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=false)
+trace, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, Z; rng=rng)
 
 # 軌跡の離散化とサンプリング
-dt = 0.1
-traj = collect(ZigZagBoomerang.discretize(trace, dt))
+# dt = 0.1
+# traj = collect(ZigZagBoomerang.discretize(trace, dt))
+
+traj = [(x[1], x[2]) for x in trace]
 
 # サンプルの表示
 
-plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy distribution)", markersize=0)
+plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0)
 ```
 
-一方で．NUTS は随分と良い動きをする．
+MALA と比較すると，その再帰の速さが歴然としている：^[[@Bierkens+2019] にある提示の仕方である．Zig-Zag の 2000 単位時間を単純に MALA と比較はできないと筆者も考えるが，ダイナミクスに注目していただきたい．]
 
 ```{julia}
-#| echo: false
-#| fig-cap: "\rC(0,1) に対する NUTS サンプラーの軌道"
-using AdvancedHMC, ForwardDiff
-using LogDensityProblems
+#| code-fold: true
+#| fig-cap: "\rC(0,1) に対する MALA サンプラーの軌道"
+using AdvancedHMC, AdvancedMH, ForwardDiff
 using LinearAlgebra
+using LogDensityProblems
+using LogDensityProblemsAD
+using StructArrays
+using Distributions
+using Random
+
+Random.seed!(2)
 
 # Define the target distribution (1D Cauchy) using the `LogDensityProblem` interface
 struct LogTargetDensityCauchy
@@ -167,12 +251,47 @@ LogDensityProblems.capabilities(::Type{LogTargetDensityCauchy}) = LogDensityProb
 # Choose initial parameter value for 1D
 initial_θ = [500.0]
 
+# Use automatic differentiation to compute gradients
+model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensityCauchy(0.0, 1.0))
+
+# Set up the sampler with a multivariate Gaussian proposal.
+σ² = 30
+spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
+
+# Sample from the posterior.
+chain = sample(model_with_ad, spl, 2000; initial_params=initial_θ, chain_type=StructArray, param_names=["θ"])
+
+# plot
+θ_vector = chain.θ
+sample_values = zip(1:length(θ_vector), θ_vector)
+plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0)
+```
+
+２つを並べて比較すると，Langevin ダイナミクスの方は，少し diffusive な動き（random walk property と呼ばれる）が見られることがわかる．^[上の出力と違うことがあるが，ご容赦願いたい．]
+
+::: {layout-ncol=2}
+![ZigZag サンプラーの軌跡](ZigZag_1D.svg)
+
+![MALA サンプラーの軌跡](MALA_1D.svg)
+:::
+
+::: {.callout-caution title="例（NUTS サンプラーの動き）" collapse="true" icon="false"}
+
+NUTS サンプラーはステップサイズを極めて大きくするため，プロットによるダイナミクスの比較があまり意味を持たなくなってくる．
+
+実際見てみると恐ろしいものである：
+
+
+```{julia}
+#| echo: false
+#| fig-cap: "\rC(0,1) に対する NUTS サンプラーの軌道"
+
 # Define the Cauchy distribution with location and scale
 loc, scale = 0.0, 1.0
 ℓπ = LogTargetDensityCauchy(loc, scale)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 200, 0
+n_samples, n_adapts = 2000, 0
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(1)
@@ -210,6 +329,8 @@ p = plot(1:length(samples), sample_values,
              markeralpha=0.6,
              color="#80c4ac")
 ```
+
+:::
 
 ### ２次元での例
 
@@ -301,7 +422,9 @@ lines!(ax, getindex.(xs1[r], 1), getindex.(xs1[r], 2))
 
 ## ZigZag サンプラーの実装
 
-### 一覧
+`ZigZagBoomerang` の実装を紹介する．
+
+### ZigZag サンプラーを提供しているパッケージ一覧
 
 #### `R`パッケージ
 
@@ -316,9 +439,61 @@ using Pkg
 Pkg.add("ZigZagBoomerang")
 ```
 
+### `ZigZag`オブジェクト
+
+::: {.callout-important appearance="simple" icon="false"}
+
+`ZigZag <: ContinuousDynamics  <: Any` は次のフィールドを持つ：^[実は６つ持つ．他の初期値は `σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0`]
+
+* `Γ::SparseMatrixCSC`：ポテンシャル関数
+* `μ::Vector`：平均
+
+:::
+
+::: {.callout-important title="注（ZigZag のメソッド）" collapse="true" icon="false"}
+
+```julia
+struct ZigZag{T,S,S2,R} <: ContinuousDynamics
+    Γ::T
+    μ::S
+    σ::S2
+    λref::R
+    ρ::R
+    ρ̄::R
+end
+ZigZag(Γ, μ, σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0) = ZigZag(Γ, μ, σ, λref, ρ, sqrt(1-ρ^2))
+```
+
+`dynamics.jl`にて，現在時刻にランダム時刻`τ`を加算し，位置`x`を更新するが，`θ`にはまだ触れない．
+
+```julia
+function move_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag})
+    t += τ
+    x .+= θ .* τ
+    t, x, θ
+end
+```
+
+内積`∇ϕx`を用いて，位置`x`に対する第`i`成分の反射を計算する．
+
+```julia
+function reflect!(i, ∇ϕx::Number, x, θ, F::Union{ZigZag, FactBoomerang})
+    θ[i] = -θ[i]
+    θ
+end
+function reflect!(i, ∇ϕx, x, θ, F::Union{ZigZag, FactBoomerang})
+    θ[i] = θ[i] - (2*dot(∇ϕx, θ[i])/normsq(∇ϕx))*∇ϕx
+    θ
+end
+```
+
+:::
+
+### 離散化
 
 
-### `ZigZagBoomerang` の使い方
+
+### ２次元での例
 
 ::: {.callout-important appearance="simple" icon="false"}
 
@@ -384,22 +559,28 @@ println("Trajectory length: ", length(traj))
 `idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
 
 ```julia
-function idot(A::SparseMatrixCSC, j, u::SparseState)  # <1>
+function idot(A::SparseMatrixCSC, j, x)  # <1>
     rows = rowvals(A)  # <2>
     vals = nonzeros(A)  # <3>
-    s = 0.0
+    s = zero(eltype(x))
     @inbounds for i in nzrange(A, j)  # <4>
-        s += vals[i]'*u[rows[i]][2]  # <5>
+        s += vals[i]'*x[rows[i]][2]  # <5>
     end
     s
 end
 ```
 
-1. パッケージ内部で，位置 $u\in\R^d$ は全て `SparseSate` 型に統一されている？
+1. パッケージ内部で，位置 $x\in\R^d$ は全て `SparseSate` 型に統一されている？
 2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
 3. 非零要素の値が格納されている．
 4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
-5. `u`も疎ベクトルであるため，非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+5. `x`の非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+
+なお，通常の行列に対しては，次のように実装されている：
+
+```julia
+idot(A, j, x) = dot((@view A[:, j]), x)
+```
 
 :::
 
