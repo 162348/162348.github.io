@@ -4,7 +4,7 @@ author: "司馬 博文"
 date: 9/9/2020
 categories: [Julia, 俺のためのJulia入門]
 abstract-title: 概要
-abstract: Julia は 2012 年に公開された科学計算向きの動的型付け言語である．
+abstract: Julia では`::`演算子で型宣言をする．これを省略すると``x::Any``の略記とみなされる．
 format:
     html:
         code-fold: false
@@ -13,4 +13,441 @@ execute:
 ---
 
 {{< include ../../../_preamble.qmd >}}
+
+## 型の構成
+
+### 抽象型
+
+::: {.callout-important appearance="simple" icon="false"}
+
+**Anyの子の定義**：supertype を指定しない場合は `Any::DataType` が supertype となる．
+
+```{julia}
+abstract type Name end
+
+typeof(Name)
+```
+
+**子の定義**
+
+```{julia}
+abstract type SubtypeName <: Name end
+```
+
+:::
+
+::: {.callout-caution title="型情報の表示" collapse="true" icon="false"}
+
+```{julia}
+supertype(Name)
+
+subtypes(Name)
+
+fieldnames(Int)
+
+methodswith(Name)
+
+@show Name
+
+```
+
+:::
+
+`<:`, `>:` は arity 2 の論理演算子にもなる．
+
+```{julia}
+Int >: Int
+```
+
+関数宣言の際の型注釈にて，冠頭演算子としても使う．型変数に対するslicingである．従って，木構造の上でのslicingとなる（第 [-@sec-slicing] 節）．
+
+
+### 複合型 Composite Types
+
+複数の名前付き field をまとめて扱うことができる．
+
+Julia で複合型を立てる時は，まるで構造付きの空間を作るようである．Euclid空間のように．
+
+従って，データと method を統合する（＝関数が複合型に所属する）OOP とは少し違い，複合型と，その上の関数を別々に作る．従って，Julia の関数は常 にfirst-class object として扱われる．^[この言葉は 1960 年代に Christopher Strachey によって "functions as first-class citizens" という文脈で初めて使われた。全ての機能を享受できる citizen 的な？ ]
+
+::: {.callout-important appearance="simple" icon="false"}
+
+imutable な複合型の変数は`struct`-`end`ブロックで宣言する．
+
+```{julia}
+struct MyType
+	x::Int
+	y::Int
+end
+
+fieldnames(MyType)
+```
+
+複合型を宣言すると，暗黙のうちに constructor が生成される．これも OOP と同じ．
+
+```{julia}
+z = MyType(1, 2)
+println(z.x)
+```
+
+mutable な複合型は`mutable struct`-`end`ブロックで宣言する．
+
+```{julia}
+mutable struct MutableType
+    x::Int
+    y::Int
+end
+
+m = MutableType(3, 4)
+m.x = 10  # フィールドxの値を変更可能
+```
+
+
+:::
+
+::: {.callout-caution title="カスタムコンストラクタの作成" collapse="true" icon="false"}
+
+```{julia}
+MyType(x) = MyType(x, 0)
+```
+
+:::
+
+### Union型：直和
+
+直和型を表す，代数的データ型の簡単な場合．他の言語では Nullable, Option 型と呼ばれる．
+
+`Union{Int,String}`というように，タグ`Union`をつけて表す．
+
+```{julia}
+function process(x::Union{Int, String})
+    if x isa Int
+        println("The integer is $x")
+    elseif x isa String
+        println("The string is $x")
+    end
+end
+
+process(3)
+```
+
+`Union{Int, Nothing}`とすると，部分関数の値域として使える．
+
+### Parametric型
+
+他の言語では generics や template と呼ばれるものである．^[Java の generics は Julia に似て不変であるが，C# の generics は in/out キーワードにより共変性をサポートしている．]
+
+そもそもタグ付という表示方法自体が，タグを関数名と見れば，点を表しているように見える．その調子で，タグを固定し，型変数を導入すればいい．
+
+::: {.callout-important appearance="simple" icon="false"}
+Parametric 型は，`{}`オブジェクトで定義する．試しに，`Point`というパラメトリック型を定義する：
+
+```{julia}
+struct Point{T, U}
+    x::T
+    y::U
+end
+
+```
+
+インスタンス化する際は，型変数 `T`, `U` にも代入をする．
+
+```{julia}
+p1 = Point{Int, Float64}(3, 4.5)  # 明示的に型を指定
+p2 = Point(3, 4.5)  # 型推論により自動的に型が決まる
+p2
+```
+
+パラメトリック型のデータに対して関数を定義する際は，型変数を使用した後に，`where`を使って型変数を指定する．^[`where T <:Any` の略記]
+
+```{julia}
+function distance(p::Point{T, U}) where {T, U}
+    sqrt(p.x^2 + p.y^2)
+end
+
+distance(p2)
+```
+
+
+:::
+
+::: {.callout-important title="注（多重ディスパッチの精神）" collapse="true" icon="false"}
+
+ただし，この時に，変数`T`に関する条件節で`if`文を分けるのはよくない．
+
+Julia の多重ディスパッチの精神に従って，関数を分けて定義するのが良い．Julia は自動で引数の型に最も適したメソッドを呼ぶ．
+
+即ち，**型は parametric や直積にしても，関数は直積にはしない**．
+
+```{julia}
+struct Rectangle{T}
+    width::T
+    height::T
+end
+
+# 型推論によるインスタンス生成
+r1 = Rectangle(3.0, 4.0)
+
+# 型指定によるインスタンス生成
+r2 = Rectangle{Int}(3, 4)
+```
+
+```{julia}
+# 多重ディスパッチの実践
+
+function area(r::Rectangle{T}) where T
+    r.width * r.height
+end
+
+println(area(r1))  # 出力: 12.0
+println(area(r2))  # 出力: 12
+```
+
+:::
+
+`Point{T}`型に対して，型変数`T`に代入を行って得る型`Point{Int}`は concrete 型になり，`Point{T}`という抽象型を親型に持つ．
+
+従って，多重ディスパッチにおいては`Point{Int}`は`Point{T}`にも match する．^[しかし，Julia の仕様は，多重ディスパッチにおいては concrete 型に近いものが先に適用されるようになっている．]
+
+### 型階層
+
+#### パラメトリック型の位置
+
+型変数を`{}`演算子により持たせた Parametric 型は，持たせていない型の下流にある．
+
+```{julia}
+Point{Int} <: Point
+```
+
+「持たせていない型」は`UnionAll`という型になる．^[意味論的にはそう，全ての型の和集合で，以降はTに代入するたびに同値類のいずれかを得る．]
+
+```{julia}
+typeof(Point)
+```
+
+Julia では，型変数の間に包含関係があっても，一度 parametric になると包含関係は消える【不変】．これは主に実行効率性の理由による．
+
+```{julia}
+Point{Int} <: Point{Float64}
+```
+
+#### パラメトリック型の sclicing {#sec-slicing}
+
+`UnionAll`型はスライシングができる．
+
+```{julia}
+function distance(p::Point{<:Number})
+    sqrt(p.x^2 + p.y^2)
+end
+
+function distance(p::Point{T}) where T <: Number
+    sqrt(p.x^2 + p.y^2)
+end
+```
+
+#### 抽象型と具体型
+
+`Number` は抽象型であり，`Point{Number}`という表現はできない．
+
+`Point{<:Number}`には，`Point{Int}`もマッチする：
+
+```{julia}
+p1 = Point(3, 4)  # Point{Int}
+distance(p1)  # 呼び出し成功
+```
+
+
+#### `SingletonType`：たった一つの型を含む自明な Parametric Type
+
+キーワード `Type` によって，`Type{T}`の形で定義される．元の型 `T` のインスタンスとなる．
+
+```{julia}
+isa(Float64, Type{Float64})  # Float64 は Type{Float64} 型のインスタンス
+isa(Real, Type{Float64})
+```
+
+```{julia}
+
+```
+
+## 組み込み型とその関数
+
+### Collection 型：直積
+更なる構造付きのものは`DataStructure.jl`にある．
+
+各直積型に，tagをつけてその性質を明示する．
+
+Any直下の型
+	0.	(a,b,…)::Tuple{T1,T2,…}
+	0.	immutableである
+	0.	Array型に対するsize関数の返り値はTuple型．
+	0.	可変長引数もTuple型のobjectとして受けられる．
+	0.	上記から観察されるように，入れ物であって，代数的構造を持たせることを意図していない．その場合はArrayを使う．
+	0.	named tuple：Typeの直積．
+	0.	元々NamedTuple.jlという独立したpackageだったが，0.7から統合．
+	0.	要素に数字以外のaliasでタグ付できる．immutable．
+	0.	(a=1, b=2)::NamedTuple{(:a, :b), Tuple(Int, Int)}などの記法で定義される．
+	0.	つまり，値のTupleと，Symbol型のオブジェクトのTupleとの組で表される．
+	⁃	この時の射影が，keys関数，values関数として実装されている．
+	0.	keyは.演算子でアクセスできる．
+	•	t.a
+	0.	Symbolをindexの代わりに使える．
+	•	t[:a]
+	0.	一時的に使うのが普通で，本格的にはstruct, mutable structとして第一級の居住権を与えるのが良い．
+	0.	List：Array{T,1}としての実装．Vector{T}というエイリアスもある．
+	0.	追加や削除などの順序的構造が重視されるCollection型．
+	0.	スタック，キュー，両端キューはDataStructure.jlへ．
+	⁃	push!(List, object) -> List’
+	⁃	要素の末尾追加
+	⁃	pushfirst!(List, object) -> List’
+	⁃	要素の先頭追加
+	⁃	pop!(List) -> object
+	⁃	要素の末尾摘出
+	⁃	popfirst!(List)
+	⁃	insert!(List, n, object) -> List’
+	⁃	n番目の位置に追加
+	⁃	deleteat!(List, n) -> List’
+	⁃	n番目の要素を削除．
+	0.	辞書：Dict{K, V}という直積型
+	0.	constructorは
+	•	d = Dict{String, Int}()
+	•	d[“a”] = 1
+	•	d = Dict(key => value, key => value, …)
+	0.	constructorの{}内の要素を１つ，または全て省略するとAnyとしたのと等価．
+	⁃	haskey(Dict, key) -> Bool
+	⁃	Dict型objectに，所定のkeyが含まれているかを判定する．
+	0.	built-inにIdDict型とWeakKeyDict型がある．
+	0.	集合：Set{T}
+	0.	constructorは
+	•	s = Set([1,2])
+	0.	即ち，１次元Arrayから生成される．というより，１次元Arrayにタグをつけたものである．
+	0.	実装は「keyのみを保持する辞書」というべきもので，辞書と同様，値の重複を無視する．
+	⁃	push!(set, object)
+	⁃	値の追加．
+	⁃	union(set, List)
+	⁃	intersect(set, List)
+	⁃	issubset(List, List) -> ::Bool
+	⁃	List ⊂ List -> ::Bool
+	⁃	Set型のinstanceを生成することなく集合演算ができる．
+	0.	多次元配列：Array{T,n}．Matrix{T}はArray{T,2}のエイリアスである．
+	0.	MATLABを踏襲している．NumPyとは所々違う．
+	0.	NumPyは0からindexingし，row-major orderである．これは，行列のindexingにとって，辞書式順序になる．
+	0.	しかしJuliaは1からindexingし，column-major orderである．後者は行列のindexingに沿って，第一要素のストライドが１になる．
+	0.	従って，Juliaは同じ行の要素の列挙が得意．線型代数のものの見方である．
+	0.	内部実装は結局一次元配列（List）であることを意識すると良い．
+
+	⁃	[] (constructor)
+	⁃	[ a b c; d e f; h i j ]
+	⁃	または改行を入れてもいい．
+	•	[]
+	•	要素へアクセスする作用素．
+	⁃	isempty(collection) -> Bool
+	⁃	empty!(collection) -> collection
+	⁃	空にする
+	⁃	length(collection) -> Int
+	⁃	eltype(collection) -> Type
+	•	関数名の最後に!
+	•	引数の一部を変更・破棄する関数
+	•	!のつかない関数は，引数に対する破壊的変更はないので安心して使用できる，という慣習．
+	•	例：push!，insert!
+	•	sortは新たなobjectを返すが，sort!は引数そのものを変更してしまう．
+	•	for文に使う構文はPythonと同じ使用感．
+	•	しかし，直積型を意識．
+	•	for (key, value) in d::Dict
+	•	実装は，iterable型オブジェクトを介して行われる．つまり，Juliaは次のように変換して処理される．速度の問題？
+	•	next = iterate(collection)while next !== nothing　　(x,state) = next　　#suite　　next = iterate(collection, state)end
+	•	Juliaはiterable型は無く，Tuple{Int, Int}である．
+	•	第一要素は，「次の要素」で，第二要素は「その次の要素」のindex（やそれに値するもの）を表す整数またはnothing．
+	•	従って，自作のcollection型にもfor文iterationを実現させるためには，iterate関数をディスパッチすれば良い．
+
+## Array型の関数
+
+作成
+	0.	constructor
+	0.	Array{T}(undef, dims…)
+	0.	値が初期化されていないことに注意．
+	0.	collect(reshape(1:9, 3, 3))
+	0.	collectionから，要素を奪って配列に仕立て直す．
+	0.	zeros([T,] dims…)
+	0.	ones([T,] dims…)
+	0.	fill(x, dims…)
+	0.	行列xI
+	0.	fill!(A,x)
+	0.	配列AをxIにする．
+	0.	rand([T,] dims…)
+	0.	一様分布でランダムに初期化した配列
+	0.	型を指定しないとFloat64で．
+	0.	randn([T,] dims…)
+	0.	正規分布でランダムに初期化した配列
+	0.	similar(A,[T,dims…])
+	0.	配列Aと類似した配列を返す．
+	0.	reshape(A, dims…) -> AbstractArray
+	0.	切り取る，または形を変える．
+	0.	並びはcolumn-major orderのままである．
+	0.	AにはUnitRange型も許容されるのがすごい．
+	0.	copy(A)
+	0.	deepcopy(A)
+	0.	Aの要素も再帰的にコピーする．
+
+	0.	[A B]
+	0.	数学的記法の感覚で使える行列の接続．
+	0.	view(A, n, m)  ->  view(::Array{T,n}, m, i)
+	0.	n, mはindexingまたはslicing．
+	0.	Aから部分配列を抜き出す．
+	0.	返るobjectはAへの参照とindexの情報を持っているので，Aを変更するとその部分配列も変わる．
+	0.	この実装は，Aが巨大すぎる場合への配慮を感じる．
+	0.	「ただし，現在の計算機による配列のコピー操作は，一般に非常に高速であるため，巨大な配列を扱うのではない限り，サブ配列を作成するよりも，通常のindexingで新たな配列を作成してしまう方が高速であることも多い．この辺りは，実際に計測してパフォーマンスを確かめてみるのが良いだろう．」
+
+属性
+	0.	eltype(A)
+	0.	length(A)
+	0.	ndims(A)
+	0.	size(A)
+	0.	size(A,n)
+	0.	n番目の次元におけるAのサイズ
+	0.	size(A)で返ってくるtupleの第n要素．
+	0.	strides(A)
+	0.	Aのストライド．
+	0.	第一要素は必ず１になる．
+	0.	要素同士が，一番浅い意味での一次元配列上でどれくらい離れているか．
+	0.	stride(A,n)
+	0.	n番目の次元におけるAのストライド
+
+	0.	[i, j, k, …]または[n:m, i:j, k:l, …]でindexingできる．
+
+代数的構造
+	0.	*
+	0.	行列乗算
+dot付演算子：broadcasting．broadcast(+, A, B)のエイリアスである．broadcast!(+, A, B)とするとAが変更される．
+	0.	component-wiseの演算．
+	0.	A .+ c
+	0.	A + cIと同じ．
+	0.	column-wiseの演算．
+	0.	A .+ B
+	0.	BがAの繰り返し単位になっている場合のみ．
+	0.	つまり，size(B)とsize(A)を各要素ごとに見比べたとき，次の２条件のいずれかを満たすとき．
+	0.	値が同じ
+	0.	どちらかの値が１
+	0.	２つ目の条件として，pr_i(size(B))  | pr_i(size(A))だったらもっと使いやすかったがね．
+	0.	broadcast関数
+	0.	broadcast(f, args…)が定義．
+	0.	f.(args…)とも記述できる．
+	0.	ただし，f=+などの時には使えない．fは関数が想定されている．
+	0.	sigmoid.(A)やexp.(A)などである．
+	0.	argsはArrayに限らず，tupleでも良い．
+
+位相的構造
+	0.	map(f, c::collection…) -> collection
+	0.	collection cにelement-wiseにfを適用させる．
+	0.	broadcastingやdot演算と似ているが，fが匿名関数でない場合はdot演算を使うのが良い？
+	0.	reduce(op, itr; [init]) -> obj
+	0.	Aをitrableと見做して，要素ごとにopに突っ込んでいく．
+	0.	従って，次元が１段階下がる．
+	0.	filter(f, a::collection) -> a’
+	0.	aを要素ごとにfに突っ込んで，fがfalseを返すものについては脱落させる．
+
+
+
+
+
 
