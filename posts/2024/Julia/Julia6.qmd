@@ -1,0 +1,263 @@
+---
+title: "俺のための Julia 入門（６）メタプログラミング"
+author: "司馬 博文"
+date: 1/23/2022
+categories: [Julia, 俺のためのJulia入門]
+abstract-title: 概要
+abstract: Julia の`Symbol`型と`Expr`型，そして`Expr`型から`Expr`型への関数であるマクロを用いたメタプログラミングについて解説する．
+format:
+    html:
+        code-fold: false
+execute:
+    cache: true
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## メタプログラミング
+
+プログラムにプログラミングをさせること．
+
+これはプログラミング言語を抽象構文木として捉えることで，一切の「プログラムの実行」に関連した意味論を排除することができることによって可能となる．
+
+他の「プログラムの実行」関連の処理以前に，parse とセットでマクロの展開が行われる．まさに，「プログラミングのプログラミング」である．
+
+* Lispのマクロ
+* Pythonのデコレータ
+
+1. マクロ
+    1. 正規表現Regexなどのnon-standard string literal
+        1. じゃあVERSIONに格納されているVsersionNumberも？
+
+### `Symbol` 型：処理系内部の名前
+
+`identifier`とも呼べる．
+
+２通りのコンストラクタがある．
+
+```{julia}
+x = :foo  # シンボル :foo を作成
+y = Symbol("foo")  # シンボル :foo を作成
+
+println(x == y)  # true
+```
+
+```{julia}
+typeof(:foo)
+```
+
+`foo`という変数がソースコード内で使用されている時，処理系内では`foo`という名前のシンボルが作成され，それらのテーブルを保持する．
+
+### `Expr`：AST が型を持って Julia で操作可能なオブジェクトとして登場！
+
+構文論における「文 `expression`」とは，木である．これを AST (Abstract Syntax Tree) ともいう．
+
+#### コンストラクタと`dump`
+
+`:()` による引用 (quoting)，または `quote`-`end` ブロックの２通りがある．
+
+```{julia}
+expr = :( 2+3 )
+dump(expr)
+```
+
+code を parse までして実行はせず，抽象構文木 object として保持する．処理系に parse された後の抽象構文木も object として扱えるのが Julia！
+
+```{julia}
+println(expr)
+```
+
+#### `eval`関数
+
+parse 以降の実行工程を，**現在の Module でテーブルを作って** 実行する．
+
+必ずその Module の global テーブルで実行される．関数定義のなかで eval されていても，global table でなされる．
+
+```{julia}
+eval(expr)
+```
+
+#### ２つのフィールドを持つ
+
+２つの field `head` と `args` の繰り返しからなる．`head` は構文木の種類，`args` が各要素．
+
+```{julia}
+println("head: ", expr.head)
+println("args: ", expr.args)
+```
+
+#### 補間演算子`$( )`
+
+```{julia}
+# String 型オブジェクトの補間（比較のため）
+name = "Julia"
+greeting = "Hello, $name" * '!'
+println(greeting)
+```
+
+```{julia}
+# Expr 型オブジェクトの補間
+ex = :x
+expr = :(2 * x + $(ex))
+println(expr)
+```
+
+この時`ex`が`Symbol`型オブジェクトでも，剥がされて，`String`型として補間される．^[Symbol型の即値と解さない方をデフォルトとした方が利便性が高いからである．]
+
+```{julia}
+# 評価してから補間
+x = 2
+y = 3
+result = "The sum of $x and $y is $(x + y)."
+println(result)  # 出力: The sum of 2 and 3 is 5.
+```
+
+`Symbol`型を保持したい場合は，さらに`ex`を`QuoteNote`でクオートする：
+
+```{julia}
+expr = :(2 * x + $(QuoteNode(ex)))
+println(expr)
+```
+
+## マクロ
+
+### 導入：与えたコードを別のコードにして評価する高次の仕組み
+
+「マクロの展開」という言い方をする．
+
+マクロの展開は，parse のすぐ次の段階で行われるので，一番速い．これが，高級言語か……．
+
+マクロの引数は，Shell command のようにスペースで区切って与える．
+
+一方，関数のように `@macro(x,y,...)` と与えることもできるが，慣習に逆らうという．
+
+この２つは構文解析のされ方が違う．
+
+```julia
+:(@macro x + y) == :(@macro(x+y)) -> true
+
+:(@macro x +) == :(@macro(x,+) -> true
+```
+
+### 標準マクロ
+
+* @macroexpand
+    * 与えられた式にあるマクロを展開して得る表現のExprオブジェクトを返す．
+    * 全てこれで展開してみれば，マクロの挙動がわかる．
+* @eval [mod,] ex
+    * eval()関数と同じ．しかし，自分でquoteしてExpr型にする必要はない．
+    * Evaluate an expression with values interpolated into it using eval. If two arguments are provided, the first is the module to evaluate in.
+* @assert cond [text]
+    * 条件式condがfalseならばAssertionErrorを投げる．text::AbstractStringを指定すれば，エラーメッセージとしてそれを表示する．
+* @enum
+    * C言語のenum関数の継承．
+* @view
+    * 配列についてのview関数のマクロ化．
+
+::: {.callout-caution title="例（開発補助）" collapse="true" icon="false"}
+REPLで主に使われる，Shell commandに似てる．
+
+* @less
+    * 関数呼び出しの式から，呼び出されるmethodのソースコードを表示する．コマンドのlessか．
+* @time
+    * 処理を受け取り，その実行にかかった時間やメモリ使用量を表示する．
+* @code_typed
+    * 関数呼び出しの式を受け取って，コンパイラによる型推論の結果を表示する．
+
+:::
+
+::: {.callout-caution title="例（コンパイラへのヒント）" collapse="true" icon="false"}
+
+構文木に特殊な情報を差し込むことで，最適化が進む．
+
+* @inbounds
+    * 配列要素の参照が配列の有効な範囲に収まる確信があるので，コンパイラはチェックしなくていいよ．
+* @inline
+    * 関数を積極的にインライン化するべき．
+* @fastmath
+    * 不動小数点演算について，IEEE 754の制約を超えて最適化することを許可する．
+
+:::
+
+
+::: {.callout-caution title="例（非標準文字列リテラル）" collapse="true" icon="false"}
+
+assertは部分的にそうであったが，String型のみを受け取るマクロのことを特に「非標準文字列リテラル」と呼ぶ．
+
+マクロ名は_strで終わり，文字列の前にマクロ名から_strを除いたものを接続しても呼び出せる．これは冠頭演算子っぽい，いや，タグっぽいかもしれない．
+
+殆どが「特殊なリテラル」として使われるために，こう呼ぶ．従って，リテラルを持つ特殊な型のconstructorだと思えばいい．
+
+* @r_str / r”…”　-> Regex
+    * Regex型のリテラルの定義に用いられる．
+* @v_str
+    * VersionNumberリテラル．
+* @b_str
+    * Create an immutable byte (UInt8) vector using string syntax.
+* @s_str -> SubstitutionString
+* @big_str
+    * Parse a string into a BigInt or BigFloat, and throw an ArgumentError if the string is not a valid number. For integers _ is allowed in the string as a separator.
+    * 例：big”43”，big”3.1415926535”
+
+:::
+
+### マクロ定義
+
+マクロとは，`Expr`上の，`Expr`を返す関数であり，keyword が `macro` になるだけで，関数定義と同じ．
+
+```{julia}
+macro sayhello(name)
+    return :(println("Hello, ", $name))
+end
+
+@sayhello("world")  # 展開されるコードは println("Hello, world")
+```
+
+* 引数は構文木やリテラルになるから，構文木の補間 `$(arg1)` が頻出することになる．
+* しかし，マクロの展開は，マクロが定義されたmodule内でのscopeでなされるので，想定外の動作をすることがある．
+* 従って，メタプログラミング特有の「エスケーピング」が必要になる．
+    * esc(ex)
+        * 構文木にある識別子を別の識別子に置き換えはせず，そのままにする．
+        * Only valid in the context of an Expr returned from a macro. Prevents the macro hygiene pass from turning embedded variables into gensym variables. 
+    * 例：macro plus1(ex)   :($(esc(ex)) + 1 )end
+
+識別子の変換規則
+引数ex::ExprもJuliaコードであるから，マクロ定義内の文章と衝突することがあり得る，メタプログラミング故の悩みの種である．
+
+識別子の変換が，マクロが定義されたmodule内の大域テーブルでなされるのが原則だが，次は例外である．
+1. global宣言なしで代入された時
+2. local宣言がある時
+3. 関数定義の引数である時
+
+これら３条件を満たすためにローカル変数と解釈された識別子は，マクロ展開時に新しい変数に置き換えられる（#10#nameなど）．これはマクロ呼び出し側にある別の識別子との衝突を避けるためである．このマクロ展開の仕方を【hygene macro】という．
+
+まとめ
+マクロが返す構文木やリテラルに含まれる識別子は，次のいずれかの経路を辿ったものである．
+1. esc関数でエスケープされていれば，識別子は変換されずそのまま維持される．
+2. 代入，local宣言，関数引数のいずれかであれば，新しいローカル変数が生成される．
+3. いずれでもない場合は，マクロを定義したmoduleのglobal変数に変換される．
+
+メタプログラミングの例
+
+1. 規則のある（algorithmablic）変数定義自体をメタプログラミングで回す．
+for (i, name) in enumerate([:A, :B, :C])
+eval(:(const $(Symbol(:FLAG_,name)) = $(UInt16(1) << (i-1) )))
+end
+    1. (i, name) = (1, :A), (2, :B), (3, :C)で３周回す．
+    2. const FLAG_A = 1 << 0const FLAG_B = 1 << 1const FLAG_C = 1 << 2と書いたのと同じ．
+    3. bit-shift演算なので，それぞれ，数値と解すれば2^0, 2^1, 2^2になる．つまり，UInt16型では，0x0001, 0x0002, 0x0004となる．
+    4. Symbl(:FLAG_, A)で，Symbol objectである:FLAG_Aを生成している．ここで，FLAG_と書くと変数名と解されて，UndefVarError: FLAG_1 not definedが返ってくる．
+    5. そしてそれを$()演算子で補間して，結局String型として:()でquoteさせている．
+
+
+
+
+
+
+
+
+
+
+
+
+

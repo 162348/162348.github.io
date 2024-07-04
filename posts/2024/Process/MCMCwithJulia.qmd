@@ -10,13 +10,103 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apa.csl
 abstract-title: 概要
-abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．
+abstract: Julia に存在する MCMC 関連のパッケージをまとめる．
 code-fold: false
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-## `AdvancedHMC.jl`
+## 導入
+
+### MCMC パッケージ一覧
+
+* `AbstractMCMC.jl` ([GitHub](https://github.com/TuringLang/AbstractMCMC.jl)) は MCMC サンプリングのための抽象的なインターフェースを提供するパッケージ．後述の `Turing.jl` はこれを利用している．
+
+* `AdaptiveMCMC.jl` ([Juliapackages](https://juliapackages.com/p/adaptivemcmc) / [Docs](https://mvihola.github.io/docs/AdaptiveMCMC.jl/)) は適応的な乱歩 MH アルゴリズムを提供するパッケージ．
+  * 関連に `AdaptiveParticleMCMC.jl` ([GitHub](https://github.com/mvihola/AdaptiveParticleMCMC.jl)) がある．これは `SequentialMonteCarlo.jl` ([GitHub](https://github.com/awllee/SequentialMonteCarlo.jl)) に基づいている．
+* `Mamba.jl` ([Docs](https://mambajl.readthedocs.io/en/latest/) / [GitHub](https://github.com/brian-j-smith/Mamba.jl)) Markov chain Monte Carlo (MCMC) for Bayesian analysis in julia
+* `KissMCMC` ([Juliapackages](https://juliapackages.com/p/kissmcmc)) は 'Keep it simple, stupid, MCMC' ということで，計量な MCMC を提供するパッケージ．
+
+* `DynamicHMC.jl` ([GitHub](https://github.com/tpapp/DynamicHMC.jl)) は NUTS サンプラーを提供するパッケージ．
+
+### 連続時間 MCMC パッケージ一覧
+
+::: {.callout-tip appearance="simple" icon="false" title="連続時間 MCMC"}
+
+* `ZigZagBoomerang.jl` ([GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [Juliapackages](https://juliapackages.com/p/zigzagboomerang))
+
+* `PDMP.jl` ([GitHub](https://github.com/alan-turing-institute/PDSampler.jl/tree/a3b42258a4eb32fc6e266fe1e44dd04edde4168d) / [Docs](https://alan-turing-institute.github.io/PDSampler.jl/v0.6/)) は 2018 年まで Alan Turing Institute によって開発されていたパッケージ．
+
+* `PiecewiseDeterministicMarkovProcesses.jl` ([GitHub](https://github.com/rveltz/PiecewiseDeterministicMarkovProcesses.jl) / [Docs](https://rveltz.github.io/PiecewiseDeterministicMarkovProcesses.jl/latest/) / [@Veltz2015] / [HP of Dr. Veltz](http://romainveltz.pythonanywhere.com/pdmp-in-julia/) / [Discource](https://discourse.julialang.org/t/new-package-for-piecewise-deterministic-markov-processes/18311)) は細胞生物学におけるモデリング手法としての PDMP を提供するパッケージである．
+
+:::
+
+### 確率的プログラミング
+
+代表的なものは次の２つである：
+
+::: {.callout-tip appearance="simple" icon="false" title="ベイズ推論のためのパッケージ"}
+
+* `Turing.jl` ([HP](https://turinglang.org/) / [GitHub](https://github.com/TuringLang/Turing.jl) / [Juliapackages](https://juliapackages.com/p/turing) / [@Ge+2018])
+* `Soss.jl` ([GitHub](https://github.com/cscherrer/Soss.jl) / [Docs](https://cscherrer.github.io/Soss.jl/stable/))
+
+:::
+
+### Turing ecosystem
+
+
+::: {.callout-tip appearance="simple" icon="false" title="Turing ecosystem 一覧"}
+
+* `AdvancedPS` ([GitHub](https://github.com/TuringLang/AdvancedPS.jl) / [Docs](https://turinglang.org/AdvancedPS.jl/dev/)) は `Turing.jl` による粒子フィルターベースのサンプラーを提供するパッケージ．
+* `AdvancedHMC` ([GitHub](https://github.com/TuringLang/AdvancedHMC.jl))
+* `AdvancedMH` ([GitHub](https://github.com/TuringLang/AdvancedMH.jl))
+* `AdvancedVI` ([GitHub](https://github.com/TuringLang/AdvancedVI.jl)) 変分推論を提供するパッケージ．
+* `Bijectors.jl` ([GitHub](https://github.com/TuringLang/Bijectors.jl)) 正則化流などによる分布の変換を提供するパッケージ．
+
+:::
+
+[@Storopoli2021]
+
+## MCMC の実行例
+
+### `AdaptiveMCMC.jl`
+
+```julia
+using Pkg
+Pkg.add("AdaptiveMCMC")
+```
+
+```{julia}
+# Taken from https://mvihola.github.io/docs/AdaptiveMCMC.jl/
+
+# Load the package
+using AdaptiveMCMC
+
+# Define a function which returns log-density values:
+log_p(x) = -.5*sum(x.^2)
+
+# Run 10k iterations of the Adaptive Metropolis:
+out = adaptive_rwm(zeros(2), log_p, 1_000; algorithm=:am)
+
+using MCMCChains, StatsPlots # Assuming MCMCChains & StatsPlots are installed...
+c = Chains(out.X[1,:], start=out.params.b, thin=out.params.thin); plot(c)
+```
+
+### `KissMCMC.jl`
+
+```julia
+using Pkg
+Pkg.add("KissMCMC")
+```
+
+```{julia}
+
+```
+
+
+## `Turing.jl`
+
+### `AdvancedHMC.jl`
 
 Cauchy 分布に HMC を適用するとぶっ壊れる！？
 
@@ -103,15 +193,11 @@ HMC_sample(500.0)
 HMC_sample(100.0)
 ```
 
-
-
-## `AdvancedMH.jl`
-
 ### `AdvancedMH.jl` とは
 
 * [`Turing.jl`](https://github.com/TuringLang) [@Ge+2018] による
 
-### MALA
+#### MALA
 
 ```{julia}
 using AdvancedMH
@@ -148,3 +234,6 @@ spl = RWMH(MvNormal(zeros(2), I))
 chain = sample(model_with_ad, spl, 100000; initial_params=ones(2), chain_type=StructArray, param_names=["μ", "σ"])
 
 ```
+
+## `MCMCChains.jl`
+
