@@ -1,0 +1,111 @@
+---
+title: "Julia による MCMC サンプリング"
+subtitle: "新時代の確率的プログラミング環境の構築に向けて"
+author: "司馬 博文"
+date: 7/3/2024
+categories: [Process, Simulation, Julia, MCMC, 俺のためのJulia入門]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apa.csl
+abstract-title: 概要
+abstract: Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える抽象的なフレームワーク `MCMCChains` を概観する．
+code-fold: false
+execute:
+    cache: true
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## 導入
+
+具体的なサンプラーは次の稿も参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Julia/HMCwithJulia.html" target="_blank">
+            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Julia による Hamiltonian Monte Carlo</h3>
+                <p class="article-description"></p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Julia/MALAwithJulia.html" target="_blank">
+            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Julia による Metropolis-Hastings サンプラー</h3>
+                <p class="article-description"></p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+### 依存パッケージ一覧
+
+* `AbstractMCMC.jl` ([GitHub](https://github.com/TuringLang/AbstractMCMC.jl) / [Juliapackages](https://juliapackages.com/p/abstractmcmc) / [HP](https://turinglang.org/AbstractMCMC.jl/dev/)) は MCMC サンプリングのための抽象的なインターフェースを提供するパッケージ．後述の `Turing.jl` はこれを利用している．
+
+* `LogDensityProblems.jl`：対数密度を扱うフレームワーク．
+
+### MCMC パッケージ一覧
+
+* `AdaptiveMCMC.jl` ([Juliapackages](https://juliapackages.com/p/adaptivemcmc) / [Docs](https://mvihola.github.io/docs/AdaptiveMCMC.jl/)) は適応的な乱歩 MH アルゴリズムを提供するパッケージ．
+  * 関連に `AdaptiveParticleMCMC.jl` ([GitHub](https://github.com/mvihola/AdaptiveParticleMCMC.jl)) がある．これは `SequentialMonteCarlo.jl` ([GitHub](https://github.com/awllee/SequentialMonteCarlo.jl)) に基づいている．
+* `Mamba.jl` ([Docs](https://mambajl.readthedocs.io/en/latest/) / [GitHub](https://github.com/brian-j-smith/Mamba.jl)) Markov chain Monte Carlo (MCMC) for Bayesian analysis in julia
+* `KissMCMC` ([Juliapackages](https://juliapackages.com/p/kissmcmc) / [GitHub](https://github.com/mauro3/KissMCMC.jl)) は 'Keep it simple, stupid, MCMC' ということで，計量な MCMC を提供するパッケージ．
+
+* `DynamicHMC.jl` ([GitHub](https://github.com/tpapp/DynamicHMC.jl)) は NUTS サンプラーを提供するパッケージ．
+* `SGMCMC.jl` ([GitHub](https://github.com/BigBayes/SGMCMC.jl)) は Oxford CSML チームによる，Bayesian deep learning に向けたサンプラーを提供するパッケージ．
+
+### 連続時間 MCMC パッケージ一覧
+
+::: {.callout-tip appearance="simple" icon="false" title="連続時間 MCMC"}
+
+* `ZigZagBoomerang.jl` ([GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [Juliapackages](https://juliapackages.com/p/zigzagboomerang))
+
+* `PDMP.jl` ([GitHub](https://github.com/alan-turing-institute/PDSampler.jl/tree/a3b42258a4eb32fc6e266fe1e44dd04edde4168d) / [Docs](https://alan-turing-institute.github.io/PDSampler.jl/v0.6/)) は 2018 年まで Alan Turing Institute によって開発されていたパッケージ．
+
+* `PiecewiseDeterministicMarkovProcesses.jl` ([GitHub](https://github.com/rveltz/PiecewiseDeterministicMarkovProcesses.jl) / [Docs](https://rveltz.github.io/PiecewiseDeterministicMarkovProcesses.jl/latest/) / [@Veltz2015] / [HP of Dr. Veltz](http://romainveltz.pythonanywhere.com/pdmp-in-julia/) / [Discource](https://discourse.julialang.org/t/new-package-for-piecewise-deterministic-markov-processes/18311)) は細胞生物学におけるモデリング手法としての PDMP を提供するパッケージである．
+
+:::
+
+### 確率的プログラミング
+
+代表的なものは次の２つである：
+
+::: {.callout-tip appearance="simple" icon="false" title="ベイズ推論のためのパッケージ"}
+
+* `Turing.jl` ([HP](https://turinglang.org/) / [GitHub](https://github.com/TuringLang/Turing.jl) / [Juliapackages](https://juliapackages.com/p/turing) / [@Ge+2018])
+* `Soss.jl` ([GitHub](https://github.com/cscherrer/Soss.jl) / [Docs](https://cscherrer.github.io/Soss.jl/stable/))
+
+:::
+
+ただし，現状の `Soss.jl` v0.21.2 (6/22/2022) は `FillArrays` のバージョンを `0.13.11` 以下に制限してしまうため（最新は `1.11.0`），これが `Turing.jl` の最新バージョン v0.33.1 と衝突してしまう．
+
+インストールは１つの環境にどちらか１つのみにすることが推奨される．
+
+### Turing ecosystem
+
+::: {.callout-tip appearance="simple" icon="false" title="Turing ecosystem 一覧"}
+
+* `AdvancedPS` ([GitHub](https://github.com/TuringLang/AdvancedPS.jl) / [Docs](https://turinglang.org/AdvancedPS.jl/dev/)) は `Turing.jl` による粒子フィルターベースのサンプラーを提供するパッケージ．
+* `AdvancedHMC` ([GitHub](https://github.com/TuringLang/AdvancedHMC.jl))
+* `AdvancedMH` ([GitHub](https://github.com/TuringLang/AdvancedMH.jl))
+* `AdvancedVI` ([GitHub](https://github.com/TuringLang/AdvancedVI.jl)) 変分推論を提供するパッケージ．
+* `Bijectors.jl` ([GitHub](https://github.com/TuringLang/Bijectors.jl)) 正則化流などによる分布の変換を提供するパッケージ．
+
+:::
+
+[@Storopoli2021] も参照．
+
+## `MCMCChains.jl`
+
+Turing によるエコシステムは，この MCMC のデザインパターンを利用している．
