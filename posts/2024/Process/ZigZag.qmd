@@ -50,6 +50,129 @@ Julia の MCMC パッケージ一般については次の稿を参照：
 </div>
 ```
 
+## 定義
+
+### 導入
+
+１次元の Zig-Zag 過程は元々，[Curie-Weiss 模型](../Nature/StatisticalMechanics1.qmd#sec-Curie-Weiss) における Glauber 動力学を lifting により非可逆化して得る Markov 連鎖の，スケーリング極限として特定された Feller-Dynkin 過程である [@Bierkens-Roberts2017]．
+
+ただし，[@Goldstein1951] で電信方程式と関連して，同様の過程が扱われた歴史もある．
+
+### 設定
+
+Zig-Zag 過程 $Z=(X,\Theta)$ の状態空間は $E=\R^d\times\{\pm1\}^d$ と見ることが多い．
+
+$\theta\in\{\pm1\}^d$ は速度を表す．すなわち，全座標系と $45$ 度をなす方向に，常に一定の単位速度で $\R^d$ 上を運動するとする．
+
+換言すれば，決定論的なフローは次のように定める：
+$$
+\dd{\phi_{(x,\theta)}(t)}{t}=\theta,
+$$
+$$
+\dd{\Theta}{t}=0,\qquad\Theta_0=0.
+$$
+
+### アルゴリズム
+
+後述の関数 $\lambda$ に対して，各座標 $i\in[d]$ におけるレートを
+$$
+m_i(t):=\lambda(x+\theta t,\theta)
+$$
+で定めた $\R^d$ 上の Poisson 過程を考える．
+
+多次元の Poisson 過程の各成分の跳躍は独立だから，^[[@Revuz-Yor1999 p.473] 命題XII.1.7．] それぞれの成分ごとに Poisson 到着時刻 $T_i\;(i\in[d])$ をシミュレーションし，最初に到着したものを $T_j$ とすると，関数
+$$
+F_j(\theta)_i=\begin{cases}-\theta_i&i=j\\\theta_i&i\ne j\end{cases}
+$$
+に従ってジャンプすると考えて良い．
+
+::: {.callout-important title="注（[一般の PDMP の設定](PureJump.qmd#sec-settings)との対応）" collapse="true" icon="false"}
+
+状態空間は
+$$
+E=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}
+$$
+とみなすところから始める必要がある．
+
+加えて，レート関数は
+$$
+\lambda(x,\theta):=\sum_{i=1}^d\lambda_i(x,\theta)
+$$
+であり，跳躍測度は点過程
+$$
+Q((x,\theta),-):=\sum_{i=1}^d\frac{\lambda_i(x,\theta)}{\lambda(x,\theta)}\delta_{(x,F_i(\theta))}(-)
+$$
+とみなした場合に当たる．
+
+:::
+
+### レート関数
+
+PDMP の妙は全てレート関数に宿っている．
+
+レート $\lambda:E\to\R_+$ は，負の対数密度 $U\in C^1(\R^d)$ が定める目標分布 $\pi(dx)\propt e^{-U(x)}dx$ に対して，
+$$
+\lambda_i(x,\theta):=(\theta_i\partial_iU(x))_++\gamma_i(x,\theta_{-i})\quad(i\in[d])
+$$
+と定める．ただし，$\gamma_i$ は，$\theta_i$ のみには依らない任意の連続関数 $\gamma_i:E\to\R_+$ とした．^[従って，レート関数 $\lambda$ は連続とする．この関数 $\gamma_i$ は，$U$ の情報には依らない追加のリフレッシュ動作を仮定に加える．実際，$\lambda_i(x,\theta)-\lambda_i(x,F_i(\theta))=\theta_i\partial_iU(x)$ である限り，$\theta$ と $F_i(\theta)$ の往来には影響を与えず釣り合っているため，どのような $\gamma_i$ をとっても，平衡分布には影響を与えない．しかし，高くするごとにアルゴリズムの対称性が上がるため，$\gamma\equiv0$ とすることが Monte Carlo 推定量の漸近分散を最小にするという [@Andrieu-Livingstone2021]．]
+
+::: {.callout-tip title="[@Bierkens+2019 p.1294 定理2.2]" icon="false"}
+
+$U\in C^1(\R^d)$ は $e^{-U}\in\L^1(\R^d)$ を満たすとする．このとき，$Z$ は次の分布 $\mu=\pi\otimes\rU(\{\pm1\}^{d})\in\cP(E)$ を不変にする：
+$$
+\mu(dxd\theta)=\frac{1}{2^d\cZ}e^{-U(x)}\,dxd\theta
+$$
+
+:::
+
+### 部分サンプリング
+
+MCMC の計算複雑性のボトルネックは，尤度の評価にある．各ステップで全てのデータを用いて尤度を計算する必要がある点が，MCMC を深層学習などの大規模データの設定への応用を難しくしている [@Murphy2023 p.647]．
+
+$p(x)$ を事前分布，$p(y|x)$ を観測のモデル（または尤度）とし，データ $y_1,\cdots,y_n$ は互いに独立であるとする．このとき，事後分布 $\pi(x):=p(x|y)$ は
+$$
+\pi(x)\propt\paren{\prod_{k=1}^n p(y_k|x)}p(x)
+$$
+より，Hamiltonian $U$ は
+\begin{align*}
+   U(x)&=-\sum_{k=1}^n\log p(y_k|x)-\log p(x)\\
+   &=\frac{1}{n}\sum_{k=1}^n\Paren{-n\log p(y_k|x)-\log p(x)}.
+\end{align*}
+と表せる．
+
+すなわち，各微分係数 $\partial_i U(x)$ は，独立な観測 $y_1,\cdots,y_n$ が定める統計量
+$$
+E^i_k(x):=\pp{}{x_i}\Paren{-n\log p(y_k|x)-\log p(x)}
+$$
+の平均により推定される値となっている．
+
+よって，精度は劣るかもしれないが，一様に選んだ $K\sim\rU([n])$ から定まる $E^i_K$ の値は $\partial_i U(x)$ の不偏推定量となっている．^[このとき，必ずしも $K\sim\rU([n])$ とする必要はなく，特定の観測に重みをおいても良い [@Sen+2020]．]
+
+::: {.callout-note title="部分サンプリングにより不変分布が変わらないことの証明" icon="false" collapse="true"}
+
+これは，元々のレート関数
+$$
+\lambda_i(x,\theta)=\frac{1}{n}\sum_{k=1}^n(\theta E^i_k(x))_+
+$$
+に対して，
+$$
+\gamma_i(x,\theta):=\frac{1}{n}\sum_{k=1}^n(\theta_iE^i_k(x))_+-\paren{\theta_i\frac{1}{n}\sum_{k=1}^nE^i_k(x)}_+
+$$
+という項を加えて得る Zig-Zag サンプラーとみなせるためである．
+
+こうして定義された $\gamma_i$ が非負関数である限り，平衡分布は $\mu$ のままであるが，これは関数 $(-)_+$ の凸性から従う．
+
+こうして，サブサンプリングの実行による精度の劣化が，[@Andrieu-Livingstone2021] の枠組みで捉えられる，ということでもある．
+
+加えて，レート関数が大きくなっており，したがってそもそも尤度関数の評価の回数が増えていることにも注意．
+
+:::
+
+### 制御変数による分散低減
+
+上述の $\partial_iU(x)$ の不偏推定量の分散は，制御変数の方法を用いて低減できる．これにより，事前処理の部分を除けば，データのサイズに依存しない計算複雑性で事後分布からの正確なサンプリングが可能になる．
+
+
 ## 特定の対象分布に対するシミュレーション
 
 ### １次元での例
@@ -68,7 +191,7 @@ $$
 ::: {.callout-important appearance="simple" icon="false"}
 
 * ZigZag サンプラーは Cauchy 分布に対して，最頻値から十分遠くから開始しても，高速に最頻値に戻ってくる．
-* MALA は diffusive behaviour が見られ，最頻値に戻るまでに時間がかかる．^[特に [@Bierkens+2019] ではとてもセンセーショナルな図示が得られている．]
+* MALA は diffusive behaviour が見られ，最頻値に戻るまでに時間がかかる．
 
 :::
 
@@ -239,7 +362,7 @@ traj = [(x[1], x[2]) for x in trace]
 plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0)
 ```
 
-MALA と比較すると，その再帰の速さが歴然としている：^[[@Bierkens+2019] にある提示の仕方である．Zig-Zag の 2000 単位時間を単純に MALA と比較はできないと筆者も考えるが，ダイナミクスに注目していただきたい．]
+MALA と比較すると，その再帰の速さが歴然としている：^[[@Bierkens+2019] にある提示の仕方である．Zig-Zag の 2000 単位時間を単純に MALA と比較はできないと筆者も考えるが，ダイナミクスに注目していただきたい．実際，自分で実装してみると，シード値をいじらないと，Zig-Zag は必ずしも 500 単位時間前後でモード $0$ に戻るわけではない．]
 
 ```{julia}
 #| code-fold: true
@@ -283,7 +406,7 @@ sample_values = zip(1:length(θ_vector), θ_vector)
 plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0)
 ```
 
-２つを並べて比較すると，Langevin ダイナミクスの方は，少し diffusive な動き（random walk property と呼ばれる）が見られることがわかる．^[上の出力と違うことがあるが，ご容赦願いたい．]
+２つを並べて比較すると，Langevin ダイナミクスの方は，少し diffusive な動き（random walk property と呼ばれる）が見られることがわかる．
 
 ::: {layout-ncol=2}
 ![ZigZag サンプラーの軌跡](ZigZag_1D.svg)
@@ -297,10 +420,9 @@ NUTS サンプラーはステップサイズを極めて大きくするため，
 
 実際見てみると恐ろしいものである：
 
-
 ```{julia}
 #| echo: false
-#| fig-cap: "\rC(0,1) に対する NUTS サンプラーの軌道"
+#| output: false
 
 # Define the Cauchy distribution with location and scale
 loc, scale = 0.0, 1.0
@@ -328,12 +450,14 @@ adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integra
 #   - `samples` will store the samples
 #   - `stats` will store diagnostic statistics for each sample
 samples, stats = sample(hamiltonian, kernel, initial_θ, n_samples, adaptor, n_adapts; progress=true)
+```
 
-# Print the results
+```{julia}
+#| echo: false
+#| fig-cap: "\rC(0,1) に対する NUTS サンプラーの軌道"
 using Plots
 
 sample_values = [s[1] for s in samples]
-
 p = plot(1:length(samples), sample_values,
              label="NUTS trajectory",
              title="1D NUTS Sampler (Cauchy distribution)",
