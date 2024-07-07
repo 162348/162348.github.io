@@ -16,10 +16,36 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          tinytex: true  # https://github.com/quarto-dev/quarto-actions/tree/main/setup
+        
+      - name: 'Install TinyTeX'  # https://github.com/quarto-dev/quarto-actions/tree/main/setup
         env:
+          QUARTO_PRINT_STACK: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Setting GH_TOKEN is recommended as installing TinyTeX will query the github API.
+        run: |
+          quarto install tool tinytex --log-level warning
+          case $RUNNER_OS in 
+            "Linux")
+                echo "$HOME/bin" >> $GITHUB_PATH
+                export PATH="$HOME/bin:$PATH"
+                ;;
+             "macOS")
+                TLMGR_PATH=$(dirname $(find ~/Library/TinyTeX -name tlmgr))
+                echo $TLMGR_PATH >> $GITHUB_PATH
+                export PATH="$TLMGR_PATH:$PATH"
+                ;;
+             "Windows")
+                TLMGR_PATH=$(dirname $(find $APPDATA/TinyTeX -name tlmgr.bat))
+                echo $TLMGR_PATH >> $GITHUB_PATH
+                export PATH="$TLMGR_PATH:$PATH"
+                ;;
+              *)
+                echo "$RUNNER_OS not supported"
+                exit 1
+                ;;
+          esac
+          echo "TinyTeX installed !"
+          tlmgr install haranoaji   # Install haranoaji.sty
+        shell: bash
 
       - name: Render and Publish
         uses: quarto-dev/quarto-actions/publish@v2
