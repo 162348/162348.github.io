@@ -16,15 +16,31 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          tinytex: true  # https://github.com/quarto-dev/quarto-actions/tree/main/setup
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Setting GH_TOKEN is recommended as installing TinyTeX will query the github API.
         
-      - name: Install Japanese fonts
+      - name: 'Install TinyTeX'  # https://github.com/quarto-dev/quarto-actions/tree/main/setup
+        env:
+          QUARTO_PRINT_STACK: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Setting GH_TOKEN is recommended as installing TinyTeX will query the github API.
         run: |
-          brew update
-          brew install --cask font-udev-gothic-nf
+          quarto install tool tinytex --log-level warning
+          case $RUNNER_OS in 
+            "Linux")
+                echo "$HOME/bin" >> $GITHUB_PATH
+                ;;
+              "macOS")
+                echo "$(dirname $(find ~/Library/TinyTeX -name tlmgr))" >> $GITHUB_PATH
+                ;;
+              "Windows")
+                echo "$(dirname $(find $APPDATA/TinyTeX -name tlmgr.bat))" >> $GITHUB_PATH
+                ;;
+              *)
+                echo "$RUNNER_OS not supported"
+                exit 1
+                ;;
+          esac
+          echo "TinyTeX installed !"
+          tlmgr install haranoaji   # Install haranoaji.sty
+        shell: bash
 
       - name: Render and Publish
         uses: quarto-dev/quarto-actions/publish@v2
