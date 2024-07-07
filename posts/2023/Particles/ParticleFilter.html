@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.549">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Hirofumi Shiba">
+<meta name="dcterms.date" content="2023-12-11">
+
+<title>Hirofumi Shiba - 粒子フィルターの実装 | Particles Package</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../styles.css">
+<meta property="og:title" content="Hirofumi Shiba - 粒子フィルターの実装 | Particles Package">
+<meta property="og:description" content="Pythonを用いて粒子フィルターを実装する方法を，Nicolas Chopinによるparticlesパッケージを参考に解説する．">
+<meta property="og:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta property="og:image:height" content="480">
+<meta property="og:image:width" content="672">
+<meta name="twitter:title" content="Hirofumi Shiba - 粒子フィルターの実装 | Particles Package">
+<meta name="twitter:description" content="Pythonを用いて粒子フィルターを実装する方法を，Nicolas Chopinによるparticlesパッケージを参考に解説する．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:image-height" content="480">
+<meta name="twitter:image-width" content="672">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+          <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">粒子フィルターの実装 | Particles Package</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Particles</div>
+                <div class="quarto-category">Python</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Hirofumi Shiba </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">12/11/2023</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      Pythonを用いて粒子フィルターを実装する方法を，Nicolas Chopinによるparticlesパッケージを参考に解説する．
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#リサンプリングの実装" id="toc-リサンプリングの実装" class="nav-link active" data-scroll-target="#リサンプリングの実装"><span class="header-section-number">1</span> リサンプリングの実装</a>
+  <ul class="collapse">
+  <li><a href="#sec-systematic" id="toc-sec-systematic" class="nav-link" data-scroll-target="#sec-systematic"><span class="header-section-number">1.1</span> システマティックリサンプリング</a></li>
+  <li><a href="#荷重を保持するweightsクラス" id="toc-荷重を保持するweightsクラス" class="nav-link" data-scroll-target="#荷重を保持するweightsクラス"><span class="header-section-number">1.2</span> 荷重を保持する<code>Weights</code>クラス</a></li>
+  </ul></li>
+  <li><a href="#粒子の情報保持particlehistoryクラス" id="toc-粒子の情報保持particlehistoryクラス" class="nav-link" data-scroll-target="#粒子の情報保持particlehistoryクラス"><span class="header-section-number">2</span> 粒子の情報保持：<code>ParticleHistory</code>クラス</a>
+  <ul class="collapse">
+  <li><a href="#情報を収集するcollectorクラス" id="toc-情報を収集するcollectorクラス" class="nav-link" data-scroll-target="#情報を収集するcollectorクラス"><span class="header-section-number">2.1</span> 情報を収集する<code>Collector</code>クラス</a></li>
+  <li><a href="#標本統計量を保持するsummariesクラス" id="toc-標本統計量を保持するsummariesクラス" class="nav-link" data-scroll-target="#標本統計量を保持するsummariesクラス"><span class="header-section-number">2.2</span> 標本統計量を保持する<code>Summaries</code>クラス</a></li>
+  <li><a href="#ヒストリを保持するparticlehistoryクラス" id="toc-ヒストリを保持するparticlehistoryクラス" class="nav-link" data-scroll-target="#ヒストリを保持するparticlehistoryクラス"><span class="header-section-number">2.3</span> ヒストリを保持する<code>ParticleHistory</code>クラス</a></li>
+  </ul></li>
+  <li><a href="#sec-SMC" id="toc-sec-SMC" class="nav-link" data-scroll-target="#sec-SMC"><span class="header-section-number">3</span> 実行部分：<code>SMC</code>クラス</a></li>
+  <li><a href="#粒子フィルタの実行東京の年別気温データ" id="toc-粒子フィルタの実行東京の年別気温データ" class="nav-link" data-scroll-target="#粒子フィルタの実行東京の年別気温データ"><span class="header-section-number">4</span> 粒子フィルタの実行：東京の年別気温データ</a>
+  <ul class="collapse">
+  <li><a href="#sec-FeynmanKac" id="toc-sec-FeynmanKac" class="nav-link" data-scroll-target="#sec-FeynmanKac"><span class="header-section-number">4.1</span> Feynman-Kacモデルの枠組み</a></li>
+  <li><a href="#使用するデータ" id="toc-使用するデータ" class="nav-link" data-scroll-target="#使用するデータ"><span class="header-section-number">4.2</span> 使用するデータ</a></li>
+  <li><a href="#気温の1次のトレンドモデル" id="toc-気温の1次のトレンドモデル" class="nav-link" data-scroll-target="#気温の1次のトレンドモデル"><span class="header-section-number">4.3</span> 気温の1次のトレンドモデル</a></li>
+  <li><a href="#rq0.20.1-の場合" id="toc-rq0.20.1-の場合" class="nav-link" data-scroll-target="#rq0.20.1-の場合"><span class="header-section-number">4.4</span> <span class="math inline">\((R,Q)=(0.2,0.1)\)</span> の場合</a></li>
+  <li><a href="#rq0.70.1-の場合" id="toc-rq0.70.1-の場合" class="nav-link" data-scroll-target="#rq0.70.1-の場合"><span class="header-section-number">4.5</span> <span class="math inline">\((R,Q)=(0.7,0.1)\)</span> の場合</a></li>
+  <li><a href="#rq0.20.01-の場合" id="toc-rq0.20.01-の場合" class="nav-link" data-scroll-target="#rq0.20.01-の場合"><span class="header-section-number">4.6</span> <span class="math inline">\((R,Q)=(0.2,0.01)\)</span> の場合</a></li>
+  <li><a href="#rq0.21-の場合" id="toc-rq0.21-の場合" class="nav-link" data-scroll-target="#rq0.21-の場合"><span class="header-section-number">4.7</span> <span class="math inline">\((R,Q)=(0.2,1)\)</span> の場合</a></li>
+  <li><a href="#カルマンフィルタとの比較" id="toc-カルマンフィルタとの比較" class="nav-link" data-scroll-target="#カルマンフィルタとの比較"><span class="header-section-number">4.8</span> カルマンフィルタとの比較</a></li>
+  <li><a href="#カルマン平滑化の結果" id="toc-カルマン平滑化の結果" class="nav-link" data-scroll-target="#カルマン平滑化の結果"><span class="header-section-number">4.9</span> カルマン平滑化の結果</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<p><a href="https://nchopin.github.io/">Nicolas Chopin</a> による逐次モンテカルロ法のための Python パッケージ <a href="https://particles-sequential-monte-carlo-in-python.readthedocs.io/en/latest/index.html"><code>particles</code></a> の実装を参考に，<code>NumPy</code>, <code>SciPy</code> のみを用いて1から粒子フィルターを実装することで，その仕組みを理解することを目指す．</p>
+<section id="リサンプリングの実装" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="リサンプリングの実装"><span class="header-section-number">1</span> リサンプリングの実装</h2>
+<p>まずリサンプリング法を実装する．今回は系統的リサンプリング法 <span class="citation" data-cites="Carpenter+1999">(<a href="#ref-Carpenter+1999" role="doc-biblioref">Carpenter et al., 1999</a>)</span> を用いることとする．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<section id="sec-systematic" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="sec-systematic"><span class="header-section-number">1.1</span> システマティックリサンプリング</h3>
+<p>系統的リサンプリングとは，粒子数 <span class="math inline">\(N\)</span> から <span class="math inline">\(M\)</span> 個のサンプルを復元抽出する方法であって，次の2段階からなる．</p>
+<div class="hidden">
+$$
+<p>%%% 演算子 </p>
+%%% 線型代数学
+<p>%%% 複素解析学 %%% 集合と位相 </p>
+<p>%%% 形式言語理論 %%% Graph Theory </p>
+%%% 多様体 %%% 代数 %%% 代数的位相幾何学 %%% 微分幾何学
+%%% 函数解析
+%%% 積分論
+<p>%%% Fourier解析 %%% 数値解析 </p>
+%%% 確率論
+<p>%%% 情報理論 %%% 量子論 %%% 最適化 %%% 数理ファイナンス </p>
+<p>%%% 偏微分方程式 %%% 常微分方程式 %%% 統計力学 %%% 解析力学 </p>
+%%% 統計的因果推論 %%% 応用統計学 %%% 数理統計
+<p>%%% 計量経済学 </p>
+%%% 無限次元統計模型の理論
+<p>%%% Banach Lattices </p>
+<p>%%% 圏 %代数の圏 %Metric space &amp; Contraction maps %確率空間とMarkov核の圏 %Sober space &amp; continuous map %Category of open subsets %Category of sheave %Category of presheave, PSh(C)=[C^op,set]のこと %Convergence spaceの圏 %一様空間と一様連続写像の圏 %フレームとフレームの射 %その反対圏 %滑らかな多様体の圏 %Quiverの圏 </p>
+%%% SMC
+%%% 括弧類
+<p>%%% 予約語 </p>
+<p>%%% 略記 </p>
+<p>%%% 矢印類 $$</p>
+</div>
+<ol type="1">
+<li>各区間 <span class="math inline">\(\left[\frac{n-1}{M},\frac{n}{M}\right]\subset[0,1]\;(n\in[M])\)</span> での変動の由来をただ一つのサンプル <span class="math inline">\(U\sim\mathrm{U}([0,1])\)</span> から取ってしまい， <span class="math display">\[
+U^{(n)}:=\frac{n-1+U}{N}\quad(n\in[M])
+\]</span> と乱数列を定める．</li>
+<li>正規化荷重 <span class="math inline">\(\{w^{(n)}\}_{n=1}^N\)</span> が定める累積和 <span class="math display">\[
+F(n):=\sum_{i=1}^nw^{(i)}
+\]</span> に対して，この一般化逆関数 <span class="math inline">\(F^-:[0,1]\to[N]\)</span> を通じて，<span class="math inline">\(A^{n}:=F^{-1}(U^{(n)})\;(n\in[M])\)</span> をサンプルとする．</li>
+</ol>
+<p>これにより，粒子の添字の対応 <span class="math inline">\((1,\cdots,N)\mapsto A^{1:M}\)</span> が得られる．</p>
+<div id="1013d6c0" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> numba <span class="im">import</span> jit</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">@jit</span>(nopython<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> inverse_cdf(su, W):</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Inverse CDF algorithm for a finite distribution.</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">    su: (M,) ndarray of sorted uniform variables</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">    W: (N,) ndarray of normalized weights"""</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    j <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> W[<span class="dv">0</span>]</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    M <span class="op">=</span> su.shape[<span class="dv">0</span>]</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    A <span class="op">=</span> np.empty(M, dtype<span class="op">=</span>np.int64)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> n <span class="kw">in</span> <span class="bu">range</span>(M):</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> su[n] <span class="op">&gt;</span> s:</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>            j <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>            s <span class="op">+=</span> W[j]</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        A[n] <span class="op">=</span> j</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> A</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> systematic(W, M):</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Systematic resampling</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co">    W: (N,) ndarray of normalized weights</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co">    M : number of resampled points"""</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    su <span class="op">=</span> (random.rand(<span class="dv">1</span>) <span class="op">+</span> np.arange(M)) <span class="op">/</span> M</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> inverse_cdf(su, W)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="荷重を保持するweightsクラス" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="荷重を保持するweightsクラス"><span class="header-section-number">1.2</span> 荷重を保持する<code>Weights</code>クラス</h3>
+<p>次に，<code>SMC</code> に繋げるために，粒子の荷重を保持するためのクラスを定義する．粒子の荷重は極めて小さくなり得るため，対数によって保持する．このクラス内の属性として，正規化荷重もESSも得られるようにする：</p>
+<ul>
+<li><code>lw</code>：正規化されていない荷重を対数で保持</li>
+<li><code>w</code>：正規化された荷重</li>
+<li><code>ESS</code>：有効サンプル数<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
+</ul>
+<p>これらの属性を <code>__init__(lw)</code> 内で計算する．加えて <code>add(delta)</code> メソッドで，incremental weightsを乗じるルーチンを用意する．</p>
+<div id="d908e5d6" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Weights:</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""A class to hold the N weights of the particles"""</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, lw<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.lw <span class="op">=</span> lw  <span class="co"># t=0で呼ばれた際はNoneである</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> lw <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.lw[np.isnan(<span class="va">self</span>.lw)] <span class="op">=</span> <span class="op">-</span>np.inf  <span class="co"># 欠損値処理</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            m <span class="op">=</span> <span class="va">self</span>.lw.<span class="bu">max</span>()</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            w <span class="op">=</span> np.exp(<span class="va">self</span>.lw <span class="op">-</span> m)  <span class="co"># 大きすぎる値にならないように</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>            s <span class="op">=</span> w.<span class="bu">sum</span>()</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.W <span class="op">=</span> w <span class="op">/</span> s  <span class="co"># 正規化荷重</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.ESS <span class="op">=</span> <span class="fl">1.0</span> <span class="op">/</span> np.<span class="bu">sum</span>(<span class="va">self</span>.W <span class="op">**</span> <span class="dv">2</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.log_mean <span class="op">=</span> m <span class="op">+</span> np.log(s <span class="op">/</span> <span class="va">self</span>.N)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">@property</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> N(<span class="va">self</span>):</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Number of particles"""</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span> <span class="cf">if</span> <span class="va">self</span>.lw <span class="kw">is</span> <span class="va">None</span> <span class="cf">else</span> <span class="va">self</span>.lw.shape[<span class="dv">0</span>]</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> add(<span class="va">self</span>, delta):</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Add increment weights delta to the log weights"""</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.lw <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="va">self</span>.__class__(lw<span class="op">=</span>delta)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="va">self</span>.__class__(lw<span class="op">=</span><span class="va">self</span>.lw <span class="op">+</span> delta)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>初期化は <span class="math display">\[
+W^i=\frac{e^{\log w^i-m}}{\sum_{j=1}^Ne^{\log w^j-m}}
+\]</span> <span class="math display">\[
+m:=\log\left(\max_{i\in[N]}w^i\right)
+\]</span> に基づいて計算されている．<code>log_mean</code> は <span class="math display">\[
+\begin{align*}
+    &amp;\log\left(\max_{i\in[N]}w^i\right)+\log\left(\frac{\sum_{j=1}^Ne^{\log w^j-m}}{N}\right)\\
+    &amp;=\log\left(\frac{1}{N}\sum_{j=1}^Nw^j\right)
+\end{align*}
+\]</span> という値である．</p>
+</section>
+</section>
+<section id="粒子の情報保持particlehistoryクラス" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="粒子の情報保持particlehistoryクラス"><span class="header-section-number">2</span> 粒子の情報保持：<code>ParticleHistory</code>クラス</h2>
+<section id="情報を収集するcollectorクラス" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="情報を収集するcollectorクラス"><span class="header-section-number">2.1</span> 情報を収集する<code>Collector</code>クラス</h3>
+<p>SMCの結果をプロットするために，各時間で粒子の標本統計量を <code>SMC</code> クラス（ <a href="#sec-SMC" class="quarto-xref">節&nbsp;3</a> ）から適宜抜き出して保存しておくためのクラス <code>Summaries</code> を作成する．抜き出すためのメソッドを <code>Collector</code> クラスの継承クラスとして定義する．</p>
+<div id="2432fb9d" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Collector:</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Base class for collectors"""</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, <span class="op">**</span>kwargs):</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.summary <span class="op">=</span> []</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> collect(<span class="va">self</span>, smc):</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.summary.append(<span class="va">self</span>.fetch(smc))</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ESSs(Collector):</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    summary_name <span class="op">=</span> <span class="st">"ESSs"</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fetch(<span class="va">self</span>, smc):</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> smc.wgts.ESS</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LogLts(Collector):</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    summary_name <span class="op">=</span> <span class="st">"LogLts"</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fetch(<span class="va">self</span>, smc):</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> smc.logLt</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Rs_flags(Collector):</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    summary_name <span class="op">=</span> <span class="st">"Rs_flags"</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fetch(<span class="va">self</span>, smc):</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> smc.rs_flag</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Moments(Collector):</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Collects empirical moments of the particles"""</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    summary_name <span class="op">=</span> <span class="st">"Moments"</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fetch(<span class="va">self</span>, smc):</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>        m <span class="op">=</span> np.average(smc.X, weights<span class="op">=</span>smc.wgts.W, axis<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        m2 <span class="op">=</span> np.average(smc.X <span class="op">**</span> <span class="dv">2</span>, weights<span class="op">=</span>smc.wgts.W, axis<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> m2 <span class="op">-</span> m <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {<span class="st">"mean"</span>: m, <span class="st">"var"</span>: v}</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>default_collector_cls <span class="op">=</span> [ESSs, LogLts, Rs_flags]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="標本統計量を保持するsummariesクラス" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="標本統計量を保持するsummariesクラス"><span class="header-section-number">2.2</span> 標本統計量を保持する<code>Summaries</code>クラス</h3>
+<p>このクラスはデフォルトで用意されている <code>default_collector_cls</code> に加えて，<code>cols</code>引数で指定されたメソッドを追加し，<code>collect()</code> メソッドが呼ばれるとこれらを集めて属性として保持する．</p>
+<div id="c2aa3afa" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Summaries:</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""A class to hold the summaries of the SMC algorithm"""</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, cols):</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._collectors <span class="op">=</span> [cls() <span class="cf">for</span> cls <span class="kw">in</span> default_collector_cls]</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> cols <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>._collectors.extend(col() <span class="cf">for</span> col <span class="kw">in</span> cols)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> col <span class="kw">in</span> <span class="va">self</span>._collectors:</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>            <span class="bu">setattr</span>(<span class="va">self</span>, col.summary_name, col.summary)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> collect(<span class="va">self</span>, smc):</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> col <span class="kw">in</span> <span class="va">self</span>._collectors:</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            col.collect(smc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="ヒストリを保持するparticlehistoryクラス" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="ヒストリを保持するparticlehistoryクラス"><span class="header-section-number">2.3</span> ヒストリを保持する<code>ParticleHistory</code>クラス</h3>
+<p><a href="https://docs.python.org/ja/3/library/collections.html#collections.deque"><code>deque</code>オブジェクト</a> としてヒストリを格納するためのクラス<code>ParticleHistory</code>実装する．これにより直前 <span class="math inline">\(k\)</span> ステップの情報だけを保持出来るように作れるが，今回はプロットのために全履歴を保持する．</p>
+<div id="ebf391be" class="cell" data-execution_count="5">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ParticleHistory:</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""History of the particles</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Full history that keeps all the particle systems based on lists.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, fk):</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.X, <span class="va">self</span>.A, <span class="va">self</span>.wgts <span class="op">=</span> [], [], []</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.fk <span class="op">=</span> fk</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> save(<span class="va">self</span>, smc):</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.X.append(smc.X)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.A.append(smc.A)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.wgts.append(smc.wgts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="010bf19b" class="cell" data-execution_count="6">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> generate_hist_obj(option, smc):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> option <span class="kw">is</span> <span class="va">True</span>:</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> ParticleHistory(smc.fk)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+<section id="sec-SMC" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-SMC"><span class="header-section-number">3</span> 実行部分：<code>SMC</code>クラス</h2>
+<p>このクラスがやるべきことは多い．Feynman-Kacモデル <code>fk</code>（ <a href="#sec-FeynmanKac" class="quarto-xref">節&nbsp;4.1</a> で後述），粒子数 <code>N</code>，リサンプリング法 <code>resampling</code> を引数に取り，粒子フィルターを実行する．</p>
+<p>最も大事なこととして，本クラスはイテレータとして定義し，<code>__next__</code> メソッドを実装する．そして <code>run()</code> メソッドで <code>__next__</code> を終了するまで繰り返し呼び出すことでイテレータプロトコルを実行する．</p>
+<p><code>__next__</code>メソッドでは，次のような処理を行う：</p>
+<ol type="1">
+<li>終了フラッグ <code>fk.done(self)</code> が立っているかどうかを確認する．</li>
+<li><span class="math inline">\(t=0\)</span> の場合，最初の粒子を初期分布 <span class="math inline">\(M_0\)</span> から <span class="math inline">\(N\)</span> 個サンプリングする．</li>
+<li><span class="math inline">\(t&gt;0\)</span> の場合は，リサンプリングと粒子移動を行う．これは <code>resample_move()</code> メソッドで行う．
+<ol type="1">
+<li>リサンプリングフラッグ <code>fk.time_to_resample(self)</code> が立っている場合にリサンプリングを <code>systematic</code> メソッド（ <a href="#sec-systematic" class="quarto-xref">節&nbsp;1.1</a> ）により行う．これにより，移動（変異）する粒子 <span class="math inline">\(A^{1:N}_t\)</span> を確定させる．</li>
+<li>確率核 <span class="math inline">\(M_t(X_{t-1}^{A_t^{1:N}},-)\)</span> に従って，粒子 <span class="math inline">\(X_t^{1:N}\)</span> をサンプリングする．</li>
+</ol></li>
+<li>粒子の荷重を更新する．これは <code>reweight_particles()</code> メソッドで行う．</li>
+<li><code>compute_summaries</code>メソッドを呼び出して，粒子の標本統計量を <code>Summaries</code> クラスに，ヒストリを <code>Particle History</code> クラスに追記する．</li>
+<li>時刻 <span class="math inline">\(t\)</span> を進めて 3.に戻る．</li>
+</ol>
+<div id="afbc9c16" class="cell" data-execution_count="7">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SMC:</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Metaclass for SMC algorithms"""</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        fk<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        N<span class="op">=</span><span class="dv">100</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        resampling<span class="op">=</span><span class="st">"systematic"</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        ESSrmin<span class="op">=</span><span class="fl">0.5</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        store_history<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        collect<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    ):</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.fk <span class="op">=</span> fk</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.N <span class="op">=</span> N</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.resampling <span class="op">=</span> resampling</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ESSrmin <span class="op">=</span> ESSrmin</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="co"># initialisation</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.t <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.rs_flag <span class="op">=</span> <span class="va">False</span>  <span class="co"># no resampling at time 0, by construction</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.logLt <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.wgts <span class="op">=</span> Weights()</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.X, <span class="va">self</span>.Xp, <span class="va">self</span>.A <span class="op">=</span> <span class="va">None</span>, <span class="va">None</span>, <span class="va">None</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.summaries <span class="op">=</span> Summaries(collect)</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.hist <span class="op">=</span> generate_hist_obj(store_history, <span class="va">self</span>)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> generate_particles(<span class="va">self</span>):</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Generate particles at time t=0"""</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.X <span class="op">=</span> <span class="va">self</span>.fk.M0(<span class="va">self</span>.N)</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reset_weights(<span class="va">self</span>):</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Reset weights to uniform after a resamping step"""</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.wgts <span class="op">=</span> Weights()</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> resample_move(<span class="va">self</span>):</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Adaptively resample and move particles at time t"""</span></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.rs_flag <span class="op">=</span> <span class="va">self</span>.fk.time_to_resample(<span class="va">self</span>)</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.rs_flag:</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.A  <span class="op">=</span> systematic(<span class="va">self</span>.wgts.W, M<span class="op">=</span><span class="va">self</span>.N)</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.Xp <span class="op">=</span> <span class="va">self</span>.X[<span class="va">self</span>.A]</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.reset_weights()</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.A <span class="op">=</span> np.arange(<span class="va">self</span>.N)</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.Xp <span class="op">=</span> <span class="va">self</span>.X</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.X <span class="op">=</span> <span class="va">self</span>.fk.M(<span class="va">self</span>.t, <span class="va">self</span>.Xp)</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reweight_particles(<span class="va">self</span>):</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Reweight particles at time t"""</span></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.wgts <span class="op">=</span> <span class="va">self</span>.wgts.add(<span class="va">self</span>.fk.logG(<span class="va">self</span>.t, <span class="va">self</span>.Xp, <span class="va">self</span>.X))</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> compute_summaries(<span class="va">self</span>):</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Compute summaries at time t"""</span></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.t <span class="op">&gt;</span> <span class="dv">0</span>:  <span class="co"># なぜかこれを前におかないとUnboundLocalErrorが出る</span></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>            prec_log_mean_w <span class="op">=</span> <span class="va">self</span>.log_mean_w</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.log_mean_w <span class="op">=</span> <span class="va">self</span>.wgts.log_mean</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.t <span class="op">==</span> <span class="dv">0</span> <span class="kw">or</span> <span class="va">self</span>.rs_flag:</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.loglt <span class="op">=</span> <span class="va">self</span>.log_mean_w</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.loglt <span class="op">=</span> <span class="va">self</span>.log_mean_w <span class="op">-</span> prec_log_mean_w</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.logLt <span class="op">+=</span> <span class="va">self</span>.loglt</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.hist.save(<span class="va">self</span>)</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.summaries.collect(<span class="va">self</span>)</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__next__</span>(<span class="va">self</span>):</span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""One step of the SMC algorithm"""</span></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.fk.done(<span class="va">self</span>):</span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">StopIteration</span></span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.t <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.generate_particles()</span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.resample_move()</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.reweight_particles()</span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.compute_summaries()</span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.t <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__iter__</span>(<span class="va">self</span>):</span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span></span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> run(<span class="va">self</span>):</span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Run the SMC algorithm until completion"""</span></span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _ <span class="kw">in</span> <span class="va">self</span>:</span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a>            <span class="cf">pass</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="粒子フィルタの実行東京の年別気温データ" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="粒子フィルタの実行東京の年別気温データ"><span class="header-section-number">4</span> 粒子フィルタの実行：東京の年別気温データ</h2>
+<section id="sec-FeynmanKac" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="sec-FeynmanKac"><span class="header-section-number">4.1</span> Feynman-Kacモデルの枠組み</h3>
+<p><code>particle</code> パッケージの抽象クラス <code>FeynmanKac</code> は次のメソッドを持つ．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<ul>
+<li><code>M0(N)</code>: 初期分布 <span class="math inline">\(M_0\)</span> から <span class="math inline">\(N\)</span> 個のサンプルを生成する．</li>
+<li><code>M(t, xp)</code>: カーネル <span class="math inline">\(M_t(x_{t-1}|-)\)</span> から <span class="math inline">\(X_t\)</span> をサイズ <code>xp.shape[0]</code> で生成する．</li>
+<li><code>logG(t, xp, x)</code>: ポテンシャル <span class="math inline">\(G_t(x_{t-1},x_t)\)</span> の対数を返す．</li>
+</ul>
+<p>加えて，粒子フィルターの実行時に必要なフラグも用意する．</p>
+<ul>
+<li><code>time_to_resample(smc)</code>: <code>smc</code> オブジェクトを引数に取り，その属性 <code>smc.aux.ESS</code>, <code>smc.ESSrmin</code> からリサンプリングが必要かどうかを判定する．</li>
+<li><code>done(smc)</code>: <code>smc</code> オブジェクトを引数に取り，その属性 <code>smc.t</code>, <code>smc.T</code> からアルゴリズムを終了すべきかどうかを判定する．</li>
+</ul>
+<p><code>particle</code> パッケージを使うときは <code>FeynmanKac</code> クラスを継承して用いることになるが，ここでは自分で定義していく．</p>
+</section>
+<section id="使用するデータ" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="使用するデータ"><span class="header-section-number">4.2</span> 使用するデータ</h3>
+<p>気象庁が <a href="https://www.data.jma.go.jp/obd/stats/etrn/view/annually_s.php?prec_no=44&amp;block_no=47662&amp;year=&amp;month=&amp;day=&amp;view=">HP</a> にて公開している1876年から2022年までの計147年分の東京の年別気温データを用いる．</p>
+<div id="4168756a" class="cell" data-execution_count="8">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> pd.read_csv(<span class="st">"TemperatureDataAtTokyo.csv"</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(data.describe())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>                年度         日平均         日最高        日最低          最高          最低
+count   147.000000  147.000000  147.000000  147.00000  147.000000  147.000000
+mean   1949.000000   14.963946   19.337415   11.12517   35.098639   -4.317687
+std      42.579338    1.132396    0.875794    1.46614    1.674956    2.439366
+min    1876.000000   12.900000   17.500000    8.30000   31.600000   -9.200000
+25%    1912.500000   14.000000   18.700000    9.90000   34.000000   -6.150000
+50%    1949.000000   14.800000   19.300000   10.80000   34.900000   -4.700000
+75%    1985.500000   15.800000   19.900000   12.30000   36.200000   -2.250000
+max    2022.000000   17.300000   21.300000   13.90000   39.500000    0.900000</code></pre>
+</div>
+</div>
+<div id="13c28cc3" class="cell" data-execution_count="9">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"temperature in Tokyo"</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Year"</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Temperature (Celsius)"</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>plt.scatter(data[<span class="st">'年度'</span>], data[<span class="st">'日平均'</span>], s<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-10-output-1.png" width="324" height="302" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="気温の1次のトレンドモデル" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="気温の1次のトレンドモデル"><span class="header-section-number">4.3</span> 気温の1次のトレンドモデル</h3>
+<p>気温の観測値 <span class="math inline">\(\{y_k\}\)</span> に対して，1次元の線型Gauss状態空間モデル <span id="eq-SSM"><span class="math display">\[
+\begin{cases}
+x_k=x_{k-1}+v_k,\\
+y_k=x_k+w_k.
+\end{cases}
+\tag{1}\]</span></span> <span class="math display">\[
+v_k\overset{\text{iid}}{\sim}\mathrm{N}(0,Q^2),\quad w_k\overset{\text{iid}}{\sim}\mathrm{N}(0,R^2),
+\]</span> を想定する．このモデルを1次のトレンドモデルという <span class="citation" data-cites="北川2005-時系列解析入門">(<a href="#ref-北川2005-時系列解析入門" role="doc-biblioref">北川, 2005, p. 第11章</a>)</span>．</p>
+<p>これを<code>SMC</code>メソッド（ <a href="#sec-SMC" class="quarto-xref">節&nbsp;3</a> ）に渡せるように実装するには次のようにする：</p>
+<div id="2cb4465d" class="cell" data-execution_count="10">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> numpy <span class="im">import</span> random</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy <span class="im">import</span> stats</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Bootstrap:</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Abstract base class for Feynman-Kac models derived from State Space Model (1).</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, data, T, R, Q):</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.data <span class="op">=</span> data</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.T <span class="op">=</span> T</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.R <span class="op">=</span> R</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.Q <span class="op">=</span> Q</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> M0(<span class="va">self</span>, N):</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Sample N times from initial distribution M0 of the FK model"""</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> random.normal(loc<span class="op">=</span><span class="fl">13.6</span>, scale<span class="op">=</span><span class="va">self</span>.Q, size<span class="op">=</span>N)</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> M(<span class="va">self</span>, t, xp):  <span class="co"># xp: resampled previous state</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Sample Xt from kernel Mt conditioned on Xt-1=xp"""</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> random.normal(loc<span class="op">=</span>xp, scale<span class="op">=</span><span class="va">self</span>.Q, size<span class="op">=</span>xp.shape[<span class="dv">0</span>])</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> logG(<span class="va">self</span>, t, xp, x):  <span class="co"># x: current state</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Evaluate the log potential Gt(xt-1,xt)"""</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> stats.norm.logpdf(<span class="va">self</span>.data[t], loc<span class="op">=</span>x, scale<span class="op">=</span><span class="va">self</span>.R)</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> time_to_resample(<span class="va">self</span>, smc):</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Return True if resampling is needed"""</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> smc.wgts.ESS <span class="op">&lt;</span> smc.N <span class="op">*</span> smc.ESSrmin</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> done(<span class="va">self</span>, smc):</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Return True if the algorithm is done"""</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> smc.t <span class="op">&gt;=</span> <span class="va">self</span>.T</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="rq0.20.1-の場合" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="rq0.20.1-の場合"><span class="header-section-number">4.4</span> <span class="math inline">\((R,Q)=(0.2,0.1)\)</span> の場合</h3>
+<p>仮に <span class="math inline">\((R,Q)=(0.2,0.1)\)</span> としてみる．すなわち，システムノイズ <span class="math inline">\(Q^2=0.1\)</span> が小さく，観測ノイズ <span class="math inline">\(R^2=0.4\)</span> はそれよりは大きいとしている．</p>
+<div id="fdd09637" class="cell" data-execution_count="11">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model1 <span class="op">=</span> Bootstrap(data<span class="op">=</span>data[<span class="st">'日平均'</span>], T<span class="op">=</span>data.shape[<span class="dv">0</span>], R<span class="op">=</span><span class="fl">0.2</span>, Q<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>PF1 <span class="op">=</span> SMC(fk<span class="op">=</span>model1, N<span class="op">=</span><span class="dv">1000</span>, resampling<span class="op">=</span><span class="st">"systematic"</span>, ESSrmin<span class="op">=</span><span class="fl">0.5</span>, collect<span class="op">=</span>[Moments], store_history<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>PF1.run()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="cell-fig-2-1" class="cell" data-execution_count="12">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>plt.plot([m[<span class="st">'mean'</span>] <span class="cf">for</span> m <span class="kw">in</span> PF1.summaries.Moments], label<span class="op">=</span><span class="st">'filtered temperature trend'</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-2-1" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-2-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="ParticleFilter_files/figure-html/fig-2-1-output-1.png" width="313" height="263" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-2-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1: (R,Q)=(0.2,0.1) の場合の粒子フィルターの実行結果
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>少し揺らぎながらも，トレンドとして気温が上昇していく様子が見られる．</p>
+</section>
+<section id="rq0.70.1-の場合" class="level3" data-number="4.5">
+<h3 data-number="4.5" class="anchored" data-anchor-id="rq0.70.1-の場合"><span class="header-section-number">4.5</span> <span class="math inline">\((R,Q)=(0.7,0.1)\)</span> の場合</h3>
+<p>濾波して得たトレンドの揺らぎが少し大きいと思われたため，観測誤差はもう少し大きいものとして <span class="math inline">\((R,Q)=(0.7,0.1)\)</span> としてみる．</p>
+<div id="0a354c1c" class="cell" data-execution_count="13">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>model4 <span class="op">=</span> Bootstrap(data<span class="op">=</span>data[<span class="st">'日平均'</span>], T<span class="op">=</span>data.shape[<span class="dv">0</span>], R<span class="op">=</span><span class="fl">0.7</span>, Q<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>PF4 <span class="op">=</span> SMC(fk<span class="op">=</span>model4, N<span class="op">=</span><span class="dv">1000</span>, resampling<span class="op">=</span><span class="st">"systematic"</span>, ESSrmin<span class="op">=</span><span class="fl">0.5</span>, collect<span class="op">=</span>[Moments], store_history<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>PF4.run()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="553cfbb4" class="cell" data-execution_count="14">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>plt.plot([m[<span class="st">'mean'</span>] <span class="cf">for</span> m <span class="kw">in</span> PF4.summaries.Moments], label<span class="op">=</span><span class="st">'filtered temperature trend'</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-15-output-1.png" width="313" height="263" class="figure-img"></p>
+<figcaption>(R,Q)=(0.7,0.1) の場合の粒子フィルターの実行結果</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>こうしてトレンドとして少しばかり直線的なものが得られた．やはり上昇トレンドが見られる．</p>
+</section>
+<section id="rq0.20.01-の場合" class="level3" data-number="4.6">
+<h3 data-number="4.6" class="anchored" data-anchor-id="rq0.20.01-の場合"><span class="header-section-number">4.6</span> <span class="math inline">\((R,Q)=(0.2,0.01)\)</span> の場合</h3>
+<p><span class="math inline">\(Q^2=10^{-4}\)</span> としてシステムノイズは極めて小さいと想定してみる．「トレンドは殆ど変化しない」という仮定を置いたことになる．</p>
+<div id="b0fea3ea" class="cell" data-execution_count="15">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>model2 <span class="op">=</span> Bootstrap(data<span class="op">=</span>data[<span class="st">'日平均'</span>], T<span class="op">=</span>data.shape[<span class="dv">0</span>], R<span class="op">=</span><span class="fl">0.2</span>, Q<span class="op">=</span><span class="fl">0.01</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>PF2 <span class="op">=</span> SMC(fk<span class="op">=</span>model2, N<span class="op">=</span><span class="dv">1000</span>, resampling<span class="op">=</span><span class="st">"systematic"</span>, ESSrmin<span class="op">=</span><span class="fl">0.5</span>, collect<span class="op">=</span>[Moments], store_history<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>PF2.run()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="bc3dd1b0" class="cell" data-execution_count="16">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>plt.plot([m[<span class="st">'mean'</span>] <span class="cf">for</span> m <span class="kw">in</span> PF2.summaries.Moments], label<span class="op">=</span><span class="st">'filtered temperature trend'</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-17-output-1.png" width="313" height="263" class="figure-img"></p>
+<figcaption>(R,Q)=(0.2,0.01) の場合の粒子フィルターの実行結果</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>あまり良い当てはまりを見せないため，この気温の時系列を全てが観測誤差によるものだと理解するのは妥当ではないと考えられる．</p>
+</section>
+<section id="rq0.21-の場合" class="level3" data-number="4.7">
+<h3 data-number="4.7" class="anchored" data-anchor-id="rq0.21-の場合"><span class="header-section-number">4.7</span> <span class="math inline">\((R,Q)=(0.2,1)\)</span> の場合</h3>
+<p>逆にシステムノイズを極めて大きい値 <span class="math inline">\(Q^2=1\)</span> と設定する．トレンドは年別の揺らぎが大きいと想定したことになる．</p>
+<div id="01b3b12e" class="cell" data-execution_count="17">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>model3 <span class="op">=</span> Bootstrap(data<span class="op">=</span>data[<span class="st">'日平均'</span>], T<span class="op">=</span>data.shape[<span class="dv">0</span>], R<span class="op">=</span><span class="fl">0.2</span>, Q<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>PF3 <span class="op">=</span> SMC(fk<span class="op">=</span>model3, N<span class="op">=</span><span class="dv">1000</span>, resampling<span class="op">=</span><span class="st">"systematic"</span>, ESSrmin<span class="op">=</span><span class="fl">0.5</span>, collect<span class="op">=</span>[Moments], store_history<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>PF3.run()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="809903a0" class="cell" data-execution_count="18">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>plt.plot([m[<span class="st">'mean'</span>] <span class="cf">for</span> m <span class="kw">in</span> PF3.summaries.Moments], label<span class="op">=</span><span class="st">'filtered temperature trend'</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-19-output-1.png" width="313" height="263" class="figure-img"></p>
+<figcaption>(R,Q)=(0.2,1) の場合の粒子フィルターの実行結果</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>とんでもない過適応を見せて，全てをトレンドとして説明してしまっており，これもまた妥当ではないと考えられる．</p>
+</section>
+<section id="カルマンフィルタとの比較" class="level3" data-number="4.8">
+<h3 data-number="4.8" class="anchored" data-anchor-id="カルマンフィルタとの比較"><span class="header-section-number">4.8</span> カルマンフィルタとの比較</h3>
+<p>線型Gaussモデルを想定しているため，粒子フィルターは <span class="math inline">\(N\to\infty\)</span> の極限で最適フィルターであるカルマンフィルターに一致するはずである．そこで，<code>pykalman</code> パッケージを用いてこれを実装する．<span class="math inline">\((R,Q)=(0.2,0.1)\)</span> とする．</p>
+<div id="9d7008cf" class="cell" data-execution_count="19">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pykalman <span class="im">import</span> KalmanFilter</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>KF1 <span class="op">=</span> KalmanFilter(initial_state_mean<span class="op">=</span><span class="fl">13.6</span>, initial_state_covariance<span class="op">=</span><span class="fl">0.1</span>,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>                   transition_matrices<span class="op">=</span><span class="dv">1</span>, observation_matrices<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>                   transition_covariance<span class="op">=</span><span class="fl">0.1</span>, observation_covariance<span class="op">=</span><span class="fl">0.2</span>, n_dim_state<span class="op">=</span><span class="dv">1</span>, n_dim_obs<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>KF1 <span class="op">=</span> KF1.em(data[<span class="st">'日平均'</span>], n_iter<span class="op">=</span><span class="dv">5</span>)  <span class="co"># EMアルゴリズムの過適応回避のため</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>(filtered_state_means, filtered_state_covariances) <span class="op">=</span> KF1.<span class="bu">filter</span>(data[<span class="st">'日平均'</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="75cd8fa1" class="cell" data-execution_count="20">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>plt.plot(filtered_state_means, label<span class="op">=</span><span class="st">'filtered temperature trend'</span>)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-21-output-1.png" width="313" height="263" class="figure-img"></p>
+<figcaption>(R,Q)=(0.2,0.1) の場合のKalmanフィルターの実行結果</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>たしかに <a href="#fig-2-1" class="quarto-xref">図&nbsp;1</a> と極めて似通った結果になっている．</p>
+</section>
+<section id="カルマン平滑化の結果" class="level3" data-number="4.9">
+<h3 data-number="4.9" class="anchored" data-anchor-id="カルマン平滑化の結果"><span class="header-section-number">4.9</span> カルマン平滑化の結果</h3>
+<div id="c111dbd4" class="cell" data-execution_count="21">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>(smoothed_state_means, smoothed_state_covariances) <span class="op">=</span> KF1.smooth(data[<span class="st">'日平均'</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="d10d20c4" class="cell" data-execution_count="22">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>plt.plot(data[<span class="st">'日平均'</span>], label<span class="op">=</span><span class="st">'data'</span>, linestyle<span class="op">=</span><span class="st">''</span>, marker<span class="op">=</span><span class="st">'.'</span>)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>plt.plot(smoothed_state_means, label<span class="op">=</span><span class="st">'smoothed temperature trend'</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="ParticleFilter_files/figure-html/cell-23-output-1.png" width="313" height="263" class="figure-img"></p>
+<figcaption>(R,Q)=(0.2,0.1) の場合のKalman平滑化の実行結果</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>より滑らかなトレンドが得られている．</p>
+
+
+
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-Carpenter+1999" class="csl-entry" role="listitem">
+Carpenter, J., Clifford, P., &amp; Fearnhead, P. (1999). Improved particle filter for nonlinear problems. <em>IEE Proceedings - Rader, Sonar and Navigation</em>, <em>146</em>(1), 2–7. <a href="https://digital-library.theiet.org/content/journals/10.1049/ip-rsn_19990255">https://digital-library.theiet.org/content/journals/10.1049/ip-rsn_19990255</a>
+</div>
+<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
+Chopin, N., &amp; Papaspiliopoulos, O. (2020). <em>An introduction to sequential monte carlo</em>. Springer Cham. <a href="https://link.springer.com/book/10.1007/978-3-030-47845-2">https://link.springer.com/book/10.1007/978-3-030-47845-2</a>
+</div>
+<div id="ref-Kitagawa1996" class="csl-entry" role="listitem">
+Kitagawa, G. (1996). Monte carlo filter and smoother for non-gaussian nonlinear state space models. <em>Journal of Computational and Graphical Statistics</em>, <em>5</em>(1), 1–25. <a href="https://www.jstor.org/stable/1390750">https://www.jstor.org/stable/1390750</a>
+</div>
+<div id="ref-北川2005-時系列解析入門" class="csl-entry" role="listitem">
+北川. (2005). <em>時系列解析入門</em>. 岩波書店.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>実はこのリサンプリング法は <span class="citation" data-cites="Kitagawa1996">(<a href="#ref-Kitagawa1996" role="doc-biblioref">Kitagawa, 1996</a>)</span> の付録で原型が（全く決定論的なアルゴリズムとして）提案されている<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>有効サンプル数の定義については <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020</a>)</span> 参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>Feynman-Kacモデルなどの用語については <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin &amp; Papaspiliopoulos, 2020</a>)</span> 参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
