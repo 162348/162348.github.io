@@ -24,7 +24,7 @@ PDMP については次の記事も参照：
 <div class="article-card-container">
     <div class="article-card">
         <a href="https://162348.github.io/posts/2024/Process/PureJump.html" target="_blank">
-            <img src="https://162348.github.io/posts/2024/Julia/MCMCChains.svg" alt="Article Image" class="article-image">
+            <img src="https://162348.github.io/posts/2024/Process/PureJump.png" alt="Article Image" class="article-image">
             <div class="article-content">
                 <h3 class="article-title">純粋跳躍過程の生成作用素と区分的確定的 Markov 過程</h3>
                 <p class="article-description">ジャンプと確定的な動きによる新たな MCMC 手法</p>
@@ -40,7 +40,7 @@ Julia の MCMC パッケージ一般については次の稿を参照：
 <div class="article-card-container">
     <div class="article-card">
         <a href="https://162348.github.io/posts/2024/Julia/MCMCwithJulia.html" target="_blank">
-            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <img src="https://162348.github.io/posts/2024/Julia/MCMCChains.svg" alt="Article Image" class="article-image">
             <div class="article-content">
                 <h3 class="article-title">Julia による MCMC サンプリング</h3>
                 <p class="article-description">新時代の確率的プログラミング環境の構築に向けて</p>
@@ -230,27 +230,34 @@ function plot_2dtraj(traj; title="ZigZag Sampler", save=false, savetitle="ZigZag
     
 end
 
-function plot_1dtraj(traj; title="ZigZag Sampler", markersize=2, save=false, savetitle="ZigZag_1D")
+function plot_1dtraj(traj; title="ZigZag Sampler", markersize=2, save=false, label="ZigZag_1D", ylim=nothing)
     times = [t for (t, state) in traj]
     positions = [state[1] for (t, state) in traj]
 
     # 軌跡のプロット
-    p = plot(times, positions,
-             label="ZigZag trajectory",
-             title=title,
-             xlabel="t",
-             ylabel="X",
-             linewidth=2,
-             marker=:circle,
-             markersize=markersize,
-             markeralpha=0.6,
-             color="#80c4ac")
+    plot_args = (
+    label=label,
+    title=title,
+    xlabel="t",
+    ylabel="X",
+    linewidth=2,
+    marker=:circle,
+    markersize=markersize,
+    markeralpha=0.6,
+    color="#80c4ac"
+    )
+
+    if ylim !== nothing
+        plot_args = merge(plot_args, (ylim=ylim,))
+    end
+
+    p = plot(times, positions; plot_args...)
 
     # プロットを表示
     display(p)
 
     if save
-        savefig(p, savetitle * ".svg")
+        savefig(p, label * ".svg")
     end
 end
 ```
@@ -359,7 +366,7 @@ traj = [(x[1], x[2]) for x in trace]
 
 # サンプルの表示
 
-plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0)
+plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="ZigZag_1D")
 ```
 
 MALA と比較すると，その再帰の速さが歴然としている：^[[@Bierkens+2019] にある提示の仕方である．Zig-Zag の 2000 単位時間を単純に MALA と比較はできないと筆者も考えるが，ダイナミクスに注目していただきたい．実際，自分で実装してみると，シード値をいじらないと，Zig-Zag は必ずしも 500 単位時間前後でモード $0$ に戻るわけではない．]
@@ -394,7 +401,7 @@ initial_θ = [500.0]
 model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensityCauchy(0.0, 1.0))
 
 # Set up the sampler with a multivariate Gaussian proposal.
-σ² = 30
+σ² = 100
 spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
 
 # Sample from the posterior.
@@ -403,7 +410,7 @@ chain = sample(model_with_ad, spl, 2000; initial_params=initial_θ, chain_type=S
 # plot
 θ_vector = chain.θ
 sample_values = zip(1:length(θ_vector), θ_vector)
-plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0)
+plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="MALA_1D")
 ```
 
 ２つを並べて比較すると，Langevin ダイナミクスの方は，少し diffusive な動き（random walk property と呼ばれる）が見られることがわかる．
