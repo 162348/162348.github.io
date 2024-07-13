@@ -3,7 +3,7 @@ title: "大規模な不均衡データに対するロジスティック回帰"
 subtitle: "離散時間 MCMC から連続時間 MCMC へ"
 author: "司馬 博文"
 date: 7/12/2024
-date-modified: 7/12/2024
+date-modified: 7/13/2024
 categories: [Bayesian, Computation, Python, MCMC]
 bibliography: 
     - ../../../mathematics.bib
@@ -60,7 +60,7 @@ $$
 
 > We have found that this behavior occurs routinely, essentially regardless of the type and complexity of the statistical model, if the data are large and imbalanced. [@Johndrow+2019 p.1395]
 
-### 実験：不均衡データでの性能比較
+### 実験：不均衡データでの収束鈍化
 
 ここでは問題を簡単にし，カテゴリーが２つの場合，即ち２値のスパースデータ $y^i\in2=\{0,1\}$ の場合を考える．
 
@@ -72,11 +72,185 @@ $$
 $$
 p=1,\qquad X=1,\qquad p_0(\xi)d\xi=\rN(a,B),
 $$
-とした，切片項のみでの回帰分析の場合を考える．
+とした，説明変数なしの切片項のみでの回帰分析の場合を考える．この場合，ポテンシャルは次のように表される：
+$$
+-U(\xi)=\xi\sum_{i=1}^ny^i-n\log(1+e^{\xi})-\frac{(\xi-a)^2}{2B}-\frac{1}{2}\log2\pi B.
+$$
 
-ここでは $(a,B)=(0,100)$ として実験するが，[@Johndrow+2019] では，
+ここまで単純化した設定でも，前述の Gibbs サンプラーの収束鈍化が見られることを検証する．ここでは
+
+```{julia}
+#| output: false
+(a,B) = (0,100.0)
+```
+
+そして
+$$
+\sum_{i=1}^ny^i=1
+$$
+を保ちながら $n\to\infty$ として実験するが，[@Johndrow+2019] では，
 $$
 \sum_{i=1}^ny^i\ll n
 $$
 である大規模不均衡データである限り，$(a,B)$ の値に依らず同様の結果が得られることが報告されている．
 
+::: {.callout-important title="実装の詳細" collapse="true" icon="false"}
+
+Metropolis-Hastings 法は，Turing Institute による Julia の `AdvancedMH.jl` パッケージなどを通じて実装することができる：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Julia/MALAwithJulia.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Julia/AdaptiveMCMC.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Metropolis-Hastings サンプラー</h3>
+                <p class="article-description">Julia と Turing エコシステムを用いて</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+```{julia}
+using AdvancedMH
+using Distributions
+using MCMCChains
+using ForwardDiff
+using StructArrays
+using LinearAlgebra
+using LogDensityProblems
+using LogDensityProblemsAD
+
+# Define the components of a basic model.
+struct LogTargetDensity_Logistic
+    a::Float64
+    B::Float64
+    n::Int64
+end
+
+LogDensityProblems.logdensity(p::LogTargetDensity_Logistic, ξ) = -log(2π * p.B) - (ξ[1] - p.a)^2/(2 * p.B) + ξ[1] - p.n * log(1 + exp(ξ[1]))
+LogDensityProblems.dimension(p::LogTargetDensity_Logistic) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensity_Logistic}) = LogDensityProblems.LogDensityOrder{0}()
+
+function MHSampler(n::Int64; discard_initial=30000)
+
+    model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensity_Logistic(a, B, n))
+
+    spl = RWMH(MvNormal(zeros(1), I))
+
+    chain = sample(model_with_ad, spl, 50000; chain_type=Chains, param_names=["ξ"])
+
+    return chain
+end
+
+# ξ_vector = MHSampler(10000)
+# plot(ξ_vector, title="Plot of \$\\xi\$ values", xlabel="Index", ylabel="ξ", legend=false, color="#78C2AD")
+```
+
+```{julia}
+using DataFrames
+using Plots
+
+n_list = [10, 100, 1000, 10000]
+
+elapsed_time_Metropolis = @elapsed begin
+    chains = [MHSampler(n) for n in n_list]
+end
+
+autos = [DataFrame(autocor(chain, lags=1:100)) for chain in chains]
+
+combined_df = vcat(autos..., source=:chain)
+
+lag_columns = names(combined_df)[2:101]
+lags = 1:100
+
+p_Metropolis = plot(
+    title = "Metropolis",
+    xlabel = "Lag",
+    ylabel = "Autocorrelation",
+    legend = :topright,
+    background_color = "#F0F1EB"
+)
+
+for (i, n) in zip(1:4, n_list)
+    plot!(
+        p_Metropolis,
+        lags,
+        Array(combined_df[i, lag_columns]),
+        label = "n = $n",
+        linewidth = 2
+    )
+end
+```
+
+```{julia}
+using PolyaGammaSamplers
+
+function PGSampler(n::Int64; discard_initial=30000, iter_number=50000, initial_ξ=0.0, B=100)
+
+    λ = 1 - n/2
+
+    ξ_list = [initial_ξ]
+    ω_list = []
+
+    while length(ξ_list) < iter_number
+        ξ = ξ_list[end]
+        ω_sampler = PolyaGammaPSWSampler(n, ξ)
+        ω_new = rand(ω_sampler)
+        push!(ω_list, ω_new)
+        ξ_sampler = Normal((ω_new + B^(-1))^(-1) * λ, (ω_new + B^(-1))^(-1))
+        ξ_new = rand(ξ_sampler)
+        push!(ξ_list, ξ_new)
+    end
+
+    return Chains(ξ_list[discard_initial+1:end])
+end
+```
+
+```{julia}
+elapsed_time_PolyaGamma = @elapsed begin
+    chains = [PGSampler(n) for n in n_list]
+end
+autos = [DataFrame(autocor(chain, lags=1:100)) for chain in chains]
+
+combined_df = vcat(autos..., source=:chain)
+
+lag_columns = names(combined_df)[2:101]
+lags = 1:100
+
+p_PolyaGamma = plot(
+    title = "Pólya-Gamma",
+    xlabel = "Lag",
+    ylabel = "Autocorrelation",
+    legend = (0.65, 0.35),
+    background_color = "#F0F1EB"
+)
+
+for (i, n) in zip(1:4, n_list)
+    plot!(
+        p_PolyaGamma,
+        lags,
+        Array(combined_df[i, lag_columns]),
+        label = "n = $n",
+        linewidth = 2,
+    )
+end
+```
+
+```{julia}
+println("Elapsed time: $elapsed_time_Metropolis seconds v.s. $elapsed_time_PolyaGamma seconds")
+```
+
+PG サンプラーは MH 法に比べ恐ろしいほどに時間がかかる．これは，`Turing` のパッケージの最適化が優秀であるのか，Pólya-Gamma サンプラーの宿命であるのか，引き続き調べる必要がある．
+
+:::
+
+```{julia}
+#| code-fold: true
+plot(p_Metropolis, p_PolyaGamma, layout=(1,2), background_color = "#F0F1EB")
+```
+
+<!-- ```{julia}
+savefig("Logistic.svg")
+``` -->

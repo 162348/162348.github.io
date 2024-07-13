@@ -10,7 +10,7 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apalike.csl
 abstract-title: 概要
-abstract: Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える，Turing ecosystem の基盤となる抽象的なフレームワーク `MCMCChains` を概観する．
+abstract: Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える，Turing ecosystem の基盤となる抽象的なフレームワーク `MCMCChains` と `AbstractMCMC` を概観する．
 code-fold: false
 execute:
     cache: true
@@ -107,7 +107,11 @@ execute:
 
 [@Storopoli2021] も参照．
 
-## `MCMCChains.jl`
+## `AbstractMCMC.jl` の枠組み
+
+`AbstractMCMC.jl` は，DensityProblem をはじめとした `AbstractModel` と `AbstractSampler` のデータ構造を提供する，Turing エコシステムの根幹部分を支えるパッケージである．
+
+## `MCMCChains.jl` と `AbstractMCMC.jl`
 
 Turing によるエコシステムは，この MCMC のデザインパターンを利用している．
 
@@ -129,4 +133,75 @@ chn = Chains(val, [:A, :B, :C, :D])
 
 # visualize the MCMC simulation results
 plot(chn; size=(840, 600))
+```
+
+### [`sample` 関数]()
+
+`sample` 関数は，[MCMCCahins での実装](https://github.com/TuringLang/MCMCChains.jl/blob/7dc333819128264902abd111e25091bd7947a4f3/src/sampling.jl) と [AbstractMCMC での実装](https://github.com/TuringLang/AbstractMCMC.jl/blob/3cb36f4837643a11318eb889fa0aa74075559db7/src/sample.jl) との２つがある．
+
+#### 使い方
+
+`AbstractModel` に対するデフォルトは次のように始まる：
+
+```julia
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    N::Integer;
+    progress=PROGRESS[],
+    progressname="Sampling",
+    callback=nothing,
+    discard_initial=0,
+    thinning=1,
+    chain_type::Type=Any,
+    initial_state=nothing,
+    kwargs...,
+)
+```
+
+`inisital_params` を指定した場合：
+
+```julia
+function mcmcsample(
+    rng::Random.AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractSampler,
+    ::MCMCThreads,
+    N::Integer,
+    nchains::Integer;
+    progress=PROGRESS[],
+    progressname="Sampling ($(min(nchains, Threads.nthreads())) threads)",
+    initial_params=nothing,
+    initial_state=nothing,
+    kwargs...,
+)
+```
+
+### [`autocor` 関数](https://github.com/TuringLang/MCMCChains.jl/blob/5f8e591ad3a9c6e8af01732d8a421cff306434c1/src/stats.jl)
+
+`Chains` オブジェクトに対する `autocor` 関数が，次のように定義されている：
+
+```julia
+function autocor(
+    chains::Chains;
+    append_chains = true,
+    demean::Bool = true,
+    lags::AbstractVector{<:Integer} = _default_lags(chains, append_chains),
+    kwargs...
+)
+    funs = Function[]
+    func_names = @. Symbol("lag ", lags)
+    for i in lags
+        push!(funs, x -> autocor(x, [i], demean=demean)[1])
+    end
+
+    return summarize(
+        chains, funs...;
+        func_names = func_names,
+        append_chains = append_chains,
+        name = "Autocorrelation",
+        kwargs...
+    )
+end
 ```
