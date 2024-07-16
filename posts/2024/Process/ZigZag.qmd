@@ -10,15 +10,13 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apalike.csl
 abstract-title: 概要
-abstract: Zig-Zag サンプラーの挙動を，Julia 上での実装を通じて詳細に解析する．まず，Zig-Zag サンプラーのダイナミクスの非対称性から，従来の MCMC よりも速い収束が期待されることを見る．続いて，ベイズ推論の文脈において，サンプルサイズに依らない一定のコストで効率的な事後分布サンプリングが可能であるメカニズムを見る．最後に，Zig-Zag サンプラーの実装に用いたパッケージとその利用方法を示す．
+abstract: Zig-Zag サンプラー定義とエルゴード性を解説する．また，ベイズ推論の文脈において，サンプルサイズに依らない一定のコストで効率的な事後分布サンプリングが可能であるメカニズムを見る．続いて，Zig-Zag サンプラーは非対称なダイナミクスを持つために，従来の MCMC よりも速い収束が期待されることを，MALA との比較でみる．最後に，Zig-Zag サンプラーの実装に用いたパッケージとその利用方法を示す．
 code-fold: false
 execute:
     cache: true
 ---
 
 {{< include ../../../_preamble.qmd >}}
-
-
 
 ## Zig-Zag 過程
 
@@ -52,20 +50,20 @@ PDMP の一般論については次の記事も参照：
 
 Zig-Zag 過程 $Z=(X,\Theta)$ の状態空間は，力学的な立場に立って $E=\R^d\times\{\pm1\}^d$ と見ることが多い．
 
-$X\in\R^d$ が位置を，$\theta\in\{\pm1\}^d$ が速度を表すと解する．すなわち，Zig-Zag 過程は全座標系と $45$ 度をなす方向に，常に一定の単位速さで $\R^d$ 上を運動する粒子と見れる．
+力学における[相空間](https://ja.wikipedia.org/wiki/相空間)と同様，$X\in\R^d$ が位置を，$\theta\in\{\pm1\}^d$ が速度を表すと解する．すなわち，Zig-Zag 過程は全座標系と $45$ 度をなす方向に，常に一定の単位速さで $\R^d$ 上を運動する粒子とみなせる．
 
-換言すれば，決定論的なフロー $\phi_{(x,\theta)}:\R\to\R^d$ を，次の微分方程式系で定める：
+すなわち，$(x,\theta)\in E$ から出発する Zig-Zag 過程は，次の微分方程式系で定まる決定論的なフロー $\phi_{(x,\theta)}:\R\to\R^d$ に従って運動する粒子とみなせる：
 $$
-\dd{\phi_{(x,\theta)}(t)}{t}=\theta,\quad \dd{\Theta_t}{t}=0.
+\dd{\phi_{(x,\theta)}(t)}{t}=\theta,\qquad \dd{\Theta_t}{t}=0.
 $$
 
 ### アルゴリズム {#sec-algorithm}
 
-$Z$ は次のようにしてシミュレーションされる：
+Zig-Zag 過程 $Z$ は次のようにしてシミュレーションできる：
 
 ::: {.callout-tip appearance="simple" icon="false" title="Zig-Zag 過程のシミュレーション"}
 
-1. 後述のレート関数 $\lambda_1,\cdots,\lambda_d$ から定まる強度関数
+1. レート関数 $\lambda_1,\cdots,\lambda_d$ から定まる強度関数
     $$
     m_i(t):=\lambda_i(x+\theta t,\theta),\qquad i\in[d],
     $$
@@ -78,16 +76,6 @@ $Z$ は次のようにしてシミュレーションされる：
 3. １に $t=T_j$ として戻って，くり返す．
 
 :::
-
-$$
-M_i(t):=\int^t_0m_i(s)\,ds
-$$
-と定めると，指数分布確率変数 $E_i\iidsim\Exp(1)$ について
-$$
-T_i\deq M_i^{-1}(E_i)
-$$
-が成り立つ．^[この逆関数 $M_i^{-1}$ が intractable である場合でも，[thinning と呼ばれる方法](PureJump.qmd#sec-simulation) によって $T_i$ は正確なシミュレーションが可能である．]
-
 <!-- 多次元の Poisson 過程の各成分の跳躍は独立だから，^[[@Revuz-Yor1999 p.473] 命題XII.1.7．] それぞれの成分ごとに Poisson 到着時刻 $T_i\;(i\in[d])$ をシミュレーションし，最初に到着したものを $T_j$ とすると，関数
 $$
 F_j(\theta)_i=\begin{cases}-\theta_i&i=j\\\theta_i&i\ne j\end{cases}
@@ -120,7 +108,7 @@ $$
 
 :::
 
-::: {.callout-note title="証明" icon="false" collapse="true"}
+::: {.callout-note title="証明（２つの定義の等価性）" icon="false" collapse="true"}
 
 Zig-Zag 過程に対する２つの定義を与えたが，これら２つが同分布の過程を定めることは証明が必要である．
 
@@ -184,9 +172,23 @@ $$
 
 :::
 
-### レート関数
+#### 到着時刻 $T_i$ のシミュレーション方法
 
-PDMP の妙は全てレート関数 $\lambda_1,\cdots,\lambda_d$ に宿っている．Zig-Zag 過程の特徴は，レート関数の選択自由度が大きい点にある．
+$$
+M_i(t):=\int^t_0m_i(s)\,ds
+$$
+と定めると，指数分布確率変数 $E_i\iidsim\Exp(1)$ について
+$$
+T_i\deq M_i^{-1}(E_i)
+$$
+が成り立つ．
+
+仮にこの逆関数 $M_i^{-1}$ が得られない場合でも，[thinning と呼ばれる方法](PureJump.qmd#sec-simulation) [@Lewis-Shedler1979] によって $T_i$ は正確なシミュレーションが可能である．
+
+
+### レート関数の条件 {#sec-refresh-rate}
+
+Zig-Zag 過程 $Z$ がどのような分布に従うかは，全てレート関数 $\lambda_1,\cdots,\lambda_d$ に委ねられている．
 
 ::: {.callout-tip appearance="simple" icon="false"}
 
@@ -198,7 +200,10 @@ $$
 
 ただし，次を仮定する：
 
-* $\gamma_i$ は，$\theta_i$ のみには依らない任意の連続関数 $\gamma_i:E\to\R_+$．^[従って，レート関数 $\lambda$ は連続とする．この関数 $\gamma_i$ は，$U$ の情報には依らない追加のリフレッシュ動作を仮定に加える．実際，$\lambda_i(x,\theta)-\lambda_i(x,F_i(\theta))=\theta_i\partial_iU(x)$ である限り，$\theta$ と $F_i(\theta)$ の往来には影響を与えず釣り合っているため，どのような $\gamma_i$ をとっても，平衡分布には影響を与えない．しかし，高くするごとにアルゴリズムの対称性が上がるため，$\gamma\equiv0$ とすることが Monte Carlo 推定量の漸近分散を最小にするという [@Andrieu-Livingstone2021]．]
+* $\gamma_i:E\to\R_+$ は，$\theta_i$ のみには依らない任意の非負連続関数^[従って，レート関数 $\lambda$ は連続とする．この関数 $\gamma_i$ は，$U$ の情報には依らない追加のリフレッシュ動作を仮定に加える．実際，$\lambda_i(x,\theta)-\lambda_i(x,F_i(\theta))=\theta_i\partial_iU(x)$ である限り，$\theta$ と $F_i(\theta)$ の往来には影響を与えず釣り合っているため，どのような $\gamma_i$ をとっても，平衡分布には影響を与えない．しかし，高くするごとにアルゴリズムの対称性が上がるため，$\gamma\equiv0$ とすることが Monte Carlo 推定量の漸近分散を最小にするという [@Andrieu-Livingstone2021]．]
+    $$
+    \gamma_i(x,\theta)=\gamma_i(x,F_i(\theta)).
+    $$
 * $e^{-U}\in\L^1(\R^d)$ が成り立ち，$\pi(dx)\propt e^{-U(x)}dx$ が確率測度を定める．
 * $M_i$ は $t\to\infty$ の極限で発散する：
 $$
@@ -225,9 +230,9 @@ $$
 
 ::: {.callout-tip title="[@Bierkens+2019 p.1294 定理2.2]" icon="false"}
 
-上述のリフレッシュレート $\lambda_1,\cdots,\lambda_d$ に対して，定義 [-@sec-algorithm] で定まる Zig-Zag 過程 $Z$ は次の分布 $\mu=\pi\otimes\rU(\{\pm1\}^{d})\in\cP(E)$ を不変にする：
+上述のリフレッシュレート $\lambda_1,\cdots,\lambda_d$ に対して，定義 [-@sec-algorithm] で定まる Zig-Zag 過程 $Z$ は次の分布 $\wt{\pi}=\pi\otimes\rU(\{\pm1\}^{d})\in\cP(E)$ を不変にする：
 $$
-\mu(dxd\theta)=\frac{1}{2^d}\frac{e^{-U(x)}}{\cZ}\,dxd\theta
+\wt{\pi}(dxd\theta)=\frac{1}{2^d}\frac{e^{-U(x)}}{\cZ}\,dxd\theta
 $$
 
 :::
@@ -238,30 +243,55 @@ $\{\pm1\}^d$ 上の周辺分布が一様分布になっていること，勾配�
 
 :::
 
+### エルゴード性の条件
+
+$\pi$ が不変分布になるための十分条件 [-@sec-refresh-rate] は極めて緩かったが，MCMC として使えるためにはエルゴード性が成り立つ必要がある．
+
+::: {.callout-tip title="[@Bierkens-Roberts2017 定理５]" icon="false"}
+
+$d=1$ で，レート関数 $\lambda:E\to\R_+$ はある $x_0>0$ が存在して次を満たすとする：
+$$
+\inf_{x\ge x_0}\lambda(x,1)>\sup_{x\ge x_0}\lambda(x,-1),
+$$
+$$
+\inf_{x\le-x_0}\lambda(x,-1)>\sup_{x\le-x_0}\lambda(x,1).
+$$
+
+このとき，ある関数 $f:E\to\cointerval{1,\infty}$ が存在して $f(x,\theta)\to\infty\;(\abs{x}\to\infty)$ が成り立ち，かつ
+$$
+\Norm{P^t\paren{(x,\theta),-}-\pi}_\TV\le\kappa f(x,\theta)\rho^t,\qquad(x,\theta)\in E,t\ge0,\rho\in(0,1).
+$$
+
+:::
+
+## Subsampling Technology
+
+サブサンプリングが可能であることと，複数の効率的なサブサンプリング法の提案により，Zig-Zag 過程は次世代のサンプラーとして圧倒的なスケーラビリティ（Super Efficient Bayesian Inference [@Bierkens+2019]）を示すのではないかと期待されている．
+
 ### 部分サンプリング
 
 MCMC の計算複雑性のボトルネックは，尤度の評価にある．各ステップで全てのデータを用いて尤度を計算する必要がある点が，MCMC を深層学習などの大規模データの設定への応用を難しくしている [@Murphy2023 p.647]．
 
-$p(x)$ を事前分布，$p(y|x)$ を観測のモデル（または尤度）とし，データ $y_1,\cdots,y_n$ は互いに独立であるとする．このとき，事後分布 $\pi(x):=p(x|y)$ は
+$p(x)$ を事前分布，$p(y|x)$ を観測のモデル（または尤度）とし，データ $y_1,\cdots,y_n$ は互いに独立であるとする．このとき，事後分布 $\pi(x):=p(x|y)$ と Hamiltonian $U$ は次のように表せる：
 $$
 \pi(x)\propt\paren{\prod_{k=1}^n p(y_k|x)}p(x)
 $$
-より，Hamiltonian $U$ は
 \begin{align*}
    U(x)&=-\sum_{k=1}^n\log p(y_k|x)-\log p(x)\\
    &=\frac{1}{n}\sum_{k=1}^n\Paren{-n\log p(y_k|x)-\log p(x)}.
 \end{align*}
-と表せる．
 
-すなわち，各微分係数 $\partial_i U(x)$ は，独立な観測 $y_1,\cdots,y_n$ が定める統計量
+このとき，$U$ の導関数 $\partial_i U(x)$ は，独立な観測 $y_1,\cdots,y_n$ について項別微分をして平均をとったものに等しい：
 $$
-E^i_k(x):=\pp{}{x_i}\Paren{-n\log p(y_k|x)-\log p(x)}
+\partial_iU(x)=\frac{1}{n}\sum_{k=1}^nE^i_k(x),
 $$
-の平均により推定される値となっている．
+$$
+E^i_k(x):=\pp{}{x_i}\Paren{-n\log p(y_k|x)-\log p(x)}.
+$$
 
-よって，精度は劣るかもしれないが，一様に選んだ $K\sim\rU([n])$ から定まる $E^i_K$ の値は $\partial_i U(x)$ の不偏推定量となっている．^[このとき，必ずしも $K\sim\rU([n])$ とする必要はなく，特定の観測に重みをおいても良い [@Sen+2020]．]
+よって，精度は劣るかもしれないが，一様に選んだ $K\sim\rU([n])$ から定まる $E^i_K$ の値は $\partial_i U(x)$ の不偏推定量となっている．
 
-::: {.callout-note title="部分サンプリングにより不変分布が変わらないことの証明" icon="false" collapse="true"}
+::: {.callout-note title="部分サンプリングにより不変分布が変わらないことの証明^[[@Vasdekis2021 p.25] も参照．]" icon="false" collapse="true"}
 
 これは，元々のレート関数
 $$
@@ -273,7 +303,7 @@ $$
 $$
 という項を加えて得る Zig-Zag サンプラーとみなせるためである．
 
-こうして定義された $\gamma_i$ が非負関数である限り，平衡分布は $\mu$ のままであるが，これは関数 $(-)_+$ の凸性から従う．
+こうして定義された $\gamma_i$ が非負関数である限り，平衡分布は $\wt{\pi}$ のままであるが，これは関数 $(-)_+$ の凸性から従う．
 
 こうして，サブサンプリングの実行による精度の劣化が，[@Andrieu-Livingstone2021] の枠組みで捉えられる，ということでもある．
 
@@ -281,13 +311,15 @@ $$
 
 :::
 
-## Super Efficient Bayesian Inference
+### 非一様な部分サンプリング
 
-### 導入：制御変数による分散低減
+当然，必ずしも一様なサブサンプリング $K\sim\rU([n])$ を行う必要はない [@Sen+2020]．
+
+### 制御変数による分散低減
 
 上述の $\partial_iU(x)$ の不偏推定量の分散は，制御変数の方法を用いて低減できる．これにより，事前処理の部分を除けば，データのサイズに依存しない計算複雑性で事後分布からの正確なサンプリングが可能になる．
 
-## 特定の対象分布に対するシミュレーション
+## シミュレーション
 
 ### １次元での例
 

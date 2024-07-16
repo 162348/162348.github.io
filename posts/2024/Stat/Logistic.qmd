@@ -19,7 +19,7 @@ execute:
 
 {{< include ../../../_preamble.qmd >}}
 
-## ロジスティック回帰
+## ロジスティック回帰のベイズ推定
 
 ### ロジットモデルのベイズ推定
 
@@ -161,6 +161,8 @@ elapsed_time_Metropolis = @elapsed begin
 end
 
 autos = [DataFrame(autocor(chain, lags=1:100)) for chain in chains]
+
+MHChain = chains
 
 combined_df = vcat(autos..., source=:chain)
 
@@ -361,6 +363,8 @@ elapsed_time_PolyaGamma = @elapsed begin
 end
 autos = [DataFrame(autocor(chain, lags=1:100)) for chain in chains]
 
+PGChain = chains
+
 combined_df = vcat(autos..., source=:chain)
 
 lag_columns = names(combined_df)[2:101]
@@ -398,6 +402,59 @@ PG サンプラーは MH 法に比べ恐ろしいほどに時間がかかる．�
 plot(p_Metropolis, p_PolyaGamma, layout=(1,2), background_color = "#F0F1EB")
 ```
 
-<!-- ```{julia}
-savefig("Logistic.svg")
-``` -->
+### 理論：収束鈍化の理由
+
+前節の設定の下で，計算複雑性のオーダーが，Metropolis 法では最悪で $(\log n)^3$ であるのに対し，Gibbs サンプラーでは最高でも $n^{3/2}(\log n)^{2.5}$ のオーダーになることが [@Johndrow+2019] で示されている．
+
+その理由は，提案分布と対象分布のズレに由来することも [@Johndrow+2019] は明らかにしている．
+
+$\sum_{i=1}^ny^i$ の値を固定して $n\to\infty$ の極限を取った場合，事後分布は次のように，負方向にスライドしながら，幅が狭まっていく．その幅の縮小レートは $n^{-1/2}$ ではなく，約 $(\log n)^{-1}$ になる．
+
+```{julia}
+using StatsPlots
+using LaTeXStrings
+
+plot(
+    plot(MHChain[1], title=L"n=10", color="#78C2AD"),
+    plot(MHChain[2], title=L"n=100", color="#78C2AD"),
+    plot(MHChain[3], title=L"n=1000", color="#78C2AD"),
+    plot(MHChain[4], title=L"n=10000", color="#78C2AD"),
+    layout=(4,1),
+    size=(1000, 800),
+    background_color = "#F0F1EB"
+)
+```
+
+一方で，提案分布は $\xi_t$ をモードとした場合，$\xi_{t+1}$ もモードの周りに幅 $\frac{(\log n)^{3/2}}{n^{1/2}}$ で集中してしまう．すなわち，提案のステップサイズが事後分布のスケールに比べて極めて小さくなってしまう．
+
+```{julia}
+plot(
+    plot(PGChain[1], title=L"n=10", color="#78C2AD"),
+    plot(PGChain[2], title=L"n=100", color="#78C2AD"),
+    plot(PGChain[3], title=L"n=1000", color="#78C2AD"),
+    plot(PGChain[4], title=L"n=10000", color="#78C2AD"),
+    layout=(4,1),
+    size=(1000, 800),
+    background_color = "#F0F1EB"
+)
+```
+
+MH 法でサンプルした事後分布に比べて，より鋭くなっていることがわかるだろう（$y$ 軸のスケールに注目）．
+
+これにより，分布の十分な探索が阻害され，サンプル間の自己相関が高くなってしまうという問題が起こるようである．
+
+
+## Zig-Zag サンプラーによる解決
+
+### 導入
+
+説明変数 $X\in\L(\Om;\R^p)$ と係数 $\xi\in\L(\Om;\R^p)$ に関するロジスティックモデル ([-@eq-the-model])
+
+$$
+\P[Y=1\mi X,\xi]=g^{-1}(X^\top\xi)=\frac{\exp(X^\top\xi)}{1+\exp(X^\top\xi)}\tag{1}
+$$
+
+において，$\{y^i\}$ または $\{x^i_j\}$ が不均衡であった場合は，前節で見たように Gibbs サンプラーによる方法ではスケールしない．
+
+よく調整された Metropolis-Hastings 法を用いることが解決の１つとしてあり得るが，やはり本当に大きな $n,p$ に関してスケールしないことが問題である．
+
