@@ -322,7 +322,7 @@ $$
 
 ZZ-SS によってシミュレートされる過程は，レート関数
 $$
-\lambda_i(x,\theta)=\frac{1}{n}\sum_{k=1}^n(\theta E^k_i(x))_+
+\lambda_i(x,\theta)=\E[(\theta E^K_i(x))_+]=\frac{1}{n}\sum_{k=1}^n(\theta E^k_i(x))_+
 $$
 を持った Zig-Zag 過程に等しい
 
@@ -441,11 +441,120 @@ ZZ-CV では，これに事後分布の Gauss 近似を用いたことになる�
 
 :::
 
+### 数値実験：MSE の比較
+
+ある Gauss 分布に従うデータを生成する：
+$$
+X^j\iidsim\rN(\xi_0,\sigma^2),\qquad j\in[n],
+$$
+分散 $\sigma^2$ は既知として，位置母数 $\xi\in\R$ を推定する問題を考える．
+
+事前分布を $\rN(0,\rho^2)$ とすると，定数の違いを除いて
+\begin{align*}
+    U(\xi)&=\frac{\xi^2}{2\rho^2}+\frac{1}{2\sigma^2}\sum_{j=1}^n(\xi-x^j)^2\\
+    &=\frac{1}{n}\sum_{j=1}^n\paren{\frac{\xi^2}{2\rho^2}+\frac{n}{2\sigma^2}(\xi-x^j)^2}=:\frac{1}{n}\sum_{j=1}^nU^j(\xi)
+\end{align*}
+であるから，
+\begin{align*}
+    U'(\xi)&=\frac{\xi}{\rho^2}+\frac{1}{\sigma^2}\sum_{j=1}^n(\xi-x^j)\\
+    &=\frac{\xi}{\rho^2}+\frac{n}{\sigma^2}(\xi-\ov{x}),
+\end{align*}
+$$
+U''(\xi)=\frac{1}{\rho^2}+\frac{n}{\sigma^2}.
+$$
+
+従って，Zig-Zag 過程のイベントの強度関数は
+\begin{align*}
+    m(t)&=\Paren{\theta U'(\xi+\theta t)}_+\\
+    &=\paren{\frac{\theta(\xi+\theta t)}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(\xi+\theta t-x^j)}_+\\
+    &=\paren{\frac{\theta\xi}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(\xi-x^j)+t\paren{\frac{1}{\rho^2}+\frac{n}{\sigma^2}}}_+
+\end{align*}
+と表せ，これは１次関数であるから直接のシミュレーションが可能である．
+
+```{julia}
+#| code-fold: true
+#| echo: false
+#| output: false
+using ZigZagBoomerang
+const ZZB = ZigZagBoomerang
+
+"""
+    τ = freezing_time(x, θ)
+
+    x からスタートする速度 θ の１次元粒子が原点 0 に到着する時刻を返す
+"""
+function freezing_time(x, θ)
+    if θ*x > 0
+        return Inf
+    else
+        return -x/θ
+    end
+end
+
+"""
+    ∇ϕ: gradient of the negative log-density
+    (x,θ): initial state
+    T: Time Horizon    
+    c: tuning parameter
+    k: weight on the Dirac measure
+
+    num: ポアソン時刻に到着した回数
+    acc: 受容回数．acc/num は acceptance rate
+"""
+function ZZ(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
+    t = zero(T)
+    Ξ = [(t, x, θ)]
+    num = acc = 0
+    a, b = ab(x, θ, c, Flow)
+    t′ =  t + poisson_time(a, b, rand())
+
+    while t < T
+        τ = t′ - t
+        t, x, θ = move_forward(τ, t, x, θ, Flow)
+        l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(τ, a, b)
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l >= lb
+                !adapt && error("Tuning parameter `c` too small.")
+                c *= factor
+            end
+            θ = -θ  # In multi dimensions the change of velocity is different:
+                    # reflection symmetric on the normal vector of the contour
+            push!(Ξ, (t, x, θ))
+        end
+        a, b = ab(x, θ, c, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+    return Ξ, acc/num
+end
+```
+
+続いて，次の等式が成り立つ：
+$$
+U'(\xi_*)+(U^j)'(\xi)-(U^j)'(\xi_*)=U'(\xi),\qquad\xi,\xi_*\in\R.
+$$
+
+このモデルにおける MAP 推定量は
+$$
+\wh{\xi}:=\frac{\ov{x}}{1+\frac{\sigma^2}{n\rho^2}}
+$$
+である．
+
 ### 非一様な部分サンプリング
 
-当然，必ずしも一様なサブサンプリング $K\sim\rU([n])$ を行う必要はない．剪定の手続きを棄却法とみると，重点サンプリングのアイデアを導入することで制御変数に依らない分散低減が狙えるだろう [@Sen+2020]．
+当然，必ずしも一様なサブサンプリング $K\sim\rU([n])$ を行う必要はない．剪定の手続きを棄却法とみると，重点サンプリングのアイデアを導入することで制御変数に依らない分散低減が狙えるだろう [@Sen+2020 importance subsampling strategy]．
 
 特に，比例的高次元極限や，不均衡データに対する[ロジスティック回帰](../Stat/Logistic.qmd)では，事後分布が十分な集中性を持たないために制御変数の方法 [-@sec-ZZ-CV] が十分な効率改善を示さない．
+
+一般の $K\sim\mu_i\in\cP([n])$ に対して，
+$$
+m_{1i}^k(t):=\Paren{\theta_i\partial_iU_1^K(\xi+t\theta)}_+
+$$
+$$
+m_{0i}(t):=\Paren{\theta_i\partial_iU_0(\xi+t\theta)}_+
+$$
+と定める．
 
 ## シミュレーション
 
@@ -545,6 +654,13 @@ end
 #| output: false
 using ZigZagBoomerang
 const ZZB = ZigZagBoomerang
+
+"""
+    τ = freezing_time(x, θ)
+
+computes the hitting time of a 1d particle with
+constant velocity `θ` to hit 0 given the position `x`
+"""
 function freezing_time(x, θ)
     if θ*x > 0
         return Inf
@@ -553,6 +669,13 @@ function freezing_time(x, θ)
     end
 end
 
+"""
+    T: Time Horizon
+    (x,θ): initial state
+    ∇ϕ: gradient of the negative log-density
+    c: tuning parameter
+    k: weight on the Dirac measure
+"""
 # k determines the weight on the Dirac measure. The smaller k, the higher the wegiht
 function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
     t = zero(T)
