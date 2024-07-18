@@ -445,101 +445,378 @@ ZZ-CV では，これに事後分布の Gauss 近似を用いたことになる�
 
 ある Gauss 分布に従うデータを生成する：
 $$
-X^j\iidsim\rN(\xi_0,\sigma^2),\qquad j\in[n],
+Y^j\iidsim\rN(x_0,\sigma^2),\qquad j\in[n],
 $$
-分散 $\sigma^2$ は既知として，位置母数 $\xi\in\R$ を推定する問題を考える．
+分散 $\sigma^2$ は既知として，位置母数 $x\in\R$ を推定する問題を考える．
 
 事前分布を $\rN(0,\rho^2)$ とすると，定数の違いを除いて
 \begin{align*}
-    U(\xi)&=\frac{\xi^2}{2\rho^2}+\frac{1}{2\sigma^2}\sum_{j=1}^n(\xi-x^j)^2\\
-    &=\frac{1}{n}\sum_{j=1}^n\paren{\frac{\xi^2}{2\rho^2}+\frac{n}{2\sigma^2}(\xi-x^j)^2}=:\frac{1}{n}\sum_{j=1}^nU^j(\xi)
+    U(x)&=\frac{x^2}{2\rho^2}+\frac{1}{2\sigma^2}\sum_{j=1}^n(x-y^j)^2\\
+    &=\frac{1}{n}\sum_{j=1}^n\paren{\frac{x^2}{2\rho^2}+\frac{n}{2\sigma^2}(x-y^j)^2}=:\frac{1}{n}\sum_{j=1}^nU^j(x)
 \end{align*}
 であるから，
 \begin{align*}
-    U'(\xi)&=\frac{\xi}{\rho^2}+\frac{1}{\sigma^2}\sum_{j=1}^n(\xi-x^j)\\
-    &=\frac{\xi}{\rho^2}+\frac{n}{\sigma^2}(\xi-\ov{x}),
+    U'(x)&=\frac{x}{\rho^2}+\frac{1}{\sigma^2}\sum_{j=1}^n(x-y^j)\\
+    &=\frac{x}{\rho^2}+\frac{n}{\sigma^2}(x-\ov{y}),
 \end{align*}
 $$
-U''(\xi)=\frac{1}{\rho^2}+\frac{n}{\sigma^2}.
+U''(x)=\frac{1}{\rho^2}+\frac{n}{\sigma^2}.
 $$
 
 従って，Zig-Zag 過程のイベントの強度関数は
 \begin{align*}
-    m(t)&=\Paren{\theta U'(\xi+\theta t)}_+\\
-    &=\paren{\frac{\theta(\xi+\theta t)}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(\xi+\theta t-x^j)}_+\\
-    &=\paren{\frac{\theta\xi}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(\xi-x^j)+t\paren{\frac{1}{\rho^2}+\frac{n}{\sigma^2}}}_+
+    m(t)&=\Paren{\theta U'(x+\theta t)}_+\\
+    &=\paren{\frac{\theta(x+\theta t)}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(x+\theta t-y^j)}_+\\
+    &=\paren{\frac{\theta x}{\rho^2}+\frac{\theta}{\sigma^2}\sum_{j=1}^n(x-y^j)+t\paren{\frac{1}{\rho^2}+\frac{n}{\sigma^2}}}_+
 \end{align*}
-と表せ，これは１次関数であるから直接のシミュレーションが可能である．
+と表せ，これは１次関数 $(a+bt)_+$ の形であるから直接のシミュレーションが可能である．^[実装は `ZigZagBoomerang` パッケージの [`zigzagboom1d.jl`](https://github.com/mschauer/ZigZagBoomerang.jl/blob/master/src/zigzagboom1d.jl) を参考にした．]
 
 ```{julia}
 #| code-fold: true
-#| echo: false
 #| output: false
+#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ() を定義
 using ZigZagBoomerang
-const ZZB = ZigZagBoomerang
+using Distributions
+using Random
+
+λ(∇U, x, θ, F::ZigZag1d) = pos(θ*∇U(x)) # rate function on E
+λ_bar(τ, a, b) = pos(a + b*τ)  # affine proxy
 
 """
-    τ = freezing_time(x, θ)
-
-    x からスタートする速度 θ の１次元粒子が原点 0 に到着する時刻を返す
+`x`: current location, `θ`: current velocity, `t`: current time,
 """
-function freezing_time(x, θ)
-    if θ*x > 0
-        return Inf
-    else
-        return -x/θ
-    end
+function move_forward(τ, t, x, θ, ::ZigZag1d)
+    τ + t, x + θ*τ , θ
 end
 
 """
-    ∇ϕ: gradient of the negative log-density
-    (x,θ): initial state
-    T: Time Horizon    
-    c: tuning parameter
-    k: weight on the Dirac measure
+    `∇U`: gradient of the negative log-density
+    `(x,θ)`: initial state
+    `T`: Time Horizon    
+    `a+bt`: computational bound for intensity m(t)
 
-    num: ポアソン時刻に到着した回数
-    acc: 受容回数．acc/num は acceptance rate
+    `num`: ポアソン時刻に到着した回数
+    `acc`: 受容回数．`acc/num` は acceptance rate
 """
-function ZZ(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
+function ZZ(∇U, x::Float64, θ::Float64, T::Float64, y, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_ZZ)
     t = zero(T)
     Ξ = [(t, x, θ)]
     num = acc = 0
-    a, b = ab(x, θ, c, Flow)
-    t′ =  t + poisson_time(a, b, rand())
+    epoch_list = [num]
+    a, b = ab(x, θ, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
 
     while t < T
         τ = t′ - t
         t, x, θ = move_forward(τ, t, x, θ, Flow)
-        l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(τ, a, b)
+        l, lb = λ(∇U, x, θ, Flow), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
         num += 1
         if rand()*lb < l
             acc += 1
-            if l >= lb
-                !adapt && error("Tuning parameter `c` too small.")
-                c *= factor
+            if l > lb + 0.01
+                println(l-lb)
             end
-            θ = -θ  # In multi dimensions the change of velocity is different:
-                    # reflection symmetric on the normal vector of the contour
+            θ = -θ
             push!(Ξ, (t, x, θ))
+            push!(epoch_list, num)
         end
-        a, b = ab(x, θ, c, Flow)
+        a, b = ab(x, θ, Flow)
         t′ = t + poisson_time(a, b, rand())
     end
-    return Ξ, acc/num
+
+    return Ξ, epoch_list, acc/num
 end
 ```
 
-続いて，次の等式が成り立つ：
+```{julia}
+#| output: false
+#| code-fold: true
+#| code-summary: 今回の設定に応じたレート関数 (a+bt)+ を用意
+pos(x) = max(zero(x), x)  # positive part
+a(x, θ, ρ, σ, y) = θ * x / ρ^2 + (θ/σ^2) * sum(x .- y)
+b(x, θ, ρ, σ, y) = ρ^(-2) + length(y)/σ^2
+
+ρ, σ, x0, θ0 = 1.0, 1.0, 1.0, 1.0
+n1, n2 = 100, 10^4
+TrueDistribution = Normal(x0, σ)
+y1 = rand(TrueDistribution, n1)
+y2 = rand(TrueDistribution, n2)
+
+# computational bounds for intensity m(t)
+ab_ZZ_n1(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y1), b(x, θ, ρ, σ, y1))
+ab_ZZ_n2(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y2), b(x, θ, ρ, σ, y2))
+
+∇U1(x) = x/ρ^2 + (length(y1)/σ^2) * (x - mean(y1)) 
+∇U2(x) = x/ρ^2 + (length(y2)/σ^2) * (x - mean(y2)) 
+
+# T = 2500.0
+# trace_ZZ1, epochs_ZZ1, acc_ZZ1 = ZZ(∇U1, x0, θ0, T, ZigZag1d(); ab=ab_ZZ_n1)
+# trace_ZZ2, num_ZZ2, acc_ZZ2 = ZZ(∇U2, x0, θ0, T, ZigZag1d(); ab=ab_ZZ_n2)
+# dt = 0.01
+# traj_ZZ1 = discretize(trace_ZZ1, ZigZag1d(), dt)
+# traj_ZZ2 = discretize(trace_ZZ2, ZigZag1d(), dt)
+```
+
+```{julia}
+#| output: false
+#| code-fold: true
+#| code-summary: N 回 ZZ() を実行して，その事後平均の MSE を計算する関数 experiment() を定義
+function SquaredError(sample::Vector{Float64}, y)
+    True_Posterior_Mean = sum(y) / (length(y) + 1)
+    return (mean(sample) - True_Posterior_Mean)^2
+end
+
+"""
+    epoch_list: 注目するエポック数のリスト
+    N: 実験回数
+"""
+function experiment(epoch_list, T, dt, N, ∇U, x0, θ0, y, Sampler; ab=ab_ZZ_n1)
+    SE_sum = zero(epoch_list)
+    acc_list = []
+    for _ in 1:N
+        trace_ZZ1, epochs_ZZ1, acc_ZZ1 = Sampler(∇U, x0, θ0, T, y, ZigZag1d(); ab=ab)
+        push!(acc_list, acc_ZZ1)
+        traj_ZZ1 = discretize(trace_ZZ1, ZigZag1d(), dt)
+        SE_list = []
+        for T in epoch_list
+            epoch = findfirst(x -> x > T, epochs_ZZ1) - 1
+            t = findfirst(x -> x > trace_ZZ1[epoch][1], traj_ZZ1.t) - 1
+            SE = SquaredError(traj_ZZ1.x[1:t], y)
+            push!(SE_list, SE)
+        end
+        SE_sum += SE_list
+    end
+    return SE_sum ./ N, mean(acc_list)
+end
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: 実験の実行
+using Plots
+
+T = 3000.0
+epoch_list = [10.0, 100.0, 1000.0, 10000.0]
+dt = 0.01
+N = 10
+
+MSE_ZZ1, acc = experiment(epoch_list, T, dt, N, ∇U1, x0, θ0, y1, ZZ; ab=ab_ZZ_n1)
+p = plot(#epoch_list, MSE_ZZ1,
+    xscale=:log10,
+    yscale=:log10,
+    xlabel="epochs",
+    ylabel="MSE"
+    )
+scatter!(p, epoch_list, MSE_ZZ1,
+    marker=:circle,
+    markersize=5,
+    markeralpha=0.6,
+    color="#78C2AD",
+    label=nothing
+    )
+
+using GLM, DataFrames
+df = DataFrame(X = log10.(epoch_list), Y = log10.(MSE_ZZ1))
+model = lm(@formula(Y ~ X), df)
+X_pred = range(minimum(df.X), maximum(df.X), length=100)
+Y_pred = predict(model, DataFrame(X = X_pred))
+plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
+    line=:solid,
+    linewidth=2,
+    color="#78C2AD",
+    label="ZZ"
+    )
+
+# display(p)
+
+println("Average acceptance rate: $acc")
+```
+
+より，たしかに剪定なしの正確なシミュレーションができている．
+
+一方で，
 $$
-U'(\xi_*)+(U^j)'(\xi)-(U^j)'(\xi_*)=U'(\xi),\qquad\xi,\xi_*\in\R.
+U^j(x):=\frac{x^2}{2\rho^2}+\frac{n}{2\sigma^2}(x-y^j)^2,
+$$
+$$
+\lambda^j(x,\theta):=\Paren{\theta(U^j)'(x)}_+
+$$
+としてサブサンプリングを取り入れることを考えるが，これを同じ $(a+bt)_+$ ではバウンド出来ない：
+
+```{julia}
+#| code-fold: true
+#| code-summary: ZZ-SS (ZigZag with Subsampling) の定義
+#| output: false
+
+λj(j,x,θ,y) = pos(θ * (x/ρ^2 + length(y)/σ^2 * (x - y[j])))
+
+function ZZ_SS(∇U, x::Float64, θ::Float64, T::Float64, y, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_ZZ)
+    t = zero(T)
+    Ξ = [(t, x, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(x, θ, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+
+    while t < T
+        τ = t′ - t
+        t, x, θ = move_forward(τ, t, x, θ, Flow)
+        j = rand(1:length(y))
+        l, lb = λj(j, x, θ, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            if l > lb + 0.01
+                # println(l-lb)
+                acc += 1  #  overflow を数えるように変更済み！注意！
+            end
+            θ = -θ
+            push!(Ξ, (t, x, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(x, θ, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: 実験の実行
+using LaTeXStrings
+
+MSE_ZZ_SS, acc = experiment(epoch_list, T, dt, N, ∇U1, x0, θ0, y1, ZZ_SS; ab=ab_ZZ_n1)
+println(L"上界 $(a+bt)_+$ を超えてしまう平均的割合: ", "$acc")
+```
+
+しかし，ZZ-CV アルゴリズムではこのようなことは起こらない．実際，次の等式が成り立つ：
+$$
+U'(x_*)+(U^j)'(x)-(U^j)'(x_*)=U'(x),\qquad x,x_*\in\R.
 $$
 
 このモデルにおける MAP 推定量は
 $$
-\wh{\xi}:=\frac{\ov{x}}{1+\frac{\sigma^2}{n\rho^2}}
+\wh{x}:=\frac{\ov{y}}{1+\frac{\sigma^2}{n\rho^2}}
 $$
 である．
+
+```{julia}
+#| code-fold: true
+#| code-summary: ZZ-CV (ZigZag with Control Variates) の定義
+#| output: false
+
+x_star = mean(y1) / (1 + σ^2/(length(y1) * ρ^2))
+
+C(ρ, σ, y) = ρ^(-2) + length(y)/σ^2
+a(x, θ, ρ, σ, y) = pos(θ*∇U1(x_star)) + C(ρ, σ, y) * abs(x - x_star)
+b(x, θ, ρ, σ, y) = C(ρ, σ, y)
+
+# New Computational Bounds for ZZ-CV
+ab_ZZ_CV(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y1), b(x, θ, ρ, σ, y1))
+
+function ZZ_CV(∇U, x::Float64, θ::Float64, T::Float64, y, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_ZZ_CV)
+    t = zero(T)
+    Ξ = [(t, x, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(x, θ, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+
+    while t < T
+        τ = t′ - t
+        t, x, θ = move_forward(τ, t, x, θ, Flow)
+        # j = rand(1:length(y))  # 今回はたまたま要らない
+        l, lb =λ(∇U, x, θ, Flow), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, x, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(x, θ, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: 実験の実行
+
+MSE_ZZ_CV, acc = experiment(epoch_list, T, dt, N, ∇U1, x0, θ0, y1, ZZ_CV; ab=ab_ZZ_CV)
+
+q = scatter(p, epoch_list, MSE_ZZ_CV,
+    marker=:circle,
+    markersize=5,
+    markeralpha=0.6,
+    color="#E95420",
+    label=nothing
+    )
+
+df = DataFrame(X = log10.(epoch_list), Y = log10.(MSE_ZZ_CV))
+model = lm(@formula(Y ~ X), df)
+X_pred = range(minimum(df.X), maximum(df.X), length=100)
+Y_pred = predict(model, DataFrame(X = X_pred))
+plot!(q, 10 .^ X_pred, 10 .^ Y_pred,
+    line=:dash,
+    linewidth=2,
+    color="#E95420",
+    label="ZZ-CV (without amendment)"
+    )
+
+display(q)
+```
+
+```{julia}
+savefig(q, "MeanOfGaussian_Erronous.svg")
+```
+
+一見すると ZZ-CV が負けているように見える．しかし，点線で描いているのは，横軸が epoch であることを正しく考慮していない間違ったプロットであるためである．
+
+[@Bierkens+2019 p.1310] において epoch とは，計算量の１単位分としており，ZZ における１回の到着時刻のシミュレーションは，ZZ-CV の $n$ 回分に当たる．これを考慮に入れてプロットし直すと次の通りになる：
+
+```{julia}
+#| code-fold: true
+#| code-summary: 実験の実行
+T_SuperEfficient = 300000.0
+epoch_list_SuperEfficient = [1000.0, 10000.0, 100000.0, 1000000.0]
+
+@time MSE_ZZ_CV, acc = experiment(epoch_list_SuperEfficient, T_SuperEfficient, dt, N, ∇U1, x0, θ0, y1, ZZ_CV; ab=ab_ZZ_CV)
+
+scatter!(p, epoch_list, MSE_ZZ_CV,
+    marker=:circle,
+    markersize=5,
+    markeralpha=0.6,
+    color="#E95420",
+    label=nothing
+    )
+
+df = DataFrame(X = log10.(epoch_list), Y = log10.(MSE_ZZ_CV))
+model = lm(@formula(Y ~ X), df)
+X_pred = range(minimum(df.X), maximum(df.X), length=100)
+Y_pred = predict(model, DataFrame(X = X_pred))
+plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
+    line=:solid,
+    linewidth=2,
+    color="#E95420",
+    label="ZZ-CV"
+    )
+
+display(p)
+```
+
+```{julia}
+savefig(p, "MeanOfGaussian.svg")
+```
+
+これは換言すれば横軸が「ズルい」ということでもあるが，同時に $n\to\infty$ の極限では，圧倒的に ZZ-CV が効率的になるということでもある．
 
 ### 非一様な部分サンプリング
 
@@ -672,12 +949,12 @@ end
 """
     T: Time Horizon
     (x,θ): initial state
-    ∇ϕ: gradient of the negative log-density
+    ∇U: gradient of the negative log-density
     c: tuning parameter
     k: weight on the Dirac measure
 """
 # k determines the weight on the Dirac measure. The smaller k, the higher the wegiht
-function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
+function ss_pdmp(∇U, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0, rng=Random.GLOBAL_RNG)
     t = zero(T)
     Ξ = [(t, x, θ)]
     num = acc = 0
@@ -703,7 +980,7 @@ function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=fals
         else
             τ = t′ - t
             t, x, θ = ZZB.move_forward(τ, t, x, θ, Flow)
-            l, lb = ZZB.λ(∇ϕ, x, θ, Flow), ZZB.λ_bar(τ, a, b)
+            l, lb = ZZB.λ(∇U, x, θ, Flow), ZZB.λ_bar(τ, a, b)
             num += 1
             if rand(rng)*lb < l
                 acc += 1
@@ -737,10 +1014,10 @@ using RandomNumbers.Xorshifts
 rng = Xoroshiro128Plus(2022)
 
 # C(0,1) 分布のポテンシャル関数（使わない）
-ϕ(x) = log(1 + x^2)
+U(x) = log(1 + x^2)
 
 # ポテンシャル関数の勾配
-∇ϕ(x) = 2x / (1 + x^2)
+∇U(x) = 2x / (1 + x^2)
 
 # 初期値
 x0 = 500.0
@@ -757,7 +1034,7 @@ c = 1.0
 k = 1.0
 
 # ZigZag過程の実行
-trace, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, Z; rng=rng)
+trace, acc = ss_pdmp(∇U, x0, θ0, T, c, k, Z; rng=rng)
 
 # 軌跡の離散化とサンプリング
 # dt = 0.1
