@@ -1,0 +1,194 @@
+---
+title: "大規模な不均衡データに対するロジスティック回帰（後編）"
+subtitle: "離散時間 MCMC から連続時間 MCMC へ"
+author: "司馬 博文"
+date: 7/18/2024
+date-modified: 7/19/2024
+image: Logistic.svg
+categories: [Bayesian, Computation, Python, MCMC]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apalike.csl
+abstract-title: 概要
+abstract: ロジットモデルやプロビットモデルの事後分布からのサンプリングには，その混合構造を利用したデータ拡張による Gibbs サンプラーが考案されている．しかし，このような Gibbs サンプラーは不明な理由で極めて収束が遅くなることがよく見られ，そのうちの１つのパターンが **大規模な不均衡データ** である．前編ではこの現象がなぜ起こるかに関して考察した．ここでは代替手法として Zig-Zag サンプラーがうまくいくことをみる．
+code-fold: false
+execute:
+    cache: true
+shift-heading-level-by: -1
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+前稿はこちら：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Stat/Logistic.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Stat/Logistic.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">大規模な不均衡データに対するロジスティック回帰（前編）</h3>
+                <p class="article-description">離散時間 MCMC から連続時間 MCMC へ</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
+
+<!-- ## Zig-Zag サンプラーによる解決 -->
+
+### 導入
+
+説明変数 $X\in\L(\Om;\R^p)$ と係数 $\xi\in\L(\Om;\R^p)$ に関するロジスティックモデル
+
+$$
+\P[Y=1\mi X,\xi]=g^{-1}(X^\top\xi)=\frac{\exp(X^\top\xi)}{1+\exp(X^\top\xi)}\tag{1}
+$$
+
+において，$\{y^i\}$ または $\{x^i_j\}$ が不均衡であった場合は，前節で見たように Gibbs サンプラーによる方法ではスケールしない．
+
+よく調整された Metropolis-Hastings 法を用いることが解決の１つとしてあり得るが，やはり本当に大きな $n,p$ に関してスケールしないことが問題である．
+
+### 事後分布の特徴
+
+実は，ロジスティック回帰ではポテンシャル $U$ の勾配が有界になり，簡単なサブサンプリングが可能である．
+
+事後分布の負の対数密度は
+\begin{align*}
+    U(\xi)&:=-\log p_0(\xi)-\sum_{i=1}^n\log\paren{\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}}\\
+    &=:U_0(\xi)+U_1(\xi)
+\end{align*}
+と表せる．
+
+$$
+U_1(\xi)=\frac{1}{n}\sum_{j=1}^nU^j_1(\xi)
+$$
+$$
+U_1^j(\xi)=-n\log\paren{\frac{\exp\paren{y^j(x^j)^\top\xi}}{1+\exp\paren{(x^j)^\top\xi}}}
+$$
+であるから，
+$$
+\partial_iU^j_1(\xi)=n\frac{x^j_i\exp\paren{(x^j)^\top\xi}}{1+\exp\paren{(x^j)^\top\xi}}-ny^jx^j_i<nx^j_i(1-y^j)
+$$
+を得る．
+
+### サブサンプリング
+
+特に各 $\partial_iU_1(\xi)$ のバウンドとして
+$$
+\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}\qquad i\in[d]
+$$
+を得るから，
+$$
+\lambda_i(\xi,\theta)=\Paren{\theta_i\partial_iU(\xi)}_+\le\Paren{n\theta_i\max_{j\in[n]}\abs{x^j_i}}_+
+$$
+を元に剪定を実行できる．
+
+また，さらにタイトに，次の affine 関数による評価もできる：
+$$
+\ov{m}_i(t):=a_i+b_it,\qquad i\in[d],
+$$
+$$
+a_i:=(\theta_i\partial_iU(x_*))_++C_i\abs{x-x_*}
+$$
+$$
+b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
+$$
+
+```{julia}
+#| code-fold: true
+#| output: false
+#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ() を定義
+using ZigZagBoomerang
+using Distributions
+using Random
+using LinearAlgebra
+using Statistics  # just for sure
+
+∇U(i::Int64, j::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64}) = n * x[i,j] * exp(y[j] * dot(x[:,j],ξ)) / (1 + exp(dot(x[:,j],ξ))) - n * y[j] * x[i,j]
+function ∇U(i::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64})
+    n = length(y)
+    U_list = []
+    for j in 1:n
+        push!(U_list, ∇U(i, j, ξ, x, y))
+    end
+    return mean(U_list)
+end
+
+pos(x) = max(zero(x), x)
+λ(i, ξ, θ, ∇U, x, y) = pos(θ[i] * ∇U(i, ξ, x, y))  # rate function of dimension i on E
+λ_bar(τ, a, b) = pos(a + b*τ)  # affine proxy
+
+"""
+`x`: current location, `θ`: current velocity, `t`: current time,
+"""
+function move_forward(τ, t, x, θ, ::ZigZag1d)
+    τ + t, x + θ*τ , θ
+end
+
+"""
+    `∇U`: gradient of the negative log-density
+    `(x,θ)`: initial state
+    `T`: Time Horizon    
+    `a+bt`: computational bound for intensity m(t)
+
+    `num`: ポアソン時刻に到着した回数
+    `acc`: 受容回数．`acc/num` は acceptance rate
+"""
+function ZZ(∇U, ξ::Vector{Float64}, θ::Vector{Float64}, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_Global)
+    t = zero(T)
+    Ξ = [(t, ξ, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(x, θ, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+
+    while t < T
+        τ = t′ - t
+        t, x, θ = move_forward(τ, t, x, θ, Flow)
+        l, lb = λ(∇U, x, θ, Flow), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, x, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(x, θ, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+```
+
+```{julia}
+#| code-summary: ２つの computational bounds を定義
+
+
+
+a(x, θ, ρ, σ, y) = θ * x / ρ^2 + (θ/σ^2) * sum(x .- y)
+b(x, θ, ρ, σ, y) = ρ^(-2) + length(y)/σ^2
+
+# computational bounds for intensity m(t)
+ab_ZZ_n1(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y1), b(x, θ, ρ, σ, y1))
+ab_ZZ_n2(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y2), b(x, θ, ρ, σ, y2))
+```
+
+```{julia}
+#| code-summary: データを生成して ZZ で実行
+using StatsFuns
+
+ξ0 = [1,2]  # True value
+n_list = [10, 100, 1000, 10000]  # 実験で用いるサンプルサイズの列
+
+Σ = [2 0; 0 2]
+x = rand(MvNormal(ξ0, Σ), n_list[end])
+y = rand.(Bernoulli.(logistic.(ξ0'*x)))  # BitVector になってしまう
+y = Float64.(vec(y))  #  Vector{Float64} に変換
+
+```
