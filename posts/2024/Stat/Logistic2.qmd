@@ -3,7 +3,7 @@ title: "大規模な不均衡データに対するロジスティック回帰（
 subtitle: "離散時間 MCMC から連続時間 MCMC へ"
 author: "司馬 博文"
 date: 7/18/2024
-date-modified: 7/19/2024
+date-modified: 7/20/2024
 image: Logistic.svg
 categories: [Bayesian, Computation, Python, MCMC]
 bibliography: 
@@ -73,7 +73,7 @@ $$
 $$
 を得る．
 
-### サブサンプリング
+### Poisson 剪定
 
 特に各 $\partial_iU_1(\xi)$ のバウンドとして
 $$
@@ -85,28 +85,33 @@ $$
 $$
 を元に剪定を実行できる．
 
-また，さらにタイトに，次の affine 関数による評価もできる：
-$$
-\ov{m}_i(t):=a_i+b_it,\qquad i\in[d],
-$$
-$$
-a_i:=(\theta_i\partial_iU(x_*))_++C_i\abs{x-x_*}
-$$
-$$
-b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
-$$
-
 ```{julia}
 #| code-fold: true
 #| output: false
-#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ() を定義
+#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ_GlobalBound() を定義
 using ZigZagBoomerang
 using Distributions
 using Random
 using LinearAlgebra
 using Statistics  # just for sure
+using StatsFuns
 
-∇U(i::Int64, j::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64}) = n * x[i,j] * exp(y[j] * dot(x[:,j],ξ)) / (1 + exp(dot(x[:,j],ξ))) - n * y[j] * x[i,j]
+"""
+    ∇U(i,j,ξ,x,y)
+        i ∈ [d]: 次元を表すインデックス
+        j ∈ [n]: サンプル番号を表すインデックス
+        ξ: パラメータ空間 R^d 上の位置
+        他，観測 (x,y) を引数にとる．
+    この関数を実装する際，log の中身をそのまま計算しようとすると大変大きくなり，数値的に不安定になる（除算の後は 1 近くになるはずだが，Inf になってしまう）
+"""
+∇U(i::Int64, j::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64}) = length(y) * x[i,j] * (logistic(dot(x[:,j],ξ)) - y[j])
+
+"""
+    ∇U(i,ξ,x,y)：∇U(i,j,ξ,x,y) を全データ j ∈ [n] について足し合わせたもの
+        i ∈ [d]: 次元を表すインデックス
+        ξ: パラメータ空間 R^d 上の位置
+        他，観測 (x,y) を引数にとる．
+"""
 function ∇U(i::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64})
     n = length(y)
     U_list = []
@@ -116,49 +121,73 @@ function ∇U(i::Int64, ξ, x::Matrix{Float64}, y::Vector{Float64})
     return mean(U_list)
 end
 
+function  ∇U(ξ, x::Matrix{Float64}, y::Vector{Float64})  # 1次元の場合のショートカット
+    return ∇U(1, ξ, x, y)
+end
+
 pos(x) = max(zero(x), x)
-λ(i, ξ, θ, ∇U, x, y) = pos(θ[i] * ∇U(i, ξ, x, y))  # rate function of dimension i on E
-λ_bar(τ, a, b) = pos(a + b*τ)  # affine proxy
+
+"""
+    λ(i, ξ, θ, ∇U, x, y)：第 i ∈ [d] 次元のレート関数
+        i ∈ [d]: 次元を表すインデックス
+        (ξ,θ): E 上の座標
+        ∇U
+        (x,y): 観測
+"""
+λ(i::Int64, ξ, θ, ∇U, x, y) = pos(θ[i] * ∇U(i, ξ, x, y))
+λ(ξ, θ, ∇U, x, y) = pos(θ * ∇U(ξ, x, y))  # 1次元の場合のショートカット
+
+"""
+    λ(τ, a, b)：代理レート関数の時刻 τ における値
+        τ: 時間
+        a,b: 1次関数の係数
+"""
+λ_bar(τ, a, b) = pos(a + b*τ)
 
 """
 `x`: current location, `θ`: current velocity, `t`: current time,
 """
-function move_forward(τ, t, x, θ, ::ZigZag1d)
-    τ + t, x + θ*τ , θ
+function move_forward(τ, t, ξ, θ, ::ZigZag1d)
+    τ + t, ξ + θ*τ , θ
 end
 
 """
-    `∇U`: gradient of the negative log-density
-    `(x,θ)`: initial state
-    `T`: Time Horizon    
-    `a+bt`: computational bound for intensity m(t)
+    ZZ1d(∇U, ξ, θ, T, x, y, Flow; rng=Random.GLOBAL_RNG, ab=ab_Global)：ZigZag sampler without subsampling
+        `∇U`: gradient of the negative log-density
+        `(ξ,θ)`: initial state
+        `T`: Time Horizon
+        `(x,y)`: observation
+        `Flow`: continuous dynamics
 
-    `num`: ポアソン時刻に到着した回数
-    `acc`: 受容回数．`acc/num` は acceptance rate
+        `a+bt`: computational bound for intensity m(t)
+
+        `num`: ポアソン時刻に到着した回数
+        `acc`: 受容回数．`acc/num` は acceptance rate
 """
-function ZZ(∇U, ξ::Vector{Float64}, θ::Vector{Float64}, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_Global)
+function ZZ1d(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_Global)
     t = zero(T)
     Ξ = [(t, ξ, θ)]
     num = acc = 0
     epoch_list = [num]
-    a, b = ab(x, θ, Flow)
+    a, b = ab(ξ, θ, x, y, Flow)
     t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
 
     while t < T
         τ = t′ - t
-        t, x, θ = move_forward(τ, t, x, θ, Flow)
-        l, lb = λ(∇U, x, θ, Flow), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
+        l, lb = λ(ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
         num += 1
         if rand()*lb < l
             acc += 1
             if l > lb + 0.01
                 println(l-lb)
+                println(l)
             end
             θ = -θ
-            push!(Ξ, (t, x, θ))
+            push!(Ξ, (t, ξ, θ))
             push!(epoch_list, num)
         end
-        a, b = ab(x, θ, Flow)
+        a, b = ab(ξ, θ, x, y, Flow)
         t′ = t + poisson_time(a, b, rand())
     end
 
@@ -167,21 +196,314 @@ end
 ```
 
 ```{julia}
+#| code-summary: global な computational bounds を定義
+
+a_Global(ξ, θ, x, y) = length(y) * maximum(abs.(vec(x)))
+b_Global(ξ, θ, x, y) = 0
+
+ab_Global(ξ, θ, x, y, ::ZigZag1d) = (a_Global(ξ, θ, x, y), b_Global(ξ, θ, x, y))
+```
+
+```{julia}
+# T = 500.0
+# (ξ0, θ0) = (0.0, 1.0)
+# trace_ZZ1, epochs_ZZ1, acc_ZZ1 = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Global)
+# dt = 0.01
+# traj_ZZ1 = discretize(trace_ZZ1, ZigZag1d(), dt)
+```
+
+そこで，さらにタイトに，次の affine 関数による評価を考えることになる：
+$$
+\ov{m}_i(t):=a_i+b_it,\qquad i\in[d],
+$$
+$$
+a_i:=(\theta_i\partial_iU(\xi_*))_++C_i\abs{\xi-\xi_*}
+$$
+$$
+b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
+$$
+
+```{julia}
+#| code-summary: preprocessing for ZZ-CV of complexity O(n)
+
+"""
+    U(ξ, x, y)：ポテンシャル関数
+        ξ: パラメータ空間上の点
+        (x,y): 観測
+"""
+function U(ξ, x, y)
+    n = length(y)
+    U_list = []
+    for j in 1:n
+        push!(U_list, U(j, ξ, x, y))
+    end
+    return mean(U_list)
+end
+function U(j, ξ, x, y)
+    n = length(y)
+    product = dot(x[:,j],ξ)
+    return -n * log(exp(y[j] * product) / (1 + exp(product)))
+end
+
+using StatsFuns
+using Distributions
+
+ξ0 = [1] # True value
+n_list = [10, 100, 1000]  # 実験で用いるサンプルサイズの列
+
+Σ = [2]
+x = rand(MvNormal(ξ0, Σ), n_list[end])
+y = rand.(Bernoulli.(logistic.(ξ0*x)))  # BitVector になってしまう
+y = Float64.(vec(y))  # Vector{Float64} に変換
+```
+
+```{julia}
 #| code-summary: ２つの computational bounds を定義
+using Optim
 
+result = optimize(ξ -> U(ξ, x, y), [0.0], LBFGS())
+ξ_star = Optim.minimizer(result)
 
+function C(ξ, θ, x, y)
+    n = length(y)
+    max_value = maximum(x.^2)
+    return n * max_value / 4
+end
 
-a(x, θ, ρ, σ, y) = θ * x / ρ^2 + (θ/σ^2) * sum(x .- y)
-b(x, θ, ρ, σ, y) = ρ^(-2) + length(y)/σ^2
+a_Affine(ξ, θ, x, y) = pos(θ * ∇U(ξ_star,x,y)) + C(ξ, θ, x, y) * abs(ξ - ξ_star[1])
+b_Affine(ξ, θ, x, y) = C(ξ, θ, x, y)
 
 # computational bounds for intensity m(t)
-ab_ZZ_n1(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y1), b(x, θ, ρ, σ, y1))
-ab_ZZ_n2(x, θ, ::ZigZag1d) = (a(x, θ, ρ, σ, y2), b(x, θ, ρ, σ, y2))
+ab_Affine(ξ, θ, x, y, ::ZigZag1d) = (a_Affine(ξ, θ, x, y), b_Affine(ξ, θ, x, y))
 ```
+
+```{julia}
+# T = 500.0
+# (ξ0, θ0) = (0.0, 1.0)
+# trace_ZZ1, epochs_ZZ1, acc_ZZ1 = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Affine)
+# dt = 0.01
+# traj_ZZ1 = discretize(trace_ZZ1, ZigZag1d(), dt)
+```
+
+### サブサンプリング
+
+### 数値実験による性能比較
+
+```{julia}
+using Statistics
+
+function ESS(samples::Vector{Float64}, T, dt)
+    B = T / dt
+    V = (dt / T) * sum(samples.^2) - ((dt / T) * sum(samples))^2
+    Y = samples .* sqrt(T / B)
+    ESS = T * V / var(Y)
+    return ESS
+end
+
+function getESSperEpoch(ab, T ,dt, x, y; ξ0=0.0, θ0=1.0)
+    trace, epochs, acc = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab)
+    traj = discretize(trace, ZigZag1d(), dt)
+    return ESS(traj.x, T, dt) / epochs[end]
+end
+
+N = 10
+T = 500.0
+dt = 0.1
+
+function experiment_ZZ(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # サブサンプリングなしの ZZ() に関して N 回実験
+    ESSs_sum_Affine = zero(n_list)
+    ESSs_sum_Global = zero(n_list)
+
+    for _ in 1:N
+        ESSs_Affine = []
+        ESSs_Global = []
+        for n in n_list
+            push!(ESSs_Affine, getESSperEpoch(ab_Affine, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_Global, getESSperEpoch(ab_Global, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+        end
+        ESSs_sum_Affine = [ESSs_sum_Affine ESSs_Affine]
+        ESSs_sum_Global = [ESSs_sum_Global ESSs_Global]
+    end
+    return mean(ESSs_sum_Affine, dims=2), var(ESSs_sum_Affine, dims=2), mean(ESSs_sum_Global, dims=2), var(ESSs_sum_Global, dims=2)
+end
+
+ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(2, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
+```
+
+```{julia}
+#| eval: false
+using Plots
+using GLM, DataFrames
+
+function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD")
+    if background_color
+        p = plot(#n_list, ESS,
+        xscale=:log10,
+        yscale=:log10,
+        xlabel="Observations",
+        ylabel="ESS per Epoch",
+        background_color = "#F0F1EB"
+        )
+    else
+        p = plot(#n_list, ESS,
+        xscale=:log10,
+        yscale=:log10,
+        xlabel="Observations",
+        ylabel="ESS per Epoch"
+        )
+    end
+
+    scatter!(p, n_list, ESS,
+            marker=:circle,
+            markersize=5,
+            markeralpha=0.6,
+            color=color,
+            label=nothing
+            )
+
+    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
+    model = lm(@formula(Y ~ X), df)
+    X_pred = range(minimum(df.X), maximum(df.X), length=100)
+    Y_pred = predict(model, DataFrame(X = X_pred))
+    plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
+        line=:solid,
+        linewidth=2,
+        color=color,
+        label=label
+        )
+
+    return p
+end
+
+function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95420")
+    q = scatter(p, n_list, ESS,
+            marker=:circle,
+            markersize=5,
+            markeralpha=0.6,
+            color=color,
+            label=nothing
+            )
+
+    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
+    model = lm(@formula(Y ~ X), df)
+    X_pred = range(minimum(df.X), maximum(df.X), length=100)
+    Y_pred = predict(model, DataFrame(X = X_pred))
+    plot!(q, 10 .^ X_pred, 10 .^ Y_pred,
+        line=:solid,
+        linewidth=2,
+        color=color,
+        label=label
+        )
+    
+    return q
+end
+
+p = startPlot(n_list, ESS_Global, var_ESS_Global)
+q = addPlot(p, n_list, ESS_Affine, var_ESS_Affine)
+q
+```
+
+```{julia}
+using JLD2
+
+@save "Logistic2.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global q
+```
+
+```julia
+using JLD2
+@load "Logistic2.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global q
+```
+
+```
+このエラーは、JLD2ファイルを読み込む際に発生したスタックオーバーフローエラーです。これは通常、非常に深い再帰や複雑なデータ構造を読み込もうとしたときに発生します。
+
+解決策としては以下のようなアプローチが考えられます：
+
+1. Julia のバージョンを更新する：
+   最新のJuliaバージョンに更新することで、JLD2の互換性の問題が解決される可能性があります。
+
+2. JLD2パッケージを更新する：
+   ```julia
+   using Pkg
+   Pkg.update("JLD2")
+   ```
+
+3. ファイルを再保存する：
+   データを別の形式（例：CSV）で一度保存し、それを読み込んでから再度JLD2形式で保存し直すことで、ファイル構造が単純化される可能性があります。
+
+4. データを分割して保存する：
+   大きなデータ構造を複数の小さなファイルに分割して保存し、それぞれを個別に読み込むことを試みてください。
+
+5. 別の保存形式を使用する：
+   JLD2の代わりに、BSON.jlやCSV.jlなど、別のデータ保存形式を試してみることも一案です。
+
+6. Juliaのスタックサイズを増やす：
+   Juliaを起動する際に`--stack-size`オプションを使用してスタックサイズを増やすことができます。例：
+   ```
+   julia --stack-size=0x10000000
+   ```
+
+まずは、JuliaとJLD2パッケージを最新版に更新してみることをお勧めします。それでも問題が解決しない場合は、データの保存方法を見直すか、別の保存形式を検討してみてください。
+```
+
+### 有効サンプル数の計算
+
+時区間 $[0,T]$ における ZigZag 過程の，関数 $h\in\L^2(\R^d)$ に関する **有効サンプル数** (ESS) とは
+$$
+\wh{\ESS}:=T\frac{\wh{\V_\pi[h]}}{\wh{\sigma^2_h}}
+$$
+$$
+\wh{\V_\pi[h]}:=\frac{1}{T}\int^T_0h(X_s)^2\,ds-\paren{\frac{1}{T}\int^T_0h(X_s)\,ds}^2,
+$$
+$$
+\wh{\sigma^2_h}:=\frac{1}{B-1}\sum_{i=1}^B(Y_i-\ov{Y})^2,\quad Y_i:=\sqrt{\frac{B}{T}}\int^{\frac{iT}{B}}_{\frac{(i-1)T}{B}}h(X_s)\,ds
+$$
+で定まる値である．
+
+```{julia}
+T = 500.0
+(ξ0, θ0) = (0.0, 1.0)
+trace_ZZ, epochs_ZZ, acc_ZZ = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Affine)
+dt = 0.1
+traj_ZZ = discretize(trace_ZZ, ZigZag1d(), dt)
+```
+
+```{julia}
+samples = traj_ZZ.x
+
+function ESS(samples::Vector{Float64}, T, dt)
+    V = (dt / T) * sum(samples.^2) - ((dt / T) * sum(samples))^2
+    Y = samples .* sqrt(T / B)
+    ESS = T * V / var(Y)
+    return ESS
+end
+```
+
+## 高次元へのスケーリング
 
 ```{julia}
 #| code-summary: データを生成して ZZ で実行
 using StatsFuns
+using Distributions
+
+"""
+    U(ξ, x, y)：ポテンシャル関数
+        ξ: パラメータ空間上の点
+        (x,y): 観測
+"""
+function U(ξ, x, y)
+    n = length(y)
+    U_list = []
+    for j in 1:n
+        push!(U_list, U(j, ξ, x, y))
+    end
+    return mean(U_list)
+end
+function U(j, ξ, x, y)
+    n = length(y)
+    product = dot(x[:,j],ξ)
+    return -n * exp(y[j] * product) / (1 + exp(product))
+end
 
 ξ0 = [1,2]  # True value
 n_list = [10, 100, 1000, 10000]  # 実験で用いるサンプルサイズの列
@@ -190,9 +512,11 @@ n_list = [10, 100, 1000, 10000]  # 実験で用いるサンプルサイズの列
 x = rand(MvNormal(ξ0, Σ), n_list[end])
 y = rand.(Bernoulli.(logistic.(ξ0'*x)))  # BitVector になってしまう
 y = Float64.(vec(y))  #  Vector{Float64} に変換
-
 ```
 
-## 高次元へのスケーリング
+```{julia}
+using Optim
 
-To Write
+result = optimize(ξ -> U(ξ,x,y), [0.0,0.0], LBFGS())
+ξ_star = Optim.minimizer(result)
+```
