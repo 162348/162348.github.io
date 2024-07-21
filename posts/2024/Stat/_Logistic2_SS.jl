@@ -263,76 +263,38 @@ function experiment_ZZ(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # �
     return mean(ESSs_sum_Affine, dims=2), var(ESSs_sum_Affine, dims=2), mean(ESSs_sum_Global, dims=2), var(ESSs_sum_Global, dims=2)
 end
 
-using Plots
-using GLM, DataFrames
+function getESSperEpoch_SS(ab, ZZ, T ,dt, x, y; ξ0=0.0, θ0=1.0)
+    trace, epochs, acc = ZZ(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab)
+    traj = discretize(trace, ZigZag1d(), dt)
+    return ESS(traj.x, T, dt) * length(y) / epochs[end]  # サブサンプリングをしているので length(y) で補正する必要あり
+end
 
-function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD")
-    if background_color
-        p = plot(#n_list, ESS,
-        xscale=:log10,
-        yscale=:log10,
-        xlabel="Observations",
-        ylabel="ESS per Epoch",
-        background_color = "#F0F1EB"
-        )
-    else
-        p = plot(#n_list, ESS,
-        xscale=:log10,
-        yscale=:log10,
-        xlabel="Observations",
-        ylabel="ESS per Epoch"
-        )
+N = 10
+T = 500.0
+dt = 0.1
+
+function experiment_ZZ_SS(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # サブサンプリングなしの ZZ() に関して N 回実験
+    ESSs_sum_CV = zero(n_list)
+    ESSs_sum_SS = zero(n_list)
+
+    for _ in 1:N
+        ESSs_CV = []
+        ESSs_SS = []
+        for n in n_list
+            push!(ESSs_CV, getESSperEpoch_SS(ab_Affine, ZZ1d_CV, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_SS, getESSperEpoch_SS(ab_Global, ZZ1d_SS, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+        end
+        ESSs_sum_CV = [ESSs_sum_CV ESSs_CV]
+        ESSs_sum_SS = [ESSs_sum_SS ESSs_SS]
     end
-
-    scatter!(p, n_list, ESS,
-            marker=:circle,
-            markersize=5,
-            markeralpha=0.6,
-            color=color,
-            label=nothing
-            )
-
-    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
-    model = lm(@formula(Y ~ X), df)
-    X_pred = range(minimum(df.X), maximum(df.X), length=100)
-    Y_pred = predict(model, DataFrame(X = X_pred))
-    plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
-        line=:solid,
-        linewidth=2,
-        color=color,
-        label=label
-        )
-
-    return p
+    return mean(ESSs_sum_CV, dims=2), var(ESSs_sum_CV, dims=2), mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2)
 end
 
-function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95420")
-    q = scatter(p, n_list, ESS,
-            marker=:circle,
-            markersize=5,
-            markeralpha=0.6,
-            color=color,
-            label=nothing
-            )
-
-    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
-    model = lm(@formula(Y ~ X), df)
-    X_pred = range(minimum(df.X), maximum(df.X), length=100)
-    Y_pred = predict(model, DataFrame(X = X_pred))
-    plot!(q, 10 .^ X_pred, 10 .^ Y_pred,
-        line=:solid,
-        linewidth=2,
-        color=color,
-        label=label
-        )
-    
-    return q
-end
-
-ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(10, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
+ESS_CV, var_ESS_CV, ESS_SS, var_ESS_SS = experiment_ZZ_SS(10, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
 
 using JLD2
 
-@save "Logistic2_Experiment1.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global
+@save "Logistic2_Experiment2.jld2" ESS_CV var_ESS_CV ESS_SS var_ESS_SS
 
-# １回目の実行は 1h 16m 31s かかりました．
+## 第一回実行：13m 12s
+## 第二回実行：8m 13s
