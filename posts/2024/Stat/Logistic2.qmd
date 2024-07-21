@@ -229,9 +229,33 @@ b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
 $$
 
 ```{julia}
+#| code-fold: true
+#| code-summary: 観測を生成
+using StatsFuns
+using Distributions
+
+ξ0 = [1.0] # True value
+n_list = [10, 100, 1000]  # 実験で用いるサンプルサイズの列
+
+Σ = [2]
+x = rand(MvNormal(ξ0, Σ), n_list[end])
+y = rand.(Bernoulli.(logistic.(ξ0*x)))  # BitVector になってしまう
+y = Float64.(vec(y))  # Vector{Float64} に変換
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+
+@load "Logistic2_data.jld2" x y
+```
+
+```{julia}
 #| code-summary: preprocessing for ZZ-CV of complexity O(n)
 #| code-fold: true
 #| output: false
+using Statistics
 
 """
     U(ξ, x, y)：ポテンシャル関数
@@ -252,21 +276,6 @@ function U(j, ξ, x, y)
     return -n * log(exp(y[j] * product) / (1 + exp(product)))
 end
 
-using StatsFuns
-using Distributions
-
-ξ0 = [1] # True value
-n_list = [10, 100, 1000]  # 実験で用いるサンプルサイズの列
-
-Σ = [2]
-x = rand(MvNormal(ξ0, Σ), n_list[end])
-y = rand.(Bernoulli.(logistic.(ξ0*x)))  # BitVector になってしまう
-y = Float64.(vec(y))  # Vector{Float64} に変換
-```
-
-```{julia}
-#| code-summary: ２つの computational bounds を定義
-#| output: false
 using Optim
 
 result = optimize(ξ -> U(ξ, x, y), [0.0], LBFGS())
@@ -442,7 +451,7 @@ ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(2, T, dt;
 #| output: false
 using JLD2
 
-@load "Logistic2.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global
+@load "Logistic2_Experiment1_Archived.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global
 ```
 
 ```{julia}
@@ -518,8 +527,8 @@ function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95
     return q
 end
 
-p = startPlot(n_list, ESS_Global, var_ESS_Global)
-q = addPlot(p, n_list, ESS_Affine, var_ESS_Affine)
+p = startPlot(n_list, ESS_Global, sqrt.(var_ESS_Global))
+q = addPlot(p, n_list, ESS_Affine, sqrt.(var_ESS_Affine))
 display(q)
 ```
 
@@ -579,17 +588,45 @@ ESS_CV, var_ESS_CV, ESS_SS, var_ESS_SS = experiment_ZZ_SS(2, T, dt; ξ0=0.0, θ0
 ```{julia}
 #| echo: false
 #| output: false
-@load "Logistic2_SS.jld2" ESS_CV var_ESS_CV ESS_SS var_ESS_SS
+@load "Logistic2_Experiment2_Archived.jld2" ESS_CV var_ESS_CV ESS_SS var_ESS_SS
 ```
 
 ```{julia}
 #| code-summary: 結果をプロット
 #| code-fold: true
 
-q = addPlot(q, n_list, ESS_CV, var_ESS_CV; label="ZZ-CV", color="blue")
-q = addPlot(q, n_list, ESS_SS, var_ESS_SS; label="ZZ-SS", color="darkorange")
+q = addPlot(q, n_list, ESS_CV, sqrt.(var_ESS_CV); label="ZZ-CV", color="darkorange")
+q = addPlot(q, n_list, ESS_SS, sqrt.(var_ESS_SS); label="ZZ-SS", color="blue")
 q = plot!(q, legend=:bottomleft)
 display(q)
+```
+
+### 比較対象：MALA
+
+```{julia}
+using AdvancedHMC, AdvancedMH, ForwardDiff
+using LogDensityProblems
+using LogDensityProblemsAD
+using StructArrays
+using LinearAlgebra
+
+struct LogTargetDensity
+    x::Matrix{Float64}
+    y::Vector{Float64}
+end
+
+LogDensityProblems.logdensity(p::LogTargetDensity, ξ) = -U(ξ, p.x, p.y)
+LogDensityProblems.dimension(p::LogTargetDensity) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensity}) = LogDensityProblems.LogDensityOrder{0}()
+
+model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensity(x, y))
+
+σ² = 0.0001
+spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
+
+chain = sample(model_with_ad, spl, 2000; initial_params=ξ0, chain_type=StructArray, param_names=["ξ"], stats=true)
+
+traj_MALA = chain.ξ
 ```
 
 ### 有効サンプル数の計算
