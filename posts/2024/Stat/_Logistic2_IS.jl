@@ -242,98 +242,77 @@ function getESSperEpoch(ab, T ,dt, x, y; ξ0=0.0, θ0=1.0)
     return ESS(traj.x, T, dt) / epochs[end]
 end
 
+function getESSperEpoch_SS(ab, ZZ, T ,dt, x, y; ξ0=0.0, θ0=1.0)
+    trace, epochs, acc = ZZ(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab)
+    traj = discretize(trace, ZigZag1d(), dt)
+    return ESS(traj.x, T, dt) * length(y) / epochs[end]  # サブサンプリングをしているので length(y) で補正する必要あり
+end
+
 N = 10
 T = 500.0
 dt = 0.1
 
-function experiment_ZZ(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # サブサンプリングなしの ZZ() に関して N 回実験
-    ESSs_sum_Affine = zero(n_list)
-    ESSs_sum_Global = zero(n_list)
+a_IS(ξ, θ, x, y) = sum(vec(x))
+b_IS(ξ, θ, x, y) = 0
+
+ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
+
+using StatsBase
+
+function λj_IS(j::Int64, ξ, θ, ∇U, x, y)
+    pj = x[1,j] / sum(x)
+    Eʲ = ∇U(1, j, ξ, x, y) / (length(y) * pj)
+    return pos(θ * Eʲ)
+end
+
+function ZZ1d_IS(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_IS)
+    t = zero(T)
+    Ξ = [(t, ξ, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(ξ, θ, x, y, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+    n = length(y)
+
+    while t < T
+        τ = t′ - t
+        t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
+        j = sample(1:n, Weights(vec(x)))
+        l, lb = λj_IS(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, ξ, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(ξ, θ, x, y, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+
+function experiment_ZZ_IS(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # 重点サブサンプリング ZZ1d_IS() に関して N 回実験
+    ESSs_sum_IS = zero(n_list)
 
     for _ in 1:N
-        ESSs_Affine = []
-        ESSs_Global = []
+        ESSs_IS = []
         for n in n_list
-            push!(ESSs_Affine, getESSperEpoch(ab_Affine, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
-            push!(ESSs_Global, getESSperEpoch(ab_Global, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_IS, getESSperEpoch_SS(ab_IS, ZZ1d_IS, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
         end
-        ESSs_sum_Affine = [ESSs_sum_Affine ESSs_Affine]
-        ESSs_sum_Global = [ESSs_sum_Global ESSs_Global]
+        ESSs_sum_IS = [ESSs_sum_IS ESSs_IS]
     end
-    return mean(ESSs_sum_Affine, dims=2), var(ESSs_sum_Affine, dims=2), mean(ESSs_sum_Global, dims=2), var(ESSs_sum_Global, dims=2)
+    return mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
 end
 
-using Plots
-using GLM, DataFrames
-
-function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD")
-    if background_color
-        p = plot(#n_list, ESS,
-        xscale=:log10,
-        yscale=:log10,
-        xlabel="Observations",
-        ylabel="ESS per Epoch",
-        background_color = "#F0F1EB"
-        )
-    else
-        p = plot(#n_list, ESS,
-        xscale=:log10,
-        yscale=:log10,
-        xlabel="Observations",
-        ylabel="ESS per Epoch"
-        )
-    end
-
-    scatter!(p, n_list, ESS,
-            marker=:circle,
-            markersize=5,
-            markeralpha=0.6,
-            color=color,
-            label=nothing
-            )
-
-    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
-    model = lm(@formula(Y ~ X), df)
-    X_pred = range(minimum(df.X), maximum(df.X), length=100)
-    Y_pred = predict(model, DataFrame(X = X_pred))
-    plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
-        line=:solid,
-        linewidth=2,
-        color=color,
-        label=label
-        )
-
-    return p
-end
-
-function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95420")
-    q = scatter(p, n_list, ESS,
-            marker=:circle,
-            markersize=5,
-            markeralpha=0.6,
-            color=color,
-            label=nothing
-            )
-
-    df = DataFrame(X = log10.(n_list), Y = log10.(vec(ESS)))
-    model = lm(@formula(Y ~ X), df)
-    X_pred = range(minimum(df.X), maximum(df.X), length=100)
-    Y_pred = predict(model, DataFrame(X = X_pred))
-    plot!(q, 10 .^ X_pred, 10 .^ Y_pred,
-        line=:solid,
-        linewidth=2,
-        color=color,
-        label=label
-        )
-    
-    return q
-end
-
-ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(10, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
+ESS_IS, var_ESS_IS = experiment_ZZ_IS(10, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
 
 using JLD2
 
-@save "Logistic2_Experiment1.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global
+@save "Logistic2_Experiment3.jld2" ESS_IS var_ESS_IS
 
-# １回目の実行は 1h 16m 31s かかりました．
-# ２回目の実行は 3h 17m 5s かかった．
+## 第一回実行：9s
