@@ -325,7 +325,7 @@ ESS_SS, var_ESS_SS, ESS_IS, var_ESS_IS = experiment_Sparse(N, T, dt; ξ0=0.0, θ
 
 using JLD2
 
-@save "Logistic2_Experiment4_Sparse.jld2" ESS_SS var_ESS_SS ESS_IS var_ESS_IS
+@save "Logistic2_Experiment4_Sparse_IS.jld2" ESS_SS var_ESS_SS ESS_IS var_ESS_IS
 
 
-## 2:27, 2:28, 2:23 ときた．
+## 2:27, 2:28, 2:23, 2:22 ときた．
