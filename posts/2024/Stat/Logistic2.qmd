@@ -3,7 +3,7 @@ title: "大規模な不均衡データに対するロジスティック回帰（
 subtitle: "離散時間 MCMC から連続時間 MCMC へ"
 author: "司馬博文"
 date: 7/18/2024
-date-modified: 7/22/2024
+date-modified: 7/23/2024
 image: Logistic2.svg
 categories: [Bayesian, Computation, Python, MCMC]
 bibliography: 
@@ -255,6 +255,7 @@ using JLD2
 #| code-summary: preprocessing for ZZ-CV of complexity O(n)
 #| output: false
 using Statistics
+using LinearAlgebra
 
 """
     U(ξ, x, y)：ポテンシャル関数
@@ -462,12 +463,12 @@ using JLD2
 using Plots
 using GLM, DataFrames
 
-function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD")
+function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD", xlabel="Observations")
     if background_color
         p = plot(#n_list, ESS,
         xscale=:log10,
         yscale=:log10,
-        xlabel="Observations",
+        xlabel=xlabel,
         ylabel="ESS per Epoch",
         background_color = "#F0F1EB"
         )
@@ -475,7 +476,7 @@ function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_c
         p = plot(#n_list, ESS,
         xscale=:log10,
         yscale=:log10,
-        xlabel="Observations",
+        xlabel=xlabel,
         ylabel="ESS per Epoch"
         )
     end
@@ -692,7 +693,7 @@ $$
 
 ```{julia}
 #| output: false
-a_IS(ξ, θ, x, y) = sum(x)
+a_IS(ξ, θ, x, y) = sum(abs.(x))
 b_IS(ξ, θ, x, y) = 0
 
 ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
@@ -701,10 +702,11 @@ ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
 ```{julia}
 #| code-fold: true
 #| output: false
+#| code-summary: 重点サブサンプリングによる ZigZag サンプラー ZZ1d_IS() を定義
 using StatsBase
 
 function λj_IS(j::Int64, ξ, θ, ∇U, x, y)
-    pj = x[1,j] / sum(x)
+    pj = abs(x[1,j]) / sum(abs.(x))  # x がスパースだと 0 になりやすいことに注意
     Eʲ = ∇U(1, j, ξ, x, y) / (length(y) * pj)
     return pos(θ * Eʲ)
 end
@@ -721,7 +723,7 @@ function ZZ1d_IS(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64
     while t < T
         τ = t′ - t
         t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
-        j = sample(1:n, Weights(vec(x)))
+        j = sample(1:n, Weights(abs.(vec(x))))
         l, lb = λj_IS(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
         num += 1
         if rand()*lb < l
@@ -744,6 +746,7 @@ end
 ```{julia}
 #| eval: false
 #| code-fold: true
+#| code-summary: 実験を実行する関数 experiment_ZZ_IS() を定義
 function experiment_ZZ_IS(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # 重点サブサンプリング ZZ1d_IS() に関して N 回実験
     ESSs_sum_IS = zero(n_list)
 
@@ -763,7 +766,8 @@ ESS_IS, var_ESS_IS = experiment_ZZ_IS(2, 500.0, 1.0; ξ0=0.0, θ0=1.0, n_list=n_
 ```{julia}
 #| code-fold: true
 #| output: false
-@load "Logistic2_Experiment3.jld2" ESS_IS var_ESS_IS
+#| echo: false
+@load "Logistic2_Experiment3_.jld2" ESS_IS var_ESS_IS
 ```
 
 ```{julia}
@@ -780,13 +784,130 @@ display(r)
 savefig(r, "Logistic2.svg")
 ```
 
+制御変数による方法は $n\to\infty$ の漸近論に基づいているので，観測数が増えるほど効率は上がっていく．
+
 ### 大規模不均衡データ
 
 大規模不均衡データでは，事後分布が十分な集中性を持たないために制御変数による方法 ZZ-CV が十分な効率改善を示さないが，重点サブサンプリングによれば Poisson 強度関数のタイトな上界を引き続き構成できる．
 
+```{julia}
+#| output: false
+ξ0 = [1.0] # True value
+Σ = [2]
+n = 1000
+
+function sample_SparseData(n::Int64, α::Float64; ρ=MvNormal(ξ0, Σ))
+    x = []
+    while length(x) < n
+        rand() < α ? push!(x, rand(ρ)[1]) : push!(x, 0.0)
+    end
+    x = Float64.(reshape(x,1,:))
+    y = rand.(Bernoulli.(logistic.(ξ0*x)))
+    y = Float64.(vec(y))
+    return x, y
+end
+
+α_list = [1, 0.1, 0.01]
+
+x_Sparse, y_Sparse = [], []
+
+for α in α_list
+    x, y = sample_SparseData(n, α)
+    push!(x_Sparse, x)
+    push!(y_Sparse, y)
+end
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+@load "Logistic2_data2.jld2" x_Sparse y_Sparse
+```
+
+```{julia}
+#| eval: false
+using Optim
+
+a_Sparse(ξ_star, ξ, θ, x, y) = pos(θ * ∇U(ξ_star,x,y)) + C(ξ, θ, x, y) * abs(ξ - ξ_star[1])
+ξ_star_list = []
+α_list = [1, 0.1, 0.01]
+
+for α in 1:length(α_list)
+    result = optimize(ξ -> U(ξ, x_Sparse[α], y_Sparse[α]), [0.0], LBFGS())
+    ξ = Optim.minimizer(result)
+    push!(ξ_star_list, ξ)
+end
+
+function experiment_Sparse(N, T, dt; ξ0=0.0, θ0=1.0, α_list=[1, 0.1, 0.01, 0.001])
+    # ESSs_sum_CV = zero(α_list)
+    ESSs_sum_SS = zero(α_list)
+    ESSs_sum_IS = zero(α_list)
+
+    for _ in 1:N
+        # ESSs_CV = []
+        ESSs_SS = []
+        ESSs_IS = []
+        for i in 1:length(α_list)
+            # ab_Sparse(ξ, θ, x, y, ::ZigZag1d) = (a_Sparse(ξ_star_list[i], ξ, θ, x, y), b_Affine(ξ, θ, x, y))
+            # push!(ESSs_CV, getESSperEpoch_SS(ab_Sparse, ZZ1d_CV, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_SS, getESSperEpoch_SS(ab_Global, ZZ1d_SS, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_IS, getESSperEpoch_SS(ab_IS, ZZ1d_IS, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+        end
+        # ESSs_sum_CV = [ESSs_sum_CV ESSs_CV]
+        ESSs_sum_SS = [ESSs_sum_SS ESSs_SS]
+        ESSs_sum_IS = [ESSs_sum_IS ESSs_IS]
+    end
+    # return mean(ESSs_sum_CV, dims=2), var(ESSs_sum_CV, dims=2), mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2), mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
+    return mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2), mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
+end
+
+N = 2
+T = 500.0
+dt = 0.1
+
+ESS_SS, var_ESS_SS, ESS_IS, var_ESS_IS = experiment_Sparse(N, T, dt; ξ0=0.0, θ0=1.0, α_list=α_list)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+@load "Logistic2_Experiment4_Sparse.jld2" ESS_SS var_ESS_SS ESS_IS var_ESS_IS
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: プロット
+using LaTeXStrings
+p = startPlot(α_list, ESS_SS, sqrt.(var_ESS_SS); label="ZZ-SS", xlabel=L"Sparsity $\alpha$")
+p = addPlot(p, α_list, ESS_IS, sqrt.(var_ESS_IS); label="ZZ-IS")
+display(p)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+#| eval: false
+savefig(p, "Logistic2_ESS_per_Epoch_Sparse.svg")
+```
+
+ここでは問題にしないが，圧倒的に実行時間が重点サブサンプリングの方が短い．
+
+::: {.callout-important title="注" collapse="true" icon="false"}
+
+$\al<10^{-3}$ の領域では動作が不安定になる．論文 [@Sen+2020] でもこの領域は触れられていない．しかし，
+$$
+\#\Brace{i\in[n]\mid y^i=1}\approx500
+$$
+であるため，特に理由は見つからない．
+
+:::
 
 
 ## 高次元へのスケーリング
+
+さらに，[@Bierkens+2023] による方法で，スパースデータに対する効率化が可能である．
 
 ```{julia}
 #| code-summary: データを生成して ZZ で実行

@@ -252,7 +252,7 @@ N = 10
 T = 500.0
 dt = 0.1
 
-a_IS(ξ, θ, x, y) = sum(vec(x))
+a_IS(ξ, θ, x, y) = sum(abs.(vec(x)))
 b_IS(ξ, θ, x, y) = 0
 
 ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
@@ -260,7 +260,7 @@ ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
 using StatsBase
 
 function λj_IS(j::Int64, ξ, θ, ∇U, x, y)
-    pj = x[1,j] / sum(x)
+    pj = abs(x[1,j]) / sum(abs.(x))
     Eʲ = ∇U(1, j, ξ, x, y) / (length(y) * pj)
     return pos(θ * Eʲ)
 end
@@ -277,7 +277,7 @@ function ZZ1d_IS(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64
     while t < T
         τ = t′ - t
         t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
-        j = sample(1:n, Weights(vec(x)))
+        j = sample(1:n, Weights(abs.(vec(x))))
         l, lb = λj_IS(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
         num += 1
         if rand()*lb < l
@@ -313,6 +313,8 @@ ESS_IS, var_ESS_IS = experiment_ZZ_IS(10, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list
 
 using JLD2
 
-@save "Logistic2_Experiment3.jld2" ESS_IS var_ESS_IS
+@save "Logistic2_Experiment3_.jld2" ESS_IS var_ESS_IS
 
 ## 第一回実行：9s
+## 第二回実行：35s
+## 第三回実行：42s
