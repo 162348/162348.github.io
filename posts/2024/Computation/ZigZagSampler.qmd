@@ -58,7 +58,7 @@ abstract: |
 
 ## Zig-Zag サンプラー
 
-連続時間 MCMC 手法の１つ
+区分確定的 Makrov 過程を用いた，連続時間 MCMC 手法の１つ
 
 {{< include ../../../_preamble.qmd >}}
 
@@ -189,7 +189,27 @@ $$
 
 :::
 
-あとはエルゴード性（第 [-@sec-ergodicity] 節）が成り立てば，$\pi$ に対する MCMC として使える．
+あとはエルゴード性が成り立てば，$\pi$ に対する MCMC として使える．
+
+### Zig-Zag 過程のエルゴード性
+
+::: {.callout-tip title="定理 [@Bierkens-Roberts-Zigg2019]" icon="false"}
+
+$U\in C^3(\R^d)$ はある定数 $c>d,c'\in\R$ に関して
+$$
+U(x)\ge c\log\abs{x}-c'\qquad x\in\R^d
+$$
+を満たすならば，全変動距離に関してエルゴード性を持つ：^[実は同じ条件の下で，多項式エルゴード性が示せる（第 [-@sec-ergodicity] 節参照）．]
+$$
+\Norm{P^t((x,\theta),-)-\pi}_\TV\xrightarrow{t\to\infty}0.
+$$
+
+:::
+
+$$
+\pi(x)\propt e^{-U(x)}\le C'\abs{x}^c,\qquad C'>0,
+$$
+ということだから，ほとんどの場合成り立つ．
 
 ### リフレッシュ動作 $\gamma_i$ の意味
 
@@ -220,6 +240,25 @@ $$
 しかしこの方法は，$m_i$ が多項式の場合しか使えない．
 
 ### 剪定 [@Lewis-Shedler1979 Poisson thinning]
+
+::: {.callout-tip title="命題" icon="false"}
+
+$m\le M$ を２つの強度関数とする．$M$ を強度に持つ Poisson 点過程 $\eta$ の点
+$$
+X_1,X_2,\cdots,X_{\eta([0,T])}
+$$
+をシミュレーションし，それぞれを確率 $1-\frac{m(X_i)}{M(X_i)}$ で取り除く（剪定）．
+
+すると，残った点は強度 $m$ の Poisson 点過程に従う．
+
+:::
+::: {.small-letter}
+Zig-Zag 過程のシミュレーションの問題は，強度関数
+$$
+m_i(t)=\lambda_i(x+t\theta,\theta)=\Paren{\theta_i\partial_iU(x+t\theta)}_++\gamma_i(x+t\theta,\theta_{-i})
+$$
+の多項式による上界 $M_i$ を見つける問題に帰着される．
+:::
 
 ## 大規模データに対するベイズ推論 {#sec-scalable-inference}
 
@@ -651,18 +690,22 @@ $$
 \mathbb{P}[Y^j=1]=\frac{1}{1+e^{-X^j}}.
 $$
 
-
-$\al$ が小さくなるにつれて，ZZ-CV の効率は悪化するが，ZZ-IS は重要なデータにうまく注目することで効率悪化を防げることが予想される．
+::: {.callout-important appearance="simple" icon="false" title="予想"}
+* $\al$ が小さくなるにつれて，ZZ-CV の効率は悪化する
+* ZZ-IS は重要なデータにうまく注目することで効率悪化を防げる
+:::
 
 ### 「大規模不均衡データ」に対する Zig-Zag サンプラー
 
-![ロジスティック回帰のサブサンプリングによる ESS の比較．ZZ-SS は通常のサブサンプリング，ZZ-IS は重点サブサンプリングによる．$n=1000$．](../Stat/Logistic2_ESS_per_Epoch_Sparse.svg)
+![左にいく（$\al$ が小さい）ほどスパース性は大きい．ZZ-CV は性能が下がるが，ZZ-IS では逆に上がっている．$n=1000$．](../Stat/Logistic2_ESS_per_Epoch_Sparse.svg)
 
 ::: notes
 $\alpha$ が小さい領域で ZZ-IS の効率が上がっていることは，$\partial_iV^j_i(\xi)=0$ の場合は上界も $0$ になり，そもそも提案もされないため，スパースになるほど効率が上がるためだと思われる．
 :::
 
 ## ダイナミクスとエルゴード性 {#sec-ergodicity}
+
+拡散様の振る舞い (diffusive behaviour) がないために，従来法より収束レートが改善する．
 
 ### Zig-Zag サンプラーがうまく行った理由
 
@@ -690,6 +733,21 @@ $\alpha$ が小さい領域で ZZ-IS の効率が上がっていることは，$
 ![Metropolis-adjusted Langevin Algorithm [@Roberts-Tweedie1996]](../Process/MALA_1D.svg)
 :::
 
+### 忘却：エルゴード性の必要条件
+
+忘却＝スタート地点をすぐに忘れるかどうか：
+$$
+\norm{P^t(x,-)-P^t(y,-)}_\TV\xrightarrow{t\to\infty}0.
+$$
+
+::: {layout-ncol=2}
+![Zig-Zag サンプラー [@Bierkens+2018-PDMC]](../Process/ZigZag_1D.svg)
+
+![Metropolis-adjusted Langevin Algorithm [@Roberts-Tweedie1996]](../Process/MALA_1D.svg)
+:::
+
+[Diffusive Behaviour]{.absolute bottom=150 right=180 .small-letter .color-minty}
+
 ### $t$-分布に対する収束レート
 
 自由度 $\nu$ の $t$-分布 $\rt(\nu)$ に対して，
@@ -709,7 +767,7 @@ $$
 
 ::: {.callout-important appearance="simple" icon="false"}
 
-状態空間を $E=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ と取ると，$E$ 上のレート関数
+状態空間を $E'=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ と取ると，Zig-Zag 過程のジャンプは，レート関数
 $$
 \lambda(x,\theta):=\sum_{i=1}^d\lambda_i(x,\theta)
 $$
@@ -717,12 +775,15 @@ $$
 $$
 M(t):=\lambda(x+t\theta,\theta)
 $$
-を持った $\R_+$ 上の非一様 Poisson 点過程に従ってジャンプが訪れる．この点過程に対して，確率核
+を持った $\R_+$ 上の非一様 Poisson 点過程に従う．
+
+:::
+
+::: {.small-letter}
+この $E'$ 上の点過程上で，次の確率核 $Q$ に従ってジャンプするとみれる：
 $$
 Q((x,\theta),-):=\sum_{i=1}^d\frac{\lambda_i(x,\theta)}{\lambda(x,\theta)}\delta_{(x,F_i(\theta))}(-)
 $$
-に [印付けられた点過程](../Process/Poisson.qmd#sec-marked-process) が，$Z$ の跳躍測度である．
-
 :::
 
 ::: {.callout-note title="証明（２つの定義の等価性）" icon="false" collapse="true"}
@@ -794,7 +855,7 @@ $$
 ::: {.callout-important appearance="simple" icon="false"}
 
 * 運動：速度 $\theta\in\{\pm1\}^d$ による等速直線運動．
-* ジャンプ：$E=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ 上の $Q$-付印された非一様 Poisson 点過程．
+* ジャンプ：$E'=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ 上の [$Q$-付印](../Process/Poisson.qmd#sec-marked-process) された非一様 Poisson 点過程．
 
 :::
 
@@ -805,18 +866,91 @@ $$
 
 [{{< fa arrow-right >}}]{.color-minty} 拡散項がジャンプ項になっただけで，従来の MCMC の解析に用いたエルゴード定理がそのまま使える．
 
-## まとめ
+### 指数エルゴード性
 
+::: {.callout-tip title="命題 [@Bierkens-Roberts-Zigg2019]" icon="false"}
 
+$U\in C^3(\R^d)$ は次を満たすとする：
 
-### 参考文献
+1. $\displaystyle\lim_{\abs{x}\to\infty}\frac{\abs{D^2U(x)}\lor1}{\abs{DU(x)}}=0,\qquad\lim_{\abs{x}\to\infty}\frac{\abs{DU(x)}}{U(x)}=0.$
+2. $\gamma_1,\cdots,\gamma_d$ は有界である．
+
+このとき，Zig-Zag 過程は指数エルゴード性を持つ：
+$$
+\Norm{P^t((x,\theta),-)-\pi}_\TV\le V(x,\theta)e^{-ct},\qquad t\ge0,(x,\theta)\in E.
+$$
+:::
+
+::: {.small-letter}
+$\pi$ の分布の裾が指数よりも重い場合などは条件１を満たさない．<br>
+例 ： $\displaystyle\qqquad U(x)=x^\al\qquad(0<\al<1)$
+::: 
+
+### 対象分布の裾が重いと指数エルゴード性が破れる
+
+::: {.callout-tip title="命題（確率測度の差の全変動の表示）" icon="false"}
+
+任意の可測空間 $(E,\cE)$ 上の任意の確率測度 $\mu,\nu\in\cP(E)$ について，
+$$
+\norm{\mu-\nu}_\TV=2\max_{A\in\cE}\Paren{\mu(A)-\nu(A)}.
+$$
+
+:::
+
+::: {.small-letter}
+
+たとえば $A$ を半径 $t\sqrt{d}$ の閉球 $B_{t\sqrt{d}}$ の補集合 $B_{t\sqrt{d}}^\comp$ と取ると，時刻 $t$ に $B_{t\sqrt{d}}^\comp$ に到着する確率は $0$ だから，
+$$
+\Norm{P^t\paren{(x,\theta),-}-\pi}_\TV\ge\pi(B_{t\sqrt{d}}^\comp),\qquad t\ge0.
+$$
+$\pi$ の裾確率が指数よりも遅い場合，これは指数エルゴード性に矛盾する．
+
+:::
+
+## まとめと展望
+
+::: {.small-letter}
+
+1. [ダイナミクス]{.underline}<br>
+  多様な動きを取り入れることで，高次元における収束を加速する
+
+    * Boomerang Sampler [@Bierkens+2020]
+    * SUZZ (Speed-Up Zig-Zag) [@Vasdekis-Roberts2023]
+
+2. [シミュレーション]{.underline}<br>
+  Poisson 剪定さえ効率的に出来れば実行可能<br>
+  [{{< fa arrow-right >}}]{.color-minty} 一般的な処方箋を求める方向に研究が進んでいる
+
+    * Automatic Zig-Zag [@Corbella2022]
+    * Concave-Convex PDMP [@Sutton-Fearnhead2023]
+    * NuZZ (Numerical Zig-Zag) [@Pagani+2023]
+
+:::
+
+### 参考文献 {.unnumbered}
+
+::: {layout="[40,60]" layout-valign="top"}
+
+::: {#first-column}
 
 ![スライドとコード](Files/QR_804546.svg)
+
+:::
+
+::: {#second-column}
 
 ::: {#refs}
 :::
 
-### 不偏なサブサンプリング技術 {visibility="uncounted"}
+:::
+
+:::
+
+
+
+
+
+<!-- ### 不偏なサブサンプリング技術の探求 {visibility="uncounted"}
 
 * [@Quiroz+2019] 一般論の構築を目指して
 * [@Dang+2019] HMC に対する不偏なサブサンプリング
@@ -840,10 +974,11 @@ $$
 
 ### Gibbs within Zig-Zag Sampler [@Sachs+2023] {visibility="uncounted"}
 
-階層モデルにおいて，Poisson thinning が効率的に行える成分だけ Zig-Zag サンプラーでアップデートし，それ以外の変数は Gibbs サンプラーのままにする．
+階層モデルにおいて，Poisson thinning が効率的に行える成分だけ Zig-Zag サンプラーでアップデートし，それ以外の変数は Gibbs サンプラーのままにする． -->
 
-### 関連ページ {visibility="uncounted"}
+### 関連ページ {visibility="uncounted" .unnumbered}
 
+::: {.small-letter}
 * Zig-Zag 過程
   * [０．PDMP 全般](https://162348.github.io/posts/2024/Process/PureJump.html)
   * [１．基本とエルゴード性](https://162348.github.io/posts/2024/Process/ZigZag.html)
@@ -855,3 +990,4 @@ $$
   * [後編：Zig-Zag サンプラーによる解決](https://162348.github.io/posts/2024/Stat/Logistic2.html)
 * エルゴード性
   * [Langevin Dynamics の多項式エルゴード性](https://162348.github.io/posts/2024/Process/Langevin.html)
+:::
