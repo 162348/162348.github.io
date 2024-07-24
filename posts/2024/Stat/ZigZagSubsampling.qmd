@@ -1,12 +1,12 @@
 ---
 title: "Zig-Zag サンプラーのサブサンプリングによるスケーラビリティ"
 subtitle: "大規模モデル・大規模データに対する MCMC を目指して"
-author: "司馬 博文"
+author: "司馬博文"
 date: 7/18/2024
-date-modified: 7/19/2024
+date-modified: 7/23/2024
 categories: [MCMC, Computation, Julia]
 image: MeanOfGaussian.svg
-bibliography: 
+bibliography:
     - ../../../mathematics.bib
     - ../../../bib.bib
 csl: ../../../apalike.csl
@@ -19,6 +19,20 @@ shift-heading-level-by: -1
 ---
 
 {{< include ../../../_preamble.qmd >}}
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Process/ZigZag.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Process/ZigZag2D_Gaussian.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">Zig-Zag 過程によるサンプリング</h3>
+                <p class="article-description">ジャンプと確定的な動きによる新たな MCMC 手法</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
 
 <!-- ## Subsampling Technology -->
 
@@ -86,9 +100,14 @@ $$
 $$
 \gamma_i(x,\theta):=\frac{1}{n}\sum_{k=1}^n(\theta_iE^k_i(x))_+-\paren{\theta_i\frac{1}{n}\sum_{k=1}^nE^k_i(x)}_+
 $$
-という項を加えて得る Zig-Zag サンプラーともみなすことができる．
+という項を加えて得る Zig-Zag サンプラーともみなすことができる．非負性は関数 $(x)_+:=x\lor0$ の凸性から従う．最後に $\gamma_i(x,\theta)=\gamma_i(x,F_i(\theta))$ を確認すれば良い．
 
-こうして定義された $\gamma_i$ が非負関数である限り，平衡分布は $\wt{\pi}$ のままであるが，非負性は関数 $(-)_+$ の凸性から従う．
+これは
+\begin{align*}
+  &\qquad\frac{1}{n}\sum_{k=1}^n\Paren{\theta_iE_i^k(x)}_+-\frac{1}{n}\sum_{k=1}^n\Paren{-\theta_iE_i^k(x)}_+\\
+  &=\frac{1}{n}\sum_{k=1}^n\paren{(\theta_iE_i^k(x))_+-(-\theta_iE_i^k(x))_+}=\frac{1}{n}\sum_{k=1}^n\theta_iE_i^k(x)
+\end{align*}
+であることから従う．
 
 こうして，サブサンプリングの実行による精度の劣化が，[@Andrieu-Livingstone2021] の枠組みで捉えられる，ということでもある（レート関数が増加したので，スイッチングイベントが増え，diffusive な動きが増加する）．
 
@@ -169,7 +188,7 @@ $$
 
 しかし
 $$
-\max_{k\in[n]}\Paren{\theta\partial_iU^k(x+\theta t)}_+\le M_i
+\max_{k\in[n]}\Paren{\theta_i\partial_iU^k(x+\theta t)}_+\le M_i
 $$
 を満たす $M_i$ は $O(n^{\al})\;(\al\ge1/2)$ のスケールで増大していく．
 
@@ -177,7 +196,7 @@ $$
 
 :::
 
-ZZ-CV が平衡に至っている場合は $x$ はほとんど $x^*$ に集積するため，
+ZZ-CV が平衡に至っている場合は $x$ はほとんど $x_*$ に集積するため，
 $$
 \abs{E^k_i(x)}=\ABs{\partial_iU(x_*)+\partial_iU^k(x)-\partial_iU^k(x_*)}=O(n^{1/2})
 $$
@@ -581,15 +600,28 @@ display(p)
 
 ### 非一様な部分サンプリング
 
-当然，必ずしも一様なサブサンプリング $K\sim\rU([n])$ を行う必要はない．剪定の手続きを棄却法とみると，重点サンプリングのアイデアを導入することで制御変数に依らない分散低減が狙えるだろう [@Sen+2020 importance subsampling strategy]．
+当然，必ずしも一様な分解
+$$
+U(x)=\frac{1}{n}\sum_{j=1}^nU^j(x)
+$$
+に基づいた一様なサブサンプリング $K\sim\rU([n])$ を行う必要はない．
 
-特に，比例的高次元極限や，不均衡データに対する[ロジスティック回帰](../Stat/Logistic.qmd)では，事後分布が十分な集中性を持たないために制御変数の方法 [-@sec-ZZ-CV] が十分な効率改善を示さない．
+剪定の手続きを棄却法とみると，重点サンプリングのアイデアを導入することで制御変数に依らない分散低減が狙える [@Sen+2020 importance subsampling strategy]．
 
-一般の $K\sim\mu_i\in\cP([n])$ に対して，
-$$
-m_{1i}^k(t):=\Paren{\theta_i\partial_iU_1^K(\xi+t\theta)}_+
-$$
-$$
-m_{0i}(t):=\Paren{\theta_i\partial_iU_0(\xi+t\theta)}_+
-$$
-と定める．
+特に，比例的高次元極限や，不均衡データに対する[ロジスティック回帰](../Stat/Logistic.qmd)では，事後分布が十分な集中性を持たないために制御変数の方法 [-@sec-ZZ-CV] が十分な効率改善を示さないが，この重点サブサンプリングによれば効率の改善が見込める．
+
+詳しくは，次稿参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Stat/Logistic2.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Stat/Logistic2.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">大規模な不均衡データに対するロジスティック回帰（後編）</h3>
+                <p class="article-description">離散時間 MCMC から連続時間 MCMC へ</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
