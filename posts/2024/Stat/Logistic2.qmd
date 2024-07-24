@@ -1,10 +1,10 @@
 ---
 title: "大規模な不均衡データに対するロジスティック回帰（後編）"
 subtitle: "離散時間 MCMC から連続時間 MCMC へ"
-author: "司馬 博文"
+author: "司馬博文"
 date: 7/18/2024
-date-modified: 7/20/2024
-image: Logistic.svg
+date-modified: 7/23/2024
+image: Logistic2.svg
 categories: [Bayesian, Computation, Python, MCMC]
 bibliography: 
     - ../../../mathematics.bib
@@ -16,6 +16,7 @@ code-fold: false
 execute:
     cache: true
 shift-heading-level-by: -1
+# jupyter: julia-1.10
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -78,7 +79,7 @@ $$
 特に各 $\partial_iU_1(\xi)$ のバウンドとして
 $$
 \abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}\qquad i\in[d]
-$$
+$$ {#eq-bound-U1}
 を得るから，
 $$
 \lambda_i(\xi,\theta)=\Paren{\theta_i\partial_iU(\xi)}_+\le\Paren{n\theta_i\max_{j\in[n]}\abs{x^j_i}}_+
@@ -88,7 +89,7 @@ $$
 ```{julia}
 #| code-fold: true
 #| output: false
-#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ_GlobalBound() を定義
+#| code-summary: サブサンプリングなしの Zig-Zag 過程のシミュレーションをする関数 ZZ1d() を定義
 using ZigZagBoomerang
 using Distributions
 using Random
@@ -197,6 +198,7 @@ end
 
 ```{julia}
 #| code-summary: global な computational bounds を定義
+#| output: false
 
 a_Global(ξ, θ, x, y) = length(y) * maximum(abs.(vec(x)))
 b_Global(ξ, θ, x, y) = 0
@@ -205,6 +207,8 @@ ab_Global(ξ, θ, x, y, ::ZigZag1d) = (a_Global(ξ, θ, x, y), b_Global(ξ, θ, 
 ```
 
 ```{julia}
+#| echo: false
+#| output: false
 # T = 500.0
 # (ξ0, θ0) = (0.0, 1.0)
 # trace_ZZ1, epochs_ZZ1, acc_ZZ1 = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Global)
@@ -224,7 +228,34 @@ b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
 $$
 
 ```{julia}
+#| code-fold: true
+#| code-summary: 観測を生成
+#| output: false
+using StatsFuns
+using Distributions
+
+ξ0 = [1.0] # True value
+n_list = [10, 100, 1000]  # 実験で用いるサンプルサイズの列
+
+Σ = [2]
+x = rand(MvNormal(ξ0, Σ), n_list[end])
+y = rand.(Bernoulli.(logistic.(ξ0*x)))  # BitVector になってしまう
+y = Float64.(vec(y))  # Vector{Float64} に変換
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+
+@load "Logistic2_data.jld2" x y
+```
+
+```{julia}
 #| code-summary: preprocessing for ZZ-CV of complexity O(n)
+#| output: false
+using Statistics
+using LinearAlgebra
 
 """
     U(ξ, x, y)：ポテンシャル関数
@@ -245,20 +276,6 @@ function U(j, ξ, x, y)
     return -n * log(exp(y[j] * product) / (1 + exp(product)))
 end
 
-using StatsFuns
-using Distributions
-
-ξ0 = [1] # True value
-n_list = [10, 100, 1000]  # 実験で用いるサンプルサイズの列
-
-Σ = [2]
-x = rand(MvNormal(ξ0, Σ), n_list[end])
-y = rand.(Bernoulli.(logistic.(ξ0*x)))  # BitVector になってしまう
-y = Float64.(vec(y))  # Vector{Float64} に変換
-```
-
-```{julia}
-#| code-summary: ２つの computational bounds を定義
 using Optim
 
 result = optimize(ξ -> U(ξ, x, y), [0.0], LBFGS())
@@ -278,6 +295,8 @@ ab_Affine(ξ, θ, x, y, ::ZigZag1d) = (a_Affine(ξ, θ, x, y), b_Affine(ξ, θ, 
 ```
 
 ```{julia}
+#| echo: false
+#| output: false
 # T = 500.0
 # (ξ0, θ0) = (0.0, 1.0)
 # trace_ZZ1, epochs_ZZ1, acc_ZZ1 = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Affine)
@@ -287,9 +306,106 @@ ab_Affine(ξ, θ, x, y, ::ZigZag1d) = (a_Affine(ξ, θ, x, y), b_Affine(ξ, θ, 
 
 ### サブサンプリング
 
+Poisson 過程の強度関数を確率化し，$K\sim\rU([n])$ に対して
+$$
+m_i^K(t):=\Paren{\theta_i E^K_i(x+\theta t)}_+
+$$
+$$
+E^K_i(x):=\partial_iU(\xi_*)+\partial_iU^K(\xi)-\partial_iU^K(\xi_*)
+$$
+としても，引き続き同様の上界を持つ．
+
+ここで，$m_i^K$ の評価は $m_i$ より $n$ 倍軽量になっていることに注意．
+
+```{julia}
+#| code-fold: true
+#| output: false
+#| code-summary: サブサンプリングありの Zig-Zag 過程のシミュレーションをする関数 ZZ1d_SS() と ZZ1d_CV() を定義
+using ZigZagBoomerang
+using Distributions
+using Random
+using LinearAlgebra
+using Statistics  # just for sure
+using StatsFuns
+
+function λj_Global(j::Int64, ξ, θ, ∇U, x, y)
+    Eʲ = ∇U(1, j, ξ, x, y)
+    return pos(θ * Eʲ)
+end
+
+function ZZ1d_SS(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_Global)
+    t = zero(T)
+    Ξ = [(t, ξ, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(ξ, θ, x, y, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+
+    while t < T
+        τ = t′ - t
+        t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
+        j = rand(1:length(y))
+        l, lb = λj_Global(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, ξ, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(ξ, θ, x, y, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+
+function λj(j::Int64, ξ, θ, ∇U, x, y)
+    Eʲ = ∇U(ξ_star, x, y) + ∇U(1, j, ξ, x, y) - ∇U(1, j, ξ_star, x, y)
+    return pos(θ * Eʲ)
+end
+
+function ZZ1d_CV(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_Affine)
+    t = zero(T)
+    Ξ = [(t, ξ, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(ξ, θ, x, y, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+
+    while t < T
+        τ = t′ - t
+        t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
+        j = rand(1:length(y))
+        l, lb = λj(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, ξ, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(ξ, θ, x, y, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+
+```
+
 ### 数値実験による性能比較
 
 ```{julia}
+#| code-summary: サブサンプリングなしの実験を実行する関数 experiment_ZZ() を定義
+#| code-fold: true
+#| eval: false
 using Statistics
 
 function ESS(samples::Vector{Float64}, T, dt)
@@ -327,20 +443,32 @@ function experiment_ZZ(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # �
     return mean(ESSs_sum_Affine, dims=2), var(ESSs_sum_Affine, dims=2), mean(ESSs_sum_Global, dims=2), var(ESSs_sum_Global, dims=2)
 end
 
-ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(2, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
+# ESS_Affine, var_ESS_Affine, ESS_Global, var_ESS_Global = experiment_ZZ(2, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
 ```
 
 ```{julia}
-#| eval: false
+#| code-summary: 実験には 10分 かかるので，保持した実行結果を用いる
+#| output: false
+#| code-fold: true
+using JLD2
+
+@load "Logistic2_Experiment1.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global
+```
+
+```{julia}
+#| code-summary: 結果をプロット
+#| code-fold: true
+#| echo: false
+#| output: false
 using Plots
 using GLM, DataFrames
 
-function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD")
+function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_color=false, color="#78C2AD", xlabel="Observations")
     if background_color
         p = plot(#n_list, ESS,
         xscale=:log10,
         yscale=:log10,
-        xlabel="Observations",
+        xlabel=xlabel,
         ylabel="ESS per Epoch",
         background_color = "#F0F1EB"
         )
@@ -348,12 +476,14 @@ function startPlot(n_list, ESS, var_ESS; label="ZZ (Global bound)", background_c
         p = plot(#n_list, ESS,
         xscale=:log10,
         yscale=:log10,
-        xlabel="Observations",
+        xlabel=xlabel,
         ylabel="ESS per Epoch"
         )
     end
 
     scatter!(p, n_list, ESS,
+            yerror=var_ESS,
+            markerstrokecolor=color,
             marker=:circle,
             markersize=5,
             markeralpha=0.6,
@@ -377,6 +507,8 @@ end
 
 function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95420")
     q = scatter(p, n_list, ESS,
+            yerror=var_ESS,
+            markerstrokecolor=color,
             marker=:circle,
             markersize=5,
             markeralpha=0.6,
@@ -398,55 +530,113 @@ function addPlot(p, n_list, ESS, var_ESS; label="ZZ (Affine bound)", color="#E95
     return q
 end
 
-p = startPlot(n_list, ESS_Global, var_ESS_Global)
-q = addPlot(p, n_list, ESS_Affine, var_ESS_Affine)
-q
+p = startPlot(n_list, ESS_Global, sqrt.(var_ESS_Global)#; background_color=true
+)
+q = addPlot(p, n_list, ESS_Affine, sqrt.(var_ESS_Affine))
+display(q)
 ```
 
 ```{julia}
-using JLD2
+#| code-summary: サブサンプリング付きの実験を実行する関数 experiment_ZZ() を定義
+#| code-fold: true
+#| eval: false
+using Statistics
 
-@save "Logistic2.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global q
+# function ESS(samples::Vector{Float64}, T, dt)
+#     B = T / dt
+#     V = (dt / T) * sum(samples.^2) - ((dt / T) * sum(samples))^2
+#     Y = samples .* sqrt(T / B)
+#     ESS = T * V / var(Y)
+#     return ESS
+# end
+
+function getESSperEpoch_SS(ab, ZZ, T ,dt, x, y; ξ0=0.0, θ0=1.0)
+    trace, epochs, acc = ZZ(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab)
+    traj = discretize(trace, ZigZag1d(), dt)
+    return ESS(traj.x, T, dt) * length(y) / epochs[end]  # サブサンプリングをしているので length(y) で補正する必要あり
+end
+
+N = 10
+T = 500.0
+dt = 0.1
+
+function experiment_ZZ_SS(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # サブサンプリングなしの ZZ() に関して N 回実験
+    ESSs_sum_CV = zero(n_list)
+    ESSs_sum_SS = zero(n_list)
+
+    for _ in 1:N
+        ESSs_CV = []
+        ESSs_SS = []
+        for n in n_list
+            push!(ESSs_CV, getESSperEpoch_SS(ab_Affine, ZZ1d_CV, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_SS, getESSperEpoch_SS(ab_Global, ZZ1d_SS, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+        end
+        ESSs_sum_CV = [ESSs_sum_CV ESSs_CV]
+        ESSs_sum_SS = [ESSs_sum_SS ESSs_SS]
+    end
+    return mean(ESSs_sum_CV, dims=2), var(ESSs_sum_CV, dims=2), mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2)
+end
+
+# ESS_CV, var_ESS_CV, ESS_SS, var_ESS_SS = experiment_ZZ_SS(2, T, dt; ξ0=0.0, θ0=1.0, n_list=n_list)
 ```
 
-```julia
-using JLD2
-@load "Logistic2.jld2" ESS_Affine var_ESS_Affine ESS_Global var_ESS_Global q
+```{julia}
+#| echo: false
+#| output: false
+@load "Logistic2_Experiment2.jld2" ESS_CV var_ESS_CV ESS_SS var_ESS_SS
 ```
 
-```
-このエラーは、JLD2ファイルを読み込む際に発生したスタックオーバーフローエラーです。これは通常、非常に深い再帰や複雑なデータ構造を読み込もうとしたときに発生します。
+```{julia}
+#| code-summary: 結果をプロット
+#| code-fold: true
 
-解決策としては以下のようなアプローチが考えられます：
-
-1. Julia のバージョンを更新する：
-   最新のJuliaバージョンに更新することで、JLD2の互換性の問題が解決される可能性があります。
-
-2. JLD2パッケージを更新する：
-   ```julia
-   using Pkg
-   Pkg.update("JLD2")
-   ```
-
-3. ファイルを再保存する：
-   データを別の形式（例：CSV）で一度保存し、それを読み込んでから再度JLD2形式で保存し直すことで、ファイル構造が単純化される可能性があります。
-
-4. データを分割して保存する：
-   大きなデータ構造を複数の小さなファイルに分割して保存し、それぞれを個別に読み込むことを試みてください。
-
-5. 別の保存形式を使用する：
-   JLD2の代わりに、BSON.jlやCSV.jlなど、別のデータ保存形式を試してみることも一案です。
-
-6. Juliaのスタックサイズを増やす：
-   Juliaを起動する際に`--stack-size`オプションを使用してスタックサイズを増やすことができます。例：
-   ```
-   julia --stack-size=0x10000000
-   ```
-
-まずは、JuliaとJLD2パッケージを最新版に更新してみることをお勧めします。それでも問題が解決しない場合は、データの保存方法を見直すか、別の保存形式を検討してみてください。
+q = addPlot(q, n_list, ESS_CV, sqrt.(var_ESS_CV); label="ZZ-CV", color="darkorange")
+q = addPlot(q, n_list, ESS_SS, sqrt.(var_ESS_SS); label="ZZ-SS", color="blue")
+q = plot!(q, legend=:bottomleft)
+display(q)
 ```
 
-### 有効サンプル数の計算
+```{julia}
+#| echo: false
+#| output: false
+#| eval: false
+savefig(q, "Logistic2_ESS_per_Epoch.svg")
+```
+
+実際に用いたコードは[こちら](_Logistic2.jl)．
+
+### 比較対象：MALA
+
+```{julia}
+#| output: false
+#| code-fold: true
+#| code-summary: MALA によるサンプリングを実行
+using AdvancedHMC, AdvancedMH, ForwardDiff
+using LogDensityProblems
+using LogDensityProblemsAD
+using StructArrays
+using LinearAlgebra
+
+struct LogTargetDensity
+    x::Matrix{Float64}
+    y::Vector{Float64}
+end
+
+LogDensityProblems.logdensity(p::LogTargetDensity, ξ) = -U(ξ, p.x, p.y)
+LogDensityProblems.dimension(p::LogTargetDensity) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensity}) = LogDensityProblems.LogDensityOrder{0}()
+
+model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensity(x, y))
+
+σ² = 0.0001
+spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
+
+chain = sample(model_with_ad, spl, 2000; initial_params=ξ0, chain_type=StructArray, param_names=["ξ"], stats=true)
+
+traj_MALA = chain.ξ
+```
+
+### 有効サンプル数について
 
 時区間 $[0,T]$ における ZigZag 過程の，関数 $h\in\L^2(\R^d)$ に関する **有効サンプル数** (ESS) とは
 $$
@@ -460,17 +650,9 @@ $$
 $$
 で定まる値である．
 
-```{julia}
-T = 500.0
-(ξ0, θ0) = (0.0, 1.0)
-trace_ZZ, epochs_ZZ, acc_ZZ = ZZ1d(∇U, ξ0, θ0, T, x, y, ZigZag1d(); ab=ab_Affine)
-dt = 0.1
-traj_ZZ = discretize(trace_ZZ, ZigZag1d(), dt)
-```
+例えば次のようにして計算できる：
 
-```{julia}
-samples = traj_ZZ.x
-
+```julia
 function ESS(samples::Vector{Float64}, T, dt)
     V = (dt / T) * sum(samples.^2) - ((dt / T) * sum(samples))^2
     Y = samples .* sqrt(T / B)
@@ -479,10 +661,268 @@ function ESS(samples::Vector{Float64}, T, dt)
 end
 ```
 
+### 重点サブサンプリング [@Sen+2020]
+
+一様でないサブサンプリングを導入することで，Zig-Zag サンプラーを不均衡データにも強くすると同時に，サブサンプリングの効率を上げることもできる．
+
+強度関数
+$$
+m_i^K(t)=\Paren{\theta_iE^K_i(x+\theta t)}_+
+$$
+は，
+$$
+\E\SQuare{E^K_i(\xi)}=\partial_iU(\xi)
+$$
+を満たす限り，$K\sim\rU([n])$ に限る必要はなかったのである．
+
+すなわち，$(p_x)$ をある $[n]$ 上の分布 $\nu\in\cP([n])$ の質量関数として
+$$
+\partial_iV_1^J(\xi):=\frac{1}{p_J}\partial_iU^J(\xi)\qquad J\sim\nu
+$$
+と定めると，
+$$
+\abs{\partial_iV_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
+$$
+が成り立つ．式 ([-@eq-bound-U1]) は $p_j\equiv1/n$ の場合であったのである．
+
+換言すれば，
+$$
+p_j\propt\abs{x^j_i}
+$$
+と定めることで，Poisson 強度関数 $m^j_i$ の上界をタイトにすることができ，その結果剪定の効率が上がる．
+
+```{julia}
+#| output: false
+a_IS(ξ, θ, x, y) = sum(abs.(x))
+b_IS(ξ, θ, x, y) = 0
+
+ab_IS(ξ, θ, x, y, ::ZigZag1d) = (a_IS(ξ, θ, x, y), b_IS(ξ, θ, x, y))
+```
+
+```{julia}
+#| code-fold: true
+#| output: false
+#| code-summary: 重点サブサンプリングによる ZigZag サンプラー ZZ1d_IS() を定義
+using StatsBase
+
+function λj_IS(j::Int64, ξ, θ, ∇U, x, y)
+    pj = abs(x[1,j]) / sum(abs.(x))  # x がスパースだと 0 になりやすいことに注意
+    Eʲ = ∇U(1, j, ξ, x, y) / (length(y) * pj)
+    return pos(θ * Eʲ)
+end
+
+function ZZ1d_IS(∇U, ξ, θ, T::Float64, x::Matrix{Float64}, y::Vector{Float64}, Flow::ZigZagBoomerang.ContinuousDynamics; rng=Random.GLOBAL_RNG, ab=ab_IS)
+    t = zero(T)
+    Ξ = [(t, ξ, θ)]
+    num = acc = 0
+    epoch_list = [num]
+    a, b = ab(ξ, θ, x, y, Flow)
+    t′ =  t + poisson_time(a, b, rand())  # イベントは a,b が定める affine proxy に従って生成する
+    n = length(y)
+
+    while t < T
+        τ = t′ - t
+        t, ξ, θ = move_forward(τ, t, ξ, θ, Flow)
+        j = sample(1:n, Weights(abs.(vec(x))))
+        l, lb = λj_IS(j, ξ, θ, ∇U, x, y), λ_bar(τ, a, b)  # λ が真のレート, λ_bar が affine proxy
+        num += 1
+        if rand()*lb < l
+            acc += 1
+            if l > lb + 0.01
+                println(l-lb)
+            end
+            θ = -θ
+            push!(Ξ, (t, ξ, θ))
+            push!(epoch_list, num)
+        end
+        a, b = ab(ξ, θ, x, y, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+
+    return Ξ, epoch_list, acc/num
+end
+```
+
+```{julia}
+#| eval: false
+#| code-fold: true
+#| code-summary: 実験を実行する関数 experiment_ZZ_IS() を定義
+function experiment_ZZ_IS(N, T, dt; ξ0=0.0, θ0=1.0, n_list=[10, 100, 1000])  # 重点サブサンプリング ZZ1d_IS() に関して N 回実験
+    ESSs_sum_IS = zero(n_list)
+
+    for _ in 1:N
+        ESSs_IS = []
+        for n in n_list
+            push!(ESSs_IS, getESSperEpoch_SS(ab_IS, ZZ1d_IS, T, dt, x[:,1:n], y[1:n]; ξ0=ξ0, θ0=θ0))
+        end
+        ESSs_sum_IS = [ESSs_sum_IS ESSs_IS]
+    end
+    return mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
+end
+
+ESS_IS, var_ESS_IS = experiment_ZZ_IS(2, 500.0, 1.0; ξ0=0.0, θ0=1.0, n_list=n_list)
+```
+
+```{julia}
+#| code-fold: true
+#| output: false
+#| echo: false
+@load "Logistic2_Experiment3_.jld2" ESS_IS var_ESS_IS
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: 結果をプロット
+r = addPlot(q, n_list, ESS_IS, sqrt.(var_ESS_IS); label="ZZ-IS", color="green")
+display(r)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+#| eval: false
+savefig(r, "Logistic2.svg")
+```
+
+制御変数による方法は $n\to\infty$ の漸近論に基づいているので，観測数が増えるほど効率は上がっていく．
+
+### 大規模不均衡データ
+
+大規模不均衡データでは，事後分布が十分な集中性を持たないために制御変数による方法 ZZ-CV が十分な効率改善を示さないが，重点サブサンプリングによれば Poisson 強度関数のタイトな上界を引き続き構成できる．
+
+ここでは，$\xi_0=1$ を真値とし，次のような１次元データを考える：
+$$
+X^j\iidsim(1-\al)\delta_0+\al\rN(1,2)
+$$
+$$
+\P[Y^j=1]=\frac{1}{1+e^{-X^j}}
+$$
+
+```{julia}
+#| output: false
+ξ0 = [1.0] # True value
+Σ = [2]
+n = 1000
+
+function sample_SparseData(n::Int64, α::Float64; ρ=MvNormal(ξ0, Σ))
+    x = []
+    while length(x) < n
+        rand() < α ? push!(x, rand(ρ)[1]) : push!(x, 0.0)
+    end
+    x = Float64.(reshape(x,1,:))
+    y = rand.(Bernoulli.(logistic.(ξ0*x)))
+    y = Float64.(vec(y))
+    return x, y
+end
+
+α_list = [1, 0.1, 0.01]
+
+x_Sparse, y_Sparse = [], []
+
+for α in α_list
+    x, y = sample_SparseData(n, α)
+    push!(x_Sparse, x)
+    push!(y_Sparse, y)
+end
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+@load "Logistic2_data2.jld2" x_Sparse y_Sparse
+```
+
+```{julia}
+#| eval: false
+using Optim
+
+a_Sparse(ξ_star, ξ, θ, x, y) = pos(θ * ∇U(ξ_star,x,y)) + C(ξ, θ, x, y) * abs(ξ - ξ_star[1])
+ξ_star_list = []
+α_list = [1, 0.1, 0.01]
+
+for α in 1:length(α_list)
+    result = optimize(ξ -> U(ξ, x_Sparse[α], y_Sparse[α]), [0.0], LBFGS())
+    ξ = Optim.minimizer(result)
+    push!(ξ_star_list, ξ)
+end
+
+function experiment_Sparse(N, T, dt; ξ0=0.0, θ0=1.0, α_list=[1, 0.1, 0.01, 0.001])
+    # ESSs_sum_CV = zero(α_list)
+    ESSs_sum_SS = zero(α_list)
+    ESSs_sum_IS = zero(α_list)
+
+    for _ in 1:N
+        # ESSs_CV = []
+        ESSs_SS = []
+        ESSs_IS = []
+        for i in 1:length(α_list)
+            # ab_Sparse(ξ, θ, x, y, ::ZigZag1d) = (a_Sparse(ξ_star_list[i], ξ, θ, x, y), b_Affine(ξ, θ, x, y))
+            # push!(ESSs_CV, getESSperEpoch_SS(ab_Sparse, ZZ1d_CV, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_SS, getESSperEpoch_SS(ab_Global, ZZ1d_SS, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+            push!(ESSs_IS, getESSperEpoch_SS(ab_IS, ZZ1d_IS, T, dt, x_Sparse[i], y_Sparse[i]; ξ0=ξ0, θ0=θ0))
+        end
+        # ESSs_sum_CV = [ESSs_sum_CV ESSs_CV]
+        ESSs_sum_SS = [ESSs_sum_SS ESSs_SS]
+        ESSs_sum_IS = [ESSs_sum_IS ESSs_IS]
+    end
+    # return mean(ESSs_sum_CV, dims=2), var(ESSs_sum_CV, dims=2), mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2), mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
+    return mean(ESSs_sum_SS, dims=2), var(ESSs_sum_SS, dims=2), mean(ESSs_sum_IS, dims=2), var(ESSs_sum_IS, dims=2)
+end
+
+N = 2
+T = 500.0
+dt = 0.1
+
+ESS_SS, var_ESS_SS, ESS_IS, var_ESS_IS = experiment_Sparse(N, T, dt; ξ0=0.0, θ0=1.0, α_list=α_list)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+using JLD2
+@load "Logistic2_Experiment4_Sparse_IS.jld2" ESS_SS var_ESS_SS ESS_IS var_ESS_IS
+@load "Logistic2_Experiment4_Sparse.jld2" ESS_CV var_ESS_CV
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: プロット
+using LaTeXStrings
+p = startPlot(α_list, ESS_SS, sqrt.(var_ESS_SS); label="ZZ-SS", xlabel=L"Sparsity $\alpha$", color="blue"#, background_color=true
+)
+p = addPlot(p, α_list, ESS_IS, sqrt.(var_ESS_IS); label="ZZ-IS", color="green")
+p = addPlot(p, α_list, ESS_CV, sqrt.(var_ESS_CV); label="ZZ-CV", color="darkorange")
+display(p)
+```
+
+```{julia}
+#| echo: false
+#| output: false
+#| eval: false
+savefig(p, "Logistic2_ESS_per_Epoch_Sparse.svg")
+```
+
+ここでは問題にしないが，圧倒的に実行時間が重点サブサンプリングの方が短い．
+
+::: {.callout-important title="注" collapse="true" icon="false"}
+
+$\al<10^{-3}$ の領域では動作が不安定になる．論文 [@Sen+2020] でもこの領域は触れられていない．しかし，
+$$
+\#\Brace{i\in[n]\mid y^i=1}\approx500
+$$
+であるため，特に理由は見つからない．
+
+:::
+
+
 ## 高次元へのスケーリング
+
+さらに，[@Bierkens+2023] による方法で，スパースデータに対する効率化が可能である．
 
 ```{julia}
 #| code-summary: データを生成して ZZ で実行
+#| eval: false
 using StatsFuns
 using Distributions
 
@@ -515,6 +955,7 @@ y = Float64.(vec(y))  #  Vector{Float64} に変換
 ```
 
 ```{julia}
+#| eval: false
 using Optim
 
 result = optimize(ξ -> U(ξ,x,y), [0.0,0.0], LBFGS())
