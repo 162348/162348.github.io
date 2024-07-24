@@ -366,12 +366,11 @@ function plot_1dtraj(traj; title="ZigZag Sampler", markersize=2, save=false, lab
 
     p = plot(times, positions; plot_args...)
 
-    # プロットを表示
-    display(p)
-
     if save
         savefig(p, label * ".svg")
     end
+
+    return p
 end
 ```
 
@@ -455,6 +454,7 @@ end
 #| code-fold: true
 #| echo: false
 #| fig-cap: "\rC(0,1) に対する ZigZag サンプラーの軌道"
+#| #| fig-label: fig-ZigZag
 using ZigZagBoomerang
 using LinearAlgebra
 using SparseArrays
@@ -494,7 +494,7 @@ traj = [(x[1], x[2]) for x in trace]
 
 # サンプルの表示
 
-plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="ZigZag_1D")
+p1 = plot_1dtraj(traj, title="1D ZigZag Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="ZigZag_1D")
 ```
 
 MALA と比較すると，その再帰の速さが歴然としている：^[[@Bierkens+2019] にある提示の仕方である．Zig-Zag の 2000 単位時間を単純に MALA と比較はできないと筆者も考えるが，ダイナミクスに注目していただきたい．実際，自分で実装してみると，シード値をいじらないと，Zig-Zag は必ずしも 500 単位時間前後でモード $0$ に戻るわけではない．]
@@ -502,6 +502,7 @@ MALA と比較すると，その再帰の速さが歴然としている：^[[@Bi
 ```{julia}
 #| code-fold: true
 #| fig-cap: "\rC(0,1) に対する MALA サンプラーの軌道"
+#| fig-label: fig-MALA
 using AdvancedHMC, AdvancedMH, ForwardDiff
 using LinearAlgebra
 using LogDensityProblems
@@ -538,16 +539,10 @@ chain = sample(model_with_ad, spl, 2000; initial_params=initial_θ, chain_type=S
 # plot
 θ_vector = chain.θ
 sample_values = zip(1:length(θ_vector), θ_vector)
-plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="MALA_1D")
+p2 = plot_1dtraj(sample_values, title="1D MALA Sampler (Cauchy Distribution)", markersize=0, ylim=(-30, 750), label="MALA_1D")
 ```
 
 ２つを並べて比較すると，Langevin ダイナミクスの方は，少し diffusive な動き（random walk property と呼ばれる）が見られることがわかる．
-
-::: {layout-ncol=2}
-![ZigZag サンプラーの軌跡](ZigZag_1D.svg)
-
-![MALA サンプラーの軌跡](MALA_1D.svg)
-:::
 
 ::: {.callout-caution title="例（NUTS サンプラーの動き）" collapse="true" icon="false"}
 
@@ -606,6 +601,101 @@ p = plot(1:length(samples), sample_values,
 ```
 
 :::
+
+
+### ２次元での例
+
+::: {.callout-important appearance="simple" icon="false"}
+
+1. 勾配 $-\nabla\log\pi$ を計算し，`∇ϕ(x, i, Γ)` の形で定義する．
+
+:::
+
+$$
+\Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
+$$
+
+で定まる分散共分散行列 $\Sigma$ を持った中心化された正規分布 $\pi(x)dx=\rN_2(0,\Sigma)(dx)$ に対しては，対数尤度は
+
+\begin{align*}
+    \log\pi(x)&=-\log\paren{(2\pi)^{d/2}(\det\Sigma)^{1/2}}\\
+    &\qqquad-\frac{1}{2}x^\top\Sigma^{-1}x
+\end{align*}
+
+であるから，$\phi:=-\log\pi$ の第 $i$ 成分に関する微分は
+
+\begin{align*}
+    \partial_i\phi(x)&=\pp{}{x_i}\Paren{\frac{1}{2}x^\top\Sigma^{-1}x}\\
+    &=\Sigma^{-1}x.
+\end{align*}
+
+```{julia}
+#| output: false
+using ZigZagBoomerang
+using SparseArrays
+
+d = 2
+
+# 対数尤度関数 ϕ の第 i 成分に関する微分を計算
+Γ = sparse([1,1,2,2], [1,2,1,2], [2.0,-1.0,-1.0,2.0])  # <1>
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)  # <2>
+
+# 初期値
+t0 = 0.0
+x0 = randn(d)
+θ0 = rand([-1.0,1.0], d)
+
+# Rejection bounds
+c = 1.0 * ones(length(x0))
+
+# ZigZag 過程をインスタンス化
+Z = ZigZag(Γ, x0*0)
+
+# シミュレーション実行
+T = 20.0
+zigzag_trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=true)
+
+# 軌跡を離散化
+traj = collect(zigzag_trace)
+```
+
+1. 勾配関数`∇ϕ`の計算のためには，共分散行列の逆（精度行列ともいう）を`SparseMatrixCSC`型で指定する必要があることに注意．[`idot`の実装](https://github.com/mschauer/ZigZagBoomerang.jl/blob/691afe2200fa99d762b58f5c5fd7894cc9342294/src/sparsestickyzz.jl#L42) も参照．
+2. `idot`は，疎行列`Γ`の第`i`列と，疎ベクトル`x`との内積を高速に計算する関数．
+
+::: {.callout-important title="`idot`の定義" collapse="true" icon="false"}
+
+`idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
+
+```julia
+function idot(A::SparseMatrixCSC, j, x)  # <1>
+    rows = rowvals(A)  # <2>
+    vals = nonzeros(A)  # <3>
+    s = zero(eltype(x))
+    @inbounds for i in nzrange(A, j)  # <4>
+        s += vals[i]'*x[rows[i]][2]  # <5>
+    end
+    s
+end
+```
+
+1. パッケージ内部で，位置 $x\in\R^d$ は全て `SparseSate` 型に統一されている？
+2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
+3. 非零要素の値が格納されている．
+4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
+5. `x`の非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
+
+なお，通常の行列に対しては，次のように実装されている：
+
+```julia
+idot(A, j, x) = dot((@view A[:, j]), x)
+```
+
+:::
+
+```{julia}
+#| echo: false
+plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian Distribution)"; label="ZigZag_2D")
+```
 
 ## Zig-Zag サンプラーの実装
 
@@ -696,100 +786,3 @@ end
 
 
 
-### ２次元での例
-
-::: {.callout-important appearance="simple" icon="false"}
-
-1. 勾配 $-\nabla\log\pi$ を計算し，`∇ϕ(x, i, Γ)` の形で定義する．
-
-:::
-
-$$
-\Sigma^{-1}=\mtrx{2}{-1}{-1}{2}
-$$
-
-で定まる分散共分散行列 $\Sigma$ を持った中心化された正規分布 $\pi(x)dx=\rN_2(0,\Sigma)(dx)$ に対しては，対数尤度は
-
-\begin{align*}
-    \log\pi(x)&=-\log\paren{(2\pi)^{d/2}(\det\Sigma)^{1/2}}\\
-    &\qqquad-\frac{1}{2}x^\top\Sigma^{-1}x
-\end{align*}
-
-であるから，$\phi:=-\log\pi$ の第 $i$ 成分に関する微分は
-
-\begin{align*}
-    \partial_i\phi(x)&=\pp{}{x_i}\Paren{\frac{1}{2}x^\top\Sigma^{-1}x}\\
-    &=\Sigma^{-1}x.
-\end{align*}
-
-```{julia}
-using ZigZagBoomerang
-using SparseArrays
-
-d = 2
-
-# 対数尤度関数 ϕ の第 i 成分に関する微分を計算
-Γ = sparse([1,1,2,2], [1,2,1,2], [2.0,-1.0,-1.0,2.0])  # <1>
-∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)  # <2>
-
-# 初期値
-t0 = 0.0
-x0 = randn(d)
-θ0 = rand([-1.0,1.0], d)
-
-# Rejection bounds
-c = 1.0 * ones(length(x0))
-
-# ZigZag 過程をインスタンス化
-Z = ZigZag(Γ, x0*0)
-
-# シミュレーション実行
-T = 20.0
-@time zigzag_trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; adapt=true)
-
-# 軌跡を離散化
-@time traj = collect(discretize(zigzag_trace, 0.1))
-
-# 結果の表示
-println("Final state: ", xT)
-println("Trajectory length: ", length(traj))
-```
-
-1. 勾配関数`∇ϕ`の計算のためには，共分散行列の逆（精度行列ともいう）を`SparseMatrixCSC`型で指定する必要があることに注意．[`idot`の実装](https://github.com/mschauer/ZigZagBoomerang.jl/blob/691afe2200fa99d762b58f5c5fd7894cc9342294/src/sparsestickyzz.jl#L42) も参照．
-2. `idot`は，疎行列`Γ`の第`i`列と，疎ベクトル`x`との内積を高速に計算する関数．
-
-::: {.callout-important title="`idot`の定義" collapse="true" icon="false"}
-
-`idot(A,j,u)`は，疎行列`A`の第`j`列と，疎ベクトル`u`との内積を高速に計算する関数である．
-
-```julia
-function idot(A::SparseMatrixCSC, j, x)  # <1>
-    rows = rowvals(A)  # <2>
-    vals = nonzeros(A)  # <3>
-    s = zero(eltype(x))
-    @inbounds for i in nzrange(A, j)  # <4>
-        s += vals[i]'*x[rows[i]][2]  # <5>
-    end
-    s
-end
-```
-
-1. パッケージ内部で，位置 $x\in\R^d$ は全て `SparseSate` 型に統一されている？
-2. 疎行列 `A` の行インデックスを取得．`rowvals(A)`はベクトルであり，第１列から順番に，非零要素のある行番号が格納されている．
-3. 非零要素の値が格納されている．
-4. `@inbounds` は，範囲外アクセスを許容するマクロ．高速化のためだろう．`nzrange` は，`A` の第 `j` 列に非零要素がある範囲を，第 $1$ 列から累積して何番目かで返す．すなわち，`rows[i]`で正確に第`j`列の非零要素の行番号を狙い撃ちしてイテレーションできる．
-5. `x`の非零要素がある行番号 `rows[i]` における成分の値 `u[rows[i]][2]` はこのような表記になる．これと，`A` の非零要素 `vals[i]` との内積を計算．
-
-なお，通常の行列に対しては，次のように実装されている：
-
-```julia
-idot(A, j, x) = dot((@view A[:, j]), x)
-```
-
-:::
-
-```{julia}
-#| echo: false
-
-plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian Distribution)"; save=true, label="ZigZag2D_Gaussian")
-```
