@@ -260,7 +260,7 @@ Zig-Zag サンプラーは，不偏なサブサンプリングにより，スケ
 |:-:|:------:|:------:|
 | [{{< fa xmark >}}]{.color-blue} | Stochastic Gadient MCMC | [[@Welling-Teh2011]]{.footnote-letter} |
 | [{{< fa check >}}]{.color-red} | Zig-Zag with Subsampling | [[@Bierkens+2019]]{.footnote-letter} |
-| [{{< fa check >}}]{.color-red} | Stochastic Gradient PDMP | [[@Fearnhead+2024]]{.footnote-letter} |
+| [{{< fa xmark >}}]{.color-blue} | Stochastic Gradient PDMP | [[@Fearnhead+2024]]{.footnote-letter} |
 
 : {.hover .responsive-sm tbl-colwidths="[20,50,35]"}
 
@@ -275,7 +275,7 @@ $$
 $$
 \partial_iU(x)=\frac{1}{n}\sum_{k=1}^nE_i^k(x)
 $$
-が成り立つ場合，$\partial_iU(x)$ を
+が成り立つ場合，$\partial_iU(x)$ を，$[n]:=\{1,\cdots,n\}$ 上の一様サンプル $K$ を用いて
 $$
 E_i^K(x),\qquad K\sim\rU([n])
 $$
@@ -361,14 +361,14 @@ $$
 $$
 \max_{k\in[n]}m^k_i(t)\le M_i(t)
 $$
-を満たす連続関数 $M_i$（高々１次関数）を見つけないと，剪定ができず，事実上シミュレーションが不可能．
+を満たす多項式関数 $M_i$ を見つけないと，剪定ができず，事実上シミュレーションが不可能．
 
 また，タイトな上界でないと，ほとんどの提案が棄却され，無駄な計算量が増してしまう．
 :::
 
 ### ZZ-CV (Zig-Zag Sampler with Control Variates)
 
-::: {.callout-tip title="命題（制御変数による上界の構成）" icon="false"}
+::: {.callout-tip title="命題 [@Bierkens+2019] （制御変数による上界の構成）" icon="false"}
 
 $\partial_iU(x)$ は Lipschitz 定数 $C_i$ を持って Lipschitz 連続であるとする．このとき，
 $$
@@ -389,22 +389,24 @@ $$
 
 ### ZZ-CV (Zig-Zag Sampler with Control Variates)
 
-事前処理により，事後最頻値 $\wh{x}$ に十分近いように参照点 $x_*$ を選ぶことで，**データのサイズに依存しない $O(1)$ 計算複雑性で事後分布からの正確なサンプリングが可能**になる．
+事前処理により，事後最頻値 $\wh{x}$ に十分近いように参照点 $x_*$ を選ぶ
+
+[{{< fa arrow-right >}}]{.color-minty} その後は **データのサイズに依存しない $O(1)$ 計算複雑性で事後分布からの正確なサンプリングが可能**
 
 ::: {.callout-tip appearance="simple" icon="false" title="preprocessing for ZZ-CV"}
 
 1. $x_*:=\argmin_{x\in\R^d}U(x)$ を探索する．
 2. $\partial_iU(x_*),\partial_iU^k(x_*)$ を計算する．
 
-この２つはいずれも $O(n)$ の複雑性で実行できる．
-
 :::
+
+この２つはいずれも $O(n)$ の複雑性で実行できる．
 
 ### 例：正規標本の平均推定
 
 ::: {.small-letter}
 
-データは分散 $\sigma^2$ が既知な正規分布に従うとする：
+データは１次元で，分散 $\sigma^2$ が既知な正規分布に従うとする：
 $$
 Y^j\iidsim\rN(x_0,\sigma^2),\qquad j\in[n].
 $$
@@ -420,26 +422,28 @@ $$
 
 :::
 
-### 数値実験：サブサンプリングによる効率化
+### 数値実験：ZZ（サブサンプリングなし）と ZZ-CV（制御変数を用いたサブサンプリング）の比較
 
 ::: {.small-letter}
-今回の例では，通常の ZZ サンプラーに加えて，ZZ-CV アルゴリズムが実行可能．同じ長さの軌跡からの同数のサンプルを用いて，事後平均推定量により $x_0$ を推定した場合の平均自乗誤差は次の通り：
+同じ長さの軌跡＋同数のサンプルを用いて，事後平均推定量により $x_0$ を推定した場合の平均自乗誤差は次の通り：
 :::
 
 ![横軸：単位計算量，縦軸：平均自乗誤差（点線は不正確！）](../Process/MeanOfGaussian_Erronous.svg)
 
-### 数値実験：サブサンプリングによる効率化
+### 数値実験：ZZ と ZZ-CV の比較
 
-単位計算量 (epoch) を揃えて比較すると，たしかに効率が改善されている：
+単位計算量 (epoch)：「データ $n$ を通じた勾配の計算」を１単位とする<br>
+揃えて比較すると，たしかに効率が改善されている：
 
 ![横軸：単位計算量，縦軸：平均自乗誤差](../Process/MeanOfGaussian.svg)
 
 ### ZZ-CV がうまくいく理由
 
 ::: {.small-letter}
-データ数 $n\to\infty$ の極限で，事後分布は最頻値 $\wh{x}$ の周りに集中するから．
 
-すなわち，事前処理により $x_*$ を
+[{{< fa arrow-right >}}]{.color-minty} データ数 $n\to\infty$ の極限で，事後分布は最頻値 $\wh{x}$ の周りに集中するため
+
+事前処理により参照点 $x_*$ を
 $$
 \norm{x_*-\wh{x}}_p=O(n^{-1/2})\quad(n\to\infty)
 $$
@@ -447,7 +451,7 @@ $$
 $$
 \norm{x-x_*}_p=O_p(n^{-1/2}),\quad\partial_iU(x_*)=O_p(n^{1/2})\quad(n\to\infty)
 $$
-が成り立つ．すなわち，
+が成り立つ．このことより，
 $$
 M_i(t)=a_i+b_it=O_p(n^{1/2})\quad(n\to\infty)
 $$
@@ -456,19 +460,22 @@ $$
 
 ## ロジスティック回帰と大規模不均衡データの問題
 
+不均衡データに対する Gibbs サンプラーは収束が無際限に遅くなるが，Zig-Zag サンプラーでは簡単なトリックで克服できる．
+
 ### ロジスティック回帰
 
 $$
 \P[Y=1\mi X,\xi]=\frac{1}{1+\exp(-X^\top\xi)}
 $$
 
-の，事前分布 $p_0(\xi)d\xi$ とデータ $\{(x^i,y^i)\}_{i=1}^n$ に対する事後分布は
+の，事前分布 $p_0(\xi)d\xi$ とデータ $\{(x^i,y^i)\}_{i=1}^n$ に対する事後分布 $\pi$ は次のように表せる：
 
 $$
 \pi(\xi)\propt p_0(\xi)\prod_{i=1}^n\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}.
 $$
 
-正規分布の Pólya-Gamma 混合としての構造を利用した Gibbs サンプラー [@Polson+2013] によりベイズ推論可能．
+$\pi$ は正規分布の Pólya-Gamma 複合としての構造を持つ<br>
+[{{< fa arrow-right >}}]{.color-minty} データ拡張による Gibbs サンプラー [@Polson+2013] によりサンプリング可能．
 
 ### ロジットモデルはポテンシャルの勾配が有界になる {#sec-bounds-on-DU}
 
@@ -486,23 +493,24 @@ $$
 \therefore\qquad\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}\qquad i\in[d].
 $$
 
-### サブサンプリング
+### Poisson 剪定のための上界
 
 ::: {.small-letter}
-$\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}$ を通じて，定数のバウンド
-$$
-\lambda_i(\xi,\theta)=\Paren{\theta_i\partial_iU(\xi)}_+\le\paren{n\theta_i\max_{j\in[n]}\abs{x^j_i}}_+
-$$
-によって Poisson 剪定をすることも，事後分布の最頻値周りへの集中を通じた，１次関数によるバウンド
-$$
-\ov{m}_i(t):=a_i+b_it,\qquad a_i:=(\theta_i\partial_iU(\xi_*))_++C_i\abs{\xi-\xi_*},
-$$
-$$
-b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
-$$
-によって Poisson 剪定をすることも可能である．
+1. 前スライドの評価 $\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}$ を通じて，定数のバウンド
+  $$
+  m_i(t)=\Paren{\theta_i\partial_iU(\xi+\theta_it)}_+\le\paren{n\theta_i\max_{j\in[n]}\abs{x^j_i}}_+\equiv:M_i
+  $$
+  によって Poisson 剪定をする [ZZ (Global bound)]{.color-minty}．
+2. 事後分布の最頻値周りへの集中を通じた，$m_i$ の１次関数によるバウンド
+  $$
+  M_i(t):=a_i+b_it,\qquad a_i:=(\theta_i\partial_iU(\xi_*))_++C_i\abs{\xi-\xi_*},
+  $$
+  $$
+  b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
+  $$
+  によって Poisson 剪定をすることも可能である [ZZ (Affine bound)]{.color-minty}．
 
-全く同様に，２種類の上界を使ったサブサンプリング ZZ-SS と ZZ-CV も考えられる．
+同じ上界を用いたサブサンプリング [ZZ-SS]{.color-minty} と [ZZ-CV]{.color-minty} も考えられる．
 :::
 
 ### 性能比較
@@ -511,7 +519,11 @@ $$
 
 ### 有効サンプル数について
 
-時区間 $[0,T]$ における ZigZag 過程の，関数 $h\in\L^2(\R^d)$ に関する **有効サンプル数** (ESS) とは
+::: {.small-letter}
+
+Zig-Zag 過程 $(Z_t)_{t\in[0,T]}$ から $B$ 個のサンプル $X_1,\cdots,X_B$ を生成して，関数 $h\in\L^2(\pi)$ の期待値
+$\displaystyle(\pi|h)=\int_0^Th(x)\,\pi(dx)$
+を推定したとする．この際
 $$
 \wh{\ESS}:=T\frac{\wh{\V_\pi[h]}}{\wh{\sigma^2_h}}
 $$
@@ -519,18 +531,11 @@ $$
 \wh{\V_\pi[h]}:=\frac{1}{T}\int^T_0h(X_s)^2\,ds-\paren{\frac{1}{T}\int^T_0h(X_s)\,ds}^2,
 $$
 $$
-\wh{\sigma^2_h}:=\frac{1}{B-1}\sum_{i=1}^B(Y_i-\ov{Y})^2,\quad Y_i:=\sqrt{\frac{B}{T}}\int^{\frac{iT}{B}}_{\frac{(i-1)T}{B}}h(X_s)\,ds
+\wh{\sigma^2_h}:=\frac{1}{B-1}\sum_{i=1}^B(Y_i-\ov{Y})^2,\qquad Y_i:=\sqrt{\frac{B}{T}}\int^{\frac{iT}{B}}_{\frac{(i-1)T}{B}}h(X_s)\,ds.
 $$
-で定まる値である．例えば次のようにして計算できる：
+によって推定できる．
 
-```julia
-function ESS(samples::Vector{Float64}, T, dt)
-    V = (dt / T) * sum(samples.^2) - ((dt / T) * sum(samples))^2
-    Y = samples .* sqrt(T / B)
-    ESS = T * V / var(Y)
-    return ESS
-end
-```
+:::
 
 ### ロジスティック回帰における「大規模不均衡データ」の問題
 
@@ -538,7 +543,7 @@ end
 $$
 \sum_{j=1}^ny^j\ll n
 $$
-が成り立つ状況下では，Pólya-Gamma 混合に基づく Gibbs サンプラーの収束が，$n\to\infty$ の極限で際限なく遅くなる．
+が成り立つ状況下では，Pólya-Gamma 複合に基づく Gibbs サンプラーの収束が，$n\to\infty$ の極限で際限なく遅くなる．
 
 これは事後分布が最頻値の周りに集中する速度が，不均衡な $n\to\infty$ 極限では変化するためである．
 
@@ -552,7 +557,7 @@ $$
 
 ### 「大規模不均衡データ」に対する Gibbs サンプラーの失敗
 
-![サンプラーの動きと事後分布（Pólya-Gamma 混合に基づくGibbs サンプラーの場合）](../Stat/posterior_PG.svg)
+![サンプラーの動きと事後分布（Pólya-Gamma 複合に基づくGibbs サンプラーの場合）](../Stat/posterior_PG.svg)
 
 ### 不均衡極限では測度の集中レートが違う [@Johndrow+2019]
 
@@ -568,9 +573,9 @@ $$
 $$
 の「不均衡極限」または Infinitely Imbalanced Limit [@Owen2007] において，集中のオーダーが変わってしまう．
 
-### 事後分布の集中性の影響
+### 事後分布の集中不足の影響
 
-* Pólya-Gamma 混合に基づく Gibbs サンプラー
+* Pólya-Gamma 複合に基づく Gibbs サンプラー
 
   提案のステップサイズが，事後分布のスケールに比べて小さすぎる．
 
@@ -578,25 +583,25 @@ $$
 
   レート関数 $m_i$ の上界 $M_i$ の評価がズレることで効率が下がっていく．
 
-後者は挽回可能！
+後者は単に $M_i$ の設計不良の問題で，挽回可能！^[最初から Zig-Zag サンプラーでは上界 $M_i$ の設計が永遠の課題．]
 
 ### 重点サブサンプリング [@Sen+2020]
 
 ::: {.callout-important appearance="simple" icon="false"}
-一様でないサブサンプリングを導入することで，Zig-Zag サンプラーを不均衡データにも強くできる．加えて，一般的な設定下でサブサンプリングの効率を上げることもできる．
+**一様でないサブサンプリング** を導入することで，Zig-Zag サンプラーを不均衡データにも強くできる．（そもそも汎用的な効率化手法である．）
 :::
 
 ::: {.small-letter}
 
-ランダムな強度関数
+サブサンプリングによりランダム化された強度関数
 $$
 m_i^K(t)=\Paren{\theta_iE^K_i(x+\theta t)}_+
 $$
-は，不偏性
+は，真の勾配 $\partial_iU(\xi)$ に対する不偏性
 $$
 \mathbb{E}\SQuare{E^K_i(\xi)}=\partial_iU(\xi)
 $$
-を満たす限り，$K\sim\rU([n])$ に限る必要はなかったのである．
+を満たす限り，一様なサブサンプリング $K\sim\rU([n])$ に限る必要はなかったのである．
 
 :::
 
@@ -606,17 +611,17 @@ $$
 
 $(p_x)$ をある $[n]$ 上の分布 $\nu\in\cP([n])$ の質量関数として
 $$
-\partial_iV_1^j(\xi):=\frac{1}{p_j}\partial_iU^j(\xi)\qquad j\in[n]
+E^j_i(\xi):=\frac{1}{p_j}\partial_iU^j(\xi)\qquad j\in[n]
 $$
 と定めると，
 $$
-\partial_iU(\xi)=\sum_{j=1}^np_j\partial_iV_1^j(\xi)=\mathbb{E}[\partial_iV_1^J]
+\partial_iU(\xi)=\sum_{j=1}^np_jE_i^j(\xi)=\mathbb{E}[E_i^J].
 $$
-が成り立ち，上界は
+このリスケーリングした勾配の推定量 $E_i^1,\cdots,E_i^n$ に対して，大域的な上界は
 $$
-\abs{\partial_iV_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
+\abs{E_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
 $$
-に変わる．以前の例 [-@sec-bounds-on-DU] は，$p_j\equiv1/n$ の場合に当たる．
+に変わる．以前の評価 $\displaystyle\partial_iU^j\le n\max_{j\in[n]}\abs{x^j_i}$ ([-@sec-bounds-on-DU]) は，$p_j\equiv1/n$ の場合に当たる．
 
 :::
 
@@ -624,9 +629,9 @@ $$
 
 この一般化により，
 $$
-\abs{\partial_iV_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
+\abs{E_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
 $$
-の右辺を確率分布 $\nu=(p_j)\in\cP([n])$ に関して最適化することで，さらにタイトな上界を得て，Poisson 剪定の効率を上げることができる．具体的には
+の右辺を確率分布 $\nu=(p_j)\in\cP([n])$ に関して最適化することで，ZZ-SS よりタイトな上界を得る．具体的には
 $$
 p_j\propt\abs{x^j_i}
 $$
@@ -634,7 +639,7 @@ $$
 
 ### 性能比較（通常のデータの場合）
 
-![ロジスティック回帰のサブサンプリングによる ESS の比較．新たに追加された ZZ-IS（重点サブサンプリング）は緑色の線．](../Stat/Logistic2_ESS_per_Epoch_IS.svg)
+![新たに追加された ZZ-IS（重点サブサンプリング）は緑色の線．](../Stat/Logistic2_ESS_per_Epoch_IS.svg)
 
 ### 「大規模不均衡データ」に対する Zig-Zag サンプラー
 
@@ -643,8 +648,9 @@ $$
 X^j\iidsim(1-\al)\delta_0+\al\rN(1,2),
 $$
 $$
-\P[Y^j=1]=\frac{1}{1+e^{-X^j}}.
+\mathbb{P}[Y^j=1]=\frac{1}{1+e^{-X^j}}.
 $$
+
 
 $\al$ が小さくなるにつれて，ZZ-CV の効率は悪化するが，ZZ-IS は重要なデータにうまく注目することで効率悪化を防げることが予想される．
 
