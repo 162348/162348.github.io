@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - 信念伝搬アルゴリズム</title>
+<title>Hirofumi Shiba - 数学者のための深層学習５</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -133,13 +133,13 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 信念伝搬アルゴリズム">
-<meta property="og:description" content="信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Stat/posterior.svg">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習５">
+<meta property="og:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 信念伝搬アルゴリズム">
-<meta name="twitter:description" content="信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Stat/posterior.svg">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習５">
+<meta name="twitter:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -189,12 +189,10 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">信念伝搬アルゴリズム</h1>
-            <p class="subtitle lead">変分平均場近似</p>
+      <h1 class="title">数学者のための深層学習５</h1>
+            <p class="subtitle lead">正規化流</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Bayesian</div>
-                <div class="quarto-category">Nature</div>
-                <div class="quarto-category">Computation</div>
+                <div class="quarto-category">Deep</div>
               </div>
                   </div>
   </div>
@@ -212,7 +210,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">7/26/2024</p>
+        <p class="date">2/14/2024</p>
       </div>
     </div>
     
@@ -222,7 +220,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p>信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．</p>
+      確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．
     </div>
   </div>
   
@@ -234,12 +232,14 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#信念伝搬法" id="toc-信念伝搬法" class="nav-link active" data-scroll-target="#信念伝搬法"><span class="header-section-number">1</span> 信念伝搬法</a>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  <li><a href="#カップリング流" id="toc-カップリング流" class="nav-link" data-scroll-target="#カップリング流"><span class="header-section-number">2</span> カップリング流</a></li>
+  <li><a href="#自己回帰流" id="toc-自己回帰流" class="nav-link" data-scroll-target="#自己回帰流"><span class="header-section-number">3</span> 自己回帰流</a></li>
+  <li><a href="#連続流" id="toc-連続流" class="nav-link" data-scroll-target="#連続流"><span class="header-section-number">4</span> 連続流</a>
   <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
-  <li><a href="#ランダムグラフ上のスピン系の分配関数" id="toc-ランダムグラフ上のスピン系の分配関数" class="nav-link" data-scroll-target="#ランダムグラフ上のスピン系の分配関数"><span class="header-section-number">1.2</span> ランダムグラフ上のスピン系の分配関数</a></li>
+  <li><a href="#フローマッチング" id="toc-フローマッチング" class="nav-link" data-scroll-target="#フローマッチング"><span class="header-section-number">4.1</span> フローマッチング</a></li>
   </ul></li>
-  
+  <li><a href="#確率的補間" id="toc-確率的補間" class="nav-link" data-scroll-target="#確率的補間"><span class="header-section-number">5</span> 確率的補間</a></li>
   </ul>
 </nav>
     </div>
@@ -255,104 +255,76 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="信念伝搬法" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="信念伝搬法"><span class="header-section-number">1</span> 信念伝搬法</h2>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p>MP は情報理論では <span class="citation" data-cites="Gallager1962">(<a href="#ref-Gallager1962" role="doc-biblioref">Gallager, 1962</a>)</span> が，因果推論の文脈で <span class="citation" data-cites="Pearl1982">(<a href="#ref-Pearl1982" role="doc-biblioref">Pearl, 1982</a>)</span> が独立に開発している．</p>
-<p>信念伝搬法は変分手法とは違い，ある種のモデル（木やランダムグラフなど）では正確な推論が可能になる上に，一般に速い．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> 当然 Monte Carlo 法よりも速い．</p>
-<p>そのため，変分推論の改良の源泉が，メッセージ伝搬を通じて探求されている <span class="citation" data-cites="Winn-Bishop2005">(<a href="#ref-Winn-Bishop2005" role="doc-biblioref">Winn and Bishop, 2005</a>)</span>．</p>
+<p><span class="citation" data-cites="Kobyzev+2021">(<a href="#ref-Kobyzev+2021" role="doc-biblioref">Kobyzev et al., 2021</a>)</span>, <span class="citation" data-cites="Papamakarios+2021">(<a href="#ref-Papamakarios+2021" role="doc-biblioref">Papamakarios et al., 2021</a>)</span>．</p>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p><a href="Deep3.qmd">GAN</a>，<a href="Deep4.qmd">VAE</a>，<a href="Deep5.qmd">拡散モデル</a> など，深層生成モデルは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> 上の基底分布 <span class="math inline">\(p_z\)</span> を，パラメータ <span class="math inline">\(w\in\mathcal{W}\)</span> を持つ深層ニューラルネットによる変換 <span class="math inline">\(f:\mathcal{Z}\times\mathcal{W}\to\mathcal{X}\)</span> を通じて，押し出し <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> により <span class="math inline">\(\mathcal{X}\)</span> 上の分布をモデリングする．</p>
+<p>これらのモデル <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> の尤度は解析的に表示できない．そこで，<a href="Deep3.qmd">GAN</a> <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> は敵対的な学習規則を用いれば，尤度の評価を回避できるというアイデアに基づくものであり，<a href="Deep4.qmd">VAE</a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span> は変分下界を通じて尤度を近似するというものであった．</p>
+<p><strong>正則化流</strong> (normalizing flow / flow-based models) では，<a href="Deep5.qmd">拡散モデル</a> に似て，「逆変換」を利用することを考える．</p>
+<p>すなわち，<span class="math inline">\(\{f_w\}\subset\mathcal{L}(\mathcal{Z},\mathcal{X})\)</span> が可逆であるように設計するのである．逆関数を <span class="math inline">\(g_w:=f_w^{-1}\)</span> と表すと，<span class="math inline">\(p_x(-|w)\)</span> は <span class="math inline">\(p_z\)</span> の <span class="math inline">\(g_w\)</span> による引き戻しの関係になっているから，<a href="../../../posts/2023/Probability/Beta-Gamma.html#sec-transform">変数変換</a> を通じて， <span class="math display">\[
+p_x(x|w)=p_z(g_w(x))\lvert\det J_{g_w}(x)\rvert\;\;\text{a.s.}
+\]</span> が成立する．</p>
+<p>すると， <span class="math display">\[
+\log p(x|w)=\log p_z(g_w(x))+\log\lvert\det J_{g_w}(x)\rvert
+\]</span> を通じて，尤度の評価とパラメータの最尤推定が可能である．</p>
+<p>従って，可逆なニューラルネットワーク <span class="math inline">\(\{f_w\}\subset\mathcal{L}(\mathcal{Z},\mathcal{X})\)</span> を設計することを考える．これは，各層が可逆な変換を定めるようにすることが必要十分である．</p>
+<p>このとき，行列式 <span class="math inline">\(\det:\mathrm{GL}_D(\mathbb{R})\to\mathbb{R}^\times\)</span> は群準同型であるから，<span class="math inline">\(g_w\)</span> のヤコビアンは，各層のヤコビアンの積として得られる．</p>
+<p>この条件はたしかにモデルに仮定を置いている（<span class="math inline">\(p_z\)</span> は典型的に正規で，<span class="math inline">\(f_w\)</span> は可逆である）．しかしそれでも，深層ニューラルネットワーク <span class="math inline">\(\{f_w\}\)</span> の表現力は十分高いため，モデリングにも使うことは出来るだろうが，どちらかというと学習されたサンプラーのような立ち位置に理解しやすい <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．</p>
 </section>
-<section id="ランダムグラフ上のスピン系の分配関数" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="ランダムグラフ上のスピン系の分配関数"><span class="header-section-number">1.2</span> ランダムグラフ上のスピン系の分配関数</h3>
-<p>頂点数 <span class="math inline">\(N\)</span>，辺数 <span class="math inline">\(E\)</span> の Erdös-Renyi ランダムグラフ <span class="math inline">\(\mathcal{G}(N,E)\)</span> 上のスピン <span class="math inline">\((\sigma_i)_{i\in[N]}\)</span> と相互作用 <span class="math inline">\((\psi_{ij})_{(i,j)\in E}\)</span> を考える： <span class="math display">\[
-\psi_{ij}(\sigma_i,\sigma_j)=\exp\biggr(-\beta J_{ij}\sigma_i\sigma_j\biggl).
-\]</span></p>
-<p>ランダムグラフでは平均的なループの長さは <span class="math inline">\(\log N\)</span> であり，局所的に木の構造を持つため，このことを利用した近似を使って信念伝搬を行う．</p>
-<p><span class="math inline">\(Z_{i\to j}(\sigma_i)\)</span> を，<span class="math inline">\(i\)</span> を根とする木から <span class="math inline">\(j\)</span> を根とする木を除去し，<span class="math inline">\(i\)</span> におけるスピンの値が <span class="math inline">\(\sigma_i\)</span> であると条件付けた場合の部分木上の分配関数，<span class="math inline">\(Z_i(\sigma_i)\)</span> を <span class="math inline">\(i\)</span> におけるスピンの値が <span class="math inline">\(\sigma_i\)</span> であると条件付けた場合の木全体の分配関数とすると，次の関係がある： <span class="math display">\[
-Z_i(\sigma_i)=\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right).
-\]</span></p>
-<p>するとこのとき， <span class="math display">\[\begin{align*}
-    \eta_i(\sigma_i):=\frac{Z_i(\sigma_i)}{\sum_{\sigma'}Z_i(\sigma')}&amp;=\frac{1}{\sum_{\sigma'}Z_i(\sigma')}\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right)\\
-    &amp;=:\frac{1}{z_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right).
-\end{align*}\]</span> は Boltzmann-Gibbs 分布の周辺分布になっている： <span class="math display">\[
-m_i=\langle\sigma_i\rangle=\sum_{\sigma}\eta_i(\sigma)\sigma.
-\]</span></p>
-<p>このときの正規化定数は <span class="math display">\[\begin{align*}
-    z_i&amp;=\sum_{\sigma_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right)
-    =\sum_{\sigma_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\frac{Z_{j\to i}(\sigma_j)}{\sum_{\sigma'}Z_{j\to i}(\sigma')}\psi_{ij}(\sigma_i,\sigma_j)\right)\\
-    &amp;=\sum_{\sigma_i}\frac{Z_i(\sigma_i)}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}=\frac{Z}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)},\\
-    z_{j\to i}&amp;=\frac{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}{\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)}.
-\end{align*}\]</span></p>
-<p>と表せる．</p>
-<p><span class="math inline">\(z_i\)</span> の分母には <span class="math inline">\(Z\)</span> が現れていることを用いると <span class="math inline">\(Z\)</span> は，任意の位置 <span class="math inline">\(i\in[N]\)</span> を起点として，次のような展開表示ができる： <span class="math display">\[\begin{align*}
-    Z&amp;=\sum_{\sigma_i}Z_i(\sigma_i)=z_i\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\right)=z_i\prod_{j\in\partial i}\left(z_{j\to i}\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)\right).
-\end{align*}\]</span> ここで，最右辺の <span class="math inline">\(\sum_{\sigma_k}Z_{k\to j}(\sigma_k)\)</span> は <span class="math inline">\(z_{j\to i}\)</span> を計算するのと同じ要領で計算されることになり，最終的に木の葉まで再帰的に計算することで，公式 <span class="math display">\[
-Z=z_i\prod_{j\in\partial i}\left(z_{j\to i}\prod_{k\in\partial j\setminus i}z_{k\to j}\cdots\right)=z_i\prod_{j\in\partial i}\left(\frac{z_j}{z_{ij}}\prod_{k\in\partial j\setminus i}\frac{z_k}{z_{jk}}\cdots\right)=\frac{\prod_{i\in[N]}z_i}{\prod_{(i,j)\in E}z_{ij}}.
-\]</span></p>
-<p>よって，この再帰的計算により，自由エネルギー <span class="math display">\[
-F=-T\log Z=\sum_{i\in[N]}\biggr(-T\log z_i\biggl)-\sum_{(i,j)\in E}\biggr(-T\log z_{ij}\biggl).
-\]</span> も得られることになる．</p>
+<section id="カップリング流" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="カップリング流"><span class="header-section-number">2</span> カップリング流</h2>
+</section>
+<section id="自己回帰流" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="自己回帰流"><span class="header-section-number">3</span> 自己回帰流</h2>
+</section>
+<section id="連続流" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="連続流"><span class="header-section-number">4</span> 連続流</h2>
+<section id="フローマッチング" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="フローマッチング"><span class="header-section-number">4.1</span> フローマッチング</h3>
+<p>フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span>, rectified flow <span class="citation" data-cites="Liu+2023-Flow">(<a href="#ref-Liu+2023-Flow" role="doc-biblioref">Liu et al., 2023</a>)</span></p>
 </section>
 </section>
+<section id="確率的補間" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="確率的補間"><span class="header-section-number">5</span> 確率的補間</h2>
+<p><span class="citation" data-cites="Albergo-Vanden-Eijnden2023">(<a href="#ref-Albergo-Vanden-Eijnden2023" role="doc-biblioref">Michael Samuel Albergo and Vanden-Eijnden, 2023</a>)</span> により提案されたもので，SiT (Scalable Interpolant Transformer) <span class="citation" data-cites="Ma+2024">(<a href="#ref-Ma+2024" role="doc-biblioref">Ma et al., 2024</a>)</span> でも用いられている技術である．</p>
+<p><span class="citation" data-cites="Albergo+2023">(<a href="#ref-Albergo+2023" role="doc-biblioref">Michael S. Albergo et al., 2023</a>)</span></p>
 
 
 
-<div id="quarto-appendix" class="default"><section id="参考文献" class="level2 appendix" data-number="2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2</span> 参考文献</h2><div class="quarto-appendix-contents">
+</section>
 
-
-
-</div></section><section id="krzakala2015" class="level3 appendix" data-number="2.1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2.1</span> <span class="citation" data-cites="Krzakala+2015">(<a href="#ref-Krzakala+2015" role="doc-biblioref">Krzakala et al., 2015</a>)</span></h2><div class="quarto-appendix-contents">
-
-<p>Lecture note なので歩み寄りやすい．Bayes 推論とスピングラス系の対応，これを解くための信念伝搬法について非常に良い入門になる．</p>
-</div></section><section id="zdeborova-krzakala2016" class="level3 appendix" data-number="2.2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2.2</span> <span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016</a>)</span></h2><div class="quarto-appendix-contents">
-
-<blockquote class="blockquote">
-<p>In physics the origins of these methods trace back to the Bethe approximation <span class="citation" data-cites="Bethe1935">(<a href="#ref-Bethe1935" role="doc-biblioref">Bethe and Bragg, 1935</a>)</span>, the work of Peierls <span class="citation" data-cites="Peierls+1936">(<a href="#ref-Peierls+1936" role="doc-biblioref">Peierls and Bragg, 1936</a>)</span> and the Thouless–Anderson–Palmer (TAP) equations <span class="citation" data-cites="Thouless+1977">(<a href="#ref-Thouless+1977" role="doc-biblioref">Thouless et al., 1977</a>)</span>. Interestingly, these equations can be seen as “improved” variational mean-ﬁeld equations, and this is at the roots of many perturbation approaches (such as <span class="citation" data-cites="Plefka1982">(<a href="#ref-Plefka1982" role="doc-biblioref">Plefka, 1982</a>)</span>, <span class="citation" data-cites="Georges-Yedidia1991">(<a href="#ref-Georges-Yedidia1991" role="doc-biblioref">Georges and Yedidia, 1991</a>)</span> or <span class="citation" data-cites="Kikuchi1951">(<a href="#ref-Kikuchi1951" role="doc-biblioref">Kikuchi, 1951</a>)</span>). <span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016, p. 471</a>)</span></p>
-</blockquote>
-
-
-
-</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Bethe1935" class="csl-entry" role="listitem">
-Bethe, H. A., and Bragg, W. L. (1935). <a href="https://doi.org/10.1098/rspa.1935.0122">Statistical theory of superlattices</a>. <em>Proceedings of the Royal Society of London. Series A - Mathematical and Physical Sciences</em>, <em>150</em>(871), 552–575.
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Albergo+2023" class="csl-entry" role="listitem">
+Albergo, Michael S., Boffi, N. M., and Vanden-Eijnden, E. (2023). <a href="https://arxiv.org/abs/2303.08797">Stochastic interpolants: A unifying framework for flows and diffusions</a>.
 </div>
-<div id="ref-Gallager1962" class="csl-entry" role="listitem">
-Gallager, R. (1962). <a href="https://doi.org/10.1109/TIT.1962.1057683">Low-density parity-check codes</a>. <em>IRE Transactions on Information Theory</em>, <em>8</em>(1), 21–28.
+<div id="ref-Albergo-Vanden-Eijnden2023" class="csl-entry" role="listitem">
+Albergo, Michael Samuel, and Vanden-Eijnden, E. (2023). <a href="https://openreview.net/forum?id=li7qeBbCR1t">Building normalizing flows with stochastic interpolants</a>. In <em>The eleventh international conference on learning representations</em>.
 </div>
-<div id="ref-Georges-Yedidia1991" class="csl-entry" role="listitem">
-Georges, A., and Yedidia, J. S. (1991). <a href="https://doi.org/10.1088/0305-4470/24/9/024">How to expand around mean-field theory using high-temperature expansions</a>. <em>Journal of Physics A: Mathematical and General</em>, <em>24</em>(9), 2173.
+<div id="ref-Gao+2020" class="csl-entry" role="listitem">
+Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., and Wu, Y. N. (2020). <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper">Flow contrastive estimation of energy-based models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>.
 </div>
-<div id="ref-Kikuchi1951" class="csl-entry" role="listitem">
-Kikuchi, R. (1951). <a href="https://doi.org/10.1103/PhysRev.81.988">A theory of cooperative phenomena</a>. <em>Phys. Rev.</em>, <em>81</em>, 988–1003.
+<div id="ref-Goodfellow+2014" class="csl-entry" role="listitem">
+Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., … Bengio, Y. (2014). <a href="https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html">Generative adversarial nets</a>. In <em>Advances in neural information processing systems</em>,Vol. 27, pages 1–9.
 </div>
-<div id="ref-Krzakala+2015" class="csl-entry" role="listitem">
-Krzakala, F., Zdeborova, L., Angelini, M. C., and Caltagirone, F. (2015). <em><a href="https://indico.ictp.it/event/a14244/material/10/0.pdf">Statistical physics of inference and bayesian estimation</a></em>.
+<div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
+Kingma, D. P., and Welling, M. (2014). <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">Auto-encoding variational bayes</a>. In <em>International conference on learning representations</em>,Vol. 2.
 </div>
-<div id="ref-Pearl1982" class="csl-entry" role="listitem">
-Pearl, J. (1982). <em><a href="https://aaai.org/papers/00133-aaai82-032-reverend-bayes-on-inference-engines-a-distributed-hierarchical-approach/"><span class="nocase">Reverend Bayes on Inference Engines: A Distributed Hierarchical Approach</span></a></em>,Vol. 2, page 133.
+<div id="ref-Kobyzev+2021" class="csl-entry" role="listitem">
+Kobyzev, I., Prince, S. D., and Brubaker, M. A. (2021). <a href="https://doi.org/10.1109/TPAMI.2020.2992934">Normalizing flows: An introduction and review of current methods</a>. <em>IEEE Transactions on Pattern Analysis &amp;Amp; Machine Intelligence</em>, <em>43</em>(11), 3964–3979.
 </div>
-<div id="ref-Peierls+1936" class="csl-entry" role="listitem">
-Peierls, R., and Bragg, W. L. (1936). <a href="https://doi.org/10.1098/rspa.1936.0047">Statistical theory of superlattices with unequal concentrations of the components</a>. <em>Proceedings of the Royal Society of London. Series A - Mathematical and Physical Sciences</em>, <em>154</em>(881), 207–222.
+<div id="ref-Lipman+2023" class="csl-entry" role="listitem">
+Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M., and Le, M. (2023). <a href="https://openreview.net/forum?id=PqvMRDCJT9t">Flow matching for generative modeling</a>. In <em>The eleventh international conference on learning representations</em>.
 </div>
-<div id="ref-Plefka1982" class="csl-entry" role="listitem">
-Plefka, T. (1982). <a href="https://doi.org/10.1088/0305-4470/15/6/035">Convergence condition of the TAP equation for the infinite-ranged ising spin glass model</a>. <em>Journal of Physics A: Mathematical and General</em>, <em>15</em>(6), 1971.
+<div id="ref-Liu+2023-Flow" class="csl-entry" role="listitem">
+Liu, X., Gong, C., and liu, qiang. (2023). <a href="https://openreview.net/forum?id=XVjTT1nw5z">Flow straight and fast: Learning to generate and transfer data with rectified flow</a>. In <em>The eleventh international conference on learning representations</em>.
 </div>
-<div id="ref-Thouless+1977" class="csl-entry" role="listitem">
-Thouless, D. J., Anderson, P. W., and Palmer, R. G. (1977). <a href="https://doi.org/10.1080/14786437708235992">Solution of ’solvable model of a spin glass’</a>. <em>Philosophical Magazine</em>, <em>35</em>(3), 593–601.
+<div id="ref-Ma+2024" class="csl-entry" role="listitem">
+Ma, N., Goldstein, M., Albergo, M. S., Boffi, N. M., Vanden-Eijnden, E., and Xie, S. (2024). <a href="https://arxiv.org/abs/2401.08740">SiT: Exploring flow and diffusion-based generative models with scalable interpolant transformers</a>.
 </div>
-<div id="ref-Winn-Bishop2005" class="csl-entry" role="listitem">
-Winn, J., and Bishop, C. M. (2005). <a href="http://jmlr.org/papers/v6/winn05a.html">Variational message passing</a>. <em>Journal of Machine Learning Research</em>, <em>6</em>(23), 661–694.
+<div id="ref-Papamakarios+2021" class="csl-entry" role="listitem">
+Papamakarios, G., Nalisnick, E., Rezende, D. J., Mohamed, S., and Lakshminarayanan, B. (2021). <a href="https://dl.acm.org/doi/abs/10.5555/3546258.3546315">Normalizing flows for probabilistic modeling and inference</a>. <em>J. Mach. Learn. Res.</em>, <em>22</em>(1).
 </div>
-<div id="ref-Zdeborova-Krzakala2016" class="csl-entry" role="listitem">
-Zdeborová, L., and Krzakala, F. (2016). <a href="https://doi.org/10.1080/00018732.2016.1211393">Statistical physics of inference: Thresholds and algorithms</a>. <em>Advances in Physics</em>, <em>65</em>(5), 453–552.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016, p. 471</a>)</span><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {

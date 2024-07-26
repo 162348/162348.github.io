@@ -1,7 +1,8 @@
 ---
 title: "信念伝搬アルゴリズム"
+subtitle: "変分平均場近似"
 author: "司馬 博文"
-date: 6/24/2024
+date: 7/26/2024
 image: posterior.svg
 categories: [Bayesian, Nature, Computation]
 bibliography: 
@@ -9,25 +10,94 @@ bibliography:
     - ../../../bib.bib
 csl: ../../../apalike.csl
 abstract-title: 概要
-abstract: |
 format:
     html:
         code-fold: false
 execute:
     cache: true
+abstract: |
+    信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．
 ---
 
 {{< include ../../../_preamble.qmd >}}
 
-### 歴史
+## 信念伝搬法
+
+### 導入
+
+MP は情報理論では [@Gallager1962] が，因果推論の文脈で [@Pearl1982] が独立に開発している．
+
+信念伝搬法は変分手法とは違い，ある種のモデル（木やランダムグラフなど）では正確な推論が可能になる上に，一般に速い．^[[@Zdeborova-Krzakala2016 p.471]] 当然 Monte Carlo 法よりも速い．
+
+そのため，変分推論の改良の源泉が，メッセージ伝搬を通じて探求されている [@Winn-Bishop2005]．
+
+### ランダムグラフ上のスピン系の分配関数
+
+頂点数 $N$，辺数 $E$ の Erdös-Renyi ランダムグラフ $\cG(N,E)$ 上のスピン $(\sigma_i)_{i\in[N]}$ と相互作用 $(\psi_{ij})_{(i,j)\in E}$ を考える：
+$$
+\psi_{ij}(\sigma_i,\sigma_j)=\exp\Paren{-\beta J_{ij}\sigma_i\sigma_j}.
+$$
+
+ランダムグラフでは平均的なループの長さは $\log N$ であり，局所的に木の構造を持つため，このことを利用した近似を使って信念伝搬を行う．
+
+$Z_{i\to j}(\sigma_i)$ を，$i$ を根とする木から $j$ を根とする木を除去し，$i$ におけるスピンの値が $\sigma_i$ であると条件付けた場合の部分木上の分配関数，$Z_i(\sigma_i)$ を $i$ におけるスピンの値が $\sigma_i$ であると条件付けた場合の木全体の分配関数とすると，次の関係がある：
+$$
+Z_i(\sigma_i)=\prod_{j\in\partial i}\paren{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)}.
+$$
+
+するとこのとき，
+\begin{align*}
+    \eta_i(\sigma_i):=\frac{Z_i(\sigma_i)}{\sum_{\sigma'}Z_i(\sigma')}&=\frac{1}{\sum_{\sigma'}Z_i(\sigma')}\prod_{j\in\partial i}\paren{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)}\\
+    &=:\frac{1}{z_i}\prod_{j\in\partial i}\paren{\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)}.
+\end{align*}
+は Boltzmann-Gibbs 分布の周辺分布になっている：
+$$
+m_i=\brac{\sigma_i}=\sum_{\sigma}\eta_i(\sigma)\sigma.
+$$
+
+このときの正規化定数は
+\begin{align*}
+    z_i&=\sum_{\sigma_i}\prod_{j\in\partial i}\paren{\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)}
+    =\sum_{\sigma_i}\prod_{j\in\partial i}\paren{\sum_{\sigma_j}\frac{Z_{j\to i}(\sigma_j)}{\sum_{\sigma'}Z_{j\to i}(\sigma')}\psi_{ij}(\sigma_i,\sigma_j)}\\
+    &=\sum_{\sigma_i}\frac{Z_i(\sigma_i)}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}=\frac{Z}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)},\\
+    z_{j\to i}&=\frac{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}{\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)}.
+\end{align*}
+
+と表せる．
+
+$z_i$ の分母には $Z$ が現れていることを用いると $Z$ は，任意の位置 $i\in[N]$ を起点として，次のような展開表示ができる：
+\begin{align*}
+    Z&=\sum_{\sigma_i}Z_i(\sigma_i)=z_i\prod_{j\in\partial i}\paren{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}=z_i\prod_{j\in\partial i}\paren{z_{j\to i}\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)}.
+\end{align*}
+ここで，最右辺の $\sum_{\sigma_k}Z_{k\to j}(\sigma_k)$ は $z_{j\to i}$ を計算するのと同じ要領で計算されることになり，最終的に木の葉まで再帰的に計算することで，公式
+$$
+Z=z_i\prod_{j\in\partial i}\paren{z_{j\to i}\prod_{k\in\partial j\setminus i}z_{k\to j}\cdots}=z_i\prod_{j\in\partial i}\paren{\frac{z_j}{z_{ij}}\prod_{k\in\partial j\setminus i}\frac{z_k}{z_{jk}}\cdots}=\frac{\prod_{i\in[N]}z_i}{\prod_{(i,j)\in E}z_{ij}}.
+$$
+
+よって，この再帰的計算により，自由エネルギー
+$$
+F=-T\log Z=\sum_{i\in[N]}\Paren{-T\log z_i}-\sum_{(i,j)\in E}\Paren{-T\log z_{ij}}.
+$$
+も得られることになる．
+
+### 無限レンジ極限での高温解の安定性
+
+[@Thouless+1977] は TAP 方程式により，[@Sherrington-Kirkpatrick1975] 模型を解いた．
+
+その際の結果が，同じく無限サイズのグラフである [Bethe 格子](https://ja.wikipedia.org/wiki/ベーテ格子) 上でならば，信念伝搬法により議論でき，有効 cavity 場が次のように与えられるという：
+$$
+\beta h_0=\sum_{i=1}^k\atanh\Paren{\tanh(\beta J_{ij})\tanh(\beta h_i)}+H.
+$$
+
+このモデルでもスピングラス相が出現することが，信念伝搬法が失敗する（局所不安定になる）こととして現れる．これはグラフの木構造を破壊するような長距離の相関が出現することによる．スピングラス相と常磁性相の境界は Almeida-Thouless 線 [@Thouless1986] という．
+
+
+## 参考文献 {.appendix}
+
+### [@Krzakala+2015] {.appendix}
+
+Lecture note なので歩み寄りやすい．Bayes 推論とスピングラス系の対応，これを解くための信念伝搬法について非常に良い入門になる．
+
+### [@Zdeborova-Krzakala2016] {.appendix}
 
 > In physics the origins of these methods trace back to the Bethe approximation [@Bethe1935], the work of Peierls [@Peierls+1936] and the Thouless–Anderson–Palmer (TAP) equations [@Thouless+1977]. Interestingly, these equations can be seen as “improved” variational mean-ﬁeld equations, and this is at the roots of many perturbation approaches (such as [@Plefka1982], [@Georges-Yedidia1991] or [@Kikuchi1951]). [@Zdeborova-Krzakala2016 p.471]
-
-
-
-情報理論では [@Gallager1962] が，因果推論の文脈で [@Pearl1982] が独立に開発している．
-
-
-
-信念伝搬法は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速い．^[[@Zdeborova-Krzakala2016 p.471]]
-

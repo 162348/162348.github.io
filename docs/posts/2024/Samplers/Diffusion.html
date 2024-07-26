@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - 信念伝搬アルゴリズム</title>
+<title>Hirofumi Shiba - 数学者のための深層学習４</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -133,13 +133,13 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 信念伝搬アルゴリズム">
-<meta property="og:description" content="信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Stat/posterior.svg">
+<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習４">
+<meta property="og:description" content="数学者のために，深層生成モデルの１つである拡散モデルを概観する．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 信念伝搬アルゴリズム">
-<meta name="twitter:description" content="信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Stat/posterior.svg">
+<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習４">
+<meta name="twitter:description" content="数学者のために，深層生成モデルの１つである拡散モデルを概観する．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -189,12 +189,11 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">信念伝搬アルゴリズム</h1>
-            <p class="subtitle lead">変分平均場近似</p>
+      <h1 class="title">数学者のための深層学習４</h1>
+            <p class="subtitle lead">拡散モデル</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Bayesian</div>
-                <div class="quarto-category">Nature</div>
-                <div class="quarto-category">Computation</div>
+                <div class="quarto-category">Deep</div>
+                <div class="quarto-category">Process</div>
               </div>
                   </div>
   </div>
@@ -212,7 +211,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">7/26/2024</p>
+        <p class="date">2/14/2024</p>
       </div>
     </div>
     
@@ -222,7 +221,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p>信念伝搬法 (BP: Belief Propagation) は変分手法とは違い，ある種のモデルでは正確な推論が可能になる上に，一般に速いアルゴリズムを与える．</p>
+      数学者のために，深層生成モデルの１つである拡散モデルを概観する．
     </div>
   </div>
   
@@ -234,12 +233,18 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#信念伝搬法" id="toc-信念伝搬法" class="nav-link active" data-scroll-target="#信念伝搬法"><span class="header-section-number">1</span> 信念伝搬法</a>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
   <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
-  <li><a href="#ランダムグラフ上のスピン系の分配関数" id="toc-ランダムグラフ上のスピン系の分配関数" class="nav-link" data-scroll-target="#ランダムグラフ上のスピン系の分配関数"><span class="header-section-number">1.2</span> ランダムグラフ上のスピン系の分配関数</a></li>
+  <li><a href="#歴史" id="toc-歴史" class="nav-link" data-scroll-target="#歴史"><span class="header-section-number">1.1</span> 歴史</a></li>
+  <li><a href="#拡散モデルの例" id="toc-拡散モデルの例" class="nav-link" data-scroll-target="#拡散モデルの例"><span class="header-section-number">1.2</span> 拡散モデルの例</a></li>
+  <li><a href="#sec-idea" id="toc-sec-idea" class="nav-link" data-scroll-target="#sec-idea"><span class="header-section-number">1.3</span> アイデア</a></li>
+  <li><a href="#トランスフォーマーとの邂逅" id="toc-トランスフォーマーとの邂逅" class="nav-link" data-scroll-target="#トランスフォーマーとの邂逅"><span class="header-section-number">1.4</span> トランスフォーマーとの邂逅</a></li>
   </ul></li>
-  
+  <li><a href="#前向き方向符号化器" id="toc-前向き方向符号化器" class="nav-link" data-scroll-target="#前向き方向符号化器"><span class="header-section-number">2</span> 前向き方向符号化器</a></li>
+  <li><a href="#後ろ向き復号化器" id="toc-後ろ向き復号化器" class="nav-link" data-scroll-target="#後ろ向き復号化器"><span class="header-section-number">3</span> 後ろ向き復号化器</a></li>
+  <li><a href="#スコアマッチング" id="toc-スコアマッチング" class="nav-link" data-scroll-target="#スコアマッチング"><span class="header-section-number">4</span> スコアマッチング</a></li>
+  <li><a href="#誘導付き拡散モデル" id="toc-誘導付き拡散モデル" class="nav-link" data-scroll-target="#誘導付き拡散モデル"><span class="header-section-number">5</span> 誘導付き拡散モデル</a></li>
+  <li><a href="#確率微分方程式との関係" id="toc-確率微分方程式との関係" class="nav-link" data-scroll-target="#確率微分方程式との関係"><span class="header-section-number">6</span> 確率微分方程式との関係</a></li>
   </ul>
 </nav>
     </div>
@@ -255,102 +260,128 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="信念伝搬法" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="信念伝搬法"><span class="header-section-number">1</span> 信念伝搬法</h2>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p>MP は情報理論では <span class="citation" data-cites="Gallager1962">(<a href="#ref-Gallager1962" role="doc-biblioref">Gallager, 1962</a>)</span> が，因果推論の文脈で <span class="citation" data-cites="Pearl1982">(<a href="#ref-Pearl1982" role="doc-biblioref">Pearl, 1982</a>)</span> が独立に開発している．</p>
-<p>信念伝搬法は変分手法とは違い，ある種のモデル（木やランダムグラフなど）では正確な推論が可能になる上に，一般に速い．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> 当然 Monte Carlo 法よりも速い．</p>
-<p>そのため，変分推論の改良の源泉が，メッセージ伝搬を通じて探求されている <span class="citation" data-cites="Winn-Bishop2005">(<a href="#ref-Winn-Bishop2005" role="doc-biblioref">Winn and Bishop, 2005</a>)</span>．</p>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p><span class="citation" data-cites="Luo2022">(<a href="#ref-Luo2022" role="doc-biblioref">Luo, 2022</a>)</span></p>
+<section id="歴史" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="歴史"><span class="header-section-number">1.1</span> 歴史</h3>
+<p>拡散モデルによる画像生成は，初め <span class="citation" data-cites="Dickstein+2015">(<a href="#ref-Dickstein+2015" role="doc-biblioref">Sohl-Dickstein et al., 2015</a>)</span> で提案された．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>これをスコアマッチングの手法 <span class="citation" data-cites="Hyvarinen2005">(<a href="#ref-Hyvarinen2005" role="doc-biblioref">Hyvärinen, 2005</a>)</span>, <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> と組み合わせたのが NCSN (Noise Conditioned Score Network) <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Song and Ermon, 2020</a>)</span> や DDPM (Denoising Diffusion Probabilistic Model) <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> である．</p>
+<p>この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．</p>
 </section>
-<section id="ランダムグラフ上のスピン系の分配関数" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="ランダムグラフ上のスピン系の分配関数"><span class="header-section-number">1.2</span> ランダムグラフ上のスピン系の分配関数</h3>
-<p>頂点数 <span class="math inline">\(N\)</span>，辺数 <span class="math inline">\(E\)</span> の Erdös-Renyi ランダムグラフ <span class="math inline">\(\mathcal{G}(N,E)\)</span> 上のスピン <span class="math inline">\((\sigma_i)_{i\in[N]}\)</span> と相互作用 <span class="math inline">\((\psi_{ij})_{(i,j)\in E}\)</span> を考える： <span class="math display">\[
-\psi_{ij}(\sigma_i,\sigma_j)=\exp\biggr(-\beta J_{ij}\sigma_i\sigma_j\biggl).
-\]</span></p>
-<p>ランダムグラフでは平均的なループの長さは <span class="math inline">\(\log N\)</span> であり，局所的に木の構造を持つため，このことを利用した近似を使って信念伝搬を行う．</p>
-<p><span class="math inline">\(Z_{i\to j}(\sigma_i)\)</span> を，<span class="math inline">\(i\)</span> を根とする木から <span class="math inline">\(j\)</span> を根とする木を除去し，<span class="math inline">\(i\)</span> におけるスピンの値が <span class="math inline">\(\sigma_i\)</span> であると条件付けた場合の部分木上の分配関数，<span class="math inline">\(Z_i(\sigma_i)\)</span> を <span class="math inline">\(i\)</span> におけるスピンの値が <span class="math inline">\(\sigma_i\)</span> であると条件付けた場合の木全体の分配関数とすると，次の関係がある： <span class="math display">\[
-Z_i(\sigma_i)=\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right).
-\]</span></p>
-<p>するとこのとき， <span class="math display">\[\begin{align*}
-    \eta_i(\sigma_i):=\frac{Z_i(\sigma_i)}{\sum_{\sigma'}Z_i(\sigma')}&amp;=\frac{1}{\sum_{\sigma'}Z_i(\sigma')}\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right)\\
-    &amp;=:\frac{1}{z_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right).
-\end{align*}\]</span> は Boltzmann-Gibbs 分布の周辺分布になっている： <span class="math display">\[
-m_i=\langle\sigma_i\rangle=\sum_{\sigma}\eta_i(\sigma)\sigma.
-\]</span></p>
-<p>このときの正規化定数は <span class="math display">\[\begin{align*}
-    z_i&amp;=\sum_{\sigma_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\eta_{j\to i}(\sigma_j)\psi_{ij}(\sigma_i,\sigma_j)\right)
-    =\sum_{\sigma_i}\prod_{j\in\partial i}\left(\sum_{\sigma_j}\frac{Z_{j\to i}(\sigma_j)}{\sum_{\sigma'}Z_{j\to i}(\sigma')}\psi_{ij}(\sigma_i,\sigma_j)\right)\\
-    &amp;=\sum_{\sigma_i}\frac{Z_i(\sigma_i)}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}=\frac{Z}{\prod_{j\in\partial i}\sum_{\sigma_j}Z_{j\to i}(\sigma_j)},\\
-    z_{j\to i}&amp;=\frac{\sum_{\sigma_j}Z_{j\to i}(\sigma_j)}{\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)}.
-\end{align*}\]</span></p>
-<p>と表せる．</p>
-<p><span class="math inline">\(z_i\)</span> の分母には <span class="math inline">\(Z\)</span> が現れていることを用いると <span class="math inline">\(Z\)</span> は，任意の位置 <span class="math inline">\(i\in[N]\)</span> を起点として，次のような展開表示ができる： <span class="math display">\[\begin{align*}
-    Z&amp;=\sum_{\sigma_i}Z_i(\sigma_i)=z_i\prod_{j\in\partial i}\left(\sum_{\sigma_j}Z_{j\to i}(\sigma_j)\right)=z_i\prod_{j\in\partial i}\left(z_{j\to i}\prod_{k\in\partial j\setminus i}\sum_{\sigma_k}Z_{k\to j}(\sigma_k)\right).
-\end{align*}\]</span> ここで，最右辺の <span class="math inline">\(\sum_{\sigma_k}Z_{k\to j}(\sigma_k)\)</span> は <span class="math inline">\(z_{j\to i}\)</span> を計算するのと同じ要領で計算されることになり，最終的に木の葉まで再帰的に計算することで，公式 <span class="math display">\[
-Z=z_i\prod_{j\in\partial i}\left(z_{j\to i}\prod_{k\in\partial j\setminus i}z_{k\to j}\cdots\right)=z_i\prod_{j\in\partial i}\left(\frac{z_j}{z_{ij}}\prod_{k\in\partial j\setminus i}\frac{z_k}{z_{jk}}\cdots\right)=\frac{\prod_{i\in[N]}z_i}{\prod_{(i,j)\in E}z_{ij}}.
-\]</span></p>
-<p>よって，この再帰的計算により，自由エネルギー <span class="math display">\[
-F=-T\log Z=\sum_{i\in[N]}\biggr(-T\log z_i\biggl)-\sum_{(i,j)\in E}\biggr(-T\log z_{ij}\biggl).
-\]</span> も得られることになる．</p>
+<section id="拡散モデルの例" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="拡散モデルの例"><span class="header-section-number">1.2</span> 拡散モデルの例</h3>
+<p>ADM (Ablated Diffusion Model) <span class="citation" data-cites="Dhariwal-Nichol2021">(<a href="#ref-Dhariwal-Nichol2021" role="doc-biblioref">Dhariwal and Nichol, 2021</a>)</span> は ImageNet データの判別において当時の最先端であった BigGAN <span class="citation" data-cites="Brock+2019">(<a href="#ref-Brock+2019" role="doc-biblioref">Brock et al., 2019</a>)</span> の性能を凌駕した．</p>
+<p>OpenAI の <a href="https://github.com/openai/glide-text2im">GLIDE</a> (Guided Language to Image Diffusion for Generation and Editing) <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span> は，<a href="https://openai.com/research/clip">CLIP</a> という画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．</p>
+<p>Google も <a href="https://imagen.research.google/">Imagen</a> <span class="citation" data-cites="Saharia+2022">(<a href="#ref-Saharia+2022" role="doc-biblioref">Saharia et al., 2022</a>)</span> という拡散モデルを開発している．</p>
+<p><span class="citation" data-cites="Yang+2023-Diff">(<a href="#ref-Yang+2023-Diff" role="doc-biblioref">Yang et al., 2023</a>)</span> は動画生成に応用している．</p>
+</section>
+<section id="sec-idea" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-idea"><span class="header-section-number">1.3</span> アイデア</h3>
+<p><a href="Deep3.qmd">GAN</a>，<a href="Deep4.qmd">VAE</a>，<a href="Deep6.qmd">正規化流</a> などの生成モデルでは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> からデータの空間 <span class="math inline">\(\mathcal{X}\)</span> への確率核を深層ニューラルネットワークで学習するのであった．</p>
+<p>ニューラルネットワークの表現力は十分高いので，<span class="math inline">\(\mathcal{Z}\)</span> 上の事前分布は典型的には正規分布が用いられる．</p>
+<p>拡散モデルも，全くこの枠組みから逸脱するものではない．</p>
+<p>まず訓練データを，完全な Gauss 分布になるような変換を行う．これを複数段階に分けて提示し，この逆過程を学習する．画像においては，<a href="Deep.qmd#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> が典型的に用いられる．</p>
+<p>並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．</p>
+<p><a href="Deep4.qmd">VAE</a> や <a href="Deep3.qmd">GAN</a> と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．</p>
+<p>一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを <strong>潜在拡散モデル</strong> (latent diffusion model) <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span> という．これが <a href="https://ja.stability.ai/stable-diffusion">Stable Diffusion</a> の元となっている．</p>
+</section>
+<section id="トランスフォーマーとの邂逅" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="トランスフォーマーとの邂逅"><span class="header-section-number">1.4</span> トランスフォーマーとの邂逅</h3>
+<p><a href="Deep5.qmd#sec-idea">潜在拡散モデル</a> で <a href="Deep.qmd#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> を用いていたところをトランスフォーマーに置換した <strong>拡散トランスフォーマー</strong> (DiT: Diffusion Transformer) <span class="citation" data-cites="Peebles-Xie2023">(<a href="#ref-Peebles-Xie2023" role="doc-biblioref">Peebles and Xie, 2023</a>)</span> が発表された．</p>
+<p>その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) <span class="citation" data-cites="Ma+2024">(<a href="#ref-Ma+2024" role="doc-biblioref">Ma et al., 2024</a>)</span> が発表された．</p>
 </section>
 </section>
+<section id="前向き方向符号化器" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="前向き方向符号化器"><span class="header-section-number">2</span> 前向き方向符号化器</h2>
+</section>
+<section id="後ろ向き復号化器" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="後ろ向き復号化器"><span class="header-section-number">3</span> 後ろ向き復号化器</h2>
+</section>
+<section id="スコアマッチング" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="スコアマッチング"><span class="header-section-number">4</span> スコアマッチング</h2>
+<p><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Song, Durkan, et al., 2021</a>)</span></p>
+</section>
+<section id="誘導付き拡散モデル" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="誘導付き拡散モデル"><span class="header-section-number">5</span> 誘導付き拡散モデル</h2>
+</section>
+<section id="確率微分方程式との関係" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="確率微分方程式との関係"><span class="header-section-number">6</span> 確率微分方程式との関係</h2>
+<p>連続時間極限を取ることで，拡散過程が現れる <span class="citation" data-cites="Tzen-Raginsky2019">(<a href="#ref-Tzen-Raginsky2019" role="doc-biblioref">Tzen and Raginsky, 2019</a>)</span>, <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Song, Sohl-Dickstein, et al., 2021</a>)</span>．</p>
 
 
 
-<div id="quarto-appendix" class="default"><section id="参考文献" class="level2 appendix" data-number="2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2</span> 参考文献</h2><div class="quarto-appendix-contents">
+</section>
 
 
-
-</div></section><section id="krzakala2015" class="level3 appendix" data-number="2.1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2.1</span> <span class="citation" data-cites="Krzakala+2015">(<a href="#ref-Krzakala+2015" role="doc-biblioref">Krzakala et al., 2015</a>)</span></h2><div class="quarto-appendix-contents">
-
-<p>Lecture note なので歩み寄りやすい．Bayes 推論とスピングラス系の対応，これを解くための信念伝搬法について非常に良い入門になる．</p>
-</div></section><section id="zdeborova-krzakala2016" class="level3 appendix" data-number="2.2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2.2</span> <span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016</a>)</span></h2><div class="quarto-appendix-contents">
-
-<blockquote class="blockquote">
-<p>In physics the origins of these methods trace back to the Bethe approximation <span class="citation" data-cites="Bethe1935">(<a href="#ref-Bethe1935" role="doc-biblioref">Bethe and Bragg, 1935</a>)</span>, the work of Peierls <span class="citation" data-cites="Peierls+1936">(<a href="#ref-Peierls+1936" role="doc-biblioref">Peierls and Bragg, 1936</a>)</span> and the Thouless–Anderson–Palmer (TAP) equations <span class="citation" data-cites="Thouless+1977">(<a href="#ref-Thouless+1977" role="doc-biblioref">Thouless et al., 1977</a>)</span>. Interestingly, these equations can be seen as “improved” variational mean-ﬁeld equations, and this is at the roots of many perturbation approaches (such as <span class="citation" data-cites="Plefka1982">(<a href="#ref-Plefka1982" role="doc-biblioref">Plefka, 1982</a>)</span>, <span class="citation" data-cites="Georges-Yedidia1991">(<a href="#ref-Georges-Yedidia1991" role="doc-biblioref">Georges and Yedidia, 1991</a>)</span> or <span class="citation" data-cites="Kikuchi1951">(<a href="#ref-Kikuchi1951" role="doc-biblioref">Kikuchi, 1951</a>)</span>). <span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016, p. 471</a>)</span></p>
-</blockquote>
-
-
-
-</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Bethe1935" class="csl-entry" role="listitem">
-Bethe, H. A., and Bragg, W. L. (1935). <a href="https://doi.org/10.1098/rspa.1935.0122">Statistical theory of superlattices</a>. <em>Proceedings of the Royal Society of London. Series A - Mathematical and Physical Sciences</em>, <em>150</em>(871), 552–575.
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Brock+2019" class="csl-entry" role="listitem">
+Brock, A., Donahue, J., and Simonyan, K. (2019). <a href="https://arxiv.org/abs/1809.11096">Large scale GAN training for high fidelity natural image synthesis</a>.
 </div>
-<div id="ref-Gallager1962" class="csl-entry" role="listitem">
-Gallager, R. (1962). <a href="https://doi.org/10.1109/TIT.1962.1057683">Low-density parity-check codes</a>. <em>IRE Transactions on Information Theory</em>, <em>8</em>(1), 21–28.
+<div id="ref-Dhariwal-Nichol2021" class="csl-entry" role="listitem">
+Dhariwal, P., and Nichol, A. Q. (2021). <a href="https://openreview.net/forum?id=AAWuCvzaVt">Diffusion models beat <span>GAN</span>s on image synthesis</a>. In A. Beygelzimer, Y. Dauphin, P. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>.
 </div>
-<div id="ref-Georges-Yedidia1991" class="csl-entry" role="listitem">
-Georges, A., and Yedidia, J. S. (1991). <a href="https://doi.org/10.1088/0305-4470/24/9/024">How to expand around mean-field theory using high-temperature expansions</a>. <em>Journal of Physics A: Mathematical and General</em>, <em>24</em>(9), 2173.
+<div id="ref-Ho+2020" class="csl-entry" role="listitem">
+Ho, J., Jain, A., and Abbeel, P. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html">Denoising diffusion probabilistic models</a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
 </div>
-<div id="ref-Kikuchi1951" class="csl-entry" role="listitem">
-Kikuchi, R. (1951). <a href="https://doi.org/10.1103/PhysRev.81.988">A theory of cooperative phenomena</a>. <em>Phys. Rev.</em>, <em>81</em>, 988–1003.
+<div id="ref-Huang+2021" class="csl-entry" role="listitem">
+Huang, C.-W., Lim, J. H., and Courville, A. (2021). <a href="https://openreview.net/forum?id=bXehDYUjjXi">A variational perspective on diffusion-based generative models and score matching</a>. In A. Beygelzimer, Y. Dauphin, P. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>.
 </div>
-<div id="ref-Krzakala+2015" class="csl-entry" role="listitem">
-Krzakala, F., Zdeborova, L., Angelini, M. C., and Caltagirone, F. (2015). <em><a href="https://indico.ictp.it/event/a14244/material/10/0.pdf">Statistical physics of inference and bayesian estimation</a></em>.
+<div id="ref-Hyvarinen2005" class="csl-entry" role="listitem">
+Hyvärinen, A. (2005). <a href="https://jmlr.org/papers/v6/hyvarinen05a.html">Estimation of non-normalized statistical models by score matching</a>. <em>Journal of Machine Learning Research</em>, <em>6</em>(24), 695–709.
 </div>
-<div id="ref-Pearl1982" class="csl-entry" role="listitem">
-Pearl, J. (1982). <em><a href="https://aaai.org/papers/00133-aaai82-032-reverend-bayes-on-inference-engines-a-distributed-hierarchical-approach/"><span class="nocase">Reverend Bayes on Inference Engines: A Distributed Hierarchical Approach</span></a></em>,Vol. 2, page 133.
+<div id="ref-Luo2022" class="csl-entry" role="listitem">
+Luo, C. (2022). <a href="https://arxiv.org/abs/2208.11970">Understanding diffusion models: A unified perspective</a>.
 </div>
-<div id="ref-Peierls+1936" class="csl-entry" role="listitem">
-Peierls, R., and Bragg, W. L. (1936). <a href="https://doi.org/10.1098/rspa.1936.0047">Statistical theory of superlattices with unequal concentrations of the components</a>. <em>Proceedings of the Royal Society of London. Series A - Mathematical and Physical Sciences</em>, <em>154</em>(881), 207–222.
+<div id="ref-Ma+2024" class="csl-entry" role="listitem">
+Ma, N., Goldstein, M., Albergo, M. S., Boffi, N. M., Vanden-Eijnden, E., and Xie, S. (2024). <a href="https://arxiv.org/abs/2401.08740">SiT: Exploring flow and diffusion-based generative models with scalable interpolant transformers</a>.
 </div>
-<div id="ref-Plefka1982" class="csl-entry" role="listitem">
-Plefka, T. (1982). <a href="https://doi.org/10.1088/0305-4470/15/6/035">Convergence condition of the TAP equation for the infinite-ranged ising spin glass model</a>. <em>Journal of Physics A: Mathematical and General</em>, <em>15</em>(6), 1971.
+<div id="ref-Nichol+2022" class="csl-entry" role="listitem">
+Nichol, A. Q., Dhariwal, P., Ramesh, A., Shyam, P., Mishkin, P., Mcgrew, B., … Chen, M. (2022). <a href="https://proceedings.mlr.press/v162/nichol22a.html"><span>GLIDE</span>: Towards photorealistic image generation and editing with text-guided diffusion models</a>. In K. Chaudhuri, S. Jegelka, L. Song, C. Szepesvari, G. Niu, and S. Sabato, editors, <em>Proceedings of the 39th international conference on machine learning</em>,Vol. 162, pages 16784–16804. PMLR.
 </div>
-<div id="ref-Thouless+1977" class="csl-entry" role="listitem">
-Thouless, D. J., Anderson, P. W., and Palmer, R. G. (1977). <a href="https://doi.org/10.1080/14786437708235992">Solution of ’solvable model of a spin glass’</a>. <em>Philosophical Magazine</em>, <em>35</em>(3), 593–601.
+<div id="ref-Peebles-Xie2023" class="csl-entry" role="listitem">
+Peebles, W., and Xie, S. (2023). <a href="https://openaccess.thecvf.com/content/ICCV2023/html/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.html">Scalable diffusion models with transformers</a>. In <em>Proceedings of the IEEE/CVF international conference on computer vision (ICCV)</em>, pages 4195–4205.
 </div>
-<div id="ref-Winn-Bishop2005" class="csl-entry" role="listitem">
-Winn, J., and Bishop, C. M. (2005). <a href="http://jmlr.org/papers/v6/winn05a.html">Variational message passing</a>. <em>Journal of Machine Learning Research</em>, <em>6</em>(23), 661–694.
+<div id="ref-Ramesh+2022" class="csl-entry" role="listitem">
+Ramesh, A., Dhariwal, P., Nichol, A., Chu, C., and Chen, M. (2022). <a href="https://arxiv.org/abs/2204.06125">Hierarchical text-conditional image generation with CLIP latents</a>.
 </div>
-<div id="ref-Zdeborova-Krzakala2016" class="csl-entry" role="listitem">
-Zdeborová, L., and Krzakala, F. (2016). <a href="https://doi.org/10.1080/00018732.2016.1211393">Statistical physics of inference: Thresholds and algorithms</a>. <em>Advances in Physics</em>, <em>65</em>(5), 453–552.
+<div id="ref-Rombach+2022" class="csl-entry" role="listitem">
+Rombach, R., Blattmann, A., Lorenz, D., Esser, P., and Ommer, B. (2022). <a href="https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html">High-resolution image systhesis with latent diffusion models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 10684–10695.
+</div>
+<div id="ref-Ronneberger+2015" class="csl-entry" role="listitem">
+Ronneberger, O., Fischer, P., and Brox, T. (2015). <a href="https://link.springer.com/chapter/10.1007/978-3-319-24574-4_28">U-net: Convolutional networks for biomedical image segmentation</a>. In N. Navab, J. Hornegger, W. M. Wells, and A. F. Frangi, editors, <em>Medical image computing and computer-assisted intervention – MICCAI 2015</em>, pages 234–241. Cham: Springer International Publishing.
+</div>
+<div id="ref-Saharia+2022" class="csl-entry" role="listitem">
+Saharia, C., Chan, W., Saxena, S., Li, L., Whang, J., Denton, E., … Norouzi, M. (2022). <a href="https://openreview.net/forum?id=08Yk-n5l2Al">Photorealistic text-to-image diffusion models with deep language understanding</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Dickstein+2015" class="csl-entry" role="listitem">
+Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., and Ganguli, S. (2015). <a href="https://proceedings.mlr.press/v37/sohl-dickstein15.html">Deep unsupervised learning using nonequilibrium thermodynamics</a>. In F. Bach and D. Blei, editors, <em>Proceedings of the 32nd international conference on machine learning</em>,Vol. 37, pages 2256–2265. Lille, France: PMLR.
+</div>
+<div id="ref-Song+2021NeurIPS" class="csl-entry" role="listitem">
+Song, Y., Durkan, C., Murray, I., and Ermon, S. (2021). <a href="https://2021">Maximum likelihood training of score-based diffusion models</a>. In <em>Advances in neural information processing systems</em>,Vol. 34.
+</div>
+<div id="ref-Song-Ermon2020" class="csl-entry" role="listitem">
+Song, Y., and Ermon, S. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/92c3b916311a5517d9290576e3ea37ad-Abstract.html">Improved techniques for training score-based generative models</a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
+</div>
+<div id="ref-Song+2021ICLR" class="csl-entry" role="listitem">
+Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., and Poole, B. (2021). <a href="https://openreview.net/forum?id=PxTIG12RRHS">Score-based generative modeling through stochastic differential equations</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Tzen-Raginsky2019" class="csl-entry" role="listitem">
+Tzen, B., and Raginsky, M. (2019). <a href="https://arxiv.org/abs/1905.09883">Neural stochastic differential equations: Deep latent gaussian models in the diffusion limit</a>.
+</div>
+<div id="ref-Vincent2011" class="csl-entry" role="listitem">
+Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/A-Connection-Between-Score-Matching-and-Denoising">A connection between score matching and denoising autoencoders</a>. <em>Neural Computation</em>, <em>23</em>(7), 1661–1674.
+</div>
+<div id="ref-Yan+2021" class="csl-entry" role="listitem">
+Yan, W., Zhang, Y., Abbeel, P., and Srinivas, A. (2021). <em><a href="https://arxiv.org/abs/2104.10157">VideoGPT: Video generation using VQ-VAE and transformers</a></em>.
+</div>
+<div id="ref-Yang+2023-Diff" class="csl-entry" role="listitem">
+Yang, R., Srivastava, P., and Mandt, S. (2023). <a href="https://www.mdpi.com/1099-4300/25/10/1469">Diffusion probabilistic modeling for video generation</a>. <em>Entropy</em>, <em>25</em>(10).
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Zdeborova-Krzakala2016">(<a href="#ref-Zdeborova-Krzakala2016" role="doc-biblioref">Zdeborová and Krzakala, 2016, p. 471</a>)</span><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>VideoGPT の論文 <span class="citation" data-cites="Yan+2021">(<a href="#ref-Yan+2021" role="doc-biblioref">Yan et al., 2021</a>)</span> や，DALL-E2 の論文 <span class="citation" data-cites="Ramesh+2022">(<a href="#ref-Ramesh+2022" role="doc-biblioref">Ramesh et al., 2022</a>)</span>，GLIDE の論文 <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span> でも引用されている．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
