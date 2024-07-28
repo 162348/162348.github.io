@@ -1,0 +1,325 @@
+---
+title: "VAE：変分自己符号化器"
+subtitle: "PyTorch によるハンズオン"
+author: "司馬博文"
+date: 7/28/2024
+categories: [Deep, Sampling, Python]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apalike.csl
+abstract-title: 概要
+abstract: |
+    変分自己符号化器 (VAE) は，データを周辺分布にもつ潜在変数モデルを変分 Bayes 推論によって学習するアルゴリズムである．
+    従来計算・近似が困難であった変分下界を，ニューラルネットワークによって近似するアプローチである．
+    学習されたベイズ潜在変数モデルからはサンプリングによって新たなデータを生成することができるため，深層生成モデルの一つに分類されることもある．
+code-fold: false
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## VAE [@Kingma-Welling2014]
+
+### 導入
+
+`PyTorch` を用いることで詳細を省略し，VAE の構造を概観することとする．
+
+```{python}
+import torch
+import torch.nn as nn
+
+import numpy as np
+
+from tqdm import tqdm
+from torchvision.utils import save_image, make_grid
+```
+
+今回は，MNIST データセットを用い，隠れ次元 400 を通じて潜在次元 200 まで圧縮する．
+
+```{python}
+dataset_path = '~/hirofumi/datasets'
+
+DEVICE = torch.device("mps")
+
+batch_size = 100
+
+x_dim = 784
+hidden_dim = 400
+latent_dim = 200
+
+lr = 1e-3
+
+epochs = 30
+```
+
+```{python}
+#| code-summary: データセットをダウンロードして読み込む
+from torchvision.datasets import MNIST
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+
+
+mnist_transform = transforms.Compose([
+        transforms.ToTensor(),
+])
+
+kwargs = {'num_workers': 0, 'pin_memory': True} 
+
+train_dataset = MNIST(dataset_path, transform=mnist_transform, train=True, download=True)
+test_dataset  = MNIST(dataset_path, transform=mnist_transform, train=False, download=True)
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size, shuffle=False, **kwargs)
+```
+
+PyTorch の [Dataset と DataLoader](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html) は，訓練やテスト用のデータセットの簡単なアクセスと，それに対する iterable オブジェクトを提供する．
+
+::: {.callout-important title="M2 Mac 上での実行" collapse="true" icon="false"}
+
+まず，次のようにして仮想環境を用意する：
+```zsh
+python3 -m venv VAE
+source VAE/bin/activate
+pip install torch
+```
+
+M2 Mac では Metal Performance Shaders (MPS) という Apple の GPU アクセラレーション技術が利用可能で，PyTorch 1.12 からはこれをサポートしている．
+
+```{python}
+import torch
+print(torch.__version__)
+print(torch.backends.mps.is_available())
+```
+
+:::
+
+::: {.callout-important title="DataLoader worker (pid(s) 9044) exited unexpectedly" collapse="true" icon="false"}
+
+上記のエラーは，`DataLoader` が並列処理によりデータを読み込むことに失敗したことを意味する．
+
+メモリ不足も考えられるが，`num_workers=0` として単一プロセスで実行することでもエラーが抑えられる．
+
+今回は軽量な計算であるから，これで良いということである．
+
+:::
+
+### モデルの定義
+
+#### エンコーダー
+
+エンコーダーはデータを受け取り，２層の全結合隠れ層を通じて，「平均」と「対数分散」の名前がついた計 400 次元の潜在表現を得る．
+
+```{python}
+class Encoder(nn.Module):
+    
+    def __init__(self, input_dim, hidden_dim, latent_dim):
+        super(Encoder, self).__init__()
+
+        self.FC_input = nn.Linear(input_dim, hidden_dim)  # <1>
+        self.FC_input2 = nn.Linear(hidden_dim, hidden_dim)
+        self.FC_mean  = nn.Linear(hidden_dim, latent_dim)
+        self.FC_var   = nn.Linear(hidden_dim, latent_dim)
+        
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        
+        self.training = True
+        
+    def forward(self, x):
+        h_       = self.LeakyReLU(self.FC_input(x))
+        h_       = self.LeakyReLU(self.FC_input2(h_))  # <2>
+        mean     = self.FC_mean(h_)
+        log_var  = self.FC_var(h_)                     #  <3>
+        
+        return mean, log_var
+```
+
+1. [`nn.Linear`](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear) は PyTorch による全結合層 $y=xA^\top+b$ の実装である．
+2. ここまで２層の全結合層にデータを通して，最終的な出力`h_`を得ており，次の段階で最終的な潜在表現を得る．
+3. 最後の隠れ層の出力`h_`に関して平均と対数分散という名前のついた最終的な出力を，やはり全結合層を通じて得る（最終層なので活性化なし）．
+
+#### デコーダー
+
+```{python}
+class Decoder(nn.Module):
+    def __init__(self, latent_dim, hidden_dim, output_dim):
+        super(Decoder, self).__init__()
+        self.FC_hidden = nn.Linear(latent_dim, hidden_dim)
+        self.FC_hidden2 = nn.Linear(hidden_dim, hidden_dim)
+        self.FC_output = nn.Linear(hidden_dim, output_dim)
+        
+        self.LeakyReLU = nn.LeakyReLU(0.2)
+        
+    def forward(self, x):
+        h     = self.LeakyReLU(self.FC_hidden(x))
+        h     = self.LeakyReLU(self.FC_hidden2(h))
+        
+        x_hat = torch.sigmoid(self.FC_output(h))  # <1>
+        return x_hat
+```
+
+1. 最後の出力は，エンコーダーとは違い，シグモイド関数を通して確率分布`x_hat`とする．
+
+#### モデル
+
+VAE はエンコーダーとデコーダーを連結し，１つのニューラルネットワークとして学習する．
+
+```{python}
+class Model(nn.Module):
+    def __init__(self, Encoder, Decoder):
+        super(Model, self).__init__()
+        self.Encoder = Encoder
+        self.Decoder = Decoder
+        
+    def reparameterization(self, mean, var):
+        epsilon = torch.randn_like(var).to(DEVICE)  # <1>  
+        z = mean + var*epsilon   # <2>
+        return z
+        
+                
+    def forward(self, x):
+        mean, log_var = self.Encoder(x)  # <3>
+        z = self.reparameterization(mean, torch.exp(0.5 * log_var))  # <4>
+        x_hat            = self.Decoder(z)  # <5>
+        
+        return x_hat, mean, log_var  # <6>
+```
+
+1. これは **サンプリングイプシロン** と呼ばれる値である．
+2. ここで reparametrization trick を行っている．
+3. 入力 `x` があったならば，まずエンコーダーに通して `mean`, `log_var` を得る．
+4. 元々 `log_var` の名前の通り対数分散として扱うこととしていたので，２で割り指数関数に通すことで標準偏差を得る．この平均と標準偏差について reparametrization trick を実行し，デコーダーに繋ぐ．
+5. デコーダーではデータの潜在表現 `z` を受け取り，デコードしたものを `x_hat` とする．
+6. 返り値は，デコーダーの出力 `x_hat` だけでなく，潜在表現 `mean`, `log_var` も含むことに注意．
+
+```{python}
+encoder = Encoder(input_dim=x_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
+decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = x_dim)
+
+model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)  # <1>
+```
+
+1. `.to(DEVICE)` により，モデルを M2 Mac の MPS デバイス上に移送している．
+
+### モデルの訓練 {#sec-VAE-training}
+
+最適化には Adam [@Kingma-Ba2017] を用い，バイナリ交差エントロピー（BCE）を用いる．これは [`nn.BCELoss`](https://pytorch.org/docs/stable/generated/torch.nn.BCELoss.html#torch.nn.BCELoss) に実装がある．
+
+```{python}
+from torch.optim import Adam
+
+BCE_loss = nn.BCELoss()
+
+def loss_function(x, x_hat, mean, log_var):
+    reproduction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')
+    KLD      = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+
+    return reproduction_loss + KLD
+
+
+optimizer = Adam(model.parameters(), lr=lr)
+```
+
+ここでの損失関数は，真のデータ `x` をデコーダーが復元できているかを交差エントロピーで測った `reproduction_loss` と，潜在表現がどれだけ $\rN_d(0,I_d),d=200$ に近いかを KL 乖離度で測った `KLD` の和で定義されている．^[なお，`mean.pow(2)` は Julia の `mean.^2` に同じ．]
+
+::: {.callout-important title="訓練の実行" collapse="true" icon="false"}
+```{python}
+import time
+
+print("Start training VAE...")
+model.train()  # <1>
+
+start_time = time.time()
+
+for epoch in range(epochs):
+    overall_loss = 0
+    for batch_idx, (x, _) in enumerate(train_loader):
+        x = x.view(batch_size, x_dim)  # <2>
+        x = x.to(DEVICE)  # <3>
+
+        optimizer.zero_grad()  # <4>
+
+        x_hat, mean, log_var = model(x)
+        loss = loss_function(x, x_hat, mean, log_var)
+        
+        overall_loss += loss.item()
+        
+        loss.backward()
+        optimizer.step()
+        
+    print("\tEpoch", epoch + 1, "complete!", "\tAverage Loss: ", overall_loss / (batch_idx*batch_size))
+
+total_time = time.time() - start_time
+print("Finish!! Total time: ", total_time)
+```
+
+1. `PyTorch` のモデルオブジェクトを訓練モードにするメソッド．Dropout や Batch Normalization 層がある場合は，これにより訓練時の挙動を示すようになる．
+2. 事前に定めた `batch_size` に従ってバッチを展開．
+3. データを GPU に移動．
+4. 勾配をゼロに初期化するとのこと．
+
+:::
+
+### モデルの評価
+
+テスト用データの最初のバッチについて処理し，入力データと出力データを見比べてみる．
+
+```{python}
+model.eval()
+
+with torch.no_grad():  # <1>
+    for batch_idx, (x, _) in enumerate(tqdm(test_loader)):
+        x = x.view(batch_size, x_dim)
+        x = x.to(DEVICE)
+        
+        x_hat, _, _ = model(x)
+
+
+        break
+```
+
+1. 勾配評価を無効化するコンテクストマネージャーで，メモリの使用を節約できるという．
+
+```{python}
+#| layout-ncol: 2
+import matplotlib.pyplot as plt
+
+def show_image(x, idx):
+    x = x.view(batch_size, 28, 28)
+
+    fig = plt.figure()
+    plt.imshow(x[idx].cpu().numpy())
+
+show_image(x, idx=0)
+show_image(x_hat, idx=0)
+```
+
+左が入力で右が出力である．
+
+### データの生成
+
+ここで，エンコーダを取り外してデコーダーからデータを生成する．
+
+損失関数（第 [-@sec-VAE-training] 節）には，潜在空間におけるデータを標準正規分布に近付けるための項が入っていたため，データの潜在表現は極めて標準正規分布に近いとみなすことにする．
+
+すると，潜在表現と同じ次元の正規乱数から，データセットに極めて似通ったデータが生成できるだろう．
+
+```{python}
+#| layout-ncol: 2
+#| layout-nrow: 2
+with torch.no_grad():
+    noise = torch.randn(batch_size, latent_dim).to(DEVICE)
+    generated_images = decoder(noise)
+
+save_image(generated_images.view(batch_size, 1, 28, 28), 'generated_sample.png')
+for i in range(4):
+    show_image(generated_images, idx=i)
+```
+
+## VQ-VAE [@vandenOord+2017]
+
+
+
+## 参考文献 {.appendix}
+
+本稿は，[Minsu Jackson Kang 氏](https://velog.io/@mskang/about) による [チュートリアル](https://github.com/Jackson-Kang/Pytorch-VAE-tutorial) を参考にした．
+
