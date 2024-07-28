@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - 数学者のための深層学習４</title>
+<title>Hirofumi Shiba - 拡散模型</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -133,11 +133,11 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習４">
+<meta property="og:title" content="Hirofumi Shiba - 拡散模型">
 <meta property="og:description" content="数学者のために，深層生成モデルの１つである拡散モデルを概観する．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習４">
+<meta name="twitter:title" content="Hirofumi Shiba - 拡散模型">
 <meta name="twitter:description" content="数学者のために，深層生成モデルの１つである拡散モデルを概観する．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
@@ -189,11 +189,12 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習４</h1>
-            <p class="subtitle lead">拡散モデル</p>
+      <h1 class="title">拡散模型</h1>
+            <p class="subtitle lead">深層生成モデル４</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
                 <div class="quarto-category">Process</div>
+                <div class="quarto-category">Sampling</div>
               </div>
                   </div>
   </div>
@@ -278,17 +279,17 @@ window.Quarto = {
 </section>
 <section id="sec-idea" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="sec-idea"><span class="header-section-number">1.3</span> アイデア</h3>
-<p><a href="Deep3.qmd">GAN</a>，<a href="Deep4.qmd">VAE</a>，<a href="Deep6.qmd">正規化流</a> などの生成モデルでは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> からデータの空間 <span class="math inline">\(\mathcal{X}\)</span> への確率核を深層ニューラルネットワークで学習するのであった．</p>
+<p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a>，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a>，<a href="../../../posts/2024/Samplers/NF.html">正規化流</a> などの生成モデルでは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> からデータの空間 <span class="math inline">\(\mathcal{X}\)</span> への確率核を深層ニューラルネットワークで学習するのであった．</p>
 <p>ニューラルネットワークの表現力は十分高いので，<span class="math inline">\(\mathcal{Z}\)</span> 上の事前分布は典型的には正規分布が用いられる．</p>
 <p>拡散モデルも，全くこの枠組みから逸脱するものではない．</p>
-<p>まず訓練データを，完全な Gauss 分布になるような変換を行う．これを複数段階に分けて提示し，この逆過程を学習する．画像においては，<a href="Deep.qmd#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> が典型的に用いられる．</p>
+<p>まず訓練データを，完全な Gauss 分布になるような変換を行う．これを複数段階に分けて提示し，この逆過程を学習する．画像においては，<a href="../../../posts/2024/Kernels/Deep.html#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> が典型的に用いられる．</p>
 <p>並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．</p>
-<p><a href="Deep4.qmd">VAE</a> や <a href="Deep3.qmd">GAN</a> と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．</p>
+<p><a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> や <a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．</p>
 <p>一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを <strong>潜在拡散モデル</strong> (latent diffusion model) <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span> という．これが <a href="https://ja.stability.ai/stable-diffusion">Stable Diffusion</a> の元となっている．</p>
 </section>
 <section id="トランスフォーマーとの邂逅" class="level3" data-number="1.4">
 <h3 data-number="1.4" class="anchored" data-anchor-id="トランスフォーマーとの邂逅"><span class="header-section-number">1.4</span> トランスフォーマーとの邂逅</h3>
-<p><a href="Deep5.qmd#sec-idea">潜在拡散モデル</a> で <a href="Deep.qmd#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> を用いていたところをトランスフォーマーに置換した <strong>拡散トランスフォーマー</strong> (DiT: Diffusion Transformer) <span class="citation" data-cites="Peebles-Xie2023">(<a href="#ref-Peebles-Xie2023" role="doc-biblioref">Peebles and Xie, 2023</a>)</span> が発表された．</p>
+<p>潜在拡散モデルで <a href="../../../posts/2024/Kernels/Deep.html#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> を用いていたところをトランスフォーマーに置換した <strong>拡散トランスフォーマー</strong> (DiT: Diffusion Transformer) <span class="citation" data-cites="Peebles-Xie2023">(<a href="#ref-Peebles-Xie2023" role="doc-biblioref">Peebles and Xie, 2023</a>)</span> が発表された．</p>
 <p>その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) <span class="citation" data-cites="Ma+2024">(<a href="#ref-Ma+2024" role="doc-biblioref">Ma et al., 2024</a>)</span> が発表された．</p>
 </section>
 </section>

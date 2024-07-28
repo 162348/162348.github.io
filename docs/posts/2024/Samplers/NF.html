@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - 数学者のための深層学習５</title>
+<title>Hirofumi Shiba - 正規化流</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -133,11 +133,11 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習５">
+<meta property="og:title" content="Hirofumi Shiba - 正規化流">
 <meta property="og:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習５">
+<meta name="twitter:title" content="Hirofumi Shiba - 正規化流">
 <meta name="twitter:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
@@ -189,10 +189,11 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習５</h1>
-            <p class="subtitle lead">正規化流</p>
+      <h1 class="title">正規化流</h1>
+            <p class="subtitle lead">深層生成モデル５</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
+                <div class="quarto-category">Sampling</div>
               </div>
                   </div>
   </div>
@@ -258,9 +259,9 @@ window.Quarto = {
 <p><span class="citation" data-cites="Kobyzev+2021">(<a href="#ref-Kobyzev+2021" role="doc-biblioref">Kobyzev et al., 2021</a>)</span>, <span class="citation" data-cites="Papamakarios+2021">(<a href="#ref-Papamakarios+2021" role="doc-biblioref">Papamakarios et al., 2021</a>)</span>．</p>
 <section id="導入" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
-<p><a href="Deep3.qmd">GAN</a>，<a href="Deep4.qmd">VAE</a>，<a href="Deep5.qmd">拡散モデル</a> など，深層生成モデルは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> 上の基底分布 <span class="math inline">\(p_z\)</span> を，パラメータ <span class="math inline">\(w\in\mathcal{W}\)</span> を持つ深層ニューラルネットによる変換 <span class="math inline">\(f:\mathcal{Z}\times\mathcal{W}\to\mathcal{X}\)</span> を通じて，押し出し <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> により <span class="math inline">\(\mathcal{X}\)</span> 上の分布をモデリングする．</p>
-<p>これらのモデル <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> の尤度は解析的に表示できない．そこで，<a href="Deep3.qmd">GAN</a> <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> は敵対的な学習規則を用いれば，尤度の評価を回避できるというアイデアに基づくものであり，<a href="Deep4.qmd">VAE</a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span> は変分下界を通じて尤度を近似するというものであった．</p>
-<p><strong>正則化流</strong> (normalizing flow / flow-based models) では，<a href="Deep5.qmd">拡散モデル</a> に似て，「逆変換」を利用することを考える．</p>
+<p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a>，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a>，<a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> など，深層生成モデルは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> 上の基底分布 <span class="math inline">\(p_z\)</span> を，パラメータ <span class="math inline">\(w\in\mathcal{W}\)</span> を持つ深層ニューラルネットによる変換 <span class="math inline">\(f:\mathcal{Z}\times\mathcal{W}\to\mathcal{X}\)</span> を通じて，押し出し <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> により <span class="math inline">\(\mathcal{X}\)</span> 上の分布をモデリングする．</p>
+<p>これらのモデル <span class="math inline">\(\{f(w)_*p_z\}_{w\in\mathcal{W}}\)</span> の尤度は解析的に表示できない．そこで，<a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> は敵対的な学習規則を用いれば，尤度の評価を回避できるというアイデアに基づくものであり，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span> は変分下界を通じて尤度を近似するというものであった．</p>
+<p><strong>正則化流</strong> (normalizing flow / flow-based models) では，<a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> に似て，「逆変換」を利用することを考える．</p>
 <p>すなわち，<span class="math inline">\(\{f_w\}\subset\mathcal{L}(\mathcal{Z},\mathcal{X})\)</span> が可逆であるように設計するのである．逆関数を <span class="math inline">\(g_w:=f_w^{-1}\)</span> と表すと，<span class="math inline">\(p_x(-|w)\)</span> は <span class="math inline">\(p_z\)</span> の <span class="math inline">\(g_w\)</span> による引き戻しの関係になっているから，<a href="../../../posts/2023/Probability/Beta-Gamma.html#sec-transform">変数変換</a> を通じて， <span class="math display">\[
 p_x(x|w)=p_z(g_w(x))\lvert\det J_{g_w}(x)\rvert\;\;\text{a.s.}
 \]</span> が成立する．</p>
@@ -307,7 +308,7 @@ Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., and Wu, Y. N. (2020). <
 Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., … Bengio, Y. (2014). <a href="https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html">Generative adversarial nets</a>. In <em>Advances in neural information processing systems</em>,Vol. 27, pages 1–9.
 </div>
 <div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
-Kingma, D. P., and Welling, M. (2014). <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">Auto-encoding variational bayes</a>. In <em>International conference on learning representations</em>,Vol. 2.
+Kingma, D., and Welling, M. (2014). <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">Auto-encoding variational bayes</a>. In <em>International conference on learning representations</em>,Vol. 2.
 </div>
 <div id="ref-Kobyzev+2021" class="csl-entry" role="listitem">
 Kobyzev, I., Prince, S. D., and Brubaker, M. A. (2021). <a href="https://doi.org/10.1109/TPAMI.2020.2992934">Normalizing flows: An introduction and review of current methods</a>. <em>IEEE Transactions on Pattern Analysis &amp;Amp; Machine Intelligence</em>, <em>43</em>(11), 3964–3979.
