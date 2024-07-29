@@ -3,7 +3,7 @@ title: "VAE：変分自己符号化器"
 subtitle: "深層生成モデル３"
 author: "司馬博文"
 date: 2/18/2024
-date-modified: 7/28/2024
+date-modified: 7/29/2024
 categories: [Deep, Sampling]
 bibliography: 
     - ../../../mathematics.bib
@@ -18,17 +18,152 @@ abstract: |
 
 {{< include ../../../_preamble.qmd >}}
 
-## 確率的勾配変分近似 (SGVB)
+## 自己符号化器 (AE)
 
 ### 導入
 
-変分自己符号化器 (Variational Auto-encoder) （第 [-@sec-VAE] ）では，
+主成分分析 (PCA) とは，データを線型変換により低次元の線型空間に変換することで，データの良い要約を得ようとする多変量解析手法である．
 
-に入る前に，変分ベイズ法において勾配を用いた最適化を実行するための汎用手法である **SGVB (Stochastic Gradient Variational Bayes)** について説明する．
+この手法をカーネル法により非線型化することで，データの隠れた構造をよりよく表現することができる [@Lawrence2005]．全く同様にニューラルネットワークを使って PCA を非線型化することもでき [@Cottrell-Munro1988]，これが **自己符号化器** と呼ばれるアーキテクチャである．^[auto-associative NN ともいう [@Bishop-Bishop2024 p.563]．]
 
-VAE は元々この SGVB という要素技術とセットで提案された [@Kingma-Welling2014]．
+自己符号化器は，VAE と対比する場合には **決定論的** 自己符号化器 (deterministic autoencoder) とも呼ばれる．
 
-変分近似をする分布族 $\{q_\phi\}$ としてニューラルネットを用いた場合が VAE であり，広く SGVB は，一般の連続な潜在変数を持った（有向）グラフィカルモデルに適用できる．
+::: {.callout-important appearance="simple" icon="false" title="AE と VAE の違い"}
+
+1. **エンコーダー $q$ は VAE では確率核であるが，AE では決定論的な関数である**．^[VAE では正規分布族の２つのパラメータ $\E[Z|X],\V[Z|X]$ をいずれもモデリングするが，AE では前者のみをモデリングする．]
+2. 訓練時の目的関数が違う．AE では復元誤差のみであるが，VAE では潜在表現が事前に設定した分布 $p(z)dz=\rN(0,I_d)$ と近いことを要請する KL-分離度の項が追加される．^[この項に係数 $\beta$ をつけたものを $\beta$-VAE と言い，$\beta=0.5$ とすると，AE と VAE の中間的な性格を持つようになる．]
+
+:::
+
+その結果，AE は基本的には生成モデルとしての使い方は出来ない．事前分布からのサンプル $Z\sim\rN(0,I_d)$ は全く想定されていない．
+
+一方で，データ内の画像の復元は AE の方が上手であり，$\beta$-VAE の $\beta$ が大きいほど画像にはもやがかかるようになる．
+
+::: {layout-ncol=2}
+![テストデータ](../../../posts/2024/Kernels/VAE_files/figure-html/fig-reconstruction-output-1.png)
+
+![[VAE による復元](VAE.qmd)](../../../posts/2024/Kernels/VAE_files/figure-html/fig-reconstruction-output-2.png)
+:::
+
+### NN による PCA
+
+そもそも PCA は，３層からなる自己符号化器の自乗復元誤差の最小化と（学習された基底が正規直交化されていないことを除いて）等価になる [@Bourlard-Kamp1988], [@Baldi-Hornik1989]．
+
+しかし，３層のままでは非線型な活性化を加えても非線型な次元削減が出来ない [@Bourlard-Kamp1988] が，４層以上では話が違う．
+
+![５層の自己符号化器の例 from [@Murphy2023 p.635]](Images/AE.png)
+
+しかしこれにより目的関数は２次関数とは限らず，凸最適化の範疇を逸脱するので，大域的最適解が必ず見つかるなどの理論保証ができる世界からは逸脱してしまう．
+
+### 罰則による潜在表現獲得
+
+上述の NN は砂時計型をしており，中央の中間層を細くすることで低次元の潜在表現を獲得しようとするものである．
+
+このようにアーキテクチャによって潜在表現獲得を制御するのではなく，明示的に目的関数に含めることで潜在表現をすることができる．
+
+例えば，元の目的関数 $E$ に対して LASSO 様の罰則項
+$$
+\wt{E}(w)=E(w)+\lambda\sum_{k=1}^K\abs{z_k}
+$$
+を加えることで，スパースな潜在表現の獲得を促すことが考えられる．
+
+### ノイズにロバストな潜在表現獲得
+
+データベクトル $x_n$ にノイズを加えたもの $\wt{x}_n$ を元のデータに復元することを
+$$
+E(w)=\sum_{n=1}^N\norm{y_w(\wt{x}_n)-x_n}^2
+$$
+などの目的関数で学習することで，ノイズにロバストな潜在表現を獲得することができる．
+
+これは **denoising autoencoder** [@Vincent+2008] として提案され，直ちにスコアマッチングとの関連性 [@Vincent2011] が自覚された．
+
+### マスキングによる潜在表現獲得
+
+BERT [@Devlin+2019] はランダムにデータを脱落させ（マスキング），これを予測することで言語に対する極めて豊かな潜在表現を獲得した．
+
+**masked autoencoder** [@He+2022] では，ノイズ印加の代わりに，データの脱落を行って AE を訓練する．
+
+この方法は [ViT](Deep2.qmd#sec-ViT) の事前訓練として使われる．言語と違って画像ではより多くの部分を脱落させることで，より豊かな潜在表現を獲得することができる．^[BERT では文章の 15% であるが，ViT では 75% 近くがマスキングされるという [@Bishop-Bishop2024 p.568]．]
+
+するとマスキングがほとんどデータの軽量化になっており，大規模なトランスフォーマーの事前訓練としてよく選択される．この場合，デコーダーはエンコーダーより軽量な非対称な構造をしている場合が多い．
+
+加えて，ひとたび訓練が終わればデコーダーは取り外し，種々のタスクに対して調整されたデコーダーを改めて訓練して使われることが多い．
+
+## 変分自己符号化器 (VAE) [@Kingma-Welling2014] {#sec-VAE}
+
+![Samples from VQ-VAE-2 Taken from Figure 6 [@Razavi+2019 p.8]](VAE.png)
+
+### 導入
+
+VAE (Variational Auto-Encoder) [@Kingma-Welling2014], [@Rezende+2014] も GAN と同じく，深層生成モデル $p_\theta$ にもう１つの深層ニューラルネットワーク $q_\phi$ を対置する．
+
+一方でこのニューラルネット $q_\phi$ は GAN のように判別をするのではなく，近似推論によってデータ生成分布（の拡張分布）を $q_\phi(x,z)p(z)$ の形で再構成しようとする **認識モデル** (recognition model) である．^[[@Kingma-Welling2019 p.321] の用語に倣った．] $q_\phi$ を **エンコーダー**，$p$ を **事前分布** ともいう．
+
+### エンコーダーによる表現獲得
+
+すなわち，VAE ではエンコーダーは（少なくとも形式的な意味で）「推論」するように設計された自己符号化器である．この際のベイズ推論は変分推論によって達成されるが，reparametrization trick によって $q_\phi$ の変分推論をデコーダー $p_\phi$ と同時に SGD によって実行できる点が革新的である．
+
+エンコーダー $q_\phi$ は
+$$
+q_\phi(x,z)\,dz=\rN\Paren{\mu_\phi(z),\diag_\phi(\sigma^2(z))}
+$$
+という形を仮定し，平均 $\mu_\phi$ と分散 $\sigma^2_\phi$ の関数形をニューラルネットワークで表現する．
+
+一方でデコーダー $p_\phi(z,x)$ はこの潜在表現からデータを再構成することを目指し，ひとたび学習されれば $p(z)p_\phi(z,x)$ の形でデータ生成ができるというわけである．
+
+学習は深層生成モデル $p_\theta$ のデータとの乖離度の最小化と，データで条件づけた潜在変数 $Z$ の事後分布 $q_\phi$ の近似推論器とを，確率勾配降下法によって同時に実行する．
+
+VAE 自体は拡散モデルの登場以降，画像生成モデルとしては下火になったが，エンコーダー $q_\phi$ は Sora [@Brooks+2024] における動画データの圧縮表現の学習など，その他の下流タスクの構成要素としても用いられる（VQ-VAE [-@sec-VQ-VAE] も参照）．
+
+### デコーダーの変分ベイズ学習
+
+データ $X$ の生成過程 $Z\to X$ に，モデル $p_\theta(z)p_\theta(x|z)$ を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度
+$$
+p_\theta(x)=\int_\cZ p_\theta(z)p_\theta(x|z)\,dz
+$$
+の評価は容易でない．
+
+このとき，対数周辺尤度は次のように下から評価できるのであった：^[[変分ベイズの稿](../Computation/VI3.qmd#sec-ELBO) も参照．]
+$$
+\begin{align*}
+    \log p_\theta(x)&=\log\int_\cZ p_\theta(x,z)\,dz\\
+    &=\log\int_\cZ q_\phi(z)\frac{p_\theta(x,z)}{q_\phi(z)}\,dz\\
+    &\ge\int_\cZ q_\phi(z)\log\frac{p_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
+    &=-\KL(q_\phi,p_\theta)+\int_\cZ q_\phi(z)\log p_\theta(x|z)\,dz\\
+    &=:F(\theta,\phi)
+\end{align*}
+$$
+
+この $F$ を **変分下界** （機械学習では **ELBO**）といい，$\theta,\phi$ に関して逐次的に最大化する（＝$\KL(q,p)$ を最小化する）ことによって，$\log p_\theta$ を直接評価することなく最大化する $\theta$ を見つけるのが変分 Bayes の枠組みである．
+
+これを一般のモデルについて実行するためには $q_\phi$ に平均場近似などの追加の仮定や $E$-ステップの近似が必要であるが，ここでは $q_\phi$ は NN からなる認識モデルとし，$F$ の勾配 $D_\phi F$ の推定量を用いて，$p_\theta,q_\phi$ を同時に学習することが出来るというのである．
+
+### 償却推論 (amortized inference)
+
+データ $x_1,\cdots,x_n$ が互いに独立で，潜在変数 $z_1,\cdots,z_n$ も同じ数だけ用意し，互いに独立であるとする．実際，VAE では $z\sim\rN_n(\mu,\Sigma)$ とし，$\Sigma$ は対角行列とする．
+
+このとき，変分下界は
+$$
+F(\theta,\phi)=\sum_{i=1}^n\int_\cZ q_\phi(z_i)\log\frac{p_\theta(x_i|z)p_\theta(z_i)}{q_\phi(z_i)}\,dz_i
+$$ {#eq-F}
+と表せる．さらに $p_\theta(x_i|z)=p_\theta(x_i|z_i)$ と仮定すると，
+$$
+q_\phi(z_i)=p(z_i|x_i)=\frac{p(x_i|z_i)p(z_i)}{p(x_i)}
+$$
+と取った場合が $F$ を最大化する．
+
+**償却推論** [@Gershman-Goodman2014], [@Rezende+2014] では，$i\in[n]$ ごとにフィッティングするのではなく，確率核 $p(x_i,z_i)\,dz_i$ を $i\in[n]$ に依らずに単一のニューラルネットワーク $q_\phi$ でモデリングする確率的変分推論法をいう．^[[@Murphy2023 p.438] 10.1.5 節も参照．]
+
+<!-- $i\in[n]$ ごとにデータを説明するのではなく，データセット全体にフィットする $q_\phi$ を得て，毎月一定額でデータを説明していく，というような命名である． -->
+
+VAE では，EM アルゴリズムのように $\theta,\phi$ を交互に更新していくわけではなく，両方 NN であることを利用して同時に SGD によって最適化する．換言すれば，EM アルゴリズムの様に本当にデータを最もよく説明する変分推論を実行したいという様な目的関数にはなっておらず，あくまで生成と表現学習が目的である．
+
+### 確率的勾配変分近似 (SGVB) {#sec-SGVB}
+
+<!-- 
+VAE [@Kingma-Welling2014] の特に革新的な点は，エンコーダー $q_\phi$ を変分推論と確率的勾配降下法によって効率的に学習するアルゴリズムを提案したことにある．
+
+これは **SGVB (Stochastic Gradient Variational Bayes)** と呼ばれ，VAE に限らず極めて一般の変分ベイズ推論の設定において，データセットの一部のみで計算した推定量のみを用いて効率的に最適化を実行するための汎用的技法である．
 
 ### SGVB のアイデア：勾配の Monte Carlo 推定
 
@@ -36,46 +171,40 @@ VAE は元々この SGVB という要素技術とセットで提案された [@K
 
 一方で，（周辺）尤度の評価を完全に回避せずとも，[変分 Bayes 法](../Computation/VI3.qmd) によるアプローチが可能である．$p(x|z)$ に分布族 $q_\phi(x|z)$ を導入し，真の分布 $p$ との KL-距離を最小にする $\phi\in\Phi$ を選ぶのである．
 
-変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 $\{q_\phi\}$ を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．^[なお，平均場近似も極めて困難な解析的計算を必要とする [@Kingma-Welling2014]．]
+変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 $\{q_\phi\}$ を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．
 
 そこで，一般の分布族 $\{q_\phi\}$ に対して勾配情報を用いた最適化が実施できるように，変分下界 $F(p_\theta,q_\phi)$ 対する Monte Carlo 推定量を開発するのである．これが SGVB 推定量である．
 
-### 変分下界の復習
 
-データ $X$ の生成過程に，モデル $p_\theta(z)p_\theta(x|z)$ を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度
+
+### SGVB 推定量 -->
+
+式 ([-@eq-F]) はデータ点ごとに
 $$
-p_\theta(x)=\int_\cZ p_\theta(z)p_\theta(x|z)\,dz
+F(\theta,\phi)=\sum_{i=1}^n\int_\cZ q_\phi(z_i)\log p_\theta(x_i|z_i)\,dz_i-\KL(q_\phi,p_\theta)
+$$ {#eq-F2}
+と表示できる．事前分布 $p_\theta$ もエンコーダー $q_\phi$ も正規分布族としたので，第二項は簡単に計算できる：
 $$
-や事後分布 $p_\theta(z|x)$ の評価は容易でない．
-
-そこで，$p_\theta(z|x)$ に対して，認識モデル $\{q_\phi(z|x)\}_{\phi\in\Phi}$ を導入する．VAE [-@sec-VAE] では，これもニューラルネットワークとし，$(\theta,\phi)\in\Theta\times\Phi$ を同時に SGD により学習することを考える．
-
-潜在変数 $Z$ を情報源と見て，$q_\theta(z|x)$ を **符号化器** (encoder) と呼び，$p_\theta(x|z)$ を **復号器** (decoder) とも呼ぶ．
-
-このとき，対数周辺尤度の変分下界は次のように表せるのであった：^[[前稿](../Computation/VI3.qmd#sec-ELBO) も参照．]
-$$
-\begin{align*}
-    \log p_\theta(x)&=\log\int_\cZ p_\theta(x,z)\,dz\\
-    &=\log\int_\cZ q_\phi(z)\frac{p_\theta(x,z)}{q_\phi(z)}\,dz\\
-    &\ge\int_\cZ q_\phi(z)\log\frac{q_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
-    &=-\KL(q_\phi,p_\theta)+\int_\cZ q_\phi(z)\log p_\theta(x|z)\,dz\\
-    &=:F(\theta,\phi;x)
-\end{align*}
+\KL\Paren{q_\phi(z_i|x_i),p_\theta(z_i)}=\frac{1}{2}\sum_{j=1}^m\Paren{1+\log\sigma^2_j(x_i)-\mu^2_j(x_i)-\sigma^2_j(x_i)}.
 $$
 
-この $F$ を $\theta,\phi$ に関して逐次的に最大化するのが変分 Bayes である．これを実行するために $q_\phi$ に平均場近似などをするのが旧来手法であるが，これ以上の近似をせずとも，$F$ の勾配の推定量を用いて，$p_\theta,q_\phi$ を同時に学習することが出来るというのである．
+そこで第１項が問題である．勾配 $D_\phi F,D_\theta F$ 自体は計算不可能でも，不偏な推定量は得られないだろうか？
 
-### SGVB 推定量
-
-例えば $F$ を $\phi$ に関して勾配情報から最大化する際に，勾配 $D_\phi F$ の Monte Carlo 推定量が利用できる．しかし，単に $q_\phi(z|x)$ からのサンプルを用いた crude Monte Carlo では，この推定量の分散は非常に大きい [@Paisley+2012]．
+しかも，単に $q_\phi(z|x)$ からのサンプルを用いた crude Monte Carlo
+$$
+\int_\cZ q_\phi(z_i|x_i)\log p_\theta(x_i|z_i)\,dz_i\approx\frac{1}{N}\sum_{n=1}^N\log p_\theta(x_i|z_i^{(n)})
+$$
+では，分散が非常に大きくなってしまう [@Paisley+2012] ため，効率的な不偏推定量である必要もある．また，$\theta$ に関する勾配は数値的に計算できても，ここから $D_\phi F$ を得ることが困難である．
 
 これを **重点サンプリングの考え方により解決した** のが $D_\phi F,D_\theta F$ に対する SGVB 推定量である．^[最適化の文脈において，目的関数の評価が困難であるとき，Monte Carlo 推定量でこれを代替する際，重点サンプリングを用いると良いことは従来提案されている [@Geyer1996]．[@Robert-Casella2004 p.203] も参照．] [@Kingma-Welling2014] では reparameterization trick と呼んでいる．
+
+::: {.callout-important title="一般的な設定での SGVB 推定量" collapse="true" icon="false"}
 
 ある分布 $P\in\cP(E)$ と可微分同相 $g_\phi:E\times\cX\to\cZ$ であって
 $$
 g_\phi(\ep,x)\sim q_\phi(z,x)\quad(\ep\sim P)
 $$
-を満たすものを見つけることができて，この $P$ を提案分布とする重点サンプリング推定量
+を満たすものを見つけることができるとき，この $P$ を提案分布とする重点サンプリング推定量
 $$
 \begin{align*}
     \E_{q_\phi}[f(Z)]&=\E_{P}[f(g_\phi(\ep,x))]\\
@@ -84,51 +213,97 @@ $$
 $$
 により，Monte Carlo 推定量の分散を減らすことができる．$f=F$ と取ることで SGVB 推定量を得る．
 
-さらに，$\cZ$ 上のモデル $q_\phi(z),p_\theta(z)$ とが $d$-次元の正規分布であった場合，
+:::
+
+エンコーダー $q_\phi$ から直接サンプル $z_i$ を得るわけではなく，
 $$
--\KL(q_\phi,p_\theta)=\frac{1}{2}\sum_{j=1}^d\Paren{1+\log(\sigma_j^2)-\mu_j^2-\sigma_j^2}
+z_i=\sigma_\phi(x_i)\ep+\mu_\phi(x_i),\qquad\ep\sim\rN_1(0,1)
 $$
-と解析的に解けるので，結局 Monte Carlo 近似が必要なのは，再構成誤差を表す
+によって Monte Carlo サンプルを得れば，これはサンプリングと $\phi$ に関する微分が分離されている．
+
+加えて，元の方法よりも Monte Carlo 分散が低減される．
+
+### 目的関数 {#sec-objective}
+
+以上を総じて，目的関数は
 $$
-\int_\cZ q_\phi(z)\log p_\theta(x|z)\,dz
+\L=\sum_{i=1}^n\paren{\KL\Paren{q_\phi(z_i|x_i),p_\theta(z_i)}+\frac{1}{N}\sum_{n=1}^N\log p_\theta(x_i|z_i^{(n)})}
 $$
-の部分だけである．
+となる．Monte Carlo サンプルは $N=1$ が採用され，SGD と組み合わせるとこの設定が良い効率を与えるという．^[[@Bishop-Bishop2024 p.576] も参照．]
 
-このような理由で，$q_\phi(z),p_\theta(z)$ は典型的には正規分布としてモデリングされる．
+::: {.callout-tip appearance="simple" icon="false" title="訓練過程"}
 
-## 変分自己符号化器 (VAE) [@Kingma-Welling2014] {#sec-VAE}
+1. データをエンコーダーを前方向に伝播させ，$\mu,\sigma$ の値を得て，そこからサンプルする．
+2. この Monte Carlo サンプルをデコーダーに入れて伝播させ，変分下界 $F$（の推定量）を評価する．
+3. 自動微分により $\theta,\phi$ に関する $\L$ の勾配を計算する．
 
-![Samples from a VQ-VAE Taken from Figure 6 [@Razavi+2019 p.8]](VAE.png)
+:::
 
-### 導入
+## ベクトル量子化変分自己符号化器 (VQ-VAE) {#sec-VQ-VAE}
 
-Variational Auto-encoder [@Kingma-Welling2014], [@Rezende+2014] も GAN と同じく，深層生成モデル $p_\theta$ にもう１つの深層ニューラルネットワーク $q_\phi$ を対置するが，このニューラルネット $q_\phi$ は GAN のように判別をするのではなく，近似推論によってデータ生成源を再構成しようとする **認識モデル** (recognition model) である．$q_\phi$ はエンコーダーとも呼ばれる．
+VQ-VAE は，VAE を特に表現学習に用いるために，潜在表現層を離散変数とした変種である．この際の潜在表現は符号帳 (codebook) とも呼ばれる．
 
-この深層生成モデル $p_\theta$ と近似推論器 $q_\phi$ とを，同時に確率勾配降下法によって学習する [@Kingma-Welling2019]．
+加えて，[@vandenOord+2017] では，事後分布 $q_\phi(z|x)$ が事前分布 $p(z)$ に十分近くない場合には，事前分布を使ってサンプルを生成するのではなく，$q_\phi(z|x)$ を改めて Pixel-CNN などを用いて推論してそこからサンプルを得ることを提案している．
 
-VAE のエンコーダー $q_\phi$ は動画データの圧縮表現の学習 [@Brooks+2024] など，その他の生成モデルの構成要素としても用いられる．
+[@vandenOord+2017] では CNN が使われていたが，近年はトランスフォーマーによるデコーダーが用いられることも多い．
 
-### VQ-VAE による画像の量子化 {#sec-VQ-VAE}
+### ベクトル量子化
 
-VAE は画像データの生成にも応用されており，その際のデータ圧縮の技術（連続データである画像を離散化するので，**ベクトル量子化** と呼ばれる）だけが取り出され，DALL-E [@Ramesh+2021] など，モデルの構成要素としても利用されている．
+一般に，画像・音声・動画などの複雑なデータに対しては，背後の構造をよく掴んだ低次元な潜在表現を得ることを重要なステップとして含むため，データの潜在表現を得る汎用手法は価値が高い．このようなタスクを **表現学習** という [@Bengio+2013]．
 
-#### VQ-VAE
+VAE の主な応用先に画像データがある．その際は，デコーダーを通じた画像生成モデルとして用いるだけでなく，エンコーダーを用いてデータ圧縮をすることも重要な用途である [@Balle+2017]．
 
-VQ-VAE [@vandenOord+2017], [@Razavi+2019] は，自己符号化器の中間表現に [ベクトル量子化](../Computation/VI.qmd#sec-history) を施し，JPEG [@Wallace1992] のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．
+その際，潜在空間を離散空間にすることで，連続データである画像を離散化することができる．これを [ベクトル量子化](../Computation/VI.qmd#sec-history) と結びつけたのが VQ-VAE である．ベクトル量子化は DALL-E [@Ramesh+2021] など，より大きな画像生成モデルの構成要素としても利用される．
 
-実際，元データの 30 分の 1 以下のサイズで学習を行い，最終的にデコーダーを用いて殆ど歪みなく再構成できるという．
+### 分布崩壊 (Posterior collapse)
+
+VAE を表現学習に使う際の最大の問題は **分布崩壊** である．これはデコーダーが強力すぎる場合，ほとんどデコーダー層のみでデータの生成に成功してしまい，潜在表現が十分組織されないまま最適化が完了され，潜在表現が縮退してしまうことをいう
+
+VQ-VAE は潜在表現を離散変数にすることでこれが解決できるとし，連続潜在変数による VAE とデータの復元力を変えず，同時に良い潜在表現も獲得できるという．
+
+実際，[@vandenOord+2017] が，言語が離散的であることに首肯するならば，人間は言表によって画像や動画の概要を掴めるように，画像や動画の有効な潜在表現は離散変数で十分であるはずという議論は十分説得的である．
+
+### $\beta$-VAE [@Higgins+2017]
+
+変分下界 ([-@eq-F2]) の KL 乖離度の項に新たなハイパーパラメータ $\beta>0$ を追加する：
+$$
+\int_\cZ q_\phi(z_i)\log p_\theta(x_i|z_i)\,dz_i-\beta\KL(q_\phi,p_\theta).
+$$
+$\beta=0$ の場合が決定論的な AE，$\beta=1$ の場合が元々の VAE に当たる．
+
+この $\beta$ を適切なスケジュールで $0$ から $1$ に段階的に引き上げることによって，分布崩壊が防げる．これを **KL アニーリング** という [@Bowman+2016]．
+
+一般に $\beta$ は潜在表現の圧縮度合いを意味しており，$\beta<1$ では画像の復元が得意になり，$\beta>1$ ではデータの圧縮が得意になる [@Higgins+2017]．
+
+### VQ-VAE
+
+VQ-VAE [@vandenOord+2017], VQ-VAE-2 [@Razavi+2019] は，自己符号化器の中間表現に [ベクトル量子化](../Computation/VI.qmd#sec-history) を施し，JPEG [@Wallace1992] のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．
+
+すなわち，エンコーダーの出力 $z\in\R^{H\times W\times K}$ は最終的に符号帳 $\{e_k\}_{k=1}^K\subset\R^L$ と見比べて最近傍点の符号 $k\in[K]$ のみが記録される．デコーダーには符号帳の要素 $\{e_k\}_{k=1}^K$ のみが入力される．これにより，デコーダーに対して元データの 30 分の 1 以下のサイズで学習を行うことができるのも美点である．
+
+符号帳も同時に学習され，そのための項が目的関数に追加される．
+
+一つの技術的な難点に，離散化のステップが途中に含まれるために勾配の計算が困難になることがあるが，stright-through 推定量 [@Bengio+2013SSE] の利用によって解決している．
 
 GAN は元データのうち，尤度が低い部分が無視され，サンプルの多様性が失われがちであったが，VQ-VAE はこの問題を解決している．また，GAN にはないようなモデル評価の指標が複数提案されている．
 
-#### 連続緩和
+### 連続緩和
 
-質的変数のサンプリングにおいて，Gumbel 分布を提案分布として重点サンプリングを行うことが有効である．この reparametrization trick を Gumbel Max Trick [@Jang+2017] という．
+VQ-VAE ではコードブックへの対応はハードな帰属をしている．すなわち，全ての出力はどれか１つのエントリー $e_k$ を選んで $k$ のみが記録されるが，これをソフトな帰属に変更し，連続な表現を許すことが考えられる．^[[$k$-平均クラスタリング](../Computation/VI.qmd) のソフトとハードに似ている．]
+
+この際には，元々の reparametrization trick [-@sec-SGVB] が離散変数には直ちに一般化できないところが，新たな方法が見つかり**引き続き勾配による最適化が可能**という美点もある．
+
+標準正規分布 $\rN(0,1)$ の代わりに，質的変数のサンプリングにおいて，Gumbel 分布を提案分布として用いることが有効であり，この reparametrization trick を Gumbel Max Trick [@Maddison+2014], [@Jang+2017] という．
 
 Concrete (Continuous Relaxatino of Discrete) [@Maddison+2017] はこれを連続分布に拡張し，reparametrization trick に応用したものである．
 
-これらの手法は VAE や [DALL-E](https://openai.com/research/dall-e) [@Ramesh+2021] の訓練にも応用されている．
+これらの手法は VAE だけでなく，[DALL-E](https://openai.com/research/dall-e) [@Ramesh+2021] の訓練にも応用されている．
 
-#### Codebook collapse
+### VQ-VAE-2 [@Razavi+2019]
+
+VQ-VAE-2 は，VQ-VAE から潜在空間に階層構造を持たせた，エンコード・デコードを各２回以上繰り返したものである．
+
+### Codebook collapse
 
 VQ-VAE は符号帳 (codebook) に冗長性が生まれ，符号帳の一部が使われなくなるという問題がある．これを解決するためには，符号帳への対応を softmax 関数を用いて軟化することが dVAE [@Ramesh+2021] として考えられている．
 
@@ -136,12 +311,40 @@ VQ-VAE は符号帳 (codebook) に冗長性が生まれ，符号帳の一部が�
 
 このような技術を **エビデンス付き深層学習** (EDL: Evidential Deep Learning) [@Sensoy+2018], [@Amini+2020] という．^[[Present Square 記事](https://deepsquare.jp/2020/12/deep-evidential-regression/)，[GIGAZINE 記事](https://gigazine.net/news/20201130-neural-network-trust/) もある．]
 
-### Wasserstein VAE [@Tolstikhin+2018]
+### GAN との比較
 
 VAE は GAN よりも画像生成時の解像度が劣るという問題がある．
 
+#### Wasserstein VAE [@Tolstikhin+2018]
+
 これを，目的関数を Wasserstein 距離に基づいて再定式化することで解決できるというのが Wasserstein Auto-encoder [@Tolstikhin+2018] である．
 
-### beta-VAE [@Higgins+2017]
+#### VQ-GAN [@Esser2021]
 
-VAE を画像の因子表現学習に用いる際に，解釈可能性を担保する教師なし学習手法である．
+一方で，目的関数に $L^2$-損失を用いている点自体が難点であるとして，ベクトル量子化の考え方を GAN に移植した VQ-GAN が提案された．
+
+VQ-GAN では潜在空間上の事前分布の学習にトランスフォーマーが用いられた．なお，この次回作が生成を VAE 内の潜在空間で行うものを [潜在拡散モデル (latent diffusion model)](../Samplers/Diffusion.qmd#sec-idea) [@Rombach+2022] であり，Stable Diffusion の元となっている．
+
+一方，VIM (Vector-quantized Image Modeling) [@Yu+2022VIM] では，VAE でも GAN でもなく，エンコーダーもデコーダーもトランスフォーマーにすることで更なる精度が出ることが報告されている．
+
+## 参考文献 {.appendix}
+
+決定論的な自己符号化器の解説は [@Bishop-Bishop2024] 19.1 節に詳しい．
+
+AE と VAE を比較した実験は，[こちら](https://github.com/probml/pyprobml/blob/master/notebooks/book2/21/celeba_vae_ae_comparison.ipynb) の [@Murphy2023] の Jupyeter Notebook で見れる．
+
+VAE の簡単な実装は次の稿も参照：
+
+```{=html}
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Kernels/VAE.html" target="_blank">
+            <img src="https://raw.githubusercontent.com/162348/162348.github.io/main/thumbnail.svg" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title">VAE：変分自己符号化器</h3>
+                <p class="article-description">PyTorch によるハンズオン</p>
+            </div>
+        </a>
+    </div>
+</div>
+```
