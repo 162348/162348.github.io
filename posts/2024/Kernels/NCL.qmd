@@ -1,0 +1,112 @@
+---
+title: "ノイズ対照学習"
+author: "司馬博文"
+date: 7/29/2024
+date-modified: 7/29/2024
+categories: [Deep]
+bibliography: 
+    - ../../../mathematics.bib
+    - ../../../bib.bib
+csl: ../../../apalike.csl
+abstract-title: 概要
+abstract: 深層潜在モデルを敵対的に学習させる手法である **NCL (Noise-Contrastive Learning)** について述べる．
+---
+
+{{< include ../../../_preamble.qmd >}}
+
+## 非線型独立成分分析と表現学習
+
+### 導入
+
+[@Locatello+2019] が警鐘を鳴らしている通り，表現学習 [@Bengio+2013] とはことさらに disentangle （＝要因ごとにデータ内の変動を説明して分離すること）がなされた潜在表現を得れば良いというものではない．
+
+表現学習の代表的手法としては，[$\beta$-VAE](Deep4.qmd#sec-beta-VAE) がある．加えて，ノイズ対照学習に基づいた方法 [@Oord+2019] があり，同等の性能を誇る．
+
+また，データの disentangle というのは，独立成分分析の目標と重なる部分が大きい．いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない．^[The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. [@Khemakhem+2020] Section 6．]
+
+VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通している．
+
+### 深層潜在モデルの識別可能性 {#sec-identifiability}
+
+仮に追加に観測されている変数 $u$ が存在して，事前分布 $p_\theta(z|u)$ は $z$ 上で積の形に分解し，指数型分布族に属するとする．すなわち，潜在変数は $U$ で条件づければ互いに独立であるとする．この仮定が識別可能性の鍵となる [@Hyvarinen+2019]．
+
+$u$ はタイムスタンプや前時点での観測，信頼できないラベルなどがありえる [@Hyvarinen-Morioka2016]．
+
+観測 $X$ と潜在変数 $Z$ に対して，$\theta=(f,T,\lambda)$ をパラメータとして
+$$
+p_\theta(x,z|u)=p_f(x|z)p_{T,\lambda}(z|u),
+$$
+$$
+X=f(Z)+\ep,\qquad \ep\sim p_\ep(\ep).
+$$
+という形のモデルは，$p_{T,\lambda}$ が十分統計量 $T$ とパラメータ $\lambda$ を持つ指数型分布族である限り，いくつかの正則性条件を満たせば識別可能になる：
+
+::: {.callout-tip title="[@Khemakhem+2020 定理１]" icon="false"}
+
+次の４条件が成り立つ場合，パラメータ $\theta$ は，ある線型変換 $A$ に対して
+$$
+T\circ f^{-1}=A\circ \wt{T}\circ\wt{f}^{-1}+c
+$$
+の違いを除いて識別可能である：
+
+1. $p_\ep$ の特性関数は殆ど至る所零にならない．
+2. $f$ は単射である．
+3. 十分統計量 $\{T_{i,j}\}_{i\in[n],j\in[k]}$ は殆ど至る所可微分で，任意の測度正集合上に線型独立な関数を定める．
+4. ある点 $u^0,\cdots,u^{nk}$ が存在して，行列 $(\lambda(u^1)\;\cdots\;\lambda(u^{nk}))-(\lambda(u^0)\;\cdots\;\lambda(u^0))$ は可逆：
+
+:::
+
+加えて，モデルが真の分布を含む場合，変分下界の最大化は上述の線型変換 $A$ の違いを除いて $\theta$ の一致推定に成功する．
+
+### 非線型独立成分分析
+
+非線型独立成分分析は，ある独立な成分からなる潜在変数
+$$
+p(z)=\prod_{i=1}^dp_i(z_i)
+$$
+に対して，観測がこの非線型変換 $x=f(z)$ であると仮定し，データ生成過程を特定しようとする営みである．
+
+これは上のモデルの $\ep=0$ とした場合に他ならない．
+
+つまるところ，従来からの深層生成モデリングのうち，統計的に特別な意味を持つものが非線型独立成分分析と捉えることもできるはずである．すなわち，生成モデルと非線型独立成分分析は，モデルの骨子自体は共通で，その適用目的が違うに過ぎない（[この稿](../Samplers/Sampling.qmd#sec-sampling-as-synthesis) も参照）．
+
+ただし，統計モデルと見る以上は識別可能性が肝要である．しかし近年の ICA は，識別可能性を緩めた形 [-@sec-identifiability] で得ることに成功しており，これにより深層生成モデルとの同一視が進むことになる [@Hyvarinen+2019], [@Khemakhem+2020]．
+
+これにより，VAE などの深層生成モデルをより統計的に意味のあるものとすることができる．上述の定理により識別可能性を確保した VAE を iVAE (identifiable VAE) [@Khemakhem+2020] と呼ぶ．
+
+また逆の方向には，非線型 ICA モデルを変分ベイズや確率的勾配降下法により推定することができる．
+
+### 予測による表現学習
+
+予測符号化 ([predictive coding](https://en.wikipedia.org/wiki/Predictive_coding)) [@Elias1955] は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である [@Rao-Ballard1999]．
+
+また word2vec [@Mikolov2013] から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．
+
+この予測問題として表現学習を解く方法は CPC (Contrastive Predictive Coding) として，言語，音声，画像，３次元空間での強化学習など，極めて多くの領域で良い表現学習を提供することが実証されている [@Oord+2019]．
+
+![Contrastive Predictive Coding [@Oord+2019]](Images/contrastive_repr4.jpeg)
+
+まずエンコーダー $z_t=g_{\text{enc}}(x_t)$ を作る．続いて，自己回帰モデル $g_{\text{ar}}$ を用いて $z_{1:t}$ を要約して予測しようとする．
+
+この段階で潜在表現 $c_t=g_{\text{ar}}(z_{1:t})$ が作られることを期待するのであるが，直接 $p(x|c)$ を予測しようとしてしまうと，必ずしも有用な潜在表現 $c$ が得られるとは限らない．
+
+そこで，距離 $k$ だけ離れたデータ $x_{t+k}$ の尤度比
+$$
+f_k(x_{t+k},c_t)\propt\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
+$$
+を，
+$$
+f_k(x_{t+k},c_t)=\exp\paren{z_{t+k}^\top W_kc_t}
+$$
+の形で予測しようとし，この荷重 $W_k$ の推定を考える．
+
+これは，表現学習においては予測 $p(x|c)$ が至上命題であるわけではなく，$x$ と $c$ の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である．^[相互情報量は$$I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}$$ と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．]
+
+このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．[@Oord+2019] では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) [@Cho+2014] という RNN の変種が使われている．
+
+こうして推定された $(z_t,c_t)$ は，$x_{1:t}$ までのヒストリを見た要約が欲しい場合は $c_t$ を，そうでない場合は $z_t$ を，データ $x_t$ の潜在表現として使える．
+
+## 参考文献 {.appendix}
+
+[@Hyvarinen-Morioka2016], [@Hyvarinen-Morioka2017], [@Hyvarinen+2019] は深層潜在モデルが識別可能になるための条件を示した非線型 ICA の論文である．
+
