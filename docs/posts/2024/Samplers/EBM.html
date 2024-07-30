@@ -190,7 +190,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">エネルギーベースモデル</h1>
-            <p class="subtitle lead">深層生成モデル６</p>
+            <p class="subtitle lead">深層生成モデル５</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
                 <div class="quarto-category">Nature</div>
@@ -216,6 +216,12 @@ window.Quarto = {
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">7/30/2024</p>
+      </div>
+    </div>
       
     </div>
     
@@ -230,7 +236,21 @@ window.Quarto = {
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#エネルギーベースモデル" id="toc-エネルギーベースモデル" class="nav-link active" data-scroll-target="#エネルギーベースモデル"><span class="header-section-number">1</span> エネルギーベースモデル</a>
+  <ul class="collapse">
+  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
+  <li><a href="#エネルギー" id="toc-エネルギー" class="nav-link" data-scroll-target="#エネルギー"><span class="header-section-number">1.2</span> エネルギー</a></li>
+  <li><a href="#最尤推定" id="toc-最尤推定" class="nav-link" data-scroll-target="#最尤推定"><span class="header-section-number">1.3</span> 最尤推定</a></li>
+  <li><a href="#sec-CD" id="toc-sec-CD" class="nav-link" data-scroll-target="#sec-CD"><span class="header-section-number">1.4</span> 対照分離度 (CD)</a></li>
+  <li><a href="#gan-による敵対的学習" id="toc-gan-による敵対的学習" class="nav-link" data-scroll-target="#gan-による敵対的学習"><span class="header-section-number">1.5</span> GAN による敵対的学習</a></li>
+  </ul></li>
+  
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -244,28 +264,78 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
+<section id="エネルギーベースモデル" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="エネルギーベースモデル"><span class="header-section-number">1</span> エネルギーベースモデル</h2>
+<section id="導入" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
+<p>エネルギーベースのモデル (EBM: Energy-based Model) とは，密度が <span class="math display">\[
+p(x,z)\,\propto\,e^{-H(x,z)}
+\]</span> の形で与えられるモデルをいう．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p><a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> や <a href="../../../posts/2024/Samplers/NF.html">正則化流</a> などの生成モデルや，<a href="../../../posts/2024/Kernels/Deep2.html">トランスフォーマー</a> などの自己回帰モデルも EBM とみなせる上に，Markov 確率場などの無向グラフィカルモデルで定義される分布族や，正規化定数を除いて定義された確率分布族も，自然に EBM とみなせる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>これは統計物理学的な系との対応が意識されているように，入力 <span class="math inline">\(z\)</span> と出力 <span class="math inline">\(x\)</span> の整合性 <span class="math inline">\(k(x,z)\)</span> をエネルギー <span class="math inline">\(H(x,z)\)</span> の言葉で与えているモデルであると見ることができ，このエネルギー <span class="math inline">\(H\)</span> をニューラルネットワークによってモデル化するのである．</p>
+<p>すると EBM の最尤推定とは，訓練データ <span class="math inline">\(\{x_i\}_{i=1}^n\)</span> に対して最も低いエネルギーを割り当てるエネルギー関数 <span class="math inline">\(H_\theta\)</span> を探すという基底状態探索の問題に対応する <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span>．</p>
+<p>これで EBM の概要は終わりであるが，このような極めて一般的な設定で有用な一般論が得られることは驚くべきことである．</p>
+<!-- 回帰や分類などの古典的なタスクだけでなく，ほとんどの確率的モデルもこの手続きから理解することができ，この場合は EBM が非確率的な／最適化ベースの推論手法を提供するフレームワークとして働くことになる [@LeCun+2007 p.192]． -->
+</section>
+<section id="エネルギー" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="エネルギー"><span class="header-section-number">1.2</span> エネルギー</h3>
+<p>仮に，２つの学習済みモデル <span class="math inline">\(p_1(x),p_2(x)\)</span> が EBM の形で得られており，それぞれのエネルギーが <span class="math inline">\(H_1,H_2\)</span> で与えられるとする．この際，<span class="math inline">\(H:=H_1+H_2\)</span> をエネルギーにもつ EBM は <span class="math inline">\(p\,\propto\,p_1p_2\)</span> であり，このモデルは <span class="math inline">\(p_1\)</span> でも <span class="math inline">\(p_2\)</span> でも高確率であるような <span class="math inline">\(x\)</span> を高く評価することになる．</p>
+<p>このようにして得るモデル <span class="math inline">\(p\)</span> を <strong>積スパートモデル</strong> (PoE: Product of Experts) <span class="citation" data-cites="Hinton2002">(<a href="#ref-Hinton2002" role="doc-biblioref">Hinton, 2002</a>)</span> という．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> <span class="citation" data-cites="Hinton2002">(<a href="#ref-Hinton2002" role="doc-biblioref">Hinton, 2002</a>)</span> は引き続き，対照分離度 (contrast divergence) <a href="#sec-CD" class="quarto-xref">1.4</a> による訓練法を提案している．</p>
+<p>例えば <span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 840</a>)</span> では，タンパク質構造の生成モデルを作りたいとして，<span class="math inline">\(p_1\)</span> を「常温で安定であるタンパク質」の生成モデル，<span class="math inline">\(p_2\)</span> を「COVID-19 のスパイクタンパク質に結合するタンパク質」の生成モデルとして説明している．</p>
+<p>従ってこの <span class="math inline">\(H\)</span> は，データの好ましさを表すパラメータと考えられ，他モデルへの移転にも使えることが期待される．<span class="math inline">\(H\)</span> は，contrast function, value function, 負の対数尤度などとも呼ぶ <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007, p. 193</a>)</span>．</p>
+</section>
+<section id="最尤推定" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="最尤推定"><span class="header-section-number">1.3</span> 最尤推定</h3>
+<p>EBM は，データの分布との KL 乖離度，または等価なことだが対数尤度の期待値 <span class="math display">\[
+\operatorname{E}[\log p_\theta]
+\]</span> を最小化することによって学習することが考えられる <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span>．</p>
+<p>しかし尤度の評価は正規化定数 <span class="math inline">\(Z_\theta:=\int e^{-H_\theta(x)}\,dx\)</span> の評価が必要であるため，一般の設定では実行できないが，勾配 <span class="math display">\[
+\nabla_\theta\log p_\theta(x)=-\nabla_\theta H_\theta(x)-\nabla_\theta\log Z_\theta
+\]</span> は近似できる．<span class="math inline">\(\nabla_\theta H_\theta(x)\)</span> はニューラルネットワークの自動微分で計算することができ，２項目は <span class="math display">\[
+\nabla_\theta\log Z_\theta=-(p_\theta|\nabla_\theta H_\theta)
+\]</span> の関係を用いて，<span class="math inline">\(p_\theta\)</span> からのサンプルを用いた Monte Carlo 推定量で評価できる．</p>
+<p>総じて，確率的勾配降下法によって学習できる．</p>
+</section>
+<section id="sec-CD" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="sec-CD"><span class="header-section-number">1.4</span> 対照分離度 (CD)</h3>
+<p><span class="citation" data-cites="Hinton2002">(<a href="#ref-Hinton2002" role="doc-biblioref">Hinton, 2002</a>)</span> は Gibbs サンプリングが可能な潜在変数を持つ EBM モデルである制限付き Boltzmann マシン（Markov 確率場の例）について，対照分離度を平衡分布 <span class="math inline">\(p_\infty\)</span> を持つ Gibbs サンプラー <span class="math inline">\(\{p_t\}\)</span> を用いて <span class="math display">\[\newcommand{\CD}{\operatorname{CD}}
+\CD_T:=\operatorname{KL}(p_0,p_\infty)-\operatorname{KL}(p_T,p_\infty)
+\]</span> と定めた．ただし，<span class="math inline">\(p_0\)</span> はデータ <span class="math inline">\(\{x_i\}_{i=1}^n\)</span> の分布とする．</p>
+<p>すなわち，データ点から初めて，MCMC を <span class="math inline">\(T\)</span> ステップ実行することに相当する行為を，<span class="math inline">\(\CD_T\)</span> の最小化として捉え直し，確率的勾配降下法によって学習する．</p>
+<p>データ点を取り替えるごとに <span class="math inline">\(p_0\)</span> を取り替えるのではなく，<span class="math inline">\(p_0\)</span> を以前の MCMC の終わり値から定めた場合の CD の変形を <strong>PCD (Persistent Contrastive Divergence)</strong> <span class="citation" data-cites="Tieleman2008">(<a href="#ref-Tieleman2008" role="doc-biblioref">Tieleman, 2008</a>)</span>, <span class="citation" data-cites="Tieleman-Hinton2009">(<a href="#ref-Tieleman-Hinton2009" role="doc-biblioref">Tieleman and Hinton, 2009</a>)</span> という．</p>
+<p>更なる改良をすることで，GAN に匹敵する性能と，分布の峰を正確に再現できるという GAN にはない美点を獲得できるという <span class="citation" data-cites="Du-Mordatch2019">(<a href="#ref-Du-Mordatch2019" role="doc-biblioref">Du and Mordatch, 2019</a>)</span>．</p>
+<p>一方で，MCMC を途中で止めていることが，学習にどのような影響を与えるかは不明である <span class="citation" data-cites="Nijkaml+2019">(<a href="#ref-Nijkaml+2019" role="doc-biblioref">Nijkamp et al., 2019</a>)</span>．</p>
+</section>
+<section id="gan-による敵対的学習" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="gan-による敵対的学習"><span class="header-section-number">1.5</span> GAN による敵対的学習</h3>
+<p>尤度 <span class="math inline">\(p_\theta\)</span> の評価を迂回するため，<a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> にヒントを得た敵対的な学習も考えられている <span class="citation" data-cites="Kim-Bengio2016">(<a href="#ref-Kim-Bengio2016" role="doc-biblioref">Kim and Bengio, 2016</a>)</span>, <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．</p>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="文献" class="level2 appendix" data-number="2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">2</span> 文献</h2><div class="quarto-appendix-contents">
+
+<p><a href="https://github.com/yataobian/awesome-ebm"><code>Awesome-EBM</code></a> レポジトリは，種々の EBM のリストを与えている．</p>
 <p><span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span></p>
-<p>エネルギーベースのモデル (EBM: Energy-based Model) とは， <span class="math display">\[
-p(z)\,\propto\,e^{-H(z)}
-\]</span> の形で与えられるノンパラメトリックモデルで，訓練データ <span class="math inline">\(\{(x_i,y_i)\}_{i=1}^n\)</span> に対して最も低いエネルギーを割り当てるエネルギー関数 <span class="math inline">\(H\)</span> を探す (energy minimization) ことで確率分布 <span class="math inline">\(p(x)\)</span> を推定する手法である <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span>．</p>
-<p>この形の分布族を <strong>正準分布</strong> または <strong>Gibbs 分布</strong> <span class="citation" data-cites="Koller-Friedman2009">(<a href="#ref-Koller-Friedman2009" role="doc-biblioref">Koller and Friedman, 2009, p. 108</a>)</span>, <span class="citation" data-cites="Friedli-Velenik2017">(<a href="#ref-Friedli-Velenik2017" role="doc-biblioref">Friedli and Velenik, 2017, p. 25</a>)</span>，または <strong>Boltzmann 分布</strong> <span class="citation" data-cites="Kim-Bengio2016">(<a href="#ref-Kim-Bengio2016" role="doc-biblioref">Kim and Bengio, 2016</a>)</span>, <span class="citation" data-cites="Mezard-Montanari2009">(<a href="#ref-Mezard-Montanari2009" role="doc-biblioref">Mézard and Montanari, 2009, p. 23</a>)</span>, <span class="citation" data-cites="Chewi2024">(<a href="#ref-Chewi2024" role="doc-biblioref">Chewi, 2024</a>)</span> ともいう．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>この推定を，うまく損失関数を設定することで，最適化手法によって解くことが <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007</a>)</span> では考えられている．データの分布との KL 乖離度を，勾配降下法によって最小化することによって学習することも多いが，この場合 <span class="math inline">\(p\)</span> からのサンプリングを必要とするため，<a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> にヒントを得た敵対的な学習も考えられている <span class="citation" data-cites="Kim-Bengio2016">(<a href="#ref-Kim-Bengio2016" role="doc-biblioref">Kim and Bengio, 2016</a>)</span>, <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．</p>
-<p>回帰や分類などの古典的なタスクだけでなく，ほとんどの確率的モデルもこの手続きから理解することができ，この場合は EBM が非確率的な／最適化ベースの推論手法を提供するフレームワークとして働くことになる <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007, p. 192</a>)</span>．</p>
-<p>また EBM は，入力 <span class="math inline">\(x\)</span> と出力 <span class="math inline">\(y\)</span> の整合性 <span class="math inline">\(k(x,y)\)</span> を，エネルギーの言葉で与えているモデルであると見ることもできる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 
 
 
-
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-Chewi2024" class="csl-entry" role="listitem">
 Chewi, S. (2024). <em><a href="https://chewisinho.github.io/">Log-concave sampling</a></em>.
+</div>
+<div id="ref-Du-Mordatch2019" class="csl-entry" role="listitem">
+Du, Y., and Mordatch, I. (2019). <a href="https://proceedings.neurips.cc/paper_files/paper/2019/file/378a063b8fdb1db941e34f4bde584c7d-Paper.pdf">Implicit generation and modeling with energy based models</a>. In H. Wallach, H. Larochelle, A. Beygelzimer, F. dAlché-Buc, E. Fox, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 32. Curran Associates, Inc.
 </div>
 <div id="ref-Friedli-Velenik2017" class="csl-entry" role="listitem">
 Friedli, S., and Velenik, Y. (2017). <em>Statistical mechanics of lattice systems</em>. Cambridge University Press.
 </div>
 <div id="ref-Gao+2020" class="csl-entry" role="listitem">
 Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., and Wu, Y. N. (2020). <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper">Flow contrastive estimation of energy-based models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>.
+</div>
+<div id="ref-Hinton2002" class="csl-entry" role="listitem">
+Hinton, G. E. (2002). <a href="https://doi.org/10.1162/089976602760128018"><span class="nocase">Training Products of Experts by Minimizing Contrastive Divergence</span></a>. <em>Neural Computation</em>, <em>14</em>(8), 1771–1800.
 </div>
 <div id="ref-Kim-Bengio2016" class="csl-entry" role="listitem">
 Kim, T., and Bengio, Y. (2016). <a href="https://openreview.net/forum?id=BNYAGZZj5S7PwR1riXzA">Deep directed generative models with energy-based probability estimation</a>. In <em>International conference on learning representations</em>.
@@ -282,14 +352,27 @@ Liu, J. S. (2004). <em><a href="https://doi.org/10.1007/978-0-387-76371-2">Monte
 <div id="ref-Mezard-Montanari2009" class="csl-entry" role="listitem">
 Mézard, M., and Montanari, A. (2009). <em><a href="https://doi.org/10.1093/acprof:oso/9780198570837.001.0001">Information, physics, and computation</a></em>. Oxford University Press.
 </div>
+<div id="ref-Murphy2023" class="csl-entry" role="listitem">
+Murphy, K. P. (2023). <em><a href="http://probml.github.io/book2">Probabilistic machine learning: Advanced topics</a></em>. MIT Press.
+</div>
+<div id="ref-Nijkaml+2019" class="csl-entry" role="listitem">
+Nijkamp, E., Hill, M., Zhu, S.-C., and Wu, Y. N. (2019). <a href="https://proceedings.neurips.cc/paper_files/paper/2019/file/2bc8ae25856bc2a6a1333d1331a3b7a6-Paper.pdf">Learning non-convergent non-persistent short-run MCMC toward energy-based model</a>. In H. Wallach, H. Larochelle, A. Beygelzimer, F. dAlché-Buc, E. Fox, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 32. Curran Associates, Inc.
+</div>
+<div id="ref-Tieleman2008" class="csl-entry" role="listitem">
+Tieleman, T. (2008). <a href="https://doi.org/10.1145/1390156.1390290">Training restricted boltzmann machines using approximations to the likelihood gradient</a>. In <em>Proceedings of the 25th international conference on machine learning</em>, pages 1064–1071. New York, NY, USA: Association for Computing Machinery.
+</div>
+<div id="ref-Tieleman-Hinton2009" class="csl-entry" role="listitem">
+Tieleman, T., and Hinton, G. (2009). <a href="https://doi.org/10.1145/1553374.1553506">Using fast weights to improve persistent contrastive divergence</a>. In <em>Proceedings of the 26th annual international conference on machine learning</em>, pages 1033–1040. New York, NY, USA: Association for Computing Machinery.
+</div>
 <div id="ref-田崎晴明2008" class="csl-entry" role="listitem">
 田崎晴明. (2008). <em><a href="https://www.gakushuin.ac.jp/~881791/statbook/">統計力学I</a></em>,Vol. 37. 培風館.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>ということもあるようであるが，物理の用語では <span class="math inline">\(e^{H(z)}\)</span> を Boltzmann 因子と呼ぶのみであるようである <span class="citation" data-cites="田崎晴明2008">(<a href="#ref-田崎晴明2008" role="doc-biblioref">田崎晴明, 2008, p. 107</a>)</span>．<span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 7</a>)</span> ではどちらも掲載している．正準集団は，NVT 一定集団ともいう．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>分野によっては，エネルギー関数 <span class="math inline">\(H\)</span> を，contrast function, value functions, NLL (Negative Log-Likelihood) functions などとも呼ぶとしている <span class="citation" data-cites="LeCun+2007">(<a href="#ref-LeCun+2007" role="doc-biblioref">LeCun et al., 2007, p. 193</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>この形の分布族を <strong>正準分布</strong> または <strong>Gibbs 分布</strong> <span class="citation" data-cites="Koller-Friedman2009">(<a href="#ref-Koller-Friedman2009" role="doc-biblioref">Koller and Friedman, 2009, p. 108</a>)</span>, <span class="citation" data-cites="Friedli-Velenik2017">(<a href="#ref-Friedli-Velenik2017" role="doc-biblioref">Friedli and Velenik, 2017, p. 25</a>)</span>，または <strong>Boltzmann 分布</strong> <span class="citation" data-cites="Kim-Bengio2016">(<a href="#ref-Kim-Bengio2016" role="doc-biblioref">Kim and Bengio, 2016</a>)</span>, <span class="citation" data-cites="Mezard-Montanari2009">(<a href="#ref-Mezard-Montanari2009" role="doc-biblioref">Mézard and Montanari, 2009, p. 23</a>)</span>, <span class="citation" data-cites="Chewi2024">(<a href="#ref-Chewi2024" role="doc-biblioref">Chewi, 2024</a>)</span> ともいう．物理の用語では <span class="math inline">\(e^{H(z)}\)</span> を Boltzmann 因子と呼ぶのみであるようである <span class="citation" data-cites="田崎晴明2008">(<a href="#ref-田崎晴明2008" role="doc-biblioref">田崎晴明, 2008, p. 107</a>)</span>．<span class="citation" data-cites="Liu2004">(<a href="#ref-Liu2004" role="doc-biblioref">Liu, 2004, p. 7</a>)</span> ではどちらも掲載している．正準集団は，NVT 一定集団ともいう．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>だが，正規化定数 <span class="math inline">\(Z\)</span> が評価できないという前提で EBM の理論は進むため，有向グラフで定義される VAE などのモデルを EBM とみる積極的な理由はない．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>MoE (Mixture of Expert) と並んで使う用語である．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

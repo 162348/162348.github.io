@@ -1,8 +1,9 @@
 ---
 title: "正規化流"
-subtitle: "深層生成モデル５"
+subtitle: "深層生成モデル４"
 author: "司馬 博文"
 date: 2/14/2024
+date-modified: 7/30/2024
 categories: [Deep, Sampling]
 bibliography: 
     - ../../../mathematics.bib
@@ -14,9 +15,7 @@ abstract: 確率分布を Gauss 潜在変数の非線型な押し出しとして
 
 {{< include ../../../_preamble.qmd >}}
 
-[@Kobyzev+2021], [@Papamakarios+2021]．
-
-## 正則化流 (NF)
+## 正則化流 (NF) [@Tabak-Vanden-Eijnden2010]
 
 ### 原理
 
@@ -58,6 +57,68 @@ $$
 
 また一方で，変分推論における $E$-ステップ（変分分布について期待値を取るステップ）などにおいて，複雑な分布からのサンプラーとしても用いられる [@Gao+2020]．
 
+### 応用
+
+#### ベイズ推定
+
+変分推論において，変分事後分布のモデリングにフローが使えることを提唱し，フローベースのアプローチを有名にしたのが [@Rezebde0Niganed2015] であった．
+
+このような変分ベイズ推論，特にベイズ深層学習に向けたフローベースモデルが盛んに提案されている：Householder flow [@Tomczak-Welling2017] は VAE の改良, IAF [@Kingma+2016], 乗法的正則化流 [@Louizos-Welling2017], Sylvester flow [@vandenBerg+2019] など．
+
+#### ベイズ計算
+
+Neural Importance Sampling [@Muller+2019] とは，困難な分布からの重点サンプリングの際に，提案分布を正則化流で近似する方法である．
+
+Boltzmann Generator [@Noe+2019] は名前の通り，多体系の平衡分布から正則化流でサンプリングをするという手法である．
+
+[@Hoffmann+2019] は IAF を用いて目標分布を学習し，学習された密度 $q$ で変換後の分布から MCMC サンプリングをすることで効率がはるかに改善することを報告した．実際，フローによる変換を受けた後は対象分布は正規分布に近くなることから，MCMC サンプリングを減速させる要因の多くが消滅していることが期待される．
+
+#### 密度推定
+
+目標の分布 $p_w$ を Guass 分布 $p$ からの写像 $(f_w)_*p$ として捉える発想は，まずなんといっても密度推定に用いられた [@Chen-Gopinath2000]．
+
+この $f_w$ のモデリングにニューラルネットワークを用いるという発想は [@Rippel-Adams2013] の Deep Density Model 以来であるようだ．
+
+その後同様の発想は非線型独立成分分析 [@Dinh+2015]，引き続き密度推定 [@Dinh+2017] に用いられた．
+
+現在は MAF [-@sec-MAF] の性能が圧倒的である．
+
+#### 表現学習
+
+通常の VAE などは，あくまで $p(x|z)$ を学習する形をとるが，正則化流を用いて結合分布 $p(x,z)$ を学習することで，双方を対等にモデリングすることができる．
+
+これを flow-based **hybrid model** [@Nalisnick+2019] という．これは予測と生成のタスクでも良い性能を見せるが，分布外検知などの応用も示唆している．
+
+異常検知 [@Zhang+2020Detection]，不確実性定量化 [@Charpentier+2020] のような種々の下流タスクに用いられた場合は，VAE など NN を２つ用いる手法よりもモデルが軽量で，順方向での１度の使用で足りるなどの美点があるという．
+
+#### 生成
+
+画像生成への応用が多い：GLOW [@Kingma-Dhariwal2018], 残差フロー [@Chen+2019] など．
+
+動画に対する応用も提案されている：VideoFlow [@Kumar+2020]．
+
+言語に対する応用もある [@Tran+2019]．言語は離散データであることが難点であるが，潜在空間上でフローを使うことも提案されている [@Ziegler-Rush2019]．
+
+#### 蒸留
+
+純粋な生成モデリングの他に，IAF [-@sec-IAF] は [@Oord+2018] において音声生成モデルの蒸留に用いられた．
+
+WaveFLOW [@Prenger+2018], FloWaveNet [@Kim+2019] などもカップリング層を取り入れて WaveNet の高速化に成功している．
+
+#### SBI
+
+モデルの尤度は隠されており，入力 $\theta$ に対して，$p(x|\theta)$ からのサンプルのみが利用可能であるとする．このような状況でベイズ推論を行う問題を **simulation-based inference (SBI)** という．これはデータの分布のサンプルから学習して，似たようなデータを増やすという生成モデルのタスクに似ている．
+
+この際，任意の分布 $p(\theta)$ に対して，結合分布
+$$
+p(x,\theta)=p(x|\theta)p(\theta)
+$$
+を，シミュレータから得られるサンプルのみから，フローベースモデルにより学習してしまうことで，ベイズ推論が可能になる [@Papamakarios+2019]．
+
+この方法はさらに，事後分布推定に特化することで，SMC-ABC などの従来の近似ベイズ計算技法の性能を超えていくようである [@Greenberg+2019]．
+
+## 離散流
+
 ### カップリング流
 
 ある可微分同相 $f_\theta:\R^m\to\R^m$ と任意の関数 $\Theta:\R^{n-m}\to\R^{n-m}$ について，
@@ -92,13 +153,13 @@ $$
 
 自己回帰流の Jacobi 行列は上三角行列になるので，Jacobian は効率的に計算できる．
 
-#### MAF
+#### マスク付き自己回帰流 (MAF) {#sec-MAF}
 
 $\Theta_i$ は典型的に単一の自己回帰型のニューラルネットワークを用いてモデリングする．その際，$\Theta_i$ が $x_{1:i-1}$ のみに依存するようにマスクをする  MAF (Masked Autoregressive Flow) [@Papamakarios+2017]．
 
 [@Papamakarios+2017] では $f$ は affine 関数としている．
 
-#### 逆自己回帰流
+#### 逆自己回帰流 (IAF) {#sec-IAF}
 
 元から $f^{-1}$ の方をモデリングする方法を IAF (Inverse Autoregressive Flow) [@Kingma+2016] という．順方向のものが密度評価が速いのに比べ，IAF はサンプリングに使われる．
 
@@ -150,4 +211,8 @@ Sylvester flow [@vandenBerg+2019] も．
 
 Janosh Riebesell のリポジトリ [`awesome-normalizing-flows`](https://github.com/janosh/awesome-normalizing-flows) に実装がまとめられている．
 
-[@Murphy2023] 第23章，
+[@Murphy2023] 第23章は入門に良い．詳細はサーベイ [@Kobyzev+2021], [@Papamakarios+2021] に譲られている．
+
+[@Chen-Gopinath2000] の時点では同様のアイデアは **Gaussianization** と呼ばれていた．
+
+[@Tabak-Vanden-Eijnden2010], [@Tabak-Turner2013] が正則化流の提案と命名を行った．
