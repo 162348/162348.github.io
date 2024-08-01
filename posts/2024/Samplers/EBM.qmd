@@ -3,7 +3,7 @@ title: "エネルギーベースモデル"
 subtitle: "深層生成モデル５"
 author: "司馬 博文"
 date: 3/30/2024
-date-modified: 7/30/2024
+date-modified: 8/1/2024
 categories: [Deep, Nature, Sampling]
 bibliography: 
     - ../../../mathematics.bib
@@ -50,6 +50,10 @@ $$
 
 Markov 確率場などの無向グラフィカルモデルで定義される分布族や，正規化定数を除いて定義された確率分布族は，自然に EBM とみなせる．^[だが，正規化定数 $Z$ が評価できないという前提で EBM の理論は進むため，有向グラフで定義される VAE などのモデルを EBM とみる積極的な理由はない．]
 
+[@Hinton-Teh2001] で論じられている通り，音声や画像などのデータに対する独立成分分析では，DAG などの有向グラフによるモデリングでは正確な推論ができないため，無向グラフによるより良いモデリング法が **積スパートモデル** (PoE: Product of Experts) などを通じて探求されていた．
+
+#### Boltzmann 機械
+
 例えば Ising 模型の一種でもある [Hopfield ネットワーク](../Kernels/Deep.qmd#sec-Hopfield) [@Hopfield1982] と Boltzmann 機械 [@Ackley+1985] は最も有名な EBM の１つである．^[なお，2つの Hamiltonian $H$ の形は同じで温度が違うのみである．加えて，用途も違う：Hopfield ネットワークは連想記憶のモデル，Boltzmann 機械はデータ分布の（生成）モデリングに用いられる [@Carbone2024 p.4]．]
 
 しかしこの場合，分配関数 $Z_\theta$ の計算が難しく（ほとんどの統計力学模型の中心問題である），EBM を訓練することが難しかった．
@@ -58,7 +62,13 @@ Markov 確率場などの無向グラフィカルモデルで定義される分�
 
 これ以降正規化定数が不明である模型も効率的に訓練可能であることが周知され，ICA に応用した論文 [@Teh+2003] で "Energy-based Model" の名前が造語された．
 
-ConvNet [@Xie+2016] 以降，$H_\theta$ のモデリングには深層ニューラルネットワークが用いられるようになっていった．
+#### 深層化
+
+制約付き Boltzmann 機械に対する greedy, layer-by-layer の事前学習を取り入れることで，深層化しても訓練が効率的に行われるようになった [@Hinton+2006], [@Hinton-Salakhutdinov2006]．
+
+しかしこの方法により訓練されたモデルは深層信念機械というべきものであり，一般的な Boltmzmann 機械とは違った．深層 Boltzmann 機械の訓練法は [@Salakhutdinov-Hinton2009] で確立された．
+
+画像生成の分野においても，生成 CNN (generative ConvNet) [@Xie+2016] 以降，$H_\theta$ のモデリングには深層の [CNN](../Kernels/Deep.qmd#sec-CNN) が用いられるようになっていった．
 
 ### 分配関数
 
@@ -88,6 +98,22 @@ $Z_\theta$ の推定という追加のタスクには，典型的には MCMC が
 
 ２次元の密度推定に対して，FCE (Flow Contrastive Estimation) により学習させた EBM は，[正則化流](NF.qmd) よりも遥かに小さいネットワークサイズで高い性能を示した [@Gao+2020]．
 
+### 推定手法
+
+Contrastive Divergence [-@sec-CD] は漸近的に消えないバイアスを持つ [@Perpinan-Hinton2005] が，SM [-@sec-SM] と NCE [-@sec-NCE] は一致推定量である．
+
+#### スコアマッチング
+
+スコアマッチング（第 [-@sec-SM] 節）のアイデアは，データ分布の密度 $p(x)$ とモデル $p_\theta(x)$ とのスコア関数をマッチングさせることを狙う：
+$$
+\nabla_x\log p(x)=\nabla_x\log p_\theta(x).
+$$
+このとき，両辺を積分すると，正規化条件から $p(x)=p_\theta(x)$ が従う．
+
+この考え方は EBM だけでなく，尤度の評価は困難でも対数尤度の評価は可能である文脈で普遍的に有効である．
+
+例えば [自己符号化器](../Kernels/Deep4.qmd#sec-AE) においても用いられるアイデアである [@Vincent2011], [@Swersku+2011]．
+
 ## 最尤推定 {#sec-ML}
 
 ### 導入
@@ -108,7 +134,7 @@ $$
 $$
 の関係を用いて，$p_\theta$ からのサンプルを用いた Monte Carlo 推定量で評価できる [@Younes1999]．
 
-総じて，確率的勾配降下法によって学習できる．
+正規化定数の不明な密度 $p_\theta$ からのサンプリングといえば，MCMC と SMC である．この Monte Carlo 近似を通じて，確率的勾配降下法によって最尤推定が実行できる．
 
 ### 確率勾配 Langevin 動力学 (SGLD) [@Welling-Teh2011]
 
@@ -117,7 +143,7 @@ $$
 これは [@Hyvarinen2005] のスコア関数^[通常，スコア関数といったとき，微分はパラメータ $\theta$ について取ることに注意．]
 $$
 \nabla_x\log p_\theta(x)=-\nabla_x H_\theta(x)
-$$
+$$ {#eq-score}
 の値から情報を得て，$x$ の空間上で効率的な Markov 連鎖のダイナミクスを構成する方法である．
 
 $H_\theta$ の勾配が急であればあるほど高速に収束するが，[Zig-Zag サンプラー](../Slides/ZigZagSampler.qmd) などの PDMP 手法の方が高速に収束する．
@@ -165,7 +191,7 @@ $$
 
 確かにバッチごとに $\theta$ がアップデートされるため，MCMC の目標分布 $p_\theta$ は取り替える必要があるから，CD-$T$ のように毎回新たな MCMC を回す必要があるように思えるかもしれない．しかし，$\theta$ の更新は総じて大変小さなものであるとすると，真のモデル分布 $p_\theta$ からはずれていくかもしれないが，１つの収束した MCMC からサンプリングし続けた方が良い可能性がある．
 
-更に，完全に同じ MCMC を走らせ続けるというところから，リサンプリングを取り入れて $\theta$ のアップデートに収束性を保ちながら対応することで，GAN に匹敵する性能と，分布の峰を正確に再現できるという GAN にはない美点を獲得できるという [@Du-Mordatch2019]．
+更に，完全に同じ MCMC を走らせ続けるというところから，リサンプリングを取り入れて $\theta$ のアップデートに[収束性を保ちながら]{.underline}対応することで，GAN に匹敵する性能と，分布の峰を正確に再現できるという GAN にはない美点を獲得できるという [@Du-Mordatch2019]．
 
 #### MCMC による生成
 
@@ -187,13 +213,172 @@ $$
 
 #### adversarial CD
 
-尤度 $p_\theta$ の評価を迂回するため，[GAN](../Kernels/Deep3.qmd) にヒントを得た，２つのネットワークを対置させて行う敵対的な学習も考えられている [@Kim-Bengio2016]．
+尤度 $p_\theta$ の評価を迂回するため，[GAN](../Kernels/Deep3.qmd) にヒントを得た [@Finn+2016]，２つのネットワークを対置させて行う敵対的な学習も考えられている [@Kim-Bengio2016]．
 
 ## スコアマッチング [@Hyvarinen2005] {#sec-SM}
 
+### 導入
 
+EBM のスコア関数 ([-@eq-score]) を
+$$
+s_\theta(x):=\nabla_x\log p_\theta(x)=-\nabla_xH_\theta(x)\tag{2}
+$$
+と定め，データ分布 $p$ との Fisher 乖離度を最小化するスキームが [@Hyvarinen2005] の **スコアマッチング** 目的関数である：
+$$
+D_F(p,p_\theta)=\frac{\norm{s-s_\theta}_{L^2(p)}^2}{2}=\E\Square{\frac{1}{2}\ABs{\nabla_x\log p(X)-\nabla_x\log p_\theta(X)}^2}.
+$$ {#eq-SM-objective}
+
+この際，データ分布のスコア $s(x)=\nabla_x\log p(x)$ の計算を回避することが焦点になる．
+
+### 部分積分 [@Hyvarinen2005] {#sec-Hyvarinen2005}
+
+次が成り立つことがあり得る：
+\begin{align*}
+    D_F(p,p_\theta)&=\E\Square{\frac{1}{2}\abs{s_\theta(X)}^2+\div(s_\theta(X))}+(\theta\;\text{に依らない定数})\\
+    &=\E\Square{\frac{1}{2}\abs{\nabla H_\theta(X)}^2-\Lap H_\theta(X)}+(\theta\;\text{に依らない定数})
+\end{align*}
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+\begin{align*}
+    D_F(p,p_\theta)&=\E\Square{\frac{1}{2}\ABs{\nabla_x\log p(x)-\nabla_x\log p_\theta(x)}^2}\\
+    &=\frac{1}{2}\int_{\R^d}\sum_{i=1}^d\paren{\frac{1}{p(x)}\pp{p}{x_i}(x)-s_\theta(x)_i}^2p(x)\,dx\\
+    &=\frac{1}{2}\int_{\R^d}\frac{\abs{Dp}^2}{p}\,dx-\sum_{i=1}^d\int_{\R^d}s_\theta(x)_i\pp{p}{x_i}(x)+\frac{1}{2}\int_{\R^d}\abs{s_\theta(x)}^2p(x)\,dx\\
+    &=\const+\int_{\R^d}\Tr(Ds_\theta)p\,dx+\E\Square{\frac{1}{2}\abs{s_\theta(x)}^2}\\
+    &=\E\Square{\frac{1}{2}\abs{s_\theta(x)}^2+\div(s_\theta(x))}+\const
+\end{align*}
+
+:::
+
+この右辺はデータのスコアを含まないので，$p_\theta$ の２階微分が計算可能ならば計算できるが，データの次元 $d$ に関するスケールは悪い．
+
+加えて，$D_F(p,p_\theta)$ をここから $\theta$ に関して微分することが困難である．独立成分分析モデルを除いて，[@Koster-Hyvarinen2007], [@Koster+2009] などのニューラルネットワークモデルにも応用されたが，画像などの実データに直接適用することは困難であった．特に，$H_\theta$ の勾配と Laplacian を解析的に計算してから実装していた．
+
+### 正則化スコアマッチング (RSM) [@Kingma-LeCun2010]
+
+画像データなどの量子化されたデータの密度 $p(x)$ は可微分ではない上に，有限な台を持ってしまうため $s$ は well-defined ではない．
+
+このような量子化されたデータ $x$ に対して，Gauss ノイズを加えたもの
+$$
+\wt{x}=x+\ep,\qquad\ep\sim\rN(0,\sigma^2I)
+$$
+は連続なデータに変貌する（Gauss 核が軟化子として働く）．
+
+この $\ep$ だけ摂動されたデータの分布 $\wt{p}$ に対して，スコアマッチング目的関数は
+\begin{align*}
+    D_F(\wt{p},p_\theta)&=\E\Square{\frac{1}{2}\abs{\nabla H_\theta}^2-\Lap H_\theta+\frac{\sigma^2}{2}\norm{D^2H_\theta}^2_2}+O(\ep^2)\\
+    &=D_F(p,p_\theta)+\frac{\sigma^2}{2}\E\SQuare{\norm{D^2H_\theta}_2^2}+O(\ep^2)
+\end{align*}
+と表せる [@Kingma-LeCun2010]．
+
+この目的関数は，Hessian $D^2H$ の非対角項を対角項で近似し，結局は元の目的関数に対して正則化項
+$$
+\lambda\Lap H_\theta,\qquad\lambda\approx\frac{\sigma^2}{2}
+$$
+を加えたものとして訓練をする．
+
+さらに [@Kingma-LeCun2010] は，従来のように，解析的に微分が計算可能な $H_\theta$ を採用するのではなく，誤差逆伝播を２回行う Double Backpropagation [@Drucker-LeCun1992] によってこの目的関数の勾配 $\dd{D_F(p,p_\theta)}{\theta}$ を自動微分で計算する方法を提案した．
+
+### Denoising スコアマッチング (DSM) [@Vincent2011]
+
+RSM の場合と違い，次のような展開もできる：
+$$
+D_F(\wt{p},p_\theta)=\frac{1}{2}\E\Square{\Norm{s_\theta(\wt{X})-\frac{X-\wt{X}}{\sigma^2}}^2_2}.
+$$
+
+すなわち，ノイズ消去方向のベクトル $\frac{x-\wt{x}}{\sigma^2}$ に一致するようにモデルのスコア $s_\theta$ を学習することが考えられる．
+
+こうすることで，$D^2H_\theta$ の計算を回避することができる．
+
+ただし，RSM と DSM に共通することであるが，あくまで $D_F(\wt{p},p_\theta)$ はノイズの入ったデータ分布を学習してしまうのであり，$\sigma\to0$ が志向されるが，$\sigma$ が小さいほど $D_F(\wt{p},p_\theta)$ に関する推定は不安定になる．^[$D_F(\wt{p},p_\theta)$ を近似する Monte Carlo 推定量の分散が大きくなる．]
+
+### スライススコアマッチング (SSM) [@Song+2019] {#sec-SSM}
+
+SSM (Sliced Score Matching) [@Song+2019] ではスコアマッチング目的関数 ([-@eq-SM-objective]) 自体を，sliced Fisher 乖離度
+\begin{align*}
+    D_{SF}(p,p_\theta)&=\E\Square{\frac{1}{2}\Paren{V^\top s(X)-V^\top s_\theta(X)}^2}\\
+    &=\E\Square{\frac{1}{2}\sum_{i=1}^d\paren{\pp{H_\theta(X)}{x_i}V_i}^2+\sum_{i,j=1}^d\pp{^2H_\theta(X)}{x_i\partial x_j}V_iV_j}+\const
+\end{align*}
+を最小化する．ただし，$V$ はランダムな $\R^d$ 上のベクトルである．[@Song+2019] では $V\sim\rN_d(0,I_d)$ とすることで Monte Carlo 近似による追加の誤差を回避している．
+
+やはり $D^2H_\theta$ が登場しているように思えるが，
+$$
+\sum_{i,j=1}^d\pp{^2H_\theta}{x_i\partial x_j}V_iV_j=\sum_{i=1}^d\pp{}{x_i}V_i\sum_{j=1}^d\pp{H_\theta}{x_j}V_j=\sum_{i=1}^d\pp{}{x_i}V_i(DH_\theta|V)
+$$
+の表示により，一度内積 $(DH_\theta|V)$ を計算してしまえば，以降，この項は $O(d)$ のオーダーで計算できる．
+
+なお，$V\sim\rN_d(0,I_d)$ と取った際の目的関数 $D_{SF}$ は，元の Fisher 乖離度による目的関数に対して，Hutchinson の跡推定量（[正規化流でも出てきた](NF.qmd#sec-Hutchinson)）により Jacobian $Ds_\theta$ を推定したものとも同一視できる．
+
+### SM 目的関数の理論
+
+スコアマッチングの目的関数 $D_F(p,p_\theta)$ は，Contrastive Divergence のある極限に一致する [@Hyvarinen2007]．
+
+ステップサイズ $\ep>0$ の Langevin Monte Carlo 法により $p_\theta$ からサンプリングした場合の対数尤度の期待値は
+$$
+\E[\nabla_\theta\log p_\theta]=\frac{\ep^2}{2}\nabla_\theta D_F(p,p_\theta)+o(\ep^2)
+$$
+と Monte Carlo 近似されるという [@Hyvarinen2007]．
+
+ここで de Bruijin の関係
+$$
+\dd{}{t}\KL(\wt{p}_t,\wt{p}_{\theta,t})=-\frac{1}{2}D_F(\wt{p}_t,\wt{p}_{\theta,t})
+$$
+に似た消息が生じている [@Lyu2009]．なお，$\wt{p}$ とは，$p,p_\theta$ の分散 $t^2$ を持った Gaussian i.i.d. ノイズによる摂動とする．
+
+## ノイズ対照学習 (NCE) [@Gutmann-Hyvarinen2010] {#sec-NCE}
+
+### 導入
+
+既知の密度 $p_n$ と対置させ，これをノイズとしてデータ分布 $p$ との識別を繰り返すことで学習を行う．
+
+$Y\sim\Ber\paren{\frac{\nu}{1+\nu}}$ に関する混合を
+$$
+\wt{X}:=YX+(1-Y)N,\qquad N\sim p_n,X\sim p,
+$$
+と定め，これに対して混合分布族
+$$
+p_{n,\theta}:=\frac{1}{1+\nu}p_n+\frac{\nu}{1+\nu}p_\theta
+$$
+を KL-乖離度の意味でマッチさせることを目指す．
+
+### ノイズ $p_n$ の選び方
+
+重点サンプリング法の提案分布のように，$p_n$ は真のデータ分布 $p$ に近ければ近いほどよい [@Gutmann-Hirayama2011]．
+
+従って多くの方法では，$p_n$ を適応的に選ぶことが考えられる．
+
+### スコアマッチングによる解釈
+
+$p_n$ を $p$ の摂動
+$$
+p_n(x):=p(x-v)
+$$
+とした場合，$\norm{v}_2\to0$ の極限において，$V$ に関するスライススコアマッチングの目的関数 [-@sec-SSM] に一致する [@Gutmann-Hirayama2011], [@Song+2019]．
+
+
+
+### FCE (Flow Contrastive Estimation) [@Gao+2020]
+
+## その他の訓練方法
+
+### Stein 乖離度
+
+Stein 乖離度は，Fisher 乖離度の１つの $s_\theta$ を動かして得るダイバージェンスである：
+$$
+D_S(p,p_\theta):=\sup_{f\in\F}\E\Square{s_\theta(X)^\top f(X)+\div(f(X))}.
+$$
+
+Fisher 乖離度の難点は発散項の計算が $O(d^2)$ の計算量を持ってしまうことであった．Stein 乖離度はこれをカーネル法の方法で迂回することができる．
+
+$\F$ がある RKHS の単位閉球であった場合，発散項は定数になる [@Chwialkowski+2016], [@Liu+2016]．
+
+### 敵対的な訓練
+
+[@Murphy2023] 24.5.3 も参照．
 
 ## 文献 {.appendix}
+
+Energy-based model は独立成分分析の研究 [@Teh+2003] において命名され，スコアマッチングの [@Hyvarinen2005] も非線型独立成分分析の大家である．
 
 [`Awesome-EBM`](https://github.com/yataobian/awesome-ebm) レポジトリは，種々の EBM のリストを与えている．
 
