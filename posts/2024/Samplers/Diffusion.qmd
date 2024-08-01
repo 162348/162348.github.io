@@ -3,10 +3,12 @@ title: "拡散模型"
 subtitle: "深層生成モデル６"
 author: "司馬 博文"
 date: 2/14/2024
+date-modified: 8/1/2024
 categories: [Deep, Process, Sampling]
 bibliography: 
     - ../../../mathematics.bib
     - ../../../bib.bib
+    - ../../../bib1.bib
 csl: ../../../apalike.csl
 abstract-title: 概要
 abstract: 数学者のために，深層生成モデルの１つである拡散モデルを概観する．
@@ -16,51 +18,130 @@ abstract: 数学者のために，深層生成モデルの１つである拡散�
 
 ## 導入
 
-[@Luo2022]
+### アイデア
 
-### 歴史
+拡散モデルによる画像生成は，初め [@Dickstein+2015] で提案され，[@Ho+2020] で DDPM (Denoising Diffusion Probabilistic Model) として拡張された．^[VideoGPT の論文 [@Yan+2021] や，DALL-E2 の論文 [@Ramesh+2022]，GLIDE の論文 [@Nichol+2022] でも引用されている．]
 
-拡散モデルによる画像生成は，初め [@Dickstein+2015] で提案された．^[VideoGPT の論文 [@Yan+2021] や，DALL-E2 の論文 [@Ramesh+2022]，GLIDE の論文 [@Nichol+2022] でも引用されている．]
+[VAE](../Kernels/Deep4.qmd), [EBM](EBM.qmd), [正則化流](NF.qmd) はいずれもノイズからデータの分布までの変換を学ぼうとするが，拡散模型のアイデアは，**データをノイズにする方向の方が圧倒的に簡単である**ことを利用する．
 
-これをスコアマッチングの手法 [@Hyvarinen2005], [@Vincent2011] と組み合わせたのが NCSN (Noise Conditioned Score Network) [@Song-Ermon2020] や DDPM (Denoising Diffusion Probabilistic Model) [@Ho+2020] である．
+まず訓練データを，完全な Gauss 分布になるような変換を拡散過程によって行う．これを複数段階に分けて実行し，エンコーダー
+$$
+q(x_0,x_T)dx_T=\int\cdots\int q(x_0,x_1)dx_1\cdots q(x_{T-1},x_T)dx_{T-1}
+$$
+を得る．
+
+続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で学習しようというのである．
+
+この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song-Ermon2020] などの方法が提案されている．
 
 この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる [@Huang+2021]．
 
 ### 拡散モデルの例
 
+#### ADM [@Dhariwal-Nichol2021]
+
 ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] は ImageNet データの判別において当時の最先端であった BigGAN [@Brock+2019] の性能を凌駕した．
 
-OpenAI の [GLIDE](https://github.com/openai/glide-text2im) (Guided Language to Image Diffusion for Generation and Editing) [@Nichol+2022] は，[CLIP](https://openai.com/research/clip) という画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．
+そのアーキテクチャには [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] が用いられた．
+
+#### GLIDE [@Nichol+2022]
+
+OpenAI の [GLIDE](https://github.com/openai/glide-text2im) (Guided Language to Image Diffusion for Generation and Editing) [@Nichol+2022] は，[CLIP](https://openai.com/research/clip) (Contrastive Language-Image Pre-training) というトランスフォーマーベースの画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．
 
 Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という拡散モデルを開発している．
 
-[@Yang+2023-Diff] は動画生成に応用している．
+<!-- [@Yang+2023-Diff] は動画生成に応用している． -->
 
-### アイデア {#sec-idea}
-
-[GAN](../Kernels/Deep3.qmd)，[VAE](../Kernels/Deep4.qmd)，[正規化流](NF.qmd) などの生成モデルでは，潜在空間 $\cZ$ からデータの空間 $\cX$ への確率核を深層ニューラルネットワークで学習するのであった．
-
-ニューラルネットワークの表現力は十分高いので，$\cZ$ 上の事前分布は典型的には正規分布が用いられる．
-
-拡散モデルも，全くこの枠組みから逸脱するものではない．
-
-まず訓練データを，完全な Gauss 分布になるような変換を行う．これを複数段階に分けて提示し，この逆過程を学習する．画像においては，[U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] が典型的に用いられる．
-
-並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．
+#### 潜在拡散模型
 
 [VAE](../Kernels/Deep4.qmd) や [GAN](../Kernels/Deep3.qmd) と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．
 
 一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを **潜在拡散モデル** (latent diffusion model) [@Rombach+2022] という．これが [Stable Diffusion](https://ja.stability.ai/stable-diffusion) の元となっている．
 
-### トランスフォーマーとの邂逅
+#### トランスフォーマーとの邂逅
+
+並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．
 
 潜在拡散モデルで [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] を用いていたところをトランスフォーマーに置換した **拡散トランスフォーマー** (DiT: Diffusion Transformer) [@Peebles-Xie2023] が発表された．
 
 その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) [@Ma+2024] が発表された．
 
-## 前向き方向符号化器
+## デノイジング拡散模型 (DDPM) {#sec-DDPM}
 
-## 後ろ向き復号化器
+### 導入
+
+DDPM はエンコーダー $q$ とデコーダー $p_\theta$ がそれぞれ複数層からなるような，階層的 VAE ともみなせる．
+
+加えて，隠れ層は全て入力 $x_0$ と同じ次元 $d$ で作る点は，正則化流にも似ている（可逆とは限らないが）．
+
+また，エンコーダー $q$ は
+$$
+q(x_0,x_T)\,dx_T=\rN_d(0,I_d)
+$$
+を満たすように，ノイズスケジュール $\{\beta_t\}$ の自由度のみを残して
+$$
+q(x_{t-1},x_t)\,dx_t:=\rN_d\paren{\sqrt{1-\beta_t}x_{t-1},\beta_tI_d},\qquad\beta_t\in(0,1),
+$$
+で固定し，学習すべきパラメータは入れない．
+
+
+### デコーダーの設計
+
+次の分布は解析的に求まる：
+$$
+q((x_t,x_0),x_{t-1})\,dx_{t-1}:=\rN_d\paren{\wt{\mu}_t(x_t,x_0),\wt{\beta}_tI_d}.
+$$
+
+このことに基づいて，
+$$
+p_\theta(x_t,x_{t-1})=\rN_d\Paren{\mu_\theta(x_t,t),\Sigma_\theta(x_t,t)},\qquad\Sigma_\theta(x_t,t):=\sigma_t^2I_d,
+$$
+とモデリングする．さらに $\sigma^2_t\in\{\beta_t,\wt{\beta}_t\}$ としてしまうことも多い．
+
+総じて，データ分布を
+$$
+p_\theta(x_0):=\int_{\R^{d(T-1)}}p(x_T)p_\theta(x_T,x_{T-1})\cdots p_\theta(x_1,x_0)dx_{T-1}\cdots dx_1
+$$
+としてモデリングする．ただし，$p(x_T)\,dx_T=\rN_d(0,I_d)$．
+
+### 変分推論
+
+このモデルの対数尤度は，次のように下から評価できる：
+\begin{align*}
+    \log p_\theta(x_0)&=\log\int_{\R^{d(T-1)}}p_\theta(x_{0:T})\,dx_{1:T}\\
+    &=\log\paren{\int_{\R^{d(T-1)}}\frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}q(x_{1:T}|x_0)\,dx_{1:T}}\\
+    &\ge\int_{\R^{d(T-1)}}\log\paren{p(x_T)\prod_{t=1}^T\frac{p_\theta(x_{t-1}|x_t)}{q(x_t|x_{t-1})}}q(x_{1:T}|x_0)\,dx_{1:T}=:-\L(x_0)
+\end{align*}
+
+このとき，
+$$
+\L(x_0)=\KL\Paren{q(x_T|x_0),p(x_T)}+\sum_{t=2}^T\int_{\R^d}\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}q(x_t|x_0)\,dx_t-\int_{\R^d}\log p_\theta(x_0|x_1)q(x_1|x_0)\,dx_1
+$$
+と展開できるが，登場する密度は全て正規密度であるため，全て計算できる．
+
+だが [@Ho+2020] では，実際の訓練は正確な変分推論を実行するのではなく，この $\L(x_0)$ を簡略化したもの
+$$
+L'=\norm{\ep-\ep_0(X_t,t)}^2,\qquad t\sim\rU([T]),x_t\sim q_0(X_t),
+$$
+を用いた．[@Choi+2022] この議論をさらに進めている．
+
+### Variational Diffusion Model (VDM) [@Kingma+2021]
+
+VDM では正確に $\L(x_0)$ を最小化し，真の変分推論を実行することを試みる．
+
+エンコーダーの平均と分散
+$$
+q(x_t|x_0)=\rN_d\Paren{\wh{\al}_tx_0,\wh{\sigma}_t^2I_d}
+$$
+に関して $\L(x_0)$ を最適化する．これは SNR (Signal-to-Noise Ratio)
+$$
+R(t)=\frac{\wh{\al}_t^2}{\wh{\sigma}_t^2}=:e^{-\gamma_\phi(t)}
+$$
+をモデリングすることに等しく，$\gamma_\phi$ のモデリングにニューラルネットワークを用いることを考える．
+
+[@Kingma+2021] はこのようにして正確な目的関数を定義し直し，さらにこれを推定する際に QMC によるより分散の小さい Monte Carlo 推定量を用いることを提案した．
+
+
 
 ## スコアマッチング
 
@@ -72,3 +153,10 @@ Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という�
 
 連続時間極限を取ることで，拡散過程が現れる [@Tzen-Raginsky2019], [@Song+2021ICLR]．
 
+## 参考文献 {.appendix}
+
+[`Awesome-Diffusion-Models`](https://github.com/diff-usion/Awesome-Diffusion-Models)，[What's the score?](https://scorebasedgenerativemodeling.github.io/)．
+
+良いサーベイには次がある：[@Luo2022]，[@McAllester2023]．
+
+古くからあり，すでに出版されているものには，[@Yang+2023], CVPR のチュートリアルが [@Kreis+2022], [@Song+2023]．
