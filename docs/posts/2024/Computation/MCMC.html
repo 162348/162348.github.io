@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.549">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬博文">
+<meta name="keywords" content="マルコフ連鎖モンテカルロ法（MCMC）, 区分的確定的マルコフ過程（PDMP: piecewise deterministic Markov process）, 非対称メトロポリス法（Lifted Metropolis-Hastings）">
+
+<title>Hirofumi Shiba - 新時代の MCMC を迎えるために</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="Hirofumi Shiba - 新時代の MCMC を迎えるために">
+<meta property="og:description" content="物質科学を震源地とする MCMC のイノベーションが，統計力学と統計学の分野に波及して来ています．その結果，ここ 10 年で急激に MCMC 手法の革新が起こりました．従来 MCMC が離散時間ベースだったところが，イベントベースかつ連続時間ベースなものにとって替わられようとしているのです．これら連続時間 MCMC はどのような手法なのか？従来法を超えるのか？どのような場面で使えるのか？……等々疑問は尽きません．この新たな手法を正しく受け止めるために，現状の MCMC への理解から，新手法がどのように生まれたかの軌跡を辿り，現状の理解を確かめます．">
+<meta property="og:image" content="https://162348.github.io/static/Posters/ISM-OH2024.jpg">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta name="twitter:title" content="Hirofumi Shiba - 新時代の MCMC を迎えるために">
+<meta name="twitter:description" content="物質科学を震源地とする MCMC のイノベーションが，統計力学と統計学の分野に波及して来ています．その結果，ここ 10 年で急激に MCMC 手法の革新が起こりました．従来 MCMC が離散時間ベースだったところが，イベントベースかつ連続時間ベースなものにとって替わられようとしているのです．これら連続時間 MCMC はどのような手法なのか？従来法を超えるのか？どのような場面で使えるのか？……等々疑問は尽きません．この新たな手法を正しく受け止めるために，現状の MCMC への理解から，新手法がどのように生まれたかの軌跡を辿り，現状の理解を確かめます．">
+<meta name="twitter:image" content="https://162348.github.io/static/Posters/ISM-OH2024.jpg">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+          <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">新時代の MCMC を迎えるために</h1>
+            <p class="subtitle lead">連続時間アルゴリズムへの進化</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">MCMC</div>
+                <div class="quarto-category">Sampling</div>
+                <div class="quarto-category">Poster</div>
+              </div>
+                  </div>
+  </div>
+    
+  <div class="quarto-title-meta-author">
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-heading">Affiliation</div>
+    
+      <div class="quarto-title-meta-contents">
+      <p class="author">司馬博文 <a href="https://orcid.org/0009-0007-8251-1224" class="quarto-title-author-orcid"> <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDo1N0NEMjA4MDI1MjA2ODExOTk0QzkzNTEzRjZEQTg1NyIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDozM0NDOEJGNEZGNTcxMUUxODdBOEVCODg2RjdCQ0QwOSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDozM0NDOEJGM0ZGNTcxMUUxODdBOEVCODg2RjdCQ0QwOSIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M1IE1hY2ludG9zaCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkZDN0YxMTc0MDcyMDY4MTE5NUZFRDc5MUM2MUUwNEREIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjU3Q0QyMDgwMjUyMDY4MTE5OTRDOTM1MTNGNkRBODU3Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+84NovQAAAR1JREFUeNpiZEADy85ZJgCpeCB2QJM6AMQLo4yOL0AWZETSqACk1gOxAQN+cAGIA4EGPQBxmJA0nwdpjjQ8xqArmczw5tMHXAaALDgP1QMxAGqzAAPxQACqh4ER6uf5MBlkm0X4EGayMfMw/Pr7Bd2gRBZogMFBrv01hisv5jLsv9nLAPIOMnjy8RDDyYctyAbFM2EJbRQw+aAWw/LzVgx7b+cwCHKqMhjJFCBLOzAR6+lXX84xnHjYyqAo5IUizkRCwIENQQckGSDGY4TVgAPEaraQr2a4/24bSuoExcJCfAEJihXkWDj3ZAKy9EJGaEo8T0QSxkjSwORsCAuDQCD+QILmD1A9kECEZgxDaEZhICIzGcIyEyOl2RkgwAAhkmC+eAm0TAAAAABJRU5ErkJggg=="></a></p>
+    </div>
+    <div class="quarto-title-meta-contents">
+          <p class="affiliation">
+              <a href="https://www.ism.ac.jp/senkou/">
+              総合研究大学院大学先端学術院（統計科学コース）
+              </a>
+            </p>
+        </div>
+    </div>
+
+  <div class="quarto-title-meta">
+
+        
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">5/24/2024</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      物質科学を震源地とする MCMC のイノベーションが，統計力学と統計学の分野に波及して来ています．その結果，ここ 10 年で急激に MCMC 手法の革新が起こりました．従来 MCMC が離散時間ベースだったところが，イベントベースかつ連続時間ベースなものにとって替わられようとしているのです．これら連続時間 MCMC はどのような手法なのか？従来法を超えるのか？どのような場面で使えるのか？……等々疑問は尽きません．この新たな手法を正しく受け止めるために，現状の MCMC への理解から，新手法がどのように生まれたかの軌跡を辿り，現状の理解を確かめます．
+    </div>
+  </div>
+
+  <div>
+    <div class="keywords">
+      <div class="block-title">Keywords</div>
+      <p>マルコフ連鎖モンテカルロ法（MCMC）, 区分的確定的マルコフ過程（PDMP: piecewise deterministic Markov process）, 非対称メトロポリス法（Lifted Metropolis-Hastings）</p>
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
+  <ul class="collapse">
+  <li><a href="#mcmc-小史" id="toc-mcmc-小史" class="nav-link" data-scroll-target="#mcmc-小史"><span class="header-section-number">1.1</span> MCMC 小史</a></li>
+  <li><a href="#mcmc-とは何か" id="toc-mcmc-とは何か" class="nav-link" data-scroll-target="#mcmc-とは何か"><span class="header-section-number">1.2</span> MCMC とは何か？</a></li>
+  <li><a href="#sec-figs" id="toc-sec-figs" class="nav-link" data-scroll-target="#sec-figs"><span class="header-section-number">1.3</span> 自己相関・軌跡の一覧</a></li>
+  </ul></li>
+  <li><a href="#sec-origin" id="toc-sec-origin" class="nav-link" data-scroll-target="#sec-origin"><span class="header-section-number">2</span> MCMC の起源</a>
+  <ul class="collapse">
+  <li><a href="#sec-MD" id="toc-sec-MD" class="nav-link" data-scroll-target="#sec-MD"><span class="header-section-number">2.1</span> 分子動力学法</a></li>
+  <li><a href="#sec-MH" id="toc-sec-MH" class="nav-link" data-scroll-target="#sec-MH"><span class="header-section-number">2.2</span> Metropolis 法</a></li>
+  <li><a href="#統計学への応用" id="toc-統計学への応用" class="nav-link" data-scroll-target="#統計学への応用"><span class="header-section-number">2.3</span> 統計学への応用</a></li>
+  </ul></li>
+  <li><a href="#sec-LMH" id="toc-sec-LMH" class="nav-link" data-scroll-target="#sec-LMH"><span class="header-section-number">3</span> 非対称化への試み</a>
+  <ul class="collapse">
+  <li><a href="#対称性という制約" id="toc-対称性という制約" class="nav-link" data-scroll-target="#対称性という制約"><span class="header-section-number">3.1</span> 対称性という制約</a></li>
+  <li><a href="#リフティング" id="toc-リフティング" class="nav-link" data-scroll-target="#リフティング"><span class="header-section-number">3.2</span> リフティング</a></li>
+  <li><a href="#リフティングの有用性" id="toc-リフティングの有用性" class="nav-link" data-scroll-target="#リフティングの有用性"><span class="header-section-number">3.3</span> リフティングの有用性</a></li>
+  </ul></li>
+  <li><a href="#sec-PDMP" id="toc-sec-PDMP" class="nav-link" data-scroll-target="#sec-PDMP"><span class="header-section-number">4</span> 新たな MCMC</a>
+  <ul class="collapse">
+  <li><a href="#背後の物理現象からの更なる離陸" id="toc-背後の物理現象からの更なる離陸" class="nav-link" data-scroll-target="#背後の物理現象からの更なる離陸"><span class="header-section-number">4.1</span> 背後の物理現象からの更なる離陸</a></li>
+  <li><a href="#連続時間-mcmc" id="toc-連続時間-mcmc" class="nav-link" data-scroll-target="#連続時間-mcmc"><span class="header-section-number">4.2</span> 連続時間 MCMC</a></li>
+  <li><a href="#sec-PDMP-advantages" id="toc-sec-PDMP-advantages" class="nav-link" data-scroll-target="#sec-PDMP-advantages"><span class="header-section-number">4.3</span> 連続時間 MCMC の美点</a></li>
+  </ul></li>
+  
+  
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../../../static/Posters/ISM-OH2024.pdf"><img src="../../../static/Posters/ISM-OH2024.jpg" class="img-fluid figure-img" style="width:50.0%" alt="「新時代の MCMC を迎えるために」統数研オープンハウス（タップで PDF 閲覧）"></a></p>
+<figcaption>「新時代の MCMC を迎えるために」統数研オープンハウス（タップで PDF 閲覧）</figcaption>
+</figure>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>以下は，5月24日 10:30~12:30 （コアタイム：10:30~11:10）に行われた <a href="../../../static/Sessions.html#sec-ISM-openhouse2024">2024年度統数研オープンハウス</a> ポスターセッション（掲載 No.&nbsp;E1）に於て発表されたポスターに関する解説記事です．</p>
+</div>
+</div>
+</div>
+<section id="導入" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<section id="mcmc-小史" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="mcmc-小史"><span class="header-section-number">1.1</span> MCMC 小史</h3>
+<p>現状，HMC (Hamiltonian Monte Carlo) という約 40 年前に提案された MCMC 手法が，Stan などの確率的プログラミング言語のデフォルト MCMC 手法として採用されています．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>この手法はもともと <span class="citation" data-cites="Duane+1987">(<a href="#ref-Duane+1987" role="doc-biblioref">Duane et al., 1987</a>)</span> が場の量子論に特化した Monte Carlo 法として提案したものであったところを，<span class="citation" data-cites="Neal1994">(<a href="#ref-Neal1994" role="doc-biblioref">Neal, 1994</a>)</span> が一般の統計モデルに適用可能な形式に翻訳する形で提案されたものでした．</p>
+<p>ということで，HMC は，オリジナルの MCMC が物理学者 <span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> に由るように，物理学において着想された MCMC 手法であったのです．</p>
+<p><strong>そのHMC が，提案から 40 年目を迎える前に，更なる効率的な手法によって代替されようとしています</strong>．</p>
+<p>そのきっかけ <span class="citation" data-cites="Peters-deWith2012">(<a href="#ref-Peters-deWith2012" role="doc-biblioref">Peters and de&nbsp;With, 2012</a>)</span> も，やはり，物理学（正確には物質科学）からの着想でした．</p>
+</section>
+<section id="mcmc-とは何か" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="mcmc-とは何か"><span class="header-section-number">1.2</span> MCMC とは何か？</h3>
+<p>MCMC とは，確率変数をシミュレーションする際に用いられる汎用的アルゴリズムです．</p>
+<p>一様分布や正規分布などの名前がついた分布ではない場合，どのようにすればその分布に従う確率変数をシミュレーションできるのか？は，古くからの問題でした．</p>
+<p>実際，「MCMC では空間を探索するマルコフ連鎖を構成し，その足跡を辿るとちょうど確率変数のシミュレーションになっている」と種明かしを聞いても，「なぜそのような回りくどい方法を使うのか？」「もっと良い方法はないのか？」と思っても当然でしょう．</p>
+<p>ですが，MCMC を，発明された経緯を辿り，物理学の問題意識から見てみると，実は極めて自然な発想に思えてくるかもしれません．</p>
+<p>以降，MCMC の起源である物理系のシミュレーション（第 <a href="#sec-origin" class="quarto-xref">2</a> 節）を例に取り，分子動力学法（第 <a href="#sec-MD" class="quarto-xref">2.1</a> 節），Metropolis 法（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）を復習します．</p>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-md-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>分子動力学法の出力（第 <a href="#sec-MD" class="quarto-xref">2.1</a> 節）<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>Metropolis 法の出力（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p>これを基礎として，近年提案された非対称な MCMC 手法（第 <a href="#sec-LMH" class="quarto-xref">3</a> 章），そして最新の連続時間 MCMC 手法（第 <a href="#sec-PDMP" class="quarto-xref">4</a> 章）を紹介します．</p>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>非対称 MCMC 法（Lifted Metropolis 法）の出力（第 <a href="#sec-LMH" class="quarto-xref">3</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>連続時間 MCMC 法（Zig-Zag サンプラー）の出力（第 <a href="#sec-PDMP" class="quarto-xref">4</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-figs" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-figs"><span class="header-section-number">1.3</span> 自己相関・軌跡の一覧</h3>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-auto-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>Metropolis 法の自己相関関数（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-auto-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>非対称 MCMC 法（Lifted Metropolis 法）の自己相関関数（第 <a href="#sec-LMH" class="quarto-xref">3</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-auto-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>連続時間 MCMC 法（Zig-Zag サンプラー）の自己相関関数（第 <a href="#sec-PDMP" class="quarto-xref">4</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-1-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>Metropolis 法の軌跡（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-4-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>非対称 MCMC 法（Lifted Metropolis 法）の軌跡（第 <a href="#sec-LMH" class="quarto-xref">3</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-6-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>連続時間 MCMC 法（Zig-Zag サンプラー）の軌跡（第 <a href="#sec-PDMP" class="quarto-xref">4</a> 章）</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<!--
+
+### Comparison
+
+::: {layout-ncol=3}
+![Autocorrelation of the random walk Metropolis algorithm from section [-@sec-MH]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-mh-auto-output-1.png)
+
+![Autocorrelation of the lifted Metropolis algorithm from chapter [-@sec-LMH]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-lmh-auto-output-1.png)
+
+![Autocorrelation of the Zig-Zag sampler from chapter [-@sec-PDMP]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-pdmp-auto-output-1.png)
+:::
+
+::: {layout-ncol=3}
+![Trajectory of the random walk Metropolis algorithm from section [-@sec-MH]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-1-output-1.png)
+
+![Trajectory of the lifted Metropolis algorithm from chapter [-@sec-LMH]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-4-output-1.png)
+
+![Trajectory of the Zig-Zag sampler from chapter [-@sec-PDMP]](../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-6-output-1.png)
+:::
+
+-->
+</section>
+</section>
+<section id="sec-origin" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-origin"><span class="header-section-number">2</span> MCMC の起源</h2>
+<div class="callout callout-style-default callout-caution callout-titled" title="よりみち：どうして MCMC が必要だったのか？">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+よりみち：どうして MCMC が必要だったのか？
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> では，温度 <span class="math inline">\(T\)</span> 一定の条件下で <span class="math inline">\(N\)</span> 粒子系をシミュレートし，任意の物理量 <span class="math inline">\(F\)</span> に対してその相空間上の平均 <span class="math display">\[
+\langle F\rangle=\frac{\int Fe^{-\frac{E}{kT}}dp}{\int e^{-\frac{E}{kT}}dp}
+\]</span> を効率的に計算する汎用アルゴリズムが提案された．これが現在では Metropolis 法と呼ばれている．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p><span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> では <span class="math inline">\(N\)</span> が数百になる場合を考えており（時代を感じるスケール感），当然愚直な数値積分は現代の計算機でも実行可能ではない．そこで Monte Carlo 法を考えることになるが，当時 Monte Carlo 法といえば，一様乱数を用いた計算法の全般を指し，具体的には <span class="math inline">\(\langle F\rangle\)</span> を重点サンプリング推定量 <span class="math display">\[
+\widehat{F}=\frac{\sum_{n=1}^NF(\omega)e^{-\frac{E(\omega)}{kT}}}{\sum_{n=1}^Ne^{-\frac{E(\omega)}{kT}}}
+\]</span> で推定することを指した．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>しかしこれでは，高エネルギーな状態・低エネルギーな状態を全く区別せず，状態 <span class="math inline">\(\omega\in\Omega\)</span> を完全に一様に生成するため，その分だけ非効率である．</p>
+<p>これを低減することが出来れば Monte Carlo 法の更なる効率改善に繋がる．こうして，Gibbs 分布 <span class="math inline">\(\frac{1}{Z}e^{-\frac{E}{kT}}\)</span> から直接的サンプリングする方法が模索されたのである．</p>
+</div>
+</div>
+</div>
+<p><span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> では，エネルギー <span class="math inline">\(E\)</span> を持つ系の Boltzmann-Gibbs 分布 <span class="math inline">\(\frac{1}{Z}e^{-\frac{E}{kT}}\)</span> から直接サンプリングする方法が探求されました．</p>
+<p>ここでは簡単のため，１粒子が次のようなポテンシャル <span class="math display">\[
+U(x)=\frac{x^2}{2}+\frac{x^4}{4}
+\]</span> に従って運動する場合を考えましょう：</p>
+<div id="fig-2" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="Files/potential.svg" class="img-fluid figure-img" style="width:50.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1: ポテンシャル <span class="math inline">\(U\)</span> のプロット
+</figcaption>
+</figure>
+</div>
+<p>このポテンシャルに関する Boltzmann-Gibbs 分布 <span class="math inline">\(\pi\,\propto\,e^{-\beta U}\)</span> は次のような形になります：<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<div id="fig-3" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="Files/Gibbs.svg" class="img-fluid figure-img" style="width:50.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;2: ポテンシャル <span class="math inline">\(U\)</span> が定める Botlzmann-Gibbs 分布のプロット
+</figcaption>
+</figure>
+</div>
+<!--
+```
+\begin{tikzpicture}
+\begin{axis}[
+    axis lines = middle,
+    axis line style={->},
+    xlabel = $x$,
+    ylabel = {$e^{-\beta U(x)}$},
+    xlabel style={at={(ticklabel* cs:1)}, anchor=north west},
+    ylabel style={at={(ticklabel* cs:1)}, anchor=south west},
+    xmin=-1.2, xmax=1.2,
+    ymin=0, ymax=1,
+    xtick distance=1,
+    ytick=\empty,
+    grid=both,
+    grid style={gray!30, dashed},
+    minor tick num=1,
+    width=10cm,
+    height=8cm,
+    legend pos=north east,
+    legend cell align=left,
+    legend style={fill=white, fill opacity=0.8, draw opacity=1, text opacity=1, font=\small},
+]
+\addplot[domain=-2:2, samples=100, smooth, thick, minty] {exp(-x^2 - x^4)};
+\addlegendentry{$y = e^{-\frac{U(x)}{kT}}$}
+\end{axis}
+\end{tikzpicture}
+```
+-->
+<p>２つのプロットを見比べると，低エネルギー状態ほど出現確率が高く，エネルギーが上がるにつれて急激に出現確率が下がることがわかります．以降，<span class="math inline">\(\beta=1\)</span> としましょう．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<section id="sec-MD" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="sec-MD"><span class="header-section-number">2.1</span> 分子動力学法</h3>
+<p>統計力学によれば，<span class="math inline">\(\beta=1\)</span> で定まる温度とポテンシャル <span class="math inline">\(U\)</span> を持つ Boltzmann-Gibbs 分布 <span class="math inline">\(e^{-U}\)</span> は，温度 <span class="math inline">\(T=\frac{1}{k_B\beta}\)</span> を持つ熱浴に接している力学系を，長時間シミュレーションして時間平均を取ることでサンプリングできるはずです．</p>
+<p>このように，力学に基づいて物理過程を数値シミュレーションをすることを通じてサンプリングを達成する方法を <a href="https://ja.wikipedia.org/wiki/%E5%88%86%E5%AD%90%E5%8B%95%E5%8A%9B%E5%AD%A6%E6%B3%95"><strong>分子動力学法</strong></a> といいます．</p>
+<p>これを実際にやってみます．図 <a href="#fig-2" class="quarto-xref">1</a> で定めたポテンシャルを持つ粒子を考えます．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+<p>続いてこれを温度 <span class="math inline">\(T=\frac{1}{k_B\beta}\)</span> を持つ熱浴と相互作用させます．例えば，ポテンシャル <a href="#fig-2" class="quarto-xref">1</a> の <span class="math inline">\(x=0\)</span> の位置に半透性の壁を置き，確率 <span class="math inline">\(1/2\)</span> でこの温度 <span class="math inline">\(T\)</span> の壁の粒子と弾性衝突するとします．（残りの確率 <span class="math inline">\(1/2\)</span> では衝突せずに通過する）．</p>
+<p>壁の粒子の速度は Maxwell の境界条件から与えられるものとすれば，次のようにして粒子の位置 <span class="math inline">\(x\)</span> がシミュレートできます：<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+<div id="6a188eda" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">2024</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> U(x):</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x<span class="op">**</span><span class="dv">2</span><span class="op">/</span><span class="dv">2</span> <span class="op">+</span> x<span class="op">**</span><span class="dv">4</span><span class="op">/</span><span class="dv">4</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> pi(x):</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.exp(<span class="op">-</span>U(x))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> md(num_samples, initial_state, initial_velocity, timestep<span class="op">=</span><span class="fl">0.1</span>):</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    samples <span class="op">=</span> [initial_state]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    current_state <span class="op">=</span> initial_state</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    current_velocity <span class="op">=</span> initial_velocity</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    current_time <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(num_samples <span class="op">-</span> <span class="dv">1</span>):</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        proposed_state <span class="op">=</span> current_state <span class="op">+</span> current_velocity <span class="op">*</span> timestep</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        current_time <span class="op">+=</span> timestep</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> current_state <span class="op">*</span> proposed_state <span class="op">&lt;</span> <span class="dv">0</span> <span class="kw">and</span> np.random.rand() <span class="op">&lt;</span> <span class="dv">1</span><span class="op">/</span><span class="dv">2</span>:</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>            current_velocity <span class="op">=</span> (<span class="op">-</span><span class="dv">1</span>) <span class="op">*</span> np.sign(current_velocity) <span class="op">*</span> np.sqrt(<span class="op">-</span><span class="dv">2</span> <span class="op">*</span> np.log(np.random.rand() <span class="op">+</span> <span class="fl">1e-7</span>))</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>            current_velocity <span class="op">=</span> current_velocity <span class="op">-</span> ( current_state <span class="op">+</span> current_state <span class="op">**</span> <span class="dv">3</span> ) <span class="op">*</span> timestep</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>            current_state <span class="op">=</span> proposed_state</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        samples.append(current_state)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(samples)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="co"># サンプル数と初期条件を固定</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>num_samples <span class="op">=</span> <span class="dv">10000</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>initial_state <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>initial_velocity <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>samples_MD <span class="op">=</span> md(num_samples <span class="op">*</span> <span class="dv">10</span>, initial_state, initial_velocity, timestep<span class="op">=</span><span class="fl">0.01</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="cell-fig-MD" class="cell" data-execution_count="4">
+<div class="cell-output cell-output-display">
+<div id="fig-md" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-md-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-md-output-1.png" width="310" height="263" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-md-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;3: 分子動力学法からのサンプル
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>この方法は極めて収束が遅く，イテレーション数を <span class="math inline">\(10^6\)</span> 以上に取らないと目標分布 <span class="math inline">\(e^{-U}\)</span> の良い近似とならないことを思い知りました（上図も <span class="math inline">\(10^6\)</span> サンプルで生成しています）．なお，以降の MCMC 法ではいずれもイテレーション数は一桁少ない <span class="math inline">\(10^5\)</span> としています．</p>
+<div id="9e0cfac4" class="cell" data-execution_count="5">
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="MCMC_files/figure-html/cell-5-output-1.png" width="329" height="287" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>たしかに，目標分布 <span class="math inline">\(e^{-U}\)</span> に収束しそうですね．</p>
+</section>
+<section id="sec-MH" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-MH"><span class="header-section-number">2.2</span> Metropolis 法</h3>
+<p>もちろん，分布 <span class="math inline">\(e^{-U}\)</span> をサンプリングするために，必ずしも背景にある物理過程まで戻ってシミュレーションをする必要はありません．</p>
+<p>そこで，シミュレーションは簡単なランダムウォークで行い，その結果を適切に修正することで目標分布に収束させる方法が <span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> で考えられました．</p>
+<p><span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> の手法は，現在では random walk Metropolis-Hastings 法と呼ばれます．</p>
+<p>この背後の物理現象から離陸する一歩が，分子動力学法と MCMC 法とを分けるものでした．</p>
+<div id="ec4740b2" class="cell" data-execution_count="6">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> metropolis(num_samples, initial_state, verbose<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    samples <span class="op">=</span> [initial_state]</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    current_state <span class="op">=</span> initial_state</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    accept <span class="op">=</span> []</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(num_samples <span class="op">-</span> <span class="dv">1</span>):</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        proposed_state <span class="op">=</span> current_state <span class="op">+</span> np.random.uniform(<span class="op">-</span><span class="dv">2</span>,<span class="dv">2</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        acceptance_ratio <span class="op">=</span> pi(proposed_state) <span class="op">/</span> pi(current_state)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> np.random.rand() <span class="op">&lt;</span> acceptance_ratio:</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            current_state <span class="op">=</span> proposed_state</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            accept.append(<span class="va">True</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        samples.append(current_state)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> verbose:</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        rate <span class="op">=</span> <span class="bu">len</span>(accept) <span class="op">/</span> num_samples</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'acceptance rate : </span><span class="sc">{</span>rate<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(samples)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div id="cell-fig-MH" class="cell" data-execution_count="7">
+<div class="cell-output cell-output-display">
+<div id="fig-mh" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mh-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-mh-output-1.png" width="310" height="266" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mh-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;4: Metropolis 法からのサンプル
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>サンプル数は分子動力学法の <span class="math inline">\(1/10\)</span> であるにも拘らず，目標分布 <span class="math inline">\(e^{-U}\)</span> の良い近似を得ています．</p>
+<p>一般に，MCMC からのサンプルの質の良さは，<a href="https://ja.wikipedia.org/wiki/%E8%87%AA%E5%B7%B1%E7%9B%B8%E9%96%A2">自己相関関数</a> を見ることで評価できます．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+<p>Metropolis 法の自己相関関数を計算してみると，横軸の Lag が大きくなればなるほど Autocorrelation の値は小さくなっています．</p>
+<div id="cell-fig-MH-auto" class="cell" data-execution_count="8">
+<div class="cell-output cell-output-display">
+<div id="fig-mh-auto" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mh-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-mh-auto-output-1.png" width="328" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mh-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;5: Metropolis 法の自己相関関数
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div id="cell-fig-1" class="cell" data-execution_count="9">
+<div class="cell-output cell-output-display">
+<div id="fig-1" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-1-output-1.png" width="324" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;6: Metropolis 法の軌跡
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>上図は Metropolis 法で構成される Markov 連鎖の軌跡を表しています．行ったり来たりしているのがわかります．棄却率は５割弱です．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+</section>
+<section id="統計学への応用" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="統計学への応用"><span class="header-section-number">2.3</span> 統計学への応用</h3>
+<p>こうして MCMC が発明されれば，すぐにイノベーションとして理解されたかというとそうではありませんでした．</p>
+<p>この Metropolis の手法が極めて賢いシミュレーション手法であることは一目瞭然でも，一般の確率分布からのサンプリングに使える汎用アルゴリズムになっているという抽象的な観点が得られるまでには時間を要しました．これを成し遂げたのが <span class="citation" data-cites="Hastings1970">(<a href="#ref-Hastings1970" role="doc-biblioref">Hastings, 1970</a>)</span> でした．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+<p>さらに，Hastings のこの結果も見過ごされたと言って良いでしょう．真にMCMC を統計学界隈に広め，現代におけるベイズ統計学の興隆の契機となったのは階層モデリングにおける Gibbs サンプリングの有用性を強調した <span class="citation" data-cites="Gelfand-Smith1990">(<a href="#ref-Gelfand-Smith1990" role="doc-biblioref">Gelfand and Smith, 1990</a>)</span> だと言われます．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
+<p>当時，代替手法としては複雑な数値アルゴリズムしかなかったベイズ統計学において，MCMC は汎用的で実装も容易であることが周知され，ベイズ統計学が普及するきっかけとなりました．</p>
+</section>
+</section>
+<section id="sec-LMH" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-LMH"><span class="header-section-number">3</span> 非対称化への試み</h2>
+<section id="対称性という制約" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="対称性という制約"><span class="header-section-number">3.1</span> 対称性という制約</h3>
+<p>ここでもう一度 Metropolis 法の軌跡 <a href="#fig-1" class="quarto-xref">図&nbsp;6</a> を見てみましょう．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-1-output-1.png" class="img-fluid figure-img" style="width:3.19444in"></p>
+<figcaption><a href="#fig-1" class="quarto-xref">図&nbsp;6</a> Metropolis 法の軌跡</figcaption>
+</figure>
+</div>
+<p>最初の 50 サンプルしか表示していませんから，運が悪いとうまく見つからないかもしれませんが，「一度歩んだルートを，その後すぐに逆に戻ってしまう」という事象が発生しやすいことが観察できますでしょうか？</p>
+<p>これを <strong>対称性</strong> (reversibility) または <strong>可逆性</strong> と言います．</p>
+<p>Metropolis 法は構成上，この対称性を持つことが必要ですが，対称であるが故に一箇所に長時間とどまってしまうことが多くなります．</p>
+<p>その結果，対象分布が複雑で多峰性を持つ場合は，もっといろんなモード（峰）からもサンプリングをしてほしいのに，長時間１つの峰から離れられずにいることがあります．</p>
+<p>コーヒーに砂糖を溶かすことを考えてみましょう．砂糖の粒が拡散するのに任せておくと，最終的には均一に溶けるでしょうが，莫大な時間がかかります．スプーンで混ぜるなどして，砂糖が元の場所にとどまらずに移動し続けるようにすれば，はるかに速く平衡状態に到達できるでしょう．</p>
+<p>これが <strong>非対称化</strong> のアイデアです．数ある Metropolis 法の改良の方向の中でも，この対称性を破るという試みは特に注目されてきました．</p>
+</section>
+<section id="リフティング" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="リフティング"><span class="header-section-number">3.2</span> リフティング</h3>
+<p>Metropolis 法を非対称化するアプローチに，<strong>リフティング</strong> <span class="citation" data-cites="Chen+1999">(<a href="#ref-Chen+1999" role="doc-biblioref">Chen et al., 1999</a>)</span> と呼ばれる方法があります．</p>
+<p>これは，元々の状態空間を２つの「モード」<span class="math inline">\(+1\)</span> と <span class="math inline">\(-1\)</span> に分裂させ，<span class="math inline">\(+1\)</span> のモードではひたすら右側に，<span class="math inline">\(-1\)</span> のモードではひたすら左側に移動するようする方法です．</p>
+<p>２つのモード <span class="math inline">\(+1,-1\)</span> の間を遷移する確率を調整することで，最終的な不変分布は変わらないようにすることができます．</p>
+<p>こうすることで，対称性を破り，一度「この方向に行く！」と決めたら行き続けるようにしながら，収束先は変わらないように変更することが出来るのです．</p>
+<p>実際に Metropolis 法に適用した Lifted Metropolis-Hastings 法 <span class="citation" data-cites="Turitsyn+2011">(<a href="#ref-Turitsyn+2011" role="doc-biblioref">Turitsyn et al., 2011</a>)</span> を実装してみましょう：</p>
+<div id="d3b8771a" class="cell" data-execution_count="10">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> lifted_metropolis(num_samples, initial_state, verbose<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    samples <span class="op">=</span> [initial_state]</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    current_state <span class="op">=</span> initial_state</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    lifting_variable <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    accept <span class="op">=</span> []</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(num_samples <span class="op">-</span> <span class="dv">1</span>):</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        delta <span class="op">=</span> np.random.uniform(<span class="dv">0</span>,<span class="dv">2</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        proposed_state <span class="op">=</span> current_state <span class="op">+</span> lifting_variable <span class="op">*</span> delta</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        acceptance_ratio <span class="op">=</span> pi(proposed_state) <span class="op">/</span> pi(current_state)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> np.random.rand() <span class="op">&lt;</span> acceptance_ratio:</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            current_state <span class="op">=</span> proposed_state</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            accept.append(<span class="va">True</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            lifting_variable <span class="op">=</span> (<span class="op">-</span><span class="dv">1</span>) <span class="op">*</span> lifting_variable</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        samples.append(current_state)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> verbose:</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        rate <span class="op">=</span> <span class="bu">len</span>(accept) <span class="op">/</span> num_samples</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'acceptance rate : </span><span class="sc">{</span>rate<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(samples)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>新しく追加されたリフティング変数 <span class="math inline">\(\sigma\in\{\pm1\}\)</span> に依存して，<span class="math inline">\(\sigma=+1\)</span> の場合には右方向に，<span class="math inline">\(\sigma=-1\)</span> の場合は左方向にしか提案を出さない MH 法と見れます．</p>
+<div id="cell-fig-LMH" class="cell" data-execution_count="11">
+<div class="cell-output cell-output-display">
+<div id="fig-lmh" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-lmh-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-lmh-output-1.png" width="310" height="267" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-lmh-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;7: 非対称 Metropolis 法からのサンプル
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div id="cell-fig-LMH-auto" class="cell" data-execution_count="12">
+<div class="cell-output cell-output-display">
+<div id="fig-lmh-auto" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-lmh-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-lmh-auto-output-1.png" width="340" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-lmh-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;8: 非対称 Metropolis 法の自己相関関数
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>自己相関関数を見ると，Metropolis 法よりも急速に減衰していることがわかります．むしろ，過減衰のように自己相関関数が負になっていることもあります．</p>
+<p>これは，一度「この方向に行く！」と決めたら行き続けるように設計したために，正の値が出たしばらくあとは負の値が，負の値が出たしばらくあとは正の値が出やすいようになってしまっているためです．</p>
+<p>したがってこれは１次元の分布を考えていることに起因するため，殊更問題とすべきではないでしょう．</p>
+<div id="cell-fig-4" class="cell" data-execution_count="13">
+<div class="cell-output cell-output-display">
+<div id="fig-4" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-4-output-1.png" width="324" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;9: 非対称 Metropolis 法の軌跡
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="リフティングの有用性" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="リフティングの有用性"><span class="header-section-number">3.3</span> リフティングの有用性</h3>
+<p>今回のような単純なポテンシャル <span class="math inline">\(U\)</span> （<a href="#fig-2" class="quarto-xref">図&nbsp;1</a>） だけでなく，統計力学における磁性体のモデルである Curie-Weiss モデルのハミルトニアン</p>
+<p><span class="math display">\[
+H_n(x)=-\frac{d\beta}{2n}\sum_{i,j=1}^nx_ix_j-h\sum_{i=1}^nx_i,
+\]</span> <span class="math display">\[
+h\in\mathbb{R},x\in\{\pm1\}^n,\quad n,d=1,2,\cdots
+\]</span></p>
+<p>が定める Boltzmann-Gibbs 分布 <span class="math inline">\(e^{-H}\)</span> に対する Lifted Metropolis-Hastings も，単純な Metropolis-Hastings 法よりも効率的であることが知られています．<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a></p>
+<p>具体的には，モデルのパラメータ数 <span class="math inline">\(n\)</span> に対して，緩和時間を <span class="math inline">\(\sqrt{n}\)</span> のオーダーだけ改善することが，<span class="citation" data-cites="Turitsyn+2011">(<a href="#ref-Turitsyn+2011" role="doc-biblioref">Turitsyn et al., 2011</a>)</span> では数値実験で，<span class="citation" data-cites="Bierkens-Roberts2017">(<a href="#ref-Bierkens-Roberts2017" role="doc-biblioref">Bierkens and Roberts, 2017</a>)</span> では理論的に検証されているのです．</p>
+<!--
+
+### HMC
+
+Hamiltonian Monte Carlo 法も一種のリフティングと見ることができ，
+
+-->
+</section>
+</section>
+<section id="sec-PDMP" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="sec-PDMP"><span class="header-section-number">4</span> 新たな MCMC</h2>
+<!--
+
+こうして MCMC は物理学者から物質科学者，そして統計学者から機械学習家まで，多くの人が幅広く用いる手法になりました．
+
+その結果，多くの同一の手法が違う名前で呼ばれていることも多く，現状の最先端ではどのようなことが起こっているのか見極めるのが困難です．
+
+ここでは，上述のすべての分野に渡って共通して起こりつつある大きな地殻変動を紹介します．キーワードは **連続時間 MCMC** です．^[[@Fearnhead+2018-PDMC] から取った用語です．コンピュータシミュレーションである以上，結局は離散化するのですが，粒子の動きは（従来の Metropolis-Hastings 法のような）Markov 連鎖であるというより，連続時間確率過程のような動きをする手法群であることには間違いありません．]
+
+-->
+<section id="背後の物理現象からの更なる離陸" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="背後の物理現象からの更なる離陸"><span class="header-section-number">4.1</span> 背後の物理現象からの更なる離陸</h3>
+<p>第 <a href="#sec-origin" class="quarto-xref">2</a> 章で，分子動力学法（第 <a href="#sec-MD" class="quarto-xref">2.1</a> 節）から，提案分布を背後の物理現象とは全く関係ないランダムウォークとすることで，Metropolis 法（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）は一気に効率的なサンプリング法となったことを見ました．</p>
+<p>しかし，Metropolis 法はまだ思考が物理に引っ張られているのかも知れません．平衡統計力学において，ミクロの状態は等価で，ミクロなダイナミクスは可逆と考えられます．その前提が，知らず知らずのうちにまだ埋め込まれたままだと言えるでしょう．</p>
+<p>そこで，スプーンでかき混ぜるように，遷移を非対称にすることで，より効率的なサンプリング法となることを前章 <a href="#sec-LMH" class="quarto-xref">3</a> で見ました．</p>
+<p>ここでは，さらに暗黙の思い込みから解き放たれようとします．それは，<strong>シミュレーションするにあたって，必ずしも離散時間ステップに囚われる必要はない</strong> ということです．</p>
+<p>もう一度，Lifted Metropolis-Hastings 法の軌跡を見てみましょう：</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Computation/MCMC_files/figure-html/fig-4-output-1.png" class="img-fluid figure-img" style="width:3.19444in"></p>
+<figcaption><a href="#fig-4" class="quarto-xref">図&nbsp;9</a> 非対称 Metropolis 法の軌跡</figcaption>
+</figure>
+</div>
+<p>この軌跡から得られる情報のほとんどは，「どこで折り返したか？」です．</p>
+<p>ですから，この軌跡をシミュレーションするにあたって，一歩一歩採択-棄却のステップを繰り返す必要はなく，「どこで折り返すか？」を先に計算できてしまえば，あとは好きなステップサイズで切り出してサンプルとすれば良いのです．</p>
+<p>実は，「折り返す地点だけを効率的に計算する」ことが可能であり，それが <strong>連続時間 MCMC</strong> のアイデアです．</p>
+</section>
+<section id="連続時間-mcmc" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="連続時間-mcmc"><span class="header-section-number">4.2</span> 連続時間 MCMC</h3>
+<p>Lifted Metropolis-Hastings の適切な連続時間極限 <span class="math inline">\(\Delta t\to0\)</span> を考えることで，「折り返す」という事象（が起こった回数）は Poisson 過程に従うことが導けます．</p>
+<p>すると，「折り返す」事象が起こるまでの待ち時間 (interarrival time) は指数分布に従うことがわかります．これに基づいて，「折り返す」事象が起こる時刻を計算し，そこまでの軌跡を直線で補間すれば，Lifted Metropolis-Hastings 法（の連続時間極限）の軌跡が模倣できることになります．</p>
+<p>最終的に得られる過程は，ランダムな時刻に「折り返す」事象が起こり，その間は確定的な動き（等速直線運動）をするというもので，このような過程を <strong>区分確定的 Markov 過程</strong> (PDMP: Piecewise Deterministic Markov Process) と呼びます．</p>
+<p>このような PDMP は，Lifted Metropolis-Hastings 以外にも種々の MCMC 法の極限から見つかっており，その中でも特に有名なのが次の <strong>Zig-Zag sampler</strong> です：</p>
+<div id="7b6f3e30" class="cell" data-execution_count="14">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> zigzag(num_samples, initial_state, step<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    samples <span class="op">=</span> [initial_state]</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    trajectory <span class="op">=</span> [initial_state]</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    current_state <span class="op">=</span> initial_state</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    lifting_variable <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    t <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> t <span class="op">&lt;</span> num_samples <span class="op">*</span> step:</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        state_event <span class="op">=</span> lifting_variable <span class="op">*</span> np.sqrt(<span class="op">-</span><span class="dv">1</span> <span class="op">+</span> np.sqrt( <span class="dv">1</span> <span class="op">-</span> <span class="dv">4</span> <span class="op">*</span> np.log(np.random.rand()) ))</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        t_event <span class="op">=</span> t <span class="op">+</span> np.<span class="bu">abs</span>(state_event <span class="op">-</span> current_state)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _ <span class="kw">in</span> np.arange(np.ceil(t<span class="op">/</span>step)<span class="op">*</span>step, np.ceil(t_event<span class="op">/</span>step)<span class="op">*</span>step, step):</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>              samples.append(current_state <span class="op">+</span> lifting_variable <span class="op">*</span> (_ <span class="op">-</span> t))</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        current_state <span class="op">=</span> state_event</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        trajectory.append(current_state)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        lifting_variable <span class="op">=</span> (<span class="op">-</span><span class="dv">1</span>) <span class="op">*</span> lifting_variable</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        t <span class="op">=</span> t_event</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(samples), np.array(trajectory)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<!--
+自己相関関数こんなに spiky になるっけ？
+いや，多分この設定だと zig-zag は普通に悪いんだろうな．
+棄却率が高くて７割くらいある LMH に負けるのが「正しい」のかも知れない．
+
+そして１次元なのに等間隔でサンプリングしているから，自己相関関数は sine curve に（むしろ）なるべきなのか！
+-->
+<div id="cell-fig-PDMP" class="cell" data-execution_count="15">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>samples_zigzag, trajectory_zigzag <span class="op">=</span> zigzag(num_samples, initial_state, step<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="fl">3.5</span>, <span class="dv">3</span>))</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>plt.hist(samples_zigzag, bins<span class="op">=</span><span class="dv">50</span>, density<span class="op">=</span><span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, color<span class="op">=</span>minty)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-pdmp" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pdmp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-pdmp-output-1.png" width="310" height="263" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pdmp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;10: Zig-Zag サンプラーからのサンプル
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div id="cell-fig-PDMP-auto" class="cell" data-execution_count="16">
+<div class="cell-output cell-output-display">
+<div id="fig-pdmp-auto" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pdmp-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-pdmp-auto-output-1.png" width="340" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pdmp-auto-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;11: Zig-Zag サンプラーの自己相関関数
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>自己相関関数は，Lifted Metropolis-Hastings 法と同様に急激に下がって負の値に突き抜けたあとは，少し振動が残っているのがわかります．</p>
+<p>全３サンプラーの比較は第 <a href="#sec-figs" class="quarto-xref">1.3</a> 節をご覧ください．</p>
+<p>次の軌跡を見て分かる通り，モードである <span class="math inline">\(x=0\)</span> を中心に激しく往復するので，直後のサンプルとは負の相関が出やすいようです．</p>
+<div id="cell-fig-6" class="cell" data-execution_count="17">
+<div class="cell-output cell-output-display">
+<div id="fig-6" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="MCMC_files/figure-html/fig-6-output-1.png" width="328" height="302" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;12: Zig-Zag サンプラーの軌跡
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>連続時間極限 <span class="math inline">\(\Delta t\to0\)</span> をとっているということは，「極めて小さいステップサイズでの random walk Metropolis 法（第 <a href="#sec-MH" class="quarto-xref">2.2</a> 節）」に相当します．従って，一度折り返したら，原点 <span class="math inline">\(x=0\)</span> を超えるまでは絶対に棄却されません．</p>
+<p>そのため，このように往復するような軌跡が得られます．</p>
+</section>
+<section id="sec-PDMP-advantages" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="sec-PDMP-advantages"><span class="header-section-number">4.3</span> 連続時間 MCMC の美点</h3>
+<p>前節では，必ずしも PDMP 法である Zig-Zag sampler が，Lifted Metropolis-Hastings 法より，自己相関関数の観点で良いとは言い切れないことを見ました．</p>
+<p>しかし，今回の設定は１次元という特殊な条件下であることを考慮に入れる必要があります．</p>
+<p>１次元なので Zig-Zag サンプラーは行き来することしか出来ていませんが，<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a> ２次元以上，特に高次元の場合は，Zig-Zag サンプラーは極めて効率的に状態空間を探索できることが期待されます．</p>
+<p>例えば，標準正規分布に対する２次元での軌跡は次の通りです：</p>
+<div id="fig-5" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-5-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="./Files/ZigZag_2d.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-5-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;13: Zig-Zag Sampler in <span class="math inline">\(\mathbb{R}^2\)</span>
+</figcaption>
+</figure>
+</div>
+<p>そして何より，軌道が効率的な空間の探索に有利であるだけでなく，正確なサブサンプリングを取り入れることが可能です．すなわち，ほとんどの他手法と違って，<strong>バイアスを導入することなく</strong>，データの一部のみを用いてアルゴリズムを走らせることができます．</p>
+<p>したがって，従来の MCMC 法が採択-棄却のステップにおいて尤度を評価する必要があり，データサイズ <span class="math inline">\(n\)</span> に対して <span class="math inline">\(O(n)\)</span> の計算量を要するのに対して，<span class="math inline">\(O(n)\)</span> に比例する焼き入れのステップを除けば，<span class="math inline">\(O(1)\)</span> の複雑でほとんど i.i.d. なサンプルを得ることができます <span class="citation" data-cites="Bierkens+2019">(<a href="#ref-Bierkens+2019" role="doc-biblioref">Bierkens et al., 2019</a>)</span>．</p>
+<!-- 
+
+### 筆者の目標：新時代のサンプラーの開発
+
+情報通信機器の発達によりデータが複雑で大規模化する現代では，モデルも同様に大規模で複雑化していく必要があります．OpenAI の ChatGPT や Sora，Anthropic の Claude-3 などの **基盤モデル** はその象徴と言えるでしょう．
+
+筆者は，その中で **新時代の MCMC** の開発を目標としています．
+
+高次元空間上の複雑な分布からも効率的にサンプリングできる MCMC 手法が開発された際には，多くの人が自分のノートパソコンで気軽にできるベイズ統計分析の幅が大きく広がることでしょう．
+
+それこそ，ニューラルネットワークの表現力をフルに活用するだけでなく，ベイズ手法の強みも併せて，小規模データでも鮮やかな分析が簡単に出来るようになるかもしれません．
+
+そのような世界線こそ，AI 技術の民主化と呼ぶにふさわしい，来るべき未来だと筆者は信じています．
+
+また，基盤モデルの Bayes 的な理解を進めることも，実は壮大ながらも，筆者の最終的な目標の一つであります．
+
+-->
+</section>
+</section>
+
+
+
+
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 終わりに</h2><div class="quarto-appendix-contents">
+
+<p>こうみると，MCMC は物理学の問題意識から生まれた手法でありながら，背後の物理現象を模倣することから離れていくことで，計算手法としての効率を高めていく一途を辿っていることがわかります．</p>
+<p>そう見ると，新時代の大規模データと大規模モデルが課す MCMC の次なる脱皮は，連続時間 MCMC で間違いないような気がしてくるのですが……．まだ筆者にははっきりとは見えてきません．</p>
+<p>また本稿では１つの流れしか取り上げておらず，例えば HMC とその非対称化がどのような位置づけにあるかもまだ考慮中です．</p>
+<p>統計力学，統計学，機械学習が交差するなんとも面白いテーマです．</p>
+
+
+</div></section><section id="執筆のきっかけ" class="level3 appendix" data-number="5.1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5.1</span> 執筆のきっかけ</h2><div class="quarto-appendix-contents">
+
+<p>本ポスター，そして本解説記事の執筆のきっかけは，<a href="../../../posts/2024/Particles/PF.html">MLSS でのポスター発表</a> で連続時間 MCMC のことが機械学習の界隈では全く知られていないことを知ったことと，情報統計力学の研究集会に出席し，連続時間 MCMC が物理学の方からも研究されていることを知ったことでした．</p>
+<p>統計界隈では（本稿で解説しました通り） PDMP や連続時間 MCMC と呼ばれる手法は，物理学界隈では event-based simulation，rejection-free と呼ばれる手法群の１つとして活発に研究されていました．</p>
+<p>全く同じ問題を解こうとしているのに，用語法が全く異なることに驚かされました．</p>
+<p>２つの分野の相互理解と知見の交換が進むことを目指し，これからも研究していきたいと考えます．</p>
+</div></section><section id="アルゴリズムのステップサイズについて" class="level3 appendix" data-number="5.2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5.2</span> アルゴリズムのステップサイズについて</h2><div class="quarto-appendix-contents">
+
+<p>コードからわかります通り，提案分布のスケールは次のようになっています：</p>
+<div class="table-responsive-sm">
+<table class="table-striped table-hover table">
+<caption>３手法のスケーリング</caption>
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">手法</th>
+<th style="text-align: center;">提案分布</th>
+<th style="text-align: center;">平均移動距離<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">MH</td>
+<td style="text-align: center;"><span class="math inline">\(\mathrm{U}([-2,2])\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(1\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">LMH</td>
+<td style="text-align: center;"><span class="math inline">\(\mathrm{U}([0,2])\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(1\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">Zig-Zag</td>
+<td style="text-align: center;">なし</td>
+<td style="text-align: center;"><span class="math inline">\(2\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>ですので，平均した隣接（提案）サンプル間距離について，Zig-Zag サンプラーはズルをしているともいえます．</p>
+<p>しかし，必ずしもアンフェアな比較をしていたわけではありません．</p>
+<p>もし，３手法で計算量を揃えるならば，Zig-Zag サンプラーにとっての１回のループは方向転換をするまでであり，２つの方向転換の間の平均距離はだいたい <span class="math inline">\(1.93\)</span> になります．</p>
+<div id="14bd4197" class="cell" data-execution_count="18">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>diffs <span class="op">=</span> np.diff(trajectory_zigzag)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>abs_diffs <span class="op">=</span> np.<span class="bu">abs</span>(diffs)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>mean_abs_diff <span class="op">=</span> np.mean(abs_diffs)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mean_abs_diff)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>1.9232887144203465</code></pre>
+</div>
+</div>
+<p>MH, LMH については，ほとんど最適なスケーリングになるように調節してありますが，Zig-Zag サンプラーにおいては最適なスケーリングという概念は存在しません．あらかじめ <a href="#fig-6" class="quarto-xref">図&nbsp;12</a> の軌跡があり，どれくらい距離を空けてサンプルとするか，という問題しかありません．</p>
+<p>ここでは，アルゴリズムのループ１回が１回のサンプリングになるように，３つの手法を揃えて比較の根拠としました．</p>
+<p>なお，このように，Zig-Zag サンプラーなどの連続時間 MCMC と，従来の離散時間 MCMC の直接の性能比較は，微妙な問題が多く，筆者もまだ十分に説明できる準備はありません．</p>
+<p>しかし，次年度以降のオープンハウスで，より詳細な解説を行う予定です．</p>
+<div id="4ef11c18" class="cell" data-execution_count="19">
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="MCMC_files/figure-html/cell-19-output-1.png" width="574" height="278" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Zig-Zag サンプラーのサンプリングステップを <span class="math inline">\(1\)</span> や <span class="math inline">\(1.5\)</span> にすると，たしかに自己相関は悪化します．</p>
+</div></section><section id="参考文献" class="level2 appendix" data-number="6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6</span> 参考文献</h2><div class="quarto-appendix-contents">
+
+<p>本稿では，用いたコードの導出を一切触れませんでした．これについては，文献 <span class="citation" data-cites="Tartero-Krauth2023">(<a href="#ref-Tartero-Krauth2023" role="doc-biblioref">Tartero and Krauth, 2023</a>)</span> をご参照ください．非調和振動子を系にとり，正準集団とみなすことで，分子動力学法，メトロポリス法からそのリフティングまで，種々のサンプラーを同じ題材で比較するアイデアをもらいました．こんなにわかりやすい解析ができるのかと心底驚きました．</p>
+<p>続いて，Metropolis-Hastings 法 → 非対称 MCMC → 連続時間 MCMC という発展の過程を，背後の物理過程の模倣からの離陸という視点で統一的に捉えることが出来るということは，<span class="citation" data-cites="Turitsyn+2011">(<a href="#ref-Turitsyn+2011" role="doc-biblioref">Turitsyn et al., 2011</a>)</span> の魅力的なイントロダクションで気付かされました．本文献はリフティングによる MCMC の非可逆化を抽象的に定式化して数値実験で検証したものであり，「ねじれ詳細釣り合い条件」を導入した点で，アイデアの宝庫といえます．</p>
+<p>リフティングによる Metropolis 法の非対称化について，<span class="citation" data-cites="酒井佑士2017">(<a href="#ref-酒井佑士2017" role="doc-biblioref">酒井佑士, 2017</a>)</span> は貴重な日本語文献です．当該文献の第３章（の第２節）にここで紹介した内容が詳しくまとめられています．</p>
+<p>第 <a href="#sec-PDMP-advantages" class="quarto-xref">4.3</a> 節で紹介しましたように，Zig-Zag サンプラーを用いたサンプリングではそのスケーラビリティが魅力です．この点については，Zig-Zag サンプラーが提案された論文 <span class="citation" data-cites="Bierkens+2019">(<a href="#ref-Bierkens+2019" role="doc-biblioref">Bierkens et al., 2019</a>)</span> でも，前面に押し出して解説されています．</p>
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Bierkens+2019" class="csl-entry" role="listitem">
+Bierkens, J., Fearnhead, P., and Roberts, G. (2019). <a href="https://doi.org/10.1214/18-AOS1715"><span class="nocase">The Zig-Zag Process and Super-Efficient Sampling for Bayesian Analysis of Big Data</span></a>. <em>The Annals of Statistics</em>, <em>47</em>(3), 1288–1320.
+</div>
+<div id="ref-Bierkens-Roberts2017" class="csl-entry" role="listitem">
+Bierkens, J., and Roberts, G. (2017). <a href="http://www.jstor.org/stable/44249153"><span class="nocase">A Piecewise Deterministic Scaling Limit of Lifted Metropolis-Hastings in the Curie-Weiss Model</span></a>. <em>The Annals of Applied Probability</em>, <em>27</em>(2), 846–882.
+</div>
+<div id="ref-Chen+1999" class="csl-entry" role="listitem">
+Chen, F., Lovász, L., and Pak, I. (1999). <a href="https://doi.org/10.1145/301250.301315">Lifting markov chains to speed up mixing</a>. In <em>Proceedings of the thirty-first annual ACM symposium on theory of computing</em>, pages 275–281. New York, NY, USA: Association for Computing Machinery.
+</div>
+<div id="ref-Duane+1987" class="csl-entry" role="listitem">
+Duane, S., Kennedy, A. D., Pendleton, B. J., and Roweth, D. (1987). <a href="https://doi.org/10.1016/0370-2693(87)91197-X">Hybrid monte carlo</a>. <em>Physics Letters B</em>, <em>195</em>(2), 216–222.
+</div>
+<div id="ref-Gelfand-Smith1990" class="csl-entry" role="listitem">
+Gelfand, A. E., and Smith, A. F. M. (1990). <a href="https://doi.org/10.2307/2289776">Sampling-based approaches to calculating marginal densities</a>. <em>Journal of the American Statistical Association</em>, <em>85</em>(410), 398–409.
+</div>
+<div id="ref-Gelman+1996" class="csl-entry" role="listitem">
+Gelman, A., Roberts, G. O., and Gilks, W. R. (1996). <a href="https://doi.org/10.1093/oso/9780198523567.003.0038"><span>Efficient Metropolis Jumping Rules</span></a>. In <em><span class="nocase">Bayesian Statistics 5: Proceedings of the Fifth Valencia International Meeting</span></em>. Oxford University Press.
+</div>
+<div id="ref-Hastings1970" class="csl-entry" role="listitem">
+Hastings, W. K. (1970). <a href="https://www.jstor.org/stable/2334940">Monte carlo sampling methods using markov chains and their applications</a>. <em>Biometrika</em>, <em>57</em>(1), 97–109.
+</div>
+<div id="ref-Martin+2023-history" class="csl-entry" role="listitem">
+Martin, G. M., Fraizier, D. T., and Robert, C. P. (2023). Computing bayes: From then ‘til now. <em>Statistical Science</em>, <em>Advanced Publication</em>, 1–17.
+</div>
+<div id="ref-Metropolis+1953" class="csl-entry" role="listitem">
+Metropolis, N., Rosenbluth, A. W., Rosenbluth, M. N., Teller, A. H., and Teller, E. (1953). <a href="https://doi.org/10.1063/1.1699114">Equation of state calculations by fast computing machines</a>. <em>The Journal of Chemical Physics</em>, <em>21</em>(6), 1087–1092.
+</div>
+<div id="ref-Neal1994" class="csl-entry" role="listitem">
+Neal, R. M. (1994). <a href="https://doi.org/10.1006/jcph.1994.1054">An improved acceptance procedure for the hybrid monte carlo algorithm</a>. <em>Journal of Computational Physics</em>, <em>111</em>(1), 194–203.
+</div>
+<div id="ref-Neal2011-HMC" class="csl-entry" role="listitem">
+<a href="https://www.taylorfrancis.com/chapters/edit/10.1201/b10905-6/mcmc-using-hamiltonian-dynamics-radford-neal">Neal, R. M. (2011). In S. Brooks, A. Gelman, G. Jones, and X.-L. Meng, editors, pages 113–162. Chapman; Hall/CRC.</a>
+</div>
+<div id="ref-Peters-deWith2012" class="csl-entry" role="listitem">
+Peters, E. A. J. F., and de&nbsp;With, G. (2012). <a href="https://journals.aps.org/pre/abstract/10.1103/PhysRevE.85.026703">Rejection-free monte carlo sampling for general potentials</a>. <em>Physical Review E</em>, <em>85</em>(2).
+</div>
+<div id="ref-Robert-Casella2011" class="csl-entry" role="listitem">
+Robert, C., and Casella, G. (2011). <a href="http://www.jstor.org/stable/23059158">A short history of markov chain monte carlo: Subjective recollections from incomplete data</a>. <em>Statistical Science</em>, <em>26</em>(1), 102–115.
+</div>
+<div id="ref-Roberts+1997" class="csl-entry" role="listitem">
+Roberts, G. O., Gelman, A., and Gilks, W. R. (1997). <a href="http://www.jstor.org/stable/2245134"><span class="nocase">Weak Convergence and Optimal Scaling of Random Walk Metropolis Algorithms</span></a>. <em>The Annals of Applied Probability</em>, <em>7</em>(1), 110–120.
+</div>
+<div id="ref-Tartero-Krauth2023" class="csl-entry" role="listitem">
+Tartero, G., and Krauth, W. (2023). <a href="https://arxiv.org/abs/2309.03136">Concepts in monte carlo sampling</a>.
+</div>
+<div id="ref-Turitsyn+2011" class="csl-entry" role="listitem">
+Turitsyn, K. S., Chertkov, M., and Vucelja, M. (2011). <a href="https://doi.org/10.1016/j.physd.2010.10.003"><span class="nocase">Irreversible Monte Carlo algorithms for Efficient Sampling</span></a>. <em>Physica D-Nonlinear Phenomena</em>, <em>240</em>(5-Apr), 410–414.
+</div>
+<div id="ref-Vasdekis-Roberts2022" class="csl-entry" role="listitem">
+Vasdekis, G., and Roberts, G. O. (2022). <a href="https://doi.org/10.1017/jpr.2021.97">A note on the polynomial ergodicity of the one-dimensional zig-zag process</a>. <em>Journal of Applied Probability</em>, <em>59</em>(3), 895–903.
+</div>
+<div id="ref-酒井佑士2017" class="csl-entry" role="listitem">
+酒井佑士. (2017). <em>マルコフ連鎖モンテカルロ法における詳細つり合い条件の破れの効果と応用</em> (PhD thesis). 東京大学. Retrieved from <a href="https://repository.dl.itc.u-tokyo.ac.jp/records/50422">https://repository.dl.itc.u-tokyo.ac.jp/records/50422</a>
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>Hamiltonian Monte Carlo の名称は <span class="citation" data-cites="Neal2011-HMC">(<a href="#ref-Neal2011-HMC" role="doc-biblioref">Neal, 2011</a>)</span> からで，元々は Hybrid Monte Carlo と呼ばれていました．分子動力学法 (Molecular Dynamics) と MCMC のハイブリッド，という意味でした．Stan で実装されている MCMC アルゴリズムについては <a href="https://mc-stan.org/docs/reference-manual/mcmc.html">こちら</a> を参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>特に収束が遅く，他の手法と比べてイテレーション数を 10　倍にしています．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>統計学界隈では <span class="citation" data-cites="Hastings1970">(<a href="#ref-Hastings1970" role="doc-biblioref">Hastings, 1970</a>)</span> を入れて，Metropolis-Hastings 法とも呼ばれる．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>ただし，配置 <span class="math inline">\(\omega\in\Omega\)</span> は空間内にランダム（一様）に粒子 <span class="math inline">\(N\)</span> 個を配置することで生成することとする．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>１粒子系なので相互作用はなく，<span class="math inline">\(E=U\)</span>．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="math inline">\(\beta=1\)</span> と約束することは，系の温度を <span class="math inline">\(T=k_B^{-1}\)</span> に固定することにあたります．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>図 <a href="#fig-2" class="quarto-xref">1</a> で定めたポテンシャルを持つ力学系には，代表的なものは（非調和）振動子や，あるいは <span class="math inline">\(U\)</span> の形をした谷を行ったり来たりするボールを考えても構いません．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p>詳しい議論は <span class="citation" data-cites="Tartero-Krauth2023">(<a href="#ref-Tartero-Krauth2023" role="doc-biblioref">Tartero and Krauth, 2023</a>)</span> をご参照ください．大変教育的な入門です．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p>自己相関関数が大きいほど，その Markov 連鎖を用いて構成した Monte Carlo 推定量の漸近分散が大きくなります．加えて，自己相関関数の裾が重すぎると，例えエルゴード性を持っており大数の法則が成り立とうとも，中心極限定理が成り立たなくなります．換言すれば，<span class="math inline">\(n^{-1/2}\)</span> よりも遅い収束レートになってしまいます．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p>一般には，ランダムウォーク MH 法において，採択率を <span class="math inline">\(0.2\le\alpha\le0.4\)</span> 前後に抑えるのが良いとされています <span class="citation" data-cites="Roberts+1997">(<a href="#ref-Roberts+1997" role="doc-biblioref">Roberts et al., 1997</a>)</span>．これは状態空間の次元が無限に漸近する設定下での，漸近論的な結果ですが，低次元の場合でも極めて良い指標になることが <span class="citation" data-cites="Gelman+1996">(<a href="#ref-Gelman+1996" role="doc-biblioref">Gelman et al., 1996</a>)</span> で実証されています．また今回も，１次元であるにも拘らず，たしかに棄却率が半分を越さないほうが，自己相関が小さくなる傾向が確認されました．しかし今回は対象分布の裾が極めて軽いので，あまり大きなムーブは要らず，ステップサイズの最大値を <span class="math inline">\(2\)</span>，採択率は <span class="math inline">\(0.5\)</span> 近くにしました．他の手法，LMH と Zig-Zag もステップサイズの最大値が <span class="math inline">\(2\)</span> になるように統一しました．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>“While <span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> proposed the use of MCMC sampling to compute particular integrals in statistical mechanics, <strong>it was the Hastings paper that elevated the concept to a general one, and introduced it to the broader statistics community</strong>.” <span class="citation" data-cites="Martin+2023-history">(<a href="#ref-Martin+2023-history" role="doc-biblioref">Martin et al., 2023, p. 7</a>)</span> 3.5節．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="Martin+2023-history">(<a href="#ref-Martin+2023-history" role="doc-biblioref">Martin et al., 2023, p. 8</a>)</span> 4節，<span class="citation" data-cites="Robert-Casella2011">(<a href="#ref-Robert-Casella2011" role="doc-biblioref">Robert and Casella, 2011, p. 102</a>)</span> など．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p>ただし，<span class="math inline">\(e^{-H}\)</span> が多峰性を示す低温領域では，LMH の方が効率的であるというはっきりとした理論保証はまだありません．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn14"><p>今回は対象分布の減衰が極めて激しかったために差が現れにくかったのだと考えられます．Zig-Zag サンプラーは１次元でも，（広い設定の下で）（そして特に目標分布の裾が重いときに）ランダムウォーク・メトロポリス法や Metripolis-adjusted Langevin algorithm よりも速い収束レートを持ちます <span class="citation" data-cites="Vasdekis-Roberts2022">(<a href="#ref-Vasdekis-Roberts2022" role="doc-biblioref">Vasdekis and Roberts, 2022</a>)</span>，<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn15"><p>提案分布の．実際の軌跡の１ステップでの移動距離とは違う．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section><section class="quarto-appendix-contents" id="quarto-copyright"><h2 class="anchored quarto-appendix-heading">Copyright</h2><div class="quarto-appendix-contents"><div>Copyright Hirofumi Shiba 2024. All Rights Reserved</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{2024,
+  author = {, 司馬博文},
+  title = {新時代の {MCMC} {を迎えるために}},
+  date = {2024-05-24},
+  url = {https://162348.github.io//posts/2024/Computation/MCMC.html},
+  langid = {en},
+  abstract = {物質科学を震源地とする MCMC
+    のイノベーションが，統計力学と統計学の分野に波及して来ています．その結果，ここ
+    10 年で急激に MCMC 手法の革新が起こりました．従来 MCMC
+    が離散時間ベースだったところが，イベントベースかつ連続時間ベースなものにとって替わられようとしているのです．これら連続時間
+    MCMC
+    はどのような手法なのか？従来法を超えるのか？どのような場面で使えるのか？……等々疑問は尽きません．この新たな手法を正しく受け止めるために，現状の
+    MCMC
+    への理解から，新手法がどのように生まれたかの軌跡を辿り，現状の理解を確かめます．}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-2024" class="csl-entry quarto-appendix-citeas" role="listitem">
+司馬博文. (2024, May 24). <a href="https://162348.github.io//posts/2024/Computation/MCMC.html">新時代の
+MCMC を迎えるために</a>.
+</div></div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
