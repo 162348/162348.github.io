@@ -65,7 +65,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
-<link href="../../../profile.jpg" rel="icon" type="image/jpeg">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -150,14 +150,14 @@ window.Quarto = {
 };
 </script>
 
-<link rel="stylesheet" href="../../../styles.css">
+<link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Metropolis-Hastings サンプラー – Hirofumi Shiba">
 <meta property="og:description" content="Julia に存在する Metropolis-Hastings 法と MALA 関連のパッケージの実装と，その使い方をまとめる．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Julia/profile.jpg">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Julia/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Metropolis-Hastings サンプラー – Hirofumi Shiba">
 <meta name="twitter:description" content="Julia に存在する Metropolis-Hastings 法と MALA 関連のパッケージの実装と，その使い方をまとめる．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Julia/profile.jpg">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Julia/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -211,7 +211,7 @@ window.Quarto = {
             <p class="subtitle lead">Julia と Turing エコシステムを用いて</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Process</div>
-                <div class="quarto-category">Simulation</div>
+                <div class="quarto-category">Sampling</div>
                 <div class="quarto-category">Julia</div>
                 <div class="quarto-category">MCMC</div>
               </div>
@@ -291,42 +291,62 @@ window.Quarto = {
 </div>
 <section id="advancedmh.jl" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="advancedmh.jl"><span class="header-section-number">1</span> <code>AdvancedMH.jl</code></h2>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="[注（アップデートの問題）](https://github.com/TuringLang/AdvancedMH.jl/issues/97)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<a href="https://github.com/TuringLang/AdvancedMH.jl/issues/97">注（アップデートの問題）</a>
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><code>Turing</code> をはじめとし，<code>AdvancedMH.jl</code>, <code>AdvancedHMC</code>, <code>MCMCChains</code>, <code>AbstractMCMC</code> などのバージョンが最新版に出来ないことがある．</p>
+<p><code>Soss</code>, <code>PolyaGammaSamplers</code> などとの相性が特に悪く，これらのいずれかがあると，<code>Turing</code> エコシステムのバージョンが著しく制限されるようである．</p>
+<p>これらを削除して</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(<span class="pp">@v1</span><span class="fl">.10</span>) pkg<span class="op">&gt;</span> add Turing@<span class="fl">0.33.1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>とすれば良い．</p>
+</div>
+</div>
+</div>
 <section id="例" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="例"><span class="header-section-number">1.1</span> 例</h3>
-<div id="89baf046" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdvancedMH</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCChains</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ForwardDiff</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StructArrays</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblems</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblemsAD</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the components of a basic model.</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> LogTargetDensityCauchy</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    loc<span class="op">::</span><span class="dt">Float64</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    scale<span class="op">::</span><span class="dt">Float64</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">logdensity</span>(p<span class="op">::</span><span class="dt">LogTargetDensityCauchy</span>, θ) <span class="op">=</span> <span class="fu">-log</span>(<span class="cn">π</span>) <span class="op">-</span> <span class="fu">log</span>(p.scale) <span class="op">-</span> <span class="fu">log</span>(<span class="fl">1</span> <span class="op">+</span> ((θ[<span class="fl">1</span>] <span class="op">-</span> p.loc)<span class="op">/</span>p.scale)<span class="op">^</span><span class="fl">2</span>)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">dimension</span>(p<span class="op">::</span><span class="dt">LogTargetDensityCauchy</span>) <span class="op">=</span> <span class="fl">1</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">capabilities</span>(<span class="op">::</span><span class="dt">Type{LogTargetDensityCauchy}</span>) <span class="op">=</span> LogDensityProblems.<span class="fu">LogDensityOrder</span><span class="dt">{0}</span>()</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Use automatic differentiation to compute gradients</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>model_with_ad <span class="op">=</span> LogDensityProblemsAD.<span class="fu">ADgradient</span>(<span class="fu">Val</span>(<span class="op">:</span>ForwardDiff), <span class="fu">LogTargetDensityCauchy</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>))</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up the sampler with a multivariate Gaussian proposal.</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>σ² <span class="op">=</span> <span class="fl">0.01</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>spl <span class="op">=</span> <span class="fu">MALA</span>(x <span class="op">-&gt;</span> <span class="fu">MvNormal</span>((σ² <span class="op">/</span> <span class="fl">2</span>) <span class="op">.*</span> x, σ² <span class="op">*</span> I))</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co">#spl = RWMH(MvNormal(zeros(2), I))</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample from the posterior.</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>chain <span class="op">=</span> <span class="fu">sample</span>(model_with_ad, spl, <span class="fl">2000</span>; initial_params<span class="op">=</span><span class="fu">ones</span>(<span class="fl">1</span>), chain_type<span class="op">=</span>StructArray, param_names<span class="op">=</span>[<span class="st">"θ"</span>])</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>θ_vector <span class="op">=</span> chain.θ</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(θ_vector, title<span class="op">=</span><span class="st">"Plot of \$</span><span class="sc">\\</span><span class="st">theta\$ values"</span>, xlabel<span class="op">=</span><span class="st">"Index"</span>, ylabel<span class="op">=</span><span class="st">"θ"</span>, legend<span class="op">=</span><span class="cn">false</span>, color<span class="op">=</span><span class="st">"#78C2AD"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="89baf046" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdvancedMH</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCChains</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ForwardDiff</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StructArrays</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblems</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblemsAD</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the components of a basic model.</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> LogTargetDensityCauchy</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    loc<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    scale<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">logdensity</span>(p<span class="op">::</span><span class="dt">LogTargetDensityCauchy</span>, θ) <span class="op">=</span> <span class="fu">-log</span>(<span class="cn">π</span>) <span class="op">-</span> <span class="fu">log</span>(p.scale) <span class="op">-</span> <span class="fu">log</span>(<span class="fl">1</span> <span class="op">+</span> ((θ[<span class="fl">1</span>] <span class="op">-</span> p.loc)<span class="op">/</span>p.scale)<span class="op">^</span><span class="fl">2</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">dimension</span>(p<span class="op">::</span><span class="dt">LogTargetDensityCauchy</span>) <span class="op">=</span> <span class="fl">1</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">capabilities</span>(<span class="op">::</span><span class="dt">Type{LogTargetDensityCauchy}</span>) <span class="op">=</span> LogDensityProblems.<span class="fu">LogDensityOrder</span><span class="dt">{0}</span>()</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Use automatic differentiation to compute gradients</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>model_with_ad <span class="op">=</span> LogDensityProblemsAD.<span class="fu">ADgradient</span>(<span class="fu">Val</span>(<span class="op">:</span>ForwardDiff), <span class="fu">LogTargetDensityCauchy</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>))</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up the sampler with a multivariate Gaussian proposal.</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>σ² <span class="op">=</span> <span class="fl">0.01</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>spl <span class="op">=</span> <span class="fu">MALA</span>(x <span class="op">-&gt;</span> <span class="fu">MvNormal</span>((σ² <span class="op">/</span> <span class="fl">2</span>) <span class="op">.*</span> x, σ² <span class="op">*</span> I))</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co">#spl = RWMH(MvNormal(zeros(2), I))</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample from the posterior.</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>chain <span class="op">=</span> <span class="fu">sample</span>(model_with_ad, spl, <span class="fl">2000</span>; initial_params<span class="op">=</span><span class="fu">ones</span>(<span class="fl">1</span>), chain_type<span class="op">=</span>StructArray, param_names<span class="op">=</span>[<span class="st">"θ"</span>])</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>θ_vector <span class="op">=</span> chain.θ</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(θ_vector, title<span class="op">=</span><span class="st">"Plot of \$</span><span class="sc">\\</span><span class="st">theta\$ values"</span>, xlabel<span class="op">=</span><span class="st">"Index"</span>, ylabel<span class="op">=</span><span class="st">"θ"</span>, legend<span class="op">=</span><span class="cn">false</span>, color<span class="op">=</span><span class="st">"#78C2AD"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -334,24 +354,24 @@ window.Quarto = {
 <h2 data-number="2" class="anchored" data-anchor-id="その他のパッケージ"><span class="header-section-number">2</span> その他のパッケージ</h2>
 <section id="adaptivemcmc.jl" class="level3" data-number="2.1">
 <h3 data-number="2.1" class="anchored" data-anchor-id="adaptivemcmc.jl"><span class="header-section-number">2.1</span> <code>AdaptiveMCMC.jl</code></h3>
-<div class="sourceCode" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"AdaptiveMCMC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div id="5f8dff30" class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Taken from https://mvihola.github.io/docs/AdaptiveMCMC.jl/</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the package</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdaptiveMCMC</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Define a function which returns log-density values:</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">log_p</span>(x) <span class="op">=</span> <span class="op">-</span><span class="fl">.5</span><span class="fu">*sum</span>(x<span class="op">.^</span><span class="fl">2</span>)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Run 10k iterations of the Adaptive Metropolis:</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">adaptive_rwm</span>(<span class="fu">zeros</span>(<span class="fl">2</span>), log_p, <span class="fl">1_000</span>; algorithm<span class="op">=:</span>am)</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCChains</span>, <span class="bu">StatsPlots</span> <span class="co"># Assuming MCMCChains &amp; StatsPlots are installed...</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>c <span class="op">=</span> <span class="fu">Chains</span>(out.X[<span class="fl">1</span>,<span class="op">:</span>], start<span class="op">=</span>out.params.b, thin<span class="op">=</span>out.params.thin)</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">plot</span>(c)</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"AdaptiveMCMC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="5f8dff30" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Taken from https://mvihola.github.io/docs/AdaptiveMCMC.jl/</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the package</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdaptiveMCMC</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Define a function which returns log-density values:</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">log_p</span>(x) <span class="op">=</span> <span class="op">-</span><span class="fl">.5</span><span class="fu">*sum</span>(x<span class="op">.^</span><span class="fl">2</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Run 10k iterations of the Adaptive Metropolis:</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">adaptive_rwm</span>(<span class="fu">zeros</span>(<span class="fl">2</span>), log_p, <span class="fl">1_000</span>; algorithm<span class="op">=:</span>am)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCChains</span>, <span class="bu">StatsPlots</span> <span class="co"># Assuming MCMCChains &amp; StatsPlots are installed...</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>c <span class="op">=</span> <span class="fu">Chains</span>(out.X[<span class="fl">1</span>,<span class="op">:</span>], start<span class="op">=</span>out.params.b, thin<span class="op">=</span>out.params.thin)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">plot</span>(c)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="2">
 <!--?xml version="1.0" encoding="utf-8"?-->
 <svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="1000" height="250" viewbox="0 0 4000 1000">
@@ -429,8 +449,8 @@ window.Quarto = {
 </svg>
 </div>
 </div>
-<div id="b6c1dbfe" class="cell" data-execution_count="3">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">savefig</span>(p, <span class="st">"AdaptiveMCMC.svg"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="b6c1dbfe" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">savefig</span>(p, <span class="st">"AdaptiveMCMC.svg"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="3">
 <pre><code>"/Users/hirofumi48/162348.github.io/posts/2024/Julia/AdaptiveMCMC.svg"</code></pre>
 </div>
@@ -439,9 +459,9 @@ window.Quarto = {
 <section id="kissmcmc.jl" class="level3" data-number="2.2">
 <h3 data-number="2.2" class="anchored" data-anchor-id="kissmcmc.jl"><span class="header-section-number">2.2</span> <code>KissMCMC.jl</code></h3>
 <p><a href="https://github.com/mauro3/KissMCMC.jl">GitHub</a></p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"KissMCMC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div id="737d8223" class="cell" data-execution_count="4">
+<div class="sourceCode" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Pkg</span>.<span class="fu">add</span>(<span class="st">"KissMCMC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="737d8223" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="annotated-cell-6"><pre class="sourceCode julia code-annotation-code code-with-copy code-annotated"><code class="sourceCode julia"><span id="annotated-cell-6-1"><a href="#annotated-cell-6-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">KissMCMC</span></span>
 <span id="annotated-cell-6-2"><a href="#annotated-cell-6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># the distribution to sample from,</span></span>
 <button class="code-annotation-anchor" data-target-cell="annotated-cell-6" data-target-annotation="1">1</button><span id="annotated-cell-6-3" class="code-annotation-target"><a href="#annotated-cell-6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">logpdf</span>(x<span class="op">::</span><span class="dt">T</span>) <span class="kw">where</span> {T} <span class="op">=</span> x<span class="op">&lt;</span><span class="fl">0</span> ? <span class="fu">-convert</span>(T,<span class="cn">Inf</span>) <span class="op">:</span> <span class="op">-</span>x</span>

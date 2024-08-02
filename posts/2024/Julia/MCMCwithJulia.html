@@ -84,7 +84,7 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
-<link href="../../../profile.jpg" rel="icon" type="image/jpeg">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -140,7 +140,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
 
 
-<link rel="stylesheet" href="../../../styles.css">
+<link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Julia による MCMC サンプリング – Hirofumi Shiba">
 <meta property="og:description" content="Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える，Turing ecosystem の基盤となる抽象的なフレームワーク MCMCChains と AbstractMCMC を概観する．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Julia/MCMCChains.svg">
@@ -201,7 +201,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
             <p class="subtitle lead">新時代の確率的プログラミング環境の構築に向けて</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Process</div>
-                <div class="quarto-category">Simulation</div>
+                <div class="quarto-category">Sampling</div>
                 <div class="quarto-category">Julia</div>
                 <div class="quarto-category">MCMC</div>
                 <div class="quarto-category">俺のためのJulia入門</div>
@@ -232,7 +232,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える，Turing ecosystem の基盤となる抽象的なフレームワーク <code>MCMCChains</code> を概観する．
+      Julia に存在する MCMC 関連のパッケージをまとめ，多くの MCMC のパッケージを支える，Turing ecosystem の基盤となる抽象的なフレームワーク <code>MCMCChains</code> と <code>AbstractMCMC</code> を概観する．
     </div>
   </div>
   
@@ -252,7 +252,15 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <li><a href="#確率的プログラミング" id="toc-確率的プログラミング" class="nav-link" data-scroll-target="#確率的プログラミング"><span class="header-section-number">1.4</span> 確率的プログラミング</a></li>
   <li><a href="#turing-ecosystem" id="toc-turing-ecosystem" class="nav-link" data-scroll-target="#turing-ecosystem"><span class="header-section-number">1.5</span> Turing ecosystem</a></li>
   </ul></li>
-  <li><a href="#mcmcchains.jl" id="toc-mcmcchains.jl" class="nav-link" data-scroll-target="#mcmcchains.jl"><span class="header-section-number">2</span> <code>MCMCChains.jl</code></a></li>
+  <li><a href="#abstractmcmc.jl-の枠組み" id="toc-abstractmcmc.jl-の枠組み" class="nav-link" data-scroll-target="#abstractmcmc.jl-の枠組み"><span class="header-section-number">2</span> <code>AbstractMCMC.jl</code> の枠組み</a>
+  <ul class="collapse">
+  <li><a href="#logdensityproblem" id="toc-logdensityproblem" class="nav-link" data-scroll-target="#logdensityproblem"><span class="header-section-number">2.1</span> <code>LogDensityProblem</code></a></li>
+  </ul></li>
+  <li><a href="#mcmcchains.jl-と-abstractmcmc.jl" id="toc-mcmcchains.jl-と-abstractmcmc.jl" class="nav-link" data-scroll-target="#mcmcchains.jl-と-abstractmcmc.jl"><span class="header-section-number">3</span> <code>MCMCChains.jl</code> と <code>AbstractMCMC.jl</code></a>
+  <ul class="collapse">
+  <li><a href="#sample-関数" id="toc-sample-関数" class="nav-link" data-scroll-target="#sample-関数"><span class="header-section-number">3.1</span> <code>sample</code> 関数</a></li>
+  <li><a href="#autocor-関数" id="toc-autocor-関数" class="nav-link" data-scroll-target="#autocor-関数"><span class="header-section-number">3.2</span> <code>autocor</code> 関数</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -309,7 +317,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </ul></li>
 <li><p><code>Mamba.jl</code> (<a href="https://mambajl.readthedocs.io/en/latest/">Docs</a> / <a href="https://github.com/brian-j-smith/Mamba.jl">GitHub</a>) Markov chain Monte Carlo (MCMC) for Bayesian analysis in julia</p></li>
 <li><p><code>KissMCMC</code> (<a href="https://juliapackages.com/p/kissmcmc">Juliapackages</a> / <a href="https://github.com/mauro3/KissMCMC.jl">GitHub</a>) は ‘Keep it simple, stupid, MCMC’ ということで，計量な MCMC を提供するパッケージ．</p></li>
-<li><p><code>DynamicHMC.jl</code> (<a href="https://github.com/tpapp/DynamicHMC.jl">GitHub</a>) は NUTS サンプラーを提供するパッケージ．</p></li>
+<li><p><code>DynamicHMC.jl</code> (<a href="https://github.com/tpapp/DynamicHMC.jl">GitHub</a>) は NUTS サンプラーを提供するパッケージ．Tamás K. Papp による．</p></li>
 <li><p><code>SGMCMC.jl</code> (<a href="https://github.com/BigBayes/SGMCMC.jl">GitHub</a>) は Oxford CSML チームによる，Bayesian deep learning に向けたサンプラーを提供するパッケージ．</p></li>
 </ul>
 </section>
@@ -379,8 +387,17 @@ Turing ecosystem 一覧
 <p><span class="citation" data-cites="Storopoli2021">(<a href="#ref-Storopoli2021" role="doc-biblioref">Storopoli, 2021</a>)</span> も参照．</p>
 </section>
 </section>
-<section id="mcmcchains.jl" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="mcmcchains.jl"><span class="header-section-number">2</span> <code>MCMCChains.jl</code></h2>
+<section id="abstractmcmc.jl-の枠組み" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="abstractmcmc.jl-の枠組み"><span class="header-section-number">2</span> <code>AbstractMCMC.jl</code> の枠組み</h2>
+<p><code>AbstractMCMC.jl</code> は，DensityProblem をはじめとした <code>AbstractModel</code> と <code>AbstractSampler</code> のデータ構造を提供する，Turing エコシステムの根幹部分を支えるパッケージである．</p>
+<section id="logdensityproblem" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="logdensityproblem"><span class="header-section-number">2.1</span> <code>LogDensityProblem</code></h3>
+<p><code>AbstractMCMC.jl</code> は，Tamás K. Papp による <code>LogDensityProblem.jl</code> の <a href="https://turinglang.org/AbstractMCMC.jl/dev/api/">wrapper</a> を提供している．</p>
+<p><a href="https://turinglang.org/AbstractMCMC.jl/dev/api/#Sampling-a-single-chain"><code>sample</code> 関数</a>なども，AbstractModel の他に，longdensity オブジェクトに対するメソッドも定義されている．</p>
+</section>
+</section>
+<section id="mcmcchains.jl-と-abstractmcmc.jl" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="mcmcchains.jl-と-abstractmcmc.jl"><span class="header-section-number">3</span> <code>MCMCChains.jl</code> と <code>AbstractMCMC.jl</code></h2>
 <p>Turing によるエコシステムは，この MCMC のデザインパターンを利用している．</p>
 <div id="61afd697" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCChains</span></span>
@@ -783,9 +800,70 @@ Turing ecosystem 一覧
 </svg>
 </div>
 </div>
+<section id="sample-関数" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="sample-関数"><span class="header-section-number">3.1</span> <a href=""><code>sample</code> 関数</a></h3>
+<p><code>sample</code> 関数は，<a href="https://github.com/TuringLang/MCMCChains.jl/blob/7dc333819128264902abd111e25091bd7947a4f3/src/sampling.jl">MCMCCahins での実装</a> と <a href="https://github.com/TuringLang/AbstractMCMC.jl/blob/3cb36f4837643a11318eb889fa0aa74075559db7/src/sample.jl">AbstractMCMC での実装</a> との２つがある．</p>
+<section id="使い方" class="level4" data-number="3.1.1">
+<h4 data-number="3.1.1" class="anchored" data-anchor-id="使い方"><span class="header-section-number">3.1.1</span> 使い方</h4>
+<p><code>AbstractModel</code> に対するデフォルトは次のように始まる：</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">mcmcsample</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    rng<span class="op">::</span><span class="dt">Random.AbstractRNG</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    model<span class="op">::</span><span class="dt">AbstractModel</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    sampler<span class="op">::</span><span class="dt">AbstractSampler</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    N<span class="op">::</span><span class="dt">Integer</span>;</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    progress<span class="op">=</span>PROGRESS[],</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    progressname<span class="op">=</span><span class="st">"Sampling"</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    callback<span class="op">=</span><span class="cn">nothing</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    discard_initial<span class="op">=</span><span class="fl">0</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    thinning<span class="op">=</span><span class="fl">1</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    chain_type<span class="op">::</span><span class="dt">Type</span>=<span class="dt">Any</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    initial_state<span class="op">=</span><span class="cn">nothing</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    kwargs<span class="op">...</span>,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><code>inisital_params</code> を指定した場合：</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">mcmcsample</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    rng<span class="op">::</span><span class="dt">Random.AbstractRNG</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    model<span class="op">::</span><span class="dt">AbstractModel</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    sampler<span class="op">::</span><span class="dt">AbstractSampler</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">::</span><span class="dt">MCMCThreads</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    N<span class="op">::</span><span class="dt">Integer</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    nchains<span class="op">::</span><span class="dt">Integer</span>;</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    progress<span class="op">=</span>PROGRESS[],</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    progressname<span class="op">=</span><span class="st">"Sampling (</span><span class="sc">$</span>(<span class="fu">min</span>(nchains, <span class="bu">Threads</span>.<span class="fu">nthreads</span>()))<span class="st"> threads)"</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    initial_params<span class="op">=</span><span class="cn">nothing</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    initial_state<span class="op">=</span><span class="cn">nothing</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    kwargs<span class="op">...</span>,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+</section>
+<section id="autocor-関数" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="autocor-関数"><span class="header-section-number">3.2</span> <a href="https://github.com/TuringLang/MCMCChains.jl/blob/5f8e591ad3a9c6e8af01732d8a421cff306434c1/src/stats.jl"><code>autocor</code> 関数</a></h3>
+<p><code>Chains</code> オブジェクトに対する <code>autocor</code> 関数が，次のように定義されている：</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">autocor</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    chains<span class="op">::</span><span class="dt">Chains</span>;</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    append_chains <span class="op">=</span> <span class="cn">true</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    demean<span class="op">::</span><span class="dt">Bool </span><span class="op">=</span> <span class="cn">true</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">::</span><span class="dt">AbstractVector{&lt;:Integer} </span><span class="op">=</span> <span class="fu">_default_lags</span>(chains, append_chains),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    kwargs<span class="op">...</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    funs <span class="op">=</span> <span class="dt">Function</span>[]</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    func_names <span class="op">=</span> @. <span class="fu">Symbol</span>(<span class="st">"lag "</span>, lags)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> lags</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">push!</span>(funs, x <span class="op">-&gt;</span> <span class="fu">autocor</span>(x, [i], demean<span class="op">=</span>demean)[<span class="fl">1</span>])</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">summarize</span>(</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        chains, funs<span class="op">...</span>;</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        func_names <span class="op">=</span> func_names,</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        append_chains <span class="op">=</span> append_chains,</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        name <span class="op">=</span> <span class="st">"Autocorrelation"</span>,</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        kwargs<span class="op">...</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 
 
 
+</section>
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
