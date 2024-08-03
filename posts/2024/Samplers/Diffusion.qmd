@@ -3,7 +3,7 @@ title: "拡散模型"
 subtitle: "深層生成モデル６"
 author: "司馬 博文"
 date: 2/14/2024
-date-modified: 8/1/2024
+date-modified: 8/2/2024
 categories: [Deep, Process, Sampling]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -32,7 +32,7 @@ $$
 
 続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で学習しようというのである．
 
-この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song-Ermon2020] などの方法が提案されている．
+この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song+2021NeurIPS] などの方法が提案されている．
 
 この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる [@Huang+2021]．
 
@@ -48,7 +48,13 @@ ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] は ImageNet データの�
 
 OpenAI の [GLIDE](https://github.com/openai/glide-text2im) (Guided Language to Image Diffusion for Generation and Editing) [@Nichol+2022] は，[CLIP](https://openai.com/research/clip) (Contrastive Language-Image Pre-training) というトランスフォーマーベースの画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．
 
-Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という拡散モデルを開発している．
+#### Imagen [@Saharia+2022]
+
+Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] というCascaded Generation [-@sec-CascadedGeneration] に基づいた誘導付き拡散モデルを開発している．
+
+T5-XXL [@Raffel+2020] に基づく言語モデルを通じて言語と画像を同等の潜在空間にのせ，U-Net アーキテクチャを持った VDM [-@sec-VDM] でモデリングすることで，高精度な text-to-image を実現している．
+
+Palette [@Saharia+2022SIGGRAPH] は同様の仕組みで image-to-image を実現している．
 
 <!-- [@Yang+2023-Diff] は動画生成に応用している． -->
 
@@ -65,6 +71,14 @@ Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という�
 潜在拡散モデルで [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] を用いていたところをトランスフォーマーに置換した **拡散トランスフォーマー** (DiT: Diffusion Transformer) [@Peebles-Xie2023] が発表された．
 
 その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) [@Ma+2024] が発表された．
+
+#### Discrete Denoising Diffusion Probabilistic Models (D3PM) [@Austin+2021]
+
+Imagen にように言語を連続な潜在空間に埋め込む他に，直接離散空間上にも拡散模型を用いる事ができる．
+
+実はこのように設計された拡散模型は，BERT [@Lewis+2020-BART] などのマスク付き言語モデルと等価になる．^[[@Murphy2023 p.880] 25.7.5 節も参照．]
+
+MaskGIT (Masked Generative Image Transformer) [@Chang+2022] はこの枠組みに，画像をベクトル量子化して載せる．
 
 ## デノイジング拡散模型 (DDPM) {#sec-DDPM}
 
@@ -95,7 +109,7 @@ $$
 このことに基づいて，
 $$
 p_\theta(x_t,x_{t-1})=\rN_d\Paren{\mu_\theta(x_t,t),\Sigma_\theta(x_t,t)},\qquad\Sigma_\theta(x_t,t):=\sigma_t^2I_d,
-$$
+$$ {#eq-decoder-model}
 とモデリングする．さらに $\sigma^2_t\in\{\beta_t,\wt{\beta}_t\}$ としてしまうことも多い．
 
 総じて，データ分布を
@@ -125,7 +139,7 @@ L'=\norm{\ep-\ep_0(X_t,t)}^2,\qquad t\sim\rU([T]),x_t\sim q_0(X_t),
 $$
 を用いた．[@Choi+2022] この議論をさらに進めている．
 
-### Variational Diffusion Model (VDM) [@Kingma+2021]
+### Variational Diffusion Model (VDM) [@Kingma+2021] {#sec-VDM}
 
 VDM では正確に $\L(x_0)$ を最小化し，真の変分推論を実行することを試みる．
 
@@ -143,7 +157,7 @@ $$
 
 
 
-## スコアマッチング
+## スコアベースの生成模型 (SGM) {#sec-SGM}
 
 ### 導入
 
@@ -151,15 +165,161 @@ $$
 $$
 \nabla_x\log p(x)
 $$
-自体を学習することを生成モデリングの中心に据えることが [@Song-Ermon2019] で考えられた．エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては [@Salimans-Ho2021] も参照．
+自体を学習することを生成モデリングの中心に据えることが SGM (Score-based Generative Model) [@Song-Ermon2019] で考えられた．エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては [@Salimans-Ho2021] も参照．
 
-[@Song+2021NeurIPS]
+しかしスコアを学習するにあたって最も致命的な点は，$\nabla_x\log p(x)$ の値は $p$ を一意的に定めないということである．特に，
+$$
+p=\pi p_0+(1-\pi)p_1,\qquad\pi\in(0,1)
+$$
+という関係があり，$p_0,p_1$ の台が互いに素であったとき，$\nabla_x\log p$ からは $\pi\in(0,1)$ を定めるための情報が完全に消えてしまう．
 
-## 誘導付き拡散モデル
+![[データが青，学習されたスコアが緑．](SM.qmd)](../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png)
 
-## 確率微分方程式との関係
+### デノイジングによる解決
 
-連続時間極限を取ることで，拡散過程が現れる [@Tzen-Raginsky2019], [@Song+2021ICLR]．
+[@Song-Ermon2019], [@Song-Ermon2020], [@Song+2021ICLR] はデータにノイズを印加し，これを除去する方向に学習することで，スコアマッチングの問題点を克服することを考えた．
+
+ノイズを印加するとは，Gauss 核との畳み込みにより分布を軟化していくことに相当し，アニーリングと同じ効果を持つ．その結果，多峰性が消失してスコアマッチングが正確になる．加えて MCMC によるサンプリングも容易になる．
+
+あとは，ノイズを失くしていく極限を取ると，限りなく正しくデータ分布を学ぶことができるようになっていく．
+
+### Noise Conditional Score Network (NCSN) [@Song+2021NeurIPS]
+
+この「データにノイズを印加して学びやすくし，徐々にノイズを除去していく」というアイデアは拡散模型のそれに他ならず，スコアマッチングと拡散模型が邂逅するのは時間の問題だったと言えるだろう．
+
+スコアのスケール $\sigma$ の Gauss ノイズによる軟化列を $s_\theta(x,\sigma)$ と表すと，[デノイジングスコアマッチング](EBM.qmd##sec-DSM) (DNS) の目的関数の軟化列を得る：
+$$
+\L(\theta;\sigma)=\frac{1}{2}\E\Square{\Norm{s_\theta(\wt{X},\sigma)+\frac{\wt{X}-X}{\sigma^2}}^2_2}.
+$$
+これを組み合わせた目的関数
+$$
+\L(\theta;\sigma_{1:T})=\sum_{t=1}^T\lambda_t\L(\theta;\sigma_t),\qquad\lambda_t>0,
+$$
+を最終的な目的関数とする．
+
+### DDPM との対応
+
+以上，完全にスコアマッチングの観点から述べたが，NCSN は，ノイズスケジュールが異なるのみで本質的に DDPM [-@sec-DDPM] と同じ枠組みであるとみなせる [@Huang+2021]．
+
+実際，
+$$
+\L(\theta;\sigma_t^2)=\L_{\text{simple}}
+$$
+が成り立つ．^[[@Murphy2023 p.867] 25.3.3 節も参照．]
+
+## 連続時間極限
+
+### 導入
+
+ここまで，タイムステップ $t$ の取り方の議論をしていなかった．これはサンプリングに用いている拡散過程を離散化しているわけだから，その数学を借りることで更なる知見が得られる [@Tzen-Raginsky2019], [@Song+2021ICLR]．
+
+加えて，データ分布をノイズ分布に還元するフローは，何も拡散過程だけが与えるわけではない．確定的なものも含め，ほとんどあらゆるダイナミクスを代わりに用いることができる．
+
+特に，[MCMC がベクトル場に関する決定論的なフローで効率化させられる](../Slides/ZigZagSampler.qmd)ように，SDE の代わりに ODE を使うことで拡散模型のサンプリングを効率化する事ができる．
+
+### 前向き拡散過程
+
+データ分布を正規分布に還元する際に DDPM [-@sec-DDPM] で用いた拡散過程は，パラメータ $\beta(t)$ を持った $0$ に回帰的な拡散過程である：
+$$
+dX_t=-\frac{\beta(t)}{2}X_tdt+\sqrt{\beta(t)}dB_t,\qquad\beta\paren{\frac{t}{T}}=T\beta_t.
+$$
+
+このことは [@Song+2021ICLR] ですでに自覚されている．
+
+一方で，SGM [-@sec-SGM] では
+$$
+dX_t=\sqrt{\dd{}{t}\sigma(t)^2}dB_t
+$$
+で定まる拡散過程を用いる．
+
+### 後ろ向き拡散
+
+[@Anderson1982], [@Haussmann-Pardoux1986] によると，一般に
+$$
+dX_t=f_t(X_t)\,dt+\sigma_t\,dB_t
+$$
+という SDE の時間反転は，
+$$
+dY_t=\Paren{f_t(Y_t)-\sigma_t^2\nabla_x\log q_t(Y_t)}\,dt+\sigma_t\,dB_{-t}
+$$
+が定める．Hyvärinen スコア関数が出てくるのである．
+
+特に，DDPM では
+$$
+dY_t=\Paren{-\frac{\beta_t}{2}Y_t-\beta_t\nabla_{x}\log q_t(Y_t)}\,dt+\sqrt{\beta_t}\,dB_{-t}
+$$
+と表せる．
+
+このスコア関数 $\nabla_x\log q_t(X_t)$ を DSM によって推定した
+$$
+dY_t=-\frac{\beta_t}{2}\Paren{Y_t+2s_\theta(Y_t,t)}\,dt+\sqrt{\beta_t}\,dB_{-t}
+$$
+でデータ分布からサンプリングすることができるのである．なお，拡散過程のサンプリングは難しい問題であり，最も直接的には Euler-Maruyama 離散化を通じれば良い．
+
+### 等価な分布フローを定める確定的ダイナミクス
+
+代わりに ODE（[@Song+2021ICLR Sec D.3] が probability flow ODE と呼ぶ式）
+$$
+\dd{x_t}{t}=f(x,t)-\frac{g(t)^2}{2}\nabla_x\log p_t(x)
+$$
+で定まる確定的ダイナミクス $\{x_t\}$ を用いても，同様にデータ分布は $\rN_d(0,I_d)$ に還元される．
+
+### 後ろ向き ODE
+
+この ODE を推定した
+$$
+\dd{y_t}{t}=f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)
+$$
+を Euler 法，またはより高次な Heun 法などによって逆から解くことができる [@Karras+2022]．
+
+これは[連続時間正規化流](NF.qmd#sec-CNF)，特に Neural ODE と等価なモデリングをすることになる．
+
+実は SDE は
+$$
+dY_t=\Paren{f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)}-\frac{\beta_t}{2}s_\theta(y_t,t)dt+\sqrt{\beta_t}\,dB_t
+$$
+と，上記の確率的フロー ODE に Langevin 拡散の項を加えた形になっており，ODE によるアプローチはこの追加の Langevin 拡散項を消去することに等しい．
+
+### サンプリング加速法
+
+ODE を用いることで拡散模型のサンプリング速度が向上する．[@Nichol-Dhariwal2021] も参照．
+
+#### Denoising Diffusion Implicit Model (DDIM) [@JiamingSong+2021]
+
+モデリングに用いる拡散過程の Markov 性を崩すことで，DDPM [-@sec-DDPM] より 10 倍から 50 倍速いサンプリングを実現したもの．
+
+#### 逐次サンプリング問題としての解決
+
+デコーダーに用いるモデル ([-@eq-decoder-model]) の表現力を上げることで，ステップサイズを大きくしてもサンプリングの性能を悪化させないようにすることを試みる．
+
+例えば [@Gao+2021] は，ノイズ分布からデータ分布までのアニーリング列を，EBM の列として捉えてフィッティングをしている．同様のスキームで，[@Xiao+2021] は GAN を用いている．
+
+#### 蒸留
+
+[@Salimans-Ho2022] は Progressive Distillation と呼ばれる拡散過程の蒸留手法を提案している．
+
+学習済みの拡散モデル（[@Salimans-Ho2022] では DDIM）から，徐々にステップ数を減らした蒸留モデルを作成していく．
+
+#### 潜在拡散模型 (LDM) [@Rombach+2022]
+
+まず画像データを VAE などで学習した潜在空間に変換し，その上で拡散模型でモデリングをする．
+
+Latent Score-based Generative Model (LSGM) [@Vahdat+2021] では，VAE と拡散模型を同時に訓練することを考えている．
+
+この手法は，潜在表現さえ適切に見つければ，複数のドメインのデータを同時に扱えるという美点がある．
+
+また，[@Pandey+2022] では，まず VAE による生成モデルと作成し，その精度が足りない最終的な出力を高画質にするステップにのみ拡散模型を用いるスキームを提案している．
+
+## 誘導付き拡散模型
+
+拡散模型の更なる美点には，条件付けが可能で拡張性に優れているという点もある．
+
+### Classifier Guidance (CG) [@Dhariwal-Nichol2021]
+
+### Classifier-Free Diffusion Guidance [@Ho-Salimans2021]
+
+### Cascaded Generation [@Ho+2022] {#sec-CascadedGeneration}
+
 
 ## 参考文献 {.appendix}
 
@@ -167,4 +327,6 @@ $$
 
 良いサーベイには次がある：[@Luo2022]，[@McAllester2023]．
 
-古くからあり，すでに出版されているものには，[@Yang+2023], CVPR のチュートリアルが [@Kreis+2022], [@Song+2023]．
+古くからあり，すでに出版されているものには，[@Yang+2023], [@Cao+2024]．CVPR のチュートリアルが [@Kreis+2022], [@Song+2023]．
+
+拡散モデルのサンプリングを加速する手法に関するサーベイは [@Nichol-Dhariwal2021], [@Croitoru+2023] など．
