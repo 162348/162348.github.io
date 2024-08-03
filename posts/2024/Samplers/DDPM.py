@@ -28,7 +28,7 @@ beta_minmax=[1e-4, 2e-2]
 train_batch_size = 128
 inference_batch_size = 64
 lr = 5e-5
-epochs = 200
+epochs = 100
 
 seed = 2024
 
@@ -45,7 +45,7 @@ transform = transforms.Compose([
         transforms.ToTensor(),
 ])
 
-kwargs = {'num_workers': 5, 'pin_memory': True, 'prefetch_factor': 2}  # 今回は軽量だし worker number は 0 にする
+kwargs = {'num_workers': 0, 'pin_memory': True}  # 今回は軽量だし worker number は 0 にする
 
 import multiprocessing
 
