@@ -21,7 +21,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -83,6 +102,35 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Schrödinger 橋 – Hirofumi Shiba">
@@ -192,6 +240,19 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
    
   <ul>
   <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a></li>
+  <li><a href="#雑音除去拡散による事後分布サンプリング-ddps" id="toc-雑音除去拡散による事後分布サンプリング-ddps" class="nav-link" data-scroll-target="#雑音除去拡散による事後分布サンプリング-ddps"><span class="header-section-number">2</span> 雑音除去拡散による事後分布サンプリング (DDPS)</a>
+  <ul class="collapse">
+  <li><a href="#雑音除去拡散-dd" id="toc-雑音除去拡散-dd" class="nav-link" data-scroll-target="#雑音除去拡散-dd"><span class="header-section-number">2.1</span> 雑音除去拡散 (DD)</a></li>
+  <li><a href="#z_t-からのサンプリング" id="toc-z_t-からのサンプリング" class="nav-link" data-scroll-target="#z_t-からのサンプリング"><span class="header-section-number">2.2</span> <span class="math inline">\((Z_t)\)</span> からのサンプリング</a></li>
+  <li><a href="#近似ベイズ計算への応用" id="toc-近似ベイズ計算への応用" class="nav-link" data-scroll-target="#近似ベイズ計算への応用"><span class="header-section-number">2.3</span> 近似ベイズ計算への応用</a></li>
+  <li><a href="#逆問題への応用" id="toc-逆問題への応用" class="nav-link" data-scroll-target="#逆問題への応用"><span class="header-section-number">2.4</span> 逆問題への応用</a></li>
+  </ul></li>
+  <li><a href="#schrödinger-橋による事後分布サンプリング-dsb-ps" id="toc-schrödinger-橋による事後分布サンプリング-dsb-ps" class="nav-link" data-scroll-target="#schrödinger-橋による事後分布サンプリング-dsb-ps"><span class="header-section-number">3</span> Schrödinger 橋による事後分布サンプリング (DSB-PS)</a>
+  <ul class="collapse">
+  <li><a href="#導入-1" id="toc-導入-1" class="nav-link" data-scroll-target="#導入-1"><span class="header-section-number">3.1</span> 導入</a></li>
+  <li><a href="#定義" id="toc-定義" class="nav-link" data-scroll-target="#定義"><span class="header-section-number">3.2</span> 定義</a></li>
+  <li><a href="#sb-のシミュレーション" id="toc-sb-のシミュレーション" class="nav-link" data-scroll-target="#sb-のシミュレーション"><span class="header-section-number">3.3</span> SB のシミュレーション</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -209,11 +270,114 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </div>
 <section id="導入" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
+<p>潜在空間 <span class="math inline">\(\mathcal{X}\)</span> 上の事前分布 <span class="math inline">\(\mu\)</span> と，尤度が確率核 <span class="math inline">\(\mathcal{X}\to\mathcal{Y}\)</span> <span class="math display">\[
+x\mapsto g(y|x)\,dy
+\]</span> の形で与えられているとする．</p>
+</section>
+<section id="雑音除去拡散による事後分布サンプリング-ddps" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="雑音除去拡散による事後分布サンプリング-ddps"><span class="header-section-number">2</span> 雑音除去拡散による事後分布サンプリング (DDPS)</h2>
+<section id="雑音除去拡散-dd" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="雑音除去拡散-dd"><span class="header-section-number">2.1</span> 雑音除去拡散 (DD)</h3>
+<p><a href="../../../posts/2024/Samplers/Diffusion.html">拡散模型</a> は，次で定まる OU 過程によってデータ分布を <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> にまで破壊しているとみなせる <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span>： <span class="math display">\[
+dX_t=-\frac{1}{2}X_t\,dt+dB_t,\qquad X_0\sim p(x|y).
+\]</span></p>
+<p>ただし，この過程は指数エルゴード性を持つと言っても，完全に <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> に従うようになるのは <span class="math inline">\(t\to\infty\)</span> の極限においてである．この極限においては，<span class="math inline">\(p(x|y)\)</span> はもやは <span class="math inline">\(y\)</span> に依らなくなる．</p>
+<p>この <span class="math inline">\((X_t)\)</span> の有限時区間 <span class="math inline">\([0,T]\)</span> における時間反転は，<span class="math inline">\((X_t)\)</span> の密度を <span class="math inline">\(p_t(x_t|y)\)</span> で表すと， <span class="math display">\[
+dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
+\]</span> の弱解になる <span class="citation" data-cites="Anderson1982">(<a href="#ref-Anderson1982" role="doc-biblioref">Anderson, 1982</a>)</span>, <span class="citation" data-cites="Haussmann-Pardoux1986">(<a href="#ref-Haussmann-Pardoux1986" role="doc-biblioref">Haussmann and Pardoux, 1986</a>)</span>．この <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> を <strong>雑音除去拡散</strong> (Denoising Diffusion) という．</p>
+</section>
+<section id="z_t-からのサンプリング" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="z_t-からのサンプリング"><span class="header-section-number">2.2</span> <span class="math inline">\((Z_t)\)</span> からのサンプリング</h3>
+<p>すると残りの問題は，拡散過程 <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> からのサンプリングになるが，これは <span class="math inline">\(\log p_{T-t}(Z_t|y)\)</span> という項の評価と <span class="math inline">\(p_T(x_T|y)\)</span> からのサンプリングが必要である．</p>
+<p><span class="math inline">\((Z_t)\)</span> を <span class="math display">\[
+dZ_t=\frac{1}{2}Z_t\,dt+s_{T-t}^\theta(Z_t,y)\,dt+dW_t,\qquad Z_0\sim\mathrm{N}_d(0,I_d),
+\]</span> で近似することが <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span> の方法である．思い切って <span class="math inline">\(\mathrm{N}_d(0,I_d)\approx p_T(x_T|y)\)</span> としてしまい，<span class="math inline">\(s_t^\theta(x_t,y)\)</span> のモデリングに特化するのである．</p>
+<p>この過程 <span class="math inline">\((Z_t)\)</span> が定める測度を <span class="math inline">\(\mathbb{Q}_y^\theta\in\mathcal{P}(C([0,T];\mathcal{X}))\)</span> と表すと，訓練目標は KL 乖離度の期待値 <span class="math display">\[\begin{align*}
+    \mathcal{L}(\theta)&amp;:=2\operatorname{E}\biggl[\operatorname{KL}\biggr(\mathbb{P}_Y,\mathbb{Q}_Y^\theta\biggl)\biggr]\\
+    &amp;=\int^T_0\operatorname{E}\biggl[\left\|s^\theta_t(X_t,Y)-\nabla_x\log p_{t|0}(X_t|X_0)\right\|^2\biggr]\,dt+\mathrm{const.}
+\end{align*}\]</span> が考えられる．ただし，<span class="math inline">\(\mathbb{P}_Y\)</span> は <span class="math inline">\((X_t)\)</span> の分布，<span class="math inline">\(p_{t|0}\)</span> は <span class="math inline">\((X_t)\)</span> の遷移密度を表す．この損失は <a href="../../../posts/2024/Samplers/EBM.html#sec-DSM">DSM</a> <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> で与えられたものに等しい．</p>
+<p><span class="math display">\[
+(X_0,Y)\sim p(x,y)=g(y|x)\mu(x)
+\]</span> からのシミュレーションが可能であるならば，この目的関数は確率的最適化アルゴリズムによって最適化できる．</p>
+<p>こうして，雑音除去拡散サンプラー (DDPS: Denoising Diffusion Posterior Sampler) を得る．</p>
+</section>
+<section id="近似ベイズ計算への応用" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="近似ベイズ計算への応用"><span class="header-section-number">2.3</span> 近似ベイズ計算への応用</h3>
+<p>事前分布と尤度 <span class="math inline">\(g(y|x)\)</span> からのサンプリングが可能な状況は，生成モデリングの他に Simulation-based Inference などの近似推論でもあり得る．</p>
+<p>実際，この DDPS は従来の ABC (Approximate Bayesian Computation) 法の代替になり得る．</p>
+<p>さらに，<a href="../../../posts/2024/Samplers/Diffusion.html#sec-acceleration">拡散模型の加速法</a> （Progressive Distillation <span class="citation" data-cites="Salimans-Ho2022">(<a href="#ref-Salimans-Ho2022" role="doc-biblioref">Salimans and Ho, 2022</a>)</span> など）が DDPS にも応用可能である．</p>
+</section>
+<section id="逆問題への応用" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="逆問題への応用"><span class="header-section-number">2.4</span> 逆問題への応用</h3>
+<p>サンプルが画像だとしても，画像修復 (inpainting) や高解像度化 (super-resolution) などの逆問題応用が豊富に存在する．</p>
+<p>このような，単一の <span class="math inline">\(Y=y\)</span> を固定した状況で潜在変数 <span class="math inline">\(X_T\)</span> からサンプリングをしたい場合では，<span class="math inline">\(\log p_t(x_t|y)\)</span> を一緒くたに <span class="math inline">\(s^\theta_{t}(x_t,y)\)</span> に取り替えてしまうのではなく，次の事前分布と尤度への分解に基づいて扱うこともできる：</p>
+<p><span class="math display">\[
+\nabla_x\log p_t(x_t|y)=\nabla_x\log\mu_t(x_t)+\nabla_x\log g_t(y|x_t),
+\]</span> <span class="math display">\[
+\mu_t(x_t):=\int_\mathcal{X}\mu(x_0)p_{t|0}(x_t|x_0)\,dx_0,\qquad g_t(y|x_t):=\int_\mathcal{X}g(y|x_0)p_{0|t}(x_0,x_t)\,dx_0.
+\]</span></p>
+<p>この第一項は <span class="math inline">\(s_t^\theta(x_t)\)</span> により統一的にモデリングでき，同様に <span class="math inline">\(X_0\sim\mu(x)\)</span> から始まる雑音化過程 <span class="math inline">\((X_t)\)</span> の分布を <span class="math inline">\(\mathbb{P}\)</span> として <span class="math inline">\(\operatorname{KL}(\mathbb{P},\mathbb{Q}^\theta)\)</span> 最小化問題として処理できる．</p>
+<p><span class="math inline">\(g_t(y|x_t)\)</span> の項も近似可能である．<span class="citation" data-cites="Chung+2023">(<a href="#ref-Chung+2023" role="doc-biblioref">Chung et al., 2023</a>)</span> では条件付き誘導が，<span class="citation" data-cites="Song+2023">(<a href="#ref-Song+2023" role="doc-biblioref">J. Song et al., 2023</a>)</span> では Monte Carlo 法が用いられている．</p>
+</section>
+</section>
+<section id="schrödinger-橋による事後分布サンプリング-dsb-ps" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="schrödinger-橋による事後分布サンプリング-dsb-ps"><span class="header-section-number">3</span> Schrödinger 橋による事後分布サンプリング (DSB-PS)</h2>
+<section id="導入-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="導入-1"><span class="header-section-number">3.1</span> 導入</h3>
+<p><span class="math inline">\(p_T(x_T|y)\approx\mathrm{N}_d(0,I_d)\)</span> の近似を成り立たせるために <span class="math inline">\(T\)</span> を十分大きく取る必要がある問題は，OU 過程の代わりに Schrödinger 橋を用いることで解決できることが <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span> で提案された．</p>
+<p>Schrödinger 橋自体は，<span class="citation" data-cites="Bortoli+2021">(<a href="#ref-Bortoli+2021" role="doc-biblioref">De Bortoli et al., 2021</a>)</span> などから拡散模型への応用は議論されていた．</p>
+</section>
+<section id="定義" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="定義"><span class="header-section-number">3.2</span> 定義</h3>
+<p><strong>Schrödinger 橋 (SB)</strong> とは， <span class="math display">\[
+\Pi^*:=\operatorname*{argmin}_{\Pi\in\mathcal{P}_0}\operatorname{KL}(\Pi,\mathbb{P}),\qquad\mathcal{P}_0:=\biggl\{\Pi\in\mathcal{P}(C([0,T];\mathcal{X}\times\mathcal{Y}))\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0),\Pi_T(x_T,y_T)=\mathrm{N}_d(0,I_d)p(y_T)\biggr\}
+\]</span> によって定まる確率分布に従う確率過程をいう．ただし，<span class="math inline">\(\mathbb{P}:=\mathbb{P}_{y_0}\otimes\delta_{p(y)}\)</span> とした．<span class="math inline">\(\delta_{p(y)}\)</span> は次で定まる確率分布である： <span class="math display">\[
+dY_t=0,\qquad Y_0\sim p(y).
+\]</span></p>
+<p>これは解析的表示 <span class="math display">\[
+\Pi^*=\mathbb{P}^*_{y_0}\otimes\delta_{p(y)}
+\]</span> を持つから，<span class="math inline">\(Z_0\sim\mathrm{N}_d(0,I_d)\)</span> に従う過程 <span class="math inline">\((Z_t)\)</span> をシミュレーションすることで， <span class="math display">\[
+Z_T\sim\Pi^*_0(x|y)=p(x_0|y)\qquad p(y)\text{-a.s.}
+\]</span> が成り立つ．</p>
+</section>
+<section id="sb-のシミュレーション" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sb-のシミュレーション"><span class="header-section-number">3.3</span> SB のシミュレーション</h3>
+<p>SB 問題は次のようにして解かれる：</p>
+
 
 
 </section>
+</section>
 
-</main> <!-- /main -->
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Anderson1982" class="csl-entry" role="listitem">
+Anderson, B. D. O. (1982). <a href="https://doi.org/10.1016/0304-4149(82)90051-5">Reverse-time diffusion equation models</a>. <em>Stochastic Processes and Their Applications</em>, <em>12</em>(3), 313–326.
+</div>
+<div id="ref-Chung+2023" class="csl-entry" role="listitem">
+Chung, H., Kim, J., Mccann, M. T., Klasky, M. L., and Ye, J. C. (2023). <a href="https://openreview.net/forum?id=OnD9zGAGT0k">Diffusion posterior sampling for general noisy inverse problems</a>. In <em>The eleventh international conference on learning representations</em>.
+</div>
+<div id="ref-Bortoli+2021" class="csl-entry" role="listitem">
+De Bortoli, V., Thornton, J., Heng, J., and Doucet, A. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/940392f5f32a7ade1cc201767cf83e31-Paper.pdf">Diffusion schrödinger bridge with applications to score-based generative modeling</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 17695–17709. Curran Associates, Inc.
+</div>
+<div id="ref-Haussmann-Pardoux1986" class="csl-entry" role="listitem">
+Haussmann, U. G., and Pardoux, E. (1986). <a href="https://doi.org/10.1214/aop/1176992362"><span class="nocase">Time Reversal of Diffusions</span></a>. <em>The Annals of Probability</em>, <em>14</em>(4), 1188–1205.
+</div>
+<div id="ref-Salimans-Ho2022" class="csl-entry" role="listitem">
+Salimans, T., and Ho, J. (2022). <a href="https://openreview.net/forum?id=TIdIXIpzhoI">Progressive distillation for fast sampling of diffusion models</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Shi+2022" class="csl-entry" role="listitem">
+Shi, Y., De Bortoli, V., Deligiannidis, G., and Doucet, A. (2022). <a href="https://proceedings.mlr.press/v180/shi22a.html">Conditional simulation using diffusion <span>S</span>chr<span>ö</span>dinger bridges</a>. In J. Cussens and K. Zhang, editors, <em>Proceedings of the thirty-eighth conference on uncertainty in artificial intelligence</em>,Vol. 180, pages 1792–1802. PMLR.
+</div>
+<div id="ref-Song+2023" class="csl-entry" role="listitem">
+Song, J., Zhang, Q., Yin, H., Mardani, M., Liu, M.-Y., Kautz, J., … Vahdat, A. (2023). <a href="https://proceedings.mlr.press/v202/song23k.html">Loss-guided diffusion models for plug-and-play controllable generation</a>. In A. Krause, E. Brunskill, K. Cho, B. Engelhardt, S. Sabato, and J. Scarlett, editors, <em>Proceedings of the 40th international conference on machine learning</em>,Vol. 202, pages 32483–32498. PMLR.
+</div>
+<div id="ref-Song+2021ICLR" class="csl-entry" role="listitem">
+Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., and Poole, B. (2021). <a href="https://openreview.net/forum?id=PxTIG12RRHS"><span class="nocase">Score-Based Generative Modeling through Stochastic Differential Equations</span></a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Vincent2011" class="csl-entry" role="listitem">
+Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/A-Connection-Between-Score-Matching-and-Denoising">A connection between score matching and denoising autoencoders</a>. <em>Neural Computation</em>, <em>23</em>(7), 1661–1674.
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
