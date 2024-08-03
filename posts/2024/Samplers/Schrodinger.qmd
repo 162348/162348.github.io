@@ -18,3 +18,107 @@ abstract: 拡散模型はノイズからデータ分布まで到達するフロ�
 
 ## 導入
 
+潜在空間 $\cX$ 上の事前分布 $\mu$ と，尤度が確率核 $\cX\to\cY$
+$$
+x\mapsto g(y|x)\,dy
+$$
+の形で与えられているとする．
+
+## 雑音除去拡散による事後分布サンプリング (DDPS)
+
+### 雑音除去拡散 (DD)
+
+[拡散模型](Diffusion.qmd) は，次で定まる OU 過程によってデータ分布を $\rN_d(0,I_d)$ にまで破壊しているとみなせる [@Song+2021ICLR]：
+$$
+dX_t=-\frac{1}{2}X_t\,dt+dB_t,\qquad X_0\sim p(x|y).
+$$
+
+ただし，この過程は指数エルゴード性を持つと言っても，完全に $\rN_d(0,I_d)$ に従うようになるのは $t\to\infty$ の極限においてである．この極限においては，$p(x|y)$ はもやは $y$ に依らなくなる．
+
+この $(X_t)$ の有限時区間 $[0,T]$ における時間反転は，$(X_t)$ の密度を $p_t(x_t|y)$ で表すと，
+$$
+dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
+$$
+の弱解になる [@Anderson1982], [@Haussmann-Pardoux1986]．この $(Z_t)_{t\in[0,T]}$ を **雑音除去拡散** (Denoising Diffusion) という．
+
+### $(Z_t)$ からのサンプリング
+
+すると残りの問題は，拡散過程 $(Z_t)_{t\in[0,T]}$ からのサンプリングになるが，これは $\log p_{T-t}(Z_t|y)$ という項の評価と $p_T(x_T|y)$ からのサンプリングが必要である．
+
+$(Z_t)$ を
+$$
+dZ_t=\frac{1}{2}Z_t\,dt+s_{T-t}^\theta(Z_t,y)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+で近似することが [@Song+2021ICLR] の方法である．思い切って $\rN_d(0,I_d)\approx p_T(x_T|y)$ としてしまい，$s_t^\theta(x_t,y)$ のモデリングに特化するのである．
+
+この過程 $(Z_t)$ が定める測度を $\bQ_y^\theta\in\cP(C([0,T];\cX))$ と表すと，訓練目標は KL 乖離度の期待値
+\begin{align*}
+    \L(\theta)&:=2\E\SQuare{\KL\Paren{\bP_Y,\bQ_Y^\theta}}\\
+    &=\int^T_0\E\SQuare{\Norm{s^\theta_t(X_t,Y)-\nabla_x\log p_{t|0}(X_t|X_0)}^2}\,dt+\const
+\end{align*}
+が考えられる．ただし，$\bP_Y$ は $(X_t)$ の分布，$p_{t|0}$ は $(X_t)$ の遷移密度を表す．この損失は [DSM](EBM.qmd#sec-DSM) [@Vincent2011] で与えられたものに等しい．
+
+$$
+(X_0,Y)\sim p(x,y)=g(y|x)\mu(x)
+$$
+からのシミュレーションが可能であるならば，この目的関数は確率的最適化アルゴリズムによって最適化できる．
+
+こうして，雑音除去拡散サンプラー (DDPS: Denoising Diffusion Posterior Sampler) を得る．
+
+### 近似ベイズ計算への応用
+
+事前分布と尤度 $g(y|x)$ からのサンプリングが可能な状況は，生成モデリングの他に Simulation-based Inference などの近似推論でもあり得る．
+
+実際，この DDPS は従来の ABC (Approximate Bayesian Computation) 法の代替になり得る．
+
+さらに，[拡散模型の加速法](Diffusion.qmd#sec-acceleration) （Progressive Distillation [@Salimans-Ho2022] など）が DDPS にも応用可能である．
+
+### 逆問題への応用
+
+サンプルが画像だとしても，画像修復 (inpainting) や高解像度化 (super-resolution) などの逆問題応用が豊富に存在する．
+
+このような，単一の $Y=y$ を固定した状況で潜在変数 $X_T$ からサンプリングをしたい場合では，$\log p_t(x_t|y)$ を一緒くたに $s^\theta_{t}(x_t,y)$ に取り替えてしまうのではなく，次の事前分布と尤度への分解に基づいて扱うこともできる：
+
+$$
+\nabla_x\log p_t(x_t|y)=\nabla_x\log\mu_t(x_t)+\nabla_x\log g_t(y|x_t),
+$$
+$$
+\mu_t(x_t):=\int_\cX\mu(x_0)p_{t|0}(x_t|x_0)\,dx_0,\qquad g_t(y|x_t):=\int_\cX g(y|x_0)p_{0|t}(x_0,x_t)\,dx_0.
+$$
+
+この第一項は $s_t^\theta(x_t)$ により統一的にモデリングでき，同様に $X_0\sim\mu(x)$ から始まる雑音化過程 $(X_t)$ の分布を $\bP$ として $\KL(\bP,\bQ^\theta)$ 最小化問題として処理できる．
+
+$g_t(y|x_t)$ の項も近似可能である．[@Chung+2023] では条件付き誘導が，[@Song+2023] では Monte Carlo 法が用いられている．
+
+## Schrödinger 橋による事後分布サンプリング (DSB-PS)
+
+### 導入
+
+$p_T(x_T|y)\approx\rN_d(0,I_d)$ の近似を成り立たせるために $T$ を十分大きく取る必要がある問題は，OU 過程の代わりに Schrödinger 橋を用いることで解決できることが [@Shi+2022] で提案された．
+
+Schrödinger 橋自体は，[@Bortoli+2021] などから拡散模型への応用は議論されていた．
+
+### 定義
+
+**Schrödinger 橋 (SB)** とは，
+$$
+\Pi^*:=\argmin_{\Pi\in\cP_0}\KL(\Pi,\bP),\qquad\cP_0:=\BRace{\Pi\in\cP(C([0,T];\cX\times\cY))\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0),\Pi_T(x_T,y_T)=\rN_d(0,I_d)p(y_T)}
+$$
+によって定まる確率分布に従う確率過程をいう．ただし，$\bP:=\bP_{y_0}\otimes\delta_{p(y)}$ とした．$\delta_{p(y)}$ は次で定まる確率分布である：
+$$
+dY_t=0,\qquad Y_0\sim p(y).
+$$
+
+これは解析的表示
+$$
+\Pi^*=\bP^*_{y_0}\otimes\delta_{p(y)}
+$$
+を持つから，$Z_0\sim\rN_d(0,I_d)$ に従う過程 $(Z_t)$ をシミュレーションすることで，
+$$
+Z_T\sim\Pi^*_0(x|y)=p(x_0|y)\qquad p(y)\das
+$$
+が成り立つ．
+
+### SB のシミュレーション
+
+SB 問題は次のようにして解かれる：
