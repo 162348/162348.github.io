@@ -11,20 +11,35 @@ bibliography:
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．ここでは，拡散模型を正確なサンプリング手法として用いる方法を議論する．
+abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．このような拡散模型の考え方はサンプリングにも用いることができる．
 ---
 
-{{< include ../../../_preamble.qmd >}}
+{{< include ../../../assets/_preamble.qmd >}}
 
 ## 導入
+
+| 名称 | 正規化定数の不明な分布に使えるか？ | IPF が必要か？ |
+|:----:|:----:|:---:|
+| DDPS [-@sec-DDPS] | [{{< fa xmark >}}]{.color-blue} | [{{< fa xmark >}}]{.color-blue} |
+| DSB-PS [-@sec-DSB-PS] | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
+| DDGS [-@sec-DDGS] | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
+| DSB-GS [-@sec-DSB-GS] | [{{< fa check >}}]{.color-red} | [{{< fa check >}}]{.color-red} |
+
+: {.hover .responsive-sm tbl-colwidths="[10,20,20]"}
+
+MCMC, SMC そして ABC の代替手法ともくされているが，理論が未発達である．
+
+[@DeBortoli2022] などの既存の理論は，スコア関数の推定誤差の言葉で収束を論じており，この推定誤差は実践上では確認が難しいものである．
+
+加えて，拡散模型は確率的局所化の考え方と関係が深いことが知られており，近似メッセージ伝搬を取り入れることで，定量的な収束保証をつけることもできる．
+
+## 雑音除去拡散による事後分布サンプリング (DDPS) {#sec-DDPS}
 
 潜在空間 $\cX$ 上の事前分布 $\mu$ と，尤度が確率核 $\cX\to\cY$
 $$
 x\mapsto g(y|x)\,dy
 $$
 の形で与えられているとする．
-
-## 雑音除去拡散による事後分布サンプリング (DDPS)
 
 ### 雑音除去拡散 (DD)
 
@@ -38,10 +53,10 @@ $$
 この $(X_t)$ の有限時区間 $[0,T]$ における時間反転は，$(X_t)$ の密度を $p_t(x_t|y)$ で表すと，
 $$
 dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
-$$
+$$ {#eq-denoising-diffusion}
 の弱解になる [@Anderson1982], [@Haussmann-Pardoux1986]．この $(Z_t)_{t\in[0,T]}$ を **雑音除去拡散** (Denoising Diffusion) という．
 
-### $(Z_t)$ からのサンプリング
+### $(Z_t)$ からのサンプリング {#sec-DDPS-sampling}
 
 すると残りの問題は，拡散過程 $(Z_t)_{t\in[0,T]}$ からのサンプリングになるが，これは $\log p_{T-t}(Z_t|y)$ という項の評価と $p_T(x_T|y)$ からのサンプリングが必要である．
 
@@ -90,26 +105,29 @@ $$
 
 $g_t(y|x_t)$ の項も近似可能である．[@Chung+2023] では条件付き誘導が，[@Song+2023] では Monte Carlo 法が用いられている．
 
-## Schrödinger 橋による事後分布サンプリング (DSB-PS)
+## Schrödinger 橋による事後分布サンプリング (DSB-PS) {#sec-DSB-PS}
 
 ### 導入
 
 $p_T(x_T|y)\approx\rN_d(0,I_d)$ の近似を成り立たせるために $T$ を十分大きく取る必要がある問題は，OU 過程の代わりに Schrödinger 橋を用いることで解決できることが [@Shi+2022] で提案された．
 
-Schrödinger 橋自体は，[@Bortoli+2021] などから拡散模型への応用は議論されていた．
+Schrödinger 橋自体は，[@DeBortoli+2021] などから拡散模型への応用は議論されていた．
 
 ### 定義
 
 **Schrödinger 橋 (SB)** とは，
 $$
-\Pi^*:=\argmin_{\Pi\in\cP_0}\KL(\Pi,\bP),\qquad\cP_0:=\BRace{\Pi\in\cP(C([0,T];\cX\times\cY))\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0),\Pi_T(x_T,y_T)=\rN_d(0,I_d)p(y_T)}
+\Pi^*:=\argmin_{\Pi\in\cP_0}\KL(\Pi,\bP),
+$$
+$$
+\cP_0:=\BRace{\Pi\in\cP(C([0,T];\cX\times\cY))\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0),\Pi_T(x_T,y_T)=\rN_d(0,I_d)p(y_T)},
 $$
 によって定まる確率分布に従う確率過程をいう．ただし，$\bP:=\bP_{y_0}\otimes\delta_{p(y)}$ とした．$\delta_{p(y)}$ は次で定まる確率分布である：
 $$
 dY_t=0,\qquad Y_0\sim p(y).
 $$
 
-これは解析的表示
+これは表示
 $$
 \Pi^*=\bP^*_{y_0}\otimes\delta_{p(y)}
 $$
@@ -121,4 +139,130 @@ $$
 
 ### SB のシミュレーション
 
-SB 問題は次のようにして解かれる：
+SB 問題の解 $\Pi$ は **逐次的比例フィッティング** (IPF: Iterative Proportional Fitting) により得られる．
+
+#### IPF とは
+
+IPF アルゴリズムは離散的な形で [@Fortet1940] が Schrödinger 方程式の研究で，[@Deming-Stephan1940] が分割表データ解析の研究で提案している．その手続きw [@Ireland-Kullback1968] が距離の最小化として特徴付け，[@Kullback1968] が確率密度に対しても一般化した．
+
+IPF は元々，指定した２つの確率ベクトル $r\in(0,\infty)^{d_r},c\in(0,\infty)^{d_c}$ を周辺分布に持つ結合分布（カップリング）のうち，指定の行列 $W\in M_{d_rd_c}(\R_+)$ に最も近い KL 乖離度を持つカップリングを見つけるための逐次アルゴリズムである [@Kurras2015]．
+
+種々の分野で再発見され，複数の名前を持っているようである．例：Sheleikhovskii 法，Kruithof アルゴリズム，Furness 法，Sinkhorn-Knopp アルゴリズム，RAS 法など [@Kurras2015]．
+
+$W$ の成分が正である場合は，[@Sinkhorn1967] がアルゴリズムの収束と解の一意性を示している．^[ただし，[@Deming-Stephan1940] にも [@Fortet1940] にも言及しておらず，Markov 連鎖の遷移確率の推定という文脈で研究している．]
+
+しかし，$W$ の成分が零を含む場合，零成分の位置に依存してアルゴリズムは収束しないことがあり得ることを，[@Sinkhorn-Knopp1967] が $d_r=d_c=1$ の場合について示している．
+
+#### アルゴリズム
+
+IPF アルゴリズムは，観念的には，２つの周辺分布のうち片方を制約に課しながら，KL 距離を最小にする射影を返していく：
+
+$$
+\Pi^{2n+1}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n})\,\bigg|\,\Pi_T=\rN_d(0,I_d)\otimes p(y_T)dy_T},
+$$
+$$
+\Pi^{2n+2}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n+1})\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0)}.
+$$
+
+今回の場合，
+$$
+\Pi^{2n+1}=\bP_{y_T}^{2n+1}\otimes\delta_{p(y)},\qquad\Pi^{2n+2}=\bP^{2n+2}_{y_0}\otimes\delta_{p(y)},
+$$
+と分解される．ただし，$\bP_{y_T}^{2n+1}$ は次で定まる $(Z_t)$ の時間反転
+$$
+dZ_t=f_{T-t}^{2n+1}(Z_t,y_T)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),f_t^{2n+1}(x_t,y):=-f_t^{2n}(x_t,y)+\nabla_{x}\log\Pi^{2n}_t(x_t|y),
+$$
+$\bP_{y_0}^{2n+2}$ は次で定まる $(X_t)$ の経路測度となる：
+$$
+dX_t=f^{2n+2}_t(X_t,y_0)\,dt+dB_t,\qquad X_0\sim p(x|y_0)\,dx,f_t^{2n+2}(x_t,y):=-f_t^{2n+1}(x_t,y)+\nabla_x\log\Pi_t^{2n+1}(x_t|y).
+$$
+ただし，$f^0_t(x_t)=-x_t/2$．
+
+#### DDPS との関係
+
+最初のイテレーション $n=0$ における $\bP^1_y$ が雑音除去拡散 ([-@eq-denoising-diffusion]) に対応する．
+
+しかし，IPF アルゴリズムのイテレーションを繰り返していくごとに，$T>0$ が十分に大きくない場合でも正確に $\rN_d(0,I_d)$ にデータ分布を還元する SB が得られるようになっていく．
+
+#### DSB-PS
+
+この際，スコア $\nabla_z\log p_{T-t}(Z_t|y)$ から始まり，$f^{n}_t\;(n\ge2)$ の推定も逐次的に行なわなければならない点については，**mean-matching** [@DeBortoli+2021], [@Shi+2022] という方法が考えられている．
+
+この方法を用いて，IPF アルゴリズムが収束するまで実行して最終的に得るサンプラーを **Schrödinger 橋サンプラー** (DSB-PS: Diffusion Schrödinger Bridge Posterior Sampling) という．
+
+## 雑音除去拡散によるサンプリング (DDGS) {#sec-DDGS}
+
+### 導入
+
+[@Vargas-Grathwohl-Doucet2023] は次の２点を克服するサンプラーを提案した．
+
+#### 条件付き生成
+
+DDPS と DSB-PS は，$y\in\cY$ について一様に均してしまった [**償却推論**](../Kernels/Deep4.qmd#sec-amortized-inference) を行っている．
+
+特殊な $y\in\cY$ に対しても，これにフィットしたモデルを作りたい状況がある．
+
+#### 正規化定数のわからない分布
+
+同時に DDPS と DSB-PS は，正規化定数の不明な分布などからのサンプリングには使えない．
+
+ここでは，
+$$
+p(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
+$$
+という形で，$\gamma$ のみを与えられた場合を考える．
+
+DDPS において第 [-@sec-DDPS-sampling] 節で考えたように，$(X_0,Y)$ からのサンプルが得られないため，$\nabla_x\log p_t(x_t)$ の項の近似に関しては別のアプローチを考える必要がある．
+
+### $h$-変換としての表示
+
+雑音除去拡散 ([-@eq-denoising-diffusion]) の $\nabla_x\log p_t(x_t)$ の表示が消えるような変数変換を考える．
+
+まず，OU 過程 $(X_t)$ を定常分布 $X_0\sim\rN_d(0,I_d)$ から始めた場合の分布を $\bM$ とすると，この逆は
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+である．この過程の $\bM$ の下での $h$-変換は，
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+\nabla_z\log h_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim p_T(x_T),
+$$
+$$
+h_t(x_t):=\int_\cX\Phi(x_0)m_{T|T-t}(x_0|x_t)\,dx_0,\qquad \Phi(x_0):=\frac{p(x_0)}{\phi_d(x_0;0,I_d)}
+$$
+と表せる．ただし $m$ は OU 過程 $(X_t)$ の遷移密度とした．
+
+この表示に対するパラメトリックな近似
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+u^\theta_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+の分布を $\bQ^\theta$ で表し，$\KL(\bP,\bQ^\theta)$ を最小化することが最初に思いつくが，これでは $\bP$ からのサンプル，従って $p$ からのサンプルを必要としてしまう．
+
+### 逆 KL-乖離度の最適制御
+
+$h$-変換をした理由は，$\KL(\bQ^\theta,\bP)$ ならば計算できる点にある．
+
+$$
+\L(\theta):=\KL(\bQ^\theta,\bP)=\E_{\bQ^\theta}\Square{\frac{1}{2}\int^T_0\norm{u^\theta_{T-t}(Z_t)}^2\,dt-\log\Phi(Z_T)}
+$$
+については，$\log\Phi(Z_T)$ には $\theta$ が出現しないため，第一項のみに集中すれば良い．
+
+そうすると，これは KL 最適制御問題として解くことができる．
+
+## Schrödinger 橋によるサンプリング (DSB-GS) {#sec-DSB-GS}
+
+### 導入
+
+全く同様にして，Schrödinger 橋としての見方を導入することにより，DDGS の効率はさらに上げられる．
+
+加えて，無雑音極限において，Schrödinger 橋問題は，エントロピー正則化を持つ最適輸送問題と Monge-Kantorovich 問題と関連がある [@DeBortoli+2021 3.1節]．
+
+この場合も，$T\to\infty$ の極限において，DDGS は Schrödinger 橋の近似を与える．
+
+### Schrödiger-Föllmer サンプラー
+
+$\bM$ を OU 過程と取る代わりに，$\Pi_T(x_T)$ を Dirac 測度として Brown 橋を取ることもできる．これが [@Follmer1985] 以来のアプローチである．
+
+このアプローチでは，IPF は２回のイテレーションで収束するという美点がある．このための数値的方法も広い分野で提案されている：[@Barr+2020], [@Zhang+2021]．
+
+終端の測度を Dirac 測度としていることの綻びが数値的な不安定性に現れやすいことが [@Vargas-Grathwohl-Doucet2023] で述べられている．
+
