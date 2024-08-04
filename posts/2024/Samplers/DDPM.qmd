@@ -3,7 +3,7 @@ title: "拡散模型の実装"
 subtitle: "PyTorch によるハンズオン"
 author: "司馬 博文"
 date: 8/2/2024
-date-modified: 8/2/2024
+date-modified: 8/5/2024
 categories: [Deep, Sampling, Python]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -13,8 +13,8 @@ csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．今回は `PyTorch` を用いて，DDPM の実装の概要を見る．
 code-fold: false
-execute:
-    eval: false
+# execute:
+#     eval: false
 ---
 
 {{< include ../../../_preamble.qmd >}}
@@ -56,7 +56,7 @@ beta_minmax=[1e-4, 2e-2]
 train_batch_size = 128
 inference_batch_size = 64
 lr = 5e-5
-epochs = 200
+epochs = 100
 
 seed = 1234
 
@@ -78,19 +78,17 @@ transform = transforms.Compose([
         transforms.ToTensor(),
 ])
 
-kwargs = {'num_workers': 1, 'pin_memory': True}  # 今回は軽量だし worker number は 0 にする
+kwargs = {'num_workers': 0, 'pin_memory': True}  # 今回は軽量だし worker number は 0 にする
 
-if __name__ == '__main__':
+if dataset == 'CIFAR10':
+    train_dataset = CIFAR10(dataset_path, transform=transform, train=True, download=True)
+    test_dataset  = CIFAR10(dataset_path, transform=transform, train=False, download=True)
+else:
+    train_dataset = MNIST(dataset_path, transform=transform, train=True, download=True)
+    test_dataset  = MNIST(dataset_path, transform=transform, train=False, download=True)
 
-    if dataset == 'CIFAR10':
-        train_dataset = CIFAR10(dataset_path, transform=transform, train=True, download=True)
-        test_dataset  = CIFAR10(dataset_path, transform=transform, train=False, download=True)
-    else:
-        train_dataset = MNIST(dataset_path, transform=transform, train=True, download=True)
-        test_dataset  = MNIST(dataset_path, transform=transform, train=False, download=True)
-
-    train_loader = DataLoader(dataset=train_dataset, batch_size=train_batch_size, shuffle=True, **kwargs)
-    test_loader  = DataLoader(dataset=test_dataset,  batch_size=inference_batch_size, shuffle=False,  **kwargs)
+train_loader = DataLoader(dataset=train_dataset, batch_size=train_batch_size, shuffle=True, **kwargs)
+test_loader  = DataLoader(dataset=test_dataset,  batch_size=inference_batch_size, shuffle=False,  **kwargs)
 ```
 
 ## モデル定義

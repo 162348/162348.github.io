@@ -28,7 +28,7 @@ beta_minmax=[1e-4, 2e-2]
 train_batch_size = 128
 inference_batch_size = 64
 lr = 5e-5
-epochs = 100
+epochs = 90
 
 seed = 2024
 
@@ -45,9 +45,10 @@ transform = transforms.Compose([
         transforms.ToTensor(),
 ])
 
-kwargs = {'num_workers': 0, 'pin_memory': True}  # 今回は軽量だし worker number は 0 にする
+kwargs = {'num_workers': 3, 'pin_memory': True}  # 今回は軽量だし worker number は 0 にする
 
 import multiprocessing
+import os
 
 if __name__ == '__main__':
     
@@ -304,6 +305,13 @@ if __name__ == '__main__':
     # 生成された画像を個別に保存
     with torch.no_grad():
         generated_images = diffusion.sample(N=inference_batch_size)
-        torch.save(generated_images, f"Files/generated_images.pt")
+        save_path = os.path.expanduser("~/162348.github.io/posts/2024/Samplers/Files/generated_images0.pt")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(generated_images, save_path)
 
     print(f"Generated images tensor saved in Files/generated_images.pt")
+    
+# Finish!! Total time:  152842.77184414864
+
+# num_workers = 0 で 1 エポック：12:51
+# num_workers = 3 で 1 エポック：12:49
