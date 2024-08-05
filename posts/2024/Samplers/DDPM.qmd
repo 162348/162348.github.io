@@ -21,6 +21,8 @@ code-fold: false
 
 ## ハイパーパラメーターの設定
 
+$\beta_0=10^{-4}$ から $\beta_T=0.02$ までを，`n_timesteps = 1000` 等分し，その間のダイナミクスを `hidden_dim = 256` 次元の CNN ８層で学習する．
+
 ```{python}
 #| code-fold: true
 #| code-summary: 必要なパッケージの読み込み
@@ -95,7 +97,9 @@ test_loader  = DataLoader(dataset=test_dataset,  batch_size=inference_batch_size
 
 ### タイムステップ $t$ の位置埋め込み
 
-[@Ho+2020] では sinusoidal positional encoding というものが取られている．
+[@Ho+2020] ではトランスフォーマー [@Vaswani+2017] 同様の sinusoidal positional encoding を用いてタイムステップ $t$ の情報をデータに統合したものが，パラメータの共有された CNN に与えられる．
+
+こうすることで `n_timesteps = 1000` の別々の NN を訓練するより遥かに効率的に設計できている．
 
 ```{python}
 class SinusoidalPosEmb(nn.Module):
@@ -170,16 +174,13 @@ class Denoiser(nn.Module):
         
         self.in_project = ConvBlock(img_C, hidden_dims[0], kernel_size=7)
         
-        self.time_project = nn.Sequential(
-                                 ConvBlock(diffusion_time_embedding_dim, hidden_dims[0], kernel_size=1, activation_fn=True),
-                                 ConvBlock(hidden_dims[0], hidden_dims[0], kernel_size=1))
+        self.time_project = nn.Sequential(ConvBlock(diffusion_time_embedding_dim, hidden_dims[0], kernel_size=1, activation_fn=True),ConvBlock(hidden_dims[0], hidden_dims[0], kernel_size=1))
         
         self.convs = nn.ModuleList([ConvBlock(in_channels=hidden_dims[0], out_channels=hidden_dims[0], kernel_size=3)])
         
         for idx in range(1, len(hidden_dims)):
-            self.convs.append(ConvBlock(hidden_dims[idx-1], hidden_dims[idx], kernel_size=3, dilation=3**((idx-1)//2),
-                                                    activation_fn=True, gn=True, gn_groups=8))                                
-                               
+            self.convs.append(ConvBlock(hidden_dims[idx-1], hidden_dims[idx], kernel_size=3, dilation=3**((idx-1)//2),activation_fn=True, gn=True, gn_groups=8))                                
+
         self.out_project = ConvBlock(hidden_dims[-1], out_channels=img_C, kernel_size=3)
         
         
@@ -406,7 +407,6 @@ GPU に乗った状態で読み込まれることに注意．
 ## データ生成
 
 ```{python}
-#| code-fold: true
 #| code-summary: 生成データの用意
 #| eval: false
 model.eval()

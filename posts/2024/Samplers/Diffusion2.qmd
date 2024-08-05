@@ -1,0 +1,156 @@
+---
+title: "雑音除去拡散サンプラー"
+subtitle: "拡散模型にヒントを得た輸送によるサンプリング法"
+author: "司馬 博文"
+date: 8/3/2024
+date-modified: 8/5/2024
+categories: [Sampling, Process]
+image: Files/unnormalized_target.svg
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．このような拡散模型の考え方はサンプリングにも用いることができる．
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 導入
+
+### 拡散モデルをサンプラーに使う
+
+前稿で扱った雑音除去拡散モデル (Denoising Diffusion Models) はそのままでは一般の確率分布からのサンプリングには使えない：
+
+::: {layout-ncol=2 layout-valign="bottom"}
+
+[![拡散模型（深層生成モデル６）](../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png)](Diffusion.qmd)
+
+[![雑音除去拡散過程](Files/unnormalized_target.svg)](Diffusion1.qmd)
+
+:::
+
+一方で本稿では，正規化定数が不明な分布
+$$
+\pi(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
+$$
+に対しても使える汎用サンプラー DDS (Denoising Diffusion Sampler) [@Vargas-Grathwohl-Doucet2023] とその Schrödinger 橋による改良を扱う：
+
+| 名称 | 正規化定数の不明な分布に使えるか？ | IPF が必要か？ |
+|:----:|:----:|:---:|
+| [雑音除去拡散モデル](Diffusion1.qmd#sec-DDOS) | [{{< fa xmark >}}]{.color-blue} | [{{< fa xmark >}}]{.color-blue} |
+| [Schrödinger 橋による改良](Diffusion1.qmd#sec-DSB-PS) | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
+| DDS（第 [-@sec-DDGS] 節） | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
+| DSBS （第 [-@sec-DSB-GS] 節） | [{{< fa check >}}]{.color-red} | [{{< fa check >}}]{.color-red} |
+
+: {.hover .responsive-sm tbl-colwidths="[20,15,15]"}
+
+### DDS の現状
+
+MCMC, SMC そして ABC の代替手法ともくされているが，理論が未発達である．例えば [@DeBortoli2022] などの既存の理論は，スコア関数の推定誤差の言葉で収束を論じており，この推定誤差は実践上では確認が難しいものであると言える [@Heng+2024]．
+
+加えて，拡散模型は確率的局所化の考え方と関係が深いことが知られており，近似メッセージ伝搬を取り入れることで，定量的な収束保証をつけることもできる [@Montanari-Wu2023]．
+
+### AIS [@Neal2001] との比較
+
+[焼きなまし重点サンプリング](../../Surveys/SMCSamplers.qmd#sec-AIS) (AIS: Annealed Importance Sampling) [@Neal2001] では，目標分布 $\pi$ に至る列 $\pi_0,\cdots,\pi_p=\pi$ が得られており，$\pi_0$ からのサンプリングは可能である場合の重点サンプリング法のテクニックである．
+
+AIS とは，各 $\pi_i$ を不変分布とする MCMC 核 $P_i$ について，$\pi_0P_1P_2\cdots P_p$ を重点サンプリング法における提案分布に用いる方法である．
+
+しかし，そのまま重点荷重を計算するのではなく，^[$\pi_p(x_p)/\pi_0P_1P_2\cdots P_p$ は多くの場合計算不能である．] 拡張された空間 $\cX^{p+1}$ 上の目標分布
+$$
+\pi_p\otimes P_p^{-1}\otimes\cdots\otimes P_1^{-1}
+$$
+に対して $\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p$ を提案分布に用いたとして荷重荷重を計算する．^[ただし，$P_i^{-1}$ とは，$$ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) $$ で定まる確率核とした．$\otimes$ の記法は[こちら](../../../static/Notations.qmd#kernels)も参照．] 実際には，
+$$
+X_p\sim P_{p}(X_{p-1},-),\quad X_{p-1}\sim P_{p-1}(X_{p-2},-),\quad \cdots\quad X_1\sim P_1(X_0,-),\quad X_0\sim \pi_0
+$$
+というように $X_0\sim\pi_0$ を MCMC 核 $P_1,\cdots,P_p$ で順に流し，最後にウェイト
+$$
+w:=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
+$$
+を計算する．^[このウェイトの表示は，$P_i^{-1}/P_i=\pi_{i-1}/\pi_i$ が成り立つことから直ちに従う．]
+
+従って，本当は $\cX^{p+1}$ 上で重点サンプリングを行っているが，$x_p$ の成分のみに注目することで周辺分布では $\pi_p$ に対する効率的な重点サンプリングが実現されている．
+
+## 雑音除去拡散によるサンプリング (DDGS) {#sec-DDGS}
+
+### 導入
+
+[@Vargas-Grathwohl-Doucet2023] は次の２点を克服するサンプラーを提案した．
+
+#### 条件付き生成
+
+DDPS と DSB-PS は，$y\in\cY$ について一様に均してしまった [**償却推論**](../Kernels/Deep4.qmd#sec-amortized-inference) を行っている．
+
+特殊な $y\in\cY$ に対しても，これにフィットしたモデルを作りたい状況がある．
+
+#### 正規化定数のわからない分布
+
+同時に DDPS と DSB-PS は，正規化定数の不明な分布などからのサンプリングには使えない．
+
+ここでは，
+$$
+p(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
+$$
+という形で，$\gamma$ のみを与えられた場合を考える．
+
+DDPS において考えたように，$(X_0,Y)$ からのサンプルが得られないため，$\nabla_x\log p_t(x_t)$ の項の近似に関しては別のアプローチを考える必要がある．
+
+### $h$-変換としての表示
+
+雑音除去拡散
+$$
+dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
+$$
+の $\nabla_x\log p_t(x_t)$ の表示が消えるような変数変換を考える．
+
+まず，OU 過程 $(X_t)$ を定常分布 $X_0\sim\rN_d(0,I_d)$ から始めた場合の分布を $\bM$ とすると，この逆は
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+である．この過程の $\bM$ の下での $h$-変換は，
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+\nabla_z\log h_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim p_T(x_T),
+$$
+$$
+h_t(x_t):=\int_\cX\Phi(x_0)m_{T|T-t}(x_0|x_t)\,dx_0,\qquad \Phi(x_0):=\frac{p(x_0)}{\phi_d(x_0;0,I_d)}
+$$
+と表せる．ただし $m$ は OU 過程 $(X_t)$ の遷移密度とした．
+
+この表示に対するパラメトリックな近似
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+u^\theta_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+の分布を $\bQ^\theta$ で表し，$\KL(\bP,\bQ^\theta)$ を最小化することが最初に思いつくが，これでは $\bP$ からのサンプル，従って $p$ からのサンプルを必要としてしまう．
+
+### 逆 KL-乖離度の最適制御
+
+$h$-変換をした理由は，$\KL(\bQ^\theta,\bP)$ ならば計算できる点にある．
+
+$$
+\L(\theta):=\KL(\bQ^\theta,\bP)=\E_{\bQ^\theta}\Square{\frac{1}{2}\int^T_0\norm{u^\theta_{T-t}(Z_t)}^2\,dt-\log\Phi(Z_T)}
+$$
+については，$\log\Phi(Z_T)$ には $\theta$ が出現しないため，第一項のみに集中すれば良い．
+
+そうすると，これは KL 最適制御問題として解くことができる．
+
+## Schrödinger 橋によるサンプリング (DSB-GS) {#sec-DSB-GS}
+
+### 導入
+
+全く同様にして，Schrödinger 橋としての見方を導入することにより，DDGS の効率はさらに上げられる．
+
+加えて，無雑音極限において，Schrödinger 橋問題は，エントロピー正則化を持つ最適輸送問題と Monge-Kantorovich 問題と関連がある [@DeBortoli+2021 3.1節]．
+
+この場合も，$T\to\infty$ の極限において，DDGS は Schrödinger 橋の近似を与える．
+
+### Schrödiger-Föllmer サンプラー
+
+$\bM$ を OU 過程と取る代わりに，$\Pi_T(x_T)$ を Dirac 測度として Brown 橋を取ることもできる．これが [@Follmer1985] 以来のアプローチである．
+
+このアプローチでは，IPF は２回のイテレーションで収束するという美点がある．このための数値的方法も広い分野で提案されている：[@Barr+2020], [@Zhang+2021]．
+
+終端の測度を Dirac 測度としていることの綻びが数値的な不安定性に現れやすいことが [@Vargas-Grathwohl-Doucet2023] で述べられている．
+
