@@ -305,7 +305,7 @@ if __name__ == '__main__':
     # 生成された画像を個別に保存
     with torch.no_grad():
         generated_images = diffusion.sample(N=inference_batch_size)
-        save_path = os.path.expanduser("~/162348.github.io/posts/2024/Samplers/Files/generated_images0.pt")
+        save_path = os.path.expanduser("~/162348.github.io/posts/2024/Samplers/Files/generated_images1.pt")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         torch.save(generated_images, save_path)
 

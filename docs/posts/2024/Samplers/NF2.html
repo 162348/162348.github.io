@@ -21,7 +21,60 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -142,7 +195,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">正規化流</h1>
-            <p class="subtitle lead">PyTorch によるハンズオン</p>
+            <p class="subtitle lead">TensorFlow によるハンズオン</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
                 <div class="quarto-category">Sampling</div>
@@ -192,6 +245,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">目次</h2>
    
   <ul>
+  <li><a href="#real-nvp-dinh2017" id="toc-real-nvp-dinh2017" class="nav-link active" data-scroll-target="#real-nvp-dinh2017"><span class="header-section-number">1</span> Real NVP <span class="citation" data-cites="Dinh+2017">(Dinh et al., 2017)</span></a></li>
+  <li><a href="#glow-kingma-dhariwal2018" id="toc-glow-kingma-dhariwal2018" class="nav-link" data-scroll-target="#glow-kingma-dhariwal2018"><span class="header-section-number">2</span> Glow <span class="citation" data-cites="Kingma-Dhariwal2018">(Kingma and Dhariwal, 2018)</span></a></li>
   
   </ul>
 </nav>
@@ -208,13 +263,228 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <p>$$</p>
 <p>$$</p>
 </div>
+<section id="real-nvp-dinh2017" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="real-nvp-dinh2017"><span class="header-section-number">1</span> Real NVP <span class="citation" data-cites="Dinh+2017">(<a href="#ref-Dinh+2017" role="doc-biblioref">Dinh et al., 2017</a>)</span></h2>
+<div id="982507f6" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Import required packages</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> normflows <span class="im">as</span> nf</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib <span class="im">import</span> pyplot <span class="im">as</span> plt</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tqdm <span class="im">import</span> tqdm</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="7c806b47" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up model</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Define 2D Gaussian base distribution</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>base <span class="op">=</span> nf.distributions.base.DiagGaussian(<span class="dv">2</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Define list of flows</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>num_layers <span class="op">=</span> <span class="dv">32</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>flows <span class="op">=</span> []</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(num_layers):</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Neural network with two hidden layers having 64 units each</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Last layer is initialized by zeros making training more stable</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    param_map <span class="op">=</span> nf.nets.MLP([<span class="dv">1</span>, <span class="dv">64</span>, <span class="dv">64</span>, <span class="dv">2</span>], init_zeros<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add flow layer</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    flows.append(nf.flows.AffineCouplingBlock(param_map))</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Swap dimensions</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    flows.append(nf.flows.Permute(<span class="dv">2</span>, mode<span class="op">=</span><span class="st">'swap'</span>))</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Construct flow model</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> nf.NormalizingFlow(base, flows)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> torch.device(<span class="st">"mps"</span>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> model.to(device)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="29af9e1a" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define target distribution</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>target <span class="op">=</span> nf.distributions.TwoMoons()</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot target distribution</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>grid_size <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>xx, yy <span class="op">=</span> torch.meshgrid(torch.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>, grid_size), torch.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>, grid_size))</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>zz <span class="op">=</span> torch.cat([xx.unsqueeze(<span class="dv">2</span>), yy.unsqueeze(<span class="dv">2</span>)], <span class="dv">2</span>).view(<span class="op">-</span><span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>zz <span class="op">=</span> zz.to(device)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>log_prob <span class="op">=</span> target.log_prob(zz).to(<span class="st">'cpu'</span>).view(<span class="op">*</span>xx.shape)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> torch.exp(log_prob)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>prob[torch.isnan(prob)] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.figure(figsize=(15, 15))</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>plt.pcolormesh(xx, yy, prob.data.numpy(), cmap<span class="op">=</span><span class="st">'coolwarm'</span>)</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>plt.gca().set_aspect(<span class="st">'equal'</span>, <span class="st">'box'</span>)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="NF2_files/figure-html/cell-4-output-1.png" width="347" height="341" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="d6bde7ae" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot initial flow distribution</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>log_prob <span class="op">=</span> model.log_prob(zz).to(<span class="st">'cpu'</span>).view(<span class="op">*</span>xx.shape)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>model.train()</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> torch.exp(log_prob)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>prob[torch.isnan(prob)] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.figure(figsize=(15, 15))</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>plt.pcolormesh(xx, yy, prob.data.numpy(), cmap<span class="op">=</span><span class="st">'coolwarm'</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>plt.gca().set_aspect(<span class="st">'equal'</span>, <span class="st">'box'</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="NF2_files/figure-html/cell-5-output-1.png" width="347" height="341" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Train model</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>max_iter <span class="op">=</span> <span class="dv">4000</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>num_samples <span class="op">=</span> <span class="dv">2</span> <span class="op">**</span> <span class="dv">9</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>show_iter <span class="op">=</span> <span class="dv">500</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>loss_hist <span class="op">=</span> np.array([])</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> torch.optim.Adam(model.parameters(), lr<span class="op">=</span><span class="fl">5e-4</span>, weight_decay<span class="op">=</span><span class="fl">1e-5</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> it <span class="kw">in</span> tqdm(<span class="bu">range</span>(max_iter), disable<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    optimizer.zero_grad()</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get training samples</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> target.sample(num_samples).to(device)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute loss</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> model.forward_kld(x)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Do backprop and optimizer step</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">~</span>(torch.isnan(loss) <span class="op">|</span> torch.isinf(loss)):</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        loss.backward()</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        optimizer.step()</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Log loss</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    loss_hist <span class="op">=</span> np.append(loss_hist, loss.to(<span class="st">'cpu'</span>).data.numpy())</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Plot learned distribution</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (it <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> show_iter <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        model.<span class="bu">eval</span>()</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        log_prob <span class="op">=</span> model.log_prob(zz)</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        model.train()</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        prob <span class="op">=</span> torch.exp(log_prob.to(<span class="st">'cpu'</span>).view(<span class="op">*</span>xx.shape))</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        prob[torch.isnan(prob)] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.figure(figsize=(15, 15))</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>        plt.pcolormesh(xx, yy, prob.data.numpy(), cmap<span class="op">=</span><span class="st">'coolwarm'</span>)</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>        plt.gca().set_aspect(<span class="st">'equal'</span>, <span class="st">'box'</span>)</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>        plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="f6cbd57d" class="cell quarto-layout-panel" data-layout-nrow="2" data-layout-ncol="4" data-execution_count="5">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-1.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-2.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-3.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-4.png" width="347" height="341"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-5.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-6.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-7.png" width="347" height="341"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: center;">
+<p><img src="NF2_files/figure-html/cell-6-output-8.png" width="347" height="341"></p>
+</div>
+</div>
+</div>
+<div id="58606193" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot loss</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.figure(figsize=(10, 10))</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>plt.plot(loss_hist, label<span class="op">=</span><span class="st">'loss'</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="NF2_files/figure-html/cell-7-output-1.png" width="496" height="337" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="f3e58f75" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot target distribution</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>f, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, sharey<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">7</span>))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>log_prob <span class="op">=</span> target.log_prob(zz).to(<span class="st">'cpu'</span>).view(<span class="op">*</span>xx.shape)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> torch.exp(log_prob)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>prob[torch.isnan(prob)] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].pcolormesh(xx, yy, prob.data.numpy(), cmap<span class="op">=</span><span class="st">'coolwarm'</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].set_aspect(<span class="st">'equal'</span>, <span class="st">'box'</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].set_axis_off()</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">0</span>].set_title(<span class="st">'Target'</span>, fontsize<span class="op">=</span><span class="dv">24</span>)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot learned distribution</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>log_prob <span class="op">=</span> model.log_prob(zz).to(<span class="st">'cpu'</span>).view(<span class="op">*</span>xx.shape)</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>model.train()</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> torch.exp(log_prob)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>prob[torch.isnan(prob)] <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].pcolormesh(xx, yy, prob.data.numpy(), cmap<span class="op">=</span><span class="st">'coolwarm'</span>)</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].set_aspect(<span class="st">'equal'</span>, <span class="st">'box'</span>)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].set_axis_off()</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>ax[<span class="dv">1</span>].set_title(<span class="st">'Real NVP'</span>, fontsize<span class="op">=</span><span class="dv">24</span>)</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.savefig("./Files/NF2.png")</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>plt.subplots_adjust(wspace<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="NF2_files/figure-html/cell-8-output-1.png" width="1121" height="569" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><img src="Files/NF2.png" class="img-fluid"></p>
+</section>
+<section id="glow-kingma-dhariwal2018" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="glow-kingma-dhariwal2018"><span class="header-section-number">2</span> Glow <span class="citation" data-cites="Kingma-Dhariwal2018">(<a href="#ref-Kingma-Dhariwal2018" role="doc-biblioref">Kingma and Dhariwal, 2018</a>)</span></h2>
+</section>
 
 
-<div id="quarto-appendix" class="default"><section id="文献" class="level2 appendix" data-number="1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">1</span> 文献</h2><div class="quarto-appendix-contents">
+<div id="quarto-appendix" class="default"><section id="文献" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献</h2><div class="quarto-appendix-contents">
 
-<p>本稿は，<a href="https://evjang.com/">Eric Jang 氏</a> による <a href="https://github.com/ericjang/normalizing-flows-tutorial">チュートリアル</a> を参考にした．</p>
+<p><a href="https://evjang.com/">Eric Jang 氏</a> による <a href="https://github.com/ericjang/normalizing-flows-tutorial">チュートリアル</a> は，TensorFlow 1 を用いており，特に <code>tfb.Affine</code> はもうサポートされていない（<a href="https://github.com/tensorflow/probability/issues/448#issuecomment-555629330">対応表</a>）．</p>
+<p><a href="https://github.com/VincentStimper/normalizing-flows?tab=readme-ov-file"><code>normflows</code> というパッケージ</a> は PyTorch ベースの実装を提供しており，これを代わりに用いた．</p>
 
 
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Dinh+2017" class="csl-entry" role="listitem">
+Dinh, L., Sohl-Dickstein, J., and Bengio, S. (2017). <a href="https://openreview.net/forum?id=HkpbnH9lx">Density estimation using real <span>NVP</span></a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Kingma-Dhariwal2018" class="csl-entry" role="listitem">
+Kingma, D. P., and Dhariwal, P. (2018). <a href="https://proceedings.neurips.cc/paper_files/paper/2018/file/d139db6a236200b21cc7f752979132d0-Paper.pdf">Glow: Generative flow with invertible 1x1 convolutions</a>. In S. Bengio, H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 31. Curran Associates, Inc.
+</div>
 </div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
