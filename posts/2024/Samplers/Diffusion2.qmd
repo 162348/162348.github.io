@@ -54,25 +54,54 @@ MCMC, SMC そして ABC の代替手法ともくされているが，理論が�
 
 ### AIS [@Neal2001] との比較
 
-[焼きなまし重点サンプリング](../../Surveys/SMCSamplers.qmd#sec-AIS) (AIS: Annealed Importance Sampling) [@Neal2001] では，目標分布 $\pi$ に至る列 $\pi_0,\cdots,\pi_p=\pi$ が得られており，$\pi_0$ からのサンプリングは可能である場合の重点サンプリング法のテクニックである．
+[焼きなまし重点サンプリング](../../Surveys/SMCSamplers.qmd#sec-AIS) (AIS: Annealed Importance Sampling) では，目標分布 $\pi$ に至る列 $\pi_0,\cdots,\pi_p=\pi$ が得られており，$\pi_0$ からのサンプリングは可能である場合の重点サンプリング法のテクニックである．
 
-AIS とは，各 $\pi_i$ を不変分布とする MCMC 核 $P_i$ について，$\pi_0P_1P_2\cdots P_p$ を重点サンプリング法における提案分布に用いる方法である．
+具体的には，拡張された空間 $\cX^{p+1}$ 上の目標分布
+$$
+\pi_p\otimes P_p'\otimes\cdots\otimes P_1'
+$$
+に対して $\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p$ を提案分布に用いたとして荷重荷重を計算する．特に [@Neal2001] では $P_i'$ として
+$$
+P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i)
+$$
+を満たす後ろ向き核 $P_i^{-1}$ を用いており，この場合の重点荷重は次の表示を持つ：^[ただし，$P_i^{-1}$ とは，$$ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) $$  で定まる確率核とした．$\otimes$ の記法は[こちら](../../../static/Notations.qmd#kernels)も参照．]
+$$
+w(X_{1:p}):=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
+$$
 
-しかし，そのまま重点荷重を計算するのではなく，^[$\pi_p(x_p)/\pi_0P_1P_2\cdots P_p$ は多くの場合計算不能である．] 拡張された空間 $\cX^{p+1}$ 上の目標分布
-$$
-\pi_p\otimes P_p^{-1}\otimes\cdots\otimes P_1^{-1}
-$$
-に対して $\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p$ を提案分布に用いたとして荷重荷重を計算する．^[ただし，$P_i^{-1}$ とは，$$ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) $$ で定まる確率核とした．$\otimes$ の記法は[こちら](../../../static/Notations.qmd#kernels)も参照．] 実際には，
-$$
-X_p\sim P_{p}(X_{p-1},-),\quad X_{p-1}\sim P_{p-1}(X_{p-2},-),\quad \cdots\quad X_1\sim P_1(X_0,-),\quad X_0\sim \pi_0
-$$
-というように $X_0\sim\pi_0$ を MCMC 核 $P_1,\cdots,P_p$ で順に流し，最後にウェイト
-$$
-w:=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
-$$
-を計算する．^[このウェイトの表示は，$P_i^{-1}/P_i=\pi_{i-1}/\pi_i$ が成り立つことから直ちに従う．]
+すなわち，AIS では $\cX^{p+1}$ 上で重点サンプリングを行い，$x_p$ の成分のみに注目することで周辺分布では $\pi_p$ に対する効率的な重点サンプリングが実現される，という手法であるが，[その分効率が落ちている]{.underline} [@Doucet+2022]．
 
-従って，本当は $\cX^{p+1}$ 上で重点サンプリングを行っているが，$x_p$ の成分のみに注目することで周辺分布では $\pi_p$ に対する効率的な重点サンプリングが実現されている．
+例えば目標分布 $\pi_p$ からのシミュレーションが実は可能で，$P_i\equiv\pi_p$ と取れる場合，重点サンプリングは正確に行えるが，AIP は迂回した分
+$$
+\V[\log w(X_{1:p})]=\sum_{i=1}^p\V\Square{\log\frac{\pi_i(X_i)}{\pi_{i-1}(X_i)}}>0
+$$
+という分散が発生してしまう．
+
+または，ある $\pi_p$ に収束する MCMC 核 $P$ に関して $P_i\equiv P$ と取った場合，もし比
+$$
+\frac{\pi_p(X_p)}{\pi_0P_1\cdots P_p(X_0)}
+$$
+が計算できたならば，十分 $p>0$ を大きく取ることで極めて効率的な重点サンプリングが可能になるが，AIS では $w$ の分散が大きくなってしまう．
+
+実は，分散を最小にする $\cX^{p+1}$ 上での提案分布は，後ろ向き確率核 $P_i^{-1}$ ではなく，提案分布 $Q:=\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p$ の時間反転が与える [@DelMoral+2006]．
+
+### 非一様 Langevin 過程を用いるもの
+
+連続な架橋 $(\pi_t)_{t\in[0,p]}$ を取り，
+$$
+dX_t=\nabla\log\pi_t(X_t)\,dt+\sqrt{2}\,dB_t,\qquad X_0\sim\pi_0,
+$$
+を連続時間極限とするような離散化
+$$
+P_k(x_{k-1},dx_k):=\rN_d\Paren{x_{k-1}+\delta\nabla\log\pi_k(x_{k-1}),2\delta I_d},\qquad\delta>0,
+$$
+を考える．これは [@Heng+2020], [@Wu+2020], [@Thin+2021] などで扱われている．この過程が時刻 $p$ において $\rN_d(0,I_d)$ とどれほど乖離があるかの知見は，模擬アニーリングに対する数理解析の下で蓄積されている [@Fournier-Tardif2021], [@Tang+2024]．
+
+この時間反転は [@Haussmann-Pardoux1986] により導かれている：
+$$
+d\ov{X}_t=\Paren{-\nabla\pi_{T-t}(\ov{X}_t)+2\nabla\log q_{T-t}(\ov{X}_t)}\,dt+\sqrt{2}d\ov{B}_t,\qquad\ov{X}_0\sim q_T,
+$$
+ただし，$q_t$ は $(X_t)$ の周辺分布とした．
 
 ## 雑音除去拡散によるサンプリング (DDGS) {#sec-DDGS}
 

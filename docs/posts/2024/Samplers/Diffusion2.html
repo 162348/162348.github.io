@@ -246,6 +246,7 @@ window.Quarto = {
   <li><a href="#拡散モデルをサンプラーに使う" id="toc-拡散モデルをサンプラーに使う" class="nav-link" data-scroll-target="#拡散モデルをサンプラーに使う"><span class="header-section-number">1.1</span> 拡散モデルをサンプラーに使う</a></li>
   <li><a href="#dds-の現状" id="toc-dds-の現状" class="nav-link" data-scroll-target="#dds-の現状"><span class="header-section-number">1.2</span> DDS の現状</a></li>
   <li><a href="#ais-neal2001-との比較" id="toc-ais-neal2001-との比較" class="nav-link" data-scroll-target="#ais-neal2001-との比較"><span class="header-section-number">1.3</span> AIS <span class="citation" data-cites="Neal2001">(Neal, 2001)</span> との比較</a></li>
+  <li><a href="#非一様-langevin-過程を用いるもの" id="toc-非一様-langevin-過程を用いるもの" class="nav-link" data-scroll-target="#非一様-langevin-過程を用いるもの"><span class="header-section-number">1.4</span> 非一様 Langevin 過程を用いるもの</a></li>
   </ul></li>
   <li><a href="#sec-DDGS" id="toc-sec-DDGS" class="nav-link" data-scroll-target="#sec-DDGS"><span class="header-section-number">2</span> 雑音除去拡散によるサンプリング (DDGS)</a>
   <ul class="collapse">
@@ -350,16 +351,33 @@ window.Quarto = {
 </section>
 <section id="ais-neal2001-との比較" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="ais-neal2001-との比較"><span class="header-section-number">1.3</span> AIS <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> との比較</h3>
-<p><a href="../../../posts/Surveys/SMCSamplers.html#sec-AIS">焼きなまし重点サンプリング</a> (AIS: Annealed Importance Sampling) <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> では，目標分布 <span class="math inline">\(\pi\)</span> に至る列 <span class="math inline">\(\pi_0,\cdots,\pi_p=\pi\)</span> が得られており，<span class="math inline">\(\pi_0\)</span> からのサンプリングは可能である場合の重点サンプリング法のテクニックである．</p>
-<p>AIS とは，各 <span class="math inline">\(\pi_i\)</span> を不変分布とする MCMC 核 <span class="math inline">\(P_i\)</span> について，<span class="math inline">\(\pi_0P_1P_2\cdots P_p\)</span> を重点サンプリング法における提案分布に用いる方法である．</p>
-<p>しかし，そのまま重点荷重を計算するのではなく，<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> 拡張された空間 <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上の目標分布 <span class="math display">\[
-\pi_p\otimes P_p^{-1}\otimes\cdots\otimes P_1^{-1}
-\]</span> に対して <span class="math inline">\(\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p\)</span> を提案分布に用いたとして荷重荷重を計算する．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> 実際には， <span class="math display">\[
-X_p\sim P_{p}(X_{p-1},-),\quad X_{p-1}\sim P_{p-1}(X_{p-2},-),\quad \cdots\quad X_1\sim P_1(X_0,-),\quad X_0\sim \pi_0
-\]</span> というように <span class="math inline">\(X_0\sim\pi_0\)</span> を MCMC 核 <span class="math inline">\(P_1,\cdots,P_p\)</span> で順に流し，最後にウェイト <span class="math display">\[
-w:=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
-\]</span> を計算する．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
-<p>従って，本当は <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上で重点サンプリングを行っているが，<span class="math inline">\(x_p\)</span> の成分のみに注目することで周辺分布では <span class="math inline">\(\pi_p\)</span> に対する効率的な重点サンプリングが実現されている．</p>
+<p><a href="../../../posts/Surveys/SMCSamplers.html#sec-AIS">焼きなまし重点サンプリング</a> (AIS: Annealed Importance Sampling) では，目標分布 <span class="math inline">\(\pi\)</span> に至る列 <span class="math inline">\(\pi_0,\cdots,\pi_p=\pi\)</span> が得られており，<span class="math inline">\(\pi_0\)</span> からのサンプリングは可能である場合の重点サンプリング法のテクニックである．</p>
+<p>具体的には，拡張された空間 <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上の目標分布 <span class="math display">\[
+\pi_p\otimes P_p'\otimes\cdots\otimes P_1'
+\]</span> に対して <span class="math inline">\(\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p\)</span> を提案分布に用いたとして荷重荷重を計算する．特に <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> では <span class="math inline">\(P_i'\)</span> として <span class="math display">\[
+P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i)
+\]</span> を満たす後ろ向き核 <span class="math inline">\(P_i^{-1}\)</span> を用いており，この場合の重点荷重は次の表示を持つ：<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> <span class="math display">\[
+w(X_{1:p}):=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
+\]</span></p>
+<p>すなわち，AIS では <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上で重点サンプリングを行い，<span class="math inline">\(x_p\)</span> の成分のみに注目することで周辺分布では <span class="math inline">\(\pi_p\)</span> に対する効率的な重点サンプリングが実現される，という手法であるが，<u>その分効率が落ちている</u> <span class="citation" data-cites="Doucet+2022">(<a href="#ref-Doucet+2022" role="doc-biblioref">Doucet et al., 2022</a>)</span>．</p>
+<p>例えば目標分布 <span class="math inline">\(\pi_p\)</span> からのシミュレーションが実は可能で，<span class="math inline">\(P_i\equiv\pi_p\)</span> と取れる場合，重点サンプリングは正確に行えるが，AIP は迂回した分 <span class="math display">\[
+\mathrm{V}[\log w(X_{1:p})]=\sum_{i=1}^p\mathrm{V}\left[\log\frac{\pi_i(X_i)}{\pi_{i-1}(X_i)}\right]&gt;0
+\]</span> という分散が発生してしまう．</p>
+<p>または，ある <span class="math inline">\(\pi_p\)</span> に収束する MCMC 核 <span class="math inline">\(P\)</span> に関して <span class="math inline">\(P_i\equiv P\)</span> と取った場合，もし比 <span class="math display">\[
+\frac{\pi_p(X_p)}{\pi_0P_1\cdots P_p(X_0)}
+\]</span> が計算できたならば，十分 <span class="math inline">\(p&gt;0\)</span> を大きく取ることで極めて効率的な重点サンプリングが可能になるが，AIS では <span class="math inline">\(w\)</span> の分散が大きくなってしまう．</p>
+<p>実は，分散を最小にする <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上での提案分布は，後ろ向き確率核 <span class="math inline">\(P_i^{-1}\)</span> ではなく，提案分布 <span class="math inline">\(Q:=\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p\)</span> の時間反転が与える <span class="citation" data-cites="DelMoral+2006">(<a href="#ref-DelMoral+2006" role="doc-biblioref">Del&nbsp;Moral et al., 2006</a>)</span>．</p>
+</section>
+<section id="非一様-langevin-過程を用いるもの" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="非一様-langevin-過程を用いるもの"><span class="header-section-number">1.4</span> 非一様 Langevin 過程を用いるもの</h3>
+<p>連続な架橋 <span class="math inline">\((\pi_t)_{t\in[0,p]}\)</span> を取り， <span class="math display">\[
+dX_t=\nabla\log\pi_t(X_t)\,dt+\sqrt{2}\,dB_t,\qquad X_0\sim\pi_0,
+\]</span> を連続時間極限とするような離散化 <span class="math display">\[
+P_k(x_{k-1},dx_k):=\mathrm{N}_d\biggr(x_{k-1}+\delta\nabla\log\pi_k(x_{k-1}),2\delta I_d\biggl),\qquad\delta&gt;0,
+\]</span> を考える．これは <span class="citation" data-cites="Heng+2020">(<a href="#ref-Heng+2020" role="doc-biblioref">Heng et al., 2020</a>)</span>, <span class="citation" data-cites="Wu+2020">(<a href="#ref-Wu+2020" role="doc-biblioref">Wu et al., 2020</a>)</span>, <span class="citation" data-cites="Thin+2021">(<a href="#ref-Thin+2021" role="doc-biblioref">Thin et al., 2021</a>)</span> などで扱われている．この過程が時刻 <span class="math inline">\(p\)</span> において <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> とどれほど乖離があるかの知見は，模擬アニーリングに対する数理解析の下で蓄積されている <span class="citation" data-cites="Fournier-Tardif2021">(<a href="#ref-Fournier-Tardif2021" role="doc-biblioref">Fournier and Tardif, 2021</a>)</span>, <span class="citation" data-cites="Tang+2024">(<a href="#ref-Tang+2024" role="doc-biblioref">Tang et al., 2024</a>)</span>．</p>
+<p>この時間反転は <span class="citation" data-cites="Haussmann-Pardoux1986">(<a href="#ref-Haussmann-Pardoux1986" role="doc-biblioref">Haussmann and Pardoux, 1986</a>)</span> により導かれている： <span class="math display">\[
+d\overline{X}_t=\biggr(-\nabla\pi_{T-t}(\overline{X}_t)+2\nabla\log q_{T-t}(\overline{X}_t)\biggl)\,dt+\sqrt{2}d\overline{B}_t,\qquad\overline{X}_0\sim q_T,
+\]</span> ただし，<span class="math inline">\(q_t\)</span> は <span class="math inline">\((X_t)\)</span> の周辺分布とした．</p>
 </section>
 </section>
 <section id="sec-DDGS" class="level2" data-number="2">
@@ -436,8 +454,23 @@ Bortoli, V. D. (2022). <a href="https://openreview.net/forum?id=MhK5aXo3gB">Conv
 <div id="ref-DeBortoli+2021" class="csl-entry" role="listitem">
 De Bortoli, V., Thornton, J., Heng, J., and Doucet, A. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/940392f5f32a7ade1cc201767cf83e31-Paper.pdf">Diffusion schrödinger bridge with applications to score-based generative modeling</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 17695–17709. Curran Associates, Inc.
 </div>
+<div id="ref-DelMoral+2006" class="csl-entry" role="listitem">
+Del&nbsp;Moral, P., Doucet, A., and Jasra, A. (2006). <a href="https://www.jstor.org/stable/3879283"><span>Sequential Monte Carlo Samplers</span></a>. <em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <em>68</em>(3), 411–436.
+</div>
+<div id="ref-Doucet+2022" class="csl-entry" role="listitem">
+Doucet, A., Grathwohl, W. S., Matthews, A. G. D. G., and Strathmann, H. (2022). <a href="https://openreview.net/forum?id=9cU2iW3bz0">Score-based diffusion meets annealed importance sampling</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
+</div>
 <div id="ref-Follmer1985" class="csl-entry" role="listitem">
 Föllmer, H. (1985). An entropy approach to the time reversal of diffusion processes. In M. Metivier and E. Pardoux, editors, <em>Stochastic differential systems filtering and control</em>, pages 156–163. Berlin, Heidelberg: Springer Berlin Heidelberg.
+</div>
+<div id="ref-Fournier-Tardif2021" class="csl-entry" role="listitem">
+Fournier, N., and Tardif, C. (2021). <a href="https://doi.org/10.1016/j.jfa.2021.109086">On the simulated annealing in rd</a>. <em>Journal of Functional Analysis</em>, <em>281</em>(5), 109086.
+</div>
+<div id="ref-Haussmann-Pardoux1986" class="csl-entry" role="listitem">
+Haussmann, U. G., and Pardoux, E. (1986). <a href="https://doi.org/10.1214/aop/1176992362"><span class="nocase">Time Reversal of Diffusions</span></a>. <em>The Annals of Probability</em>, <em>14</em>(4), 1188–1205.
+</div>
+<div id="ref-Heng+2020" class="csl-entry" role="listitem">
+Heng, J., Bishop, A. N., Deligiannidis, G., and Doucet, A. (2020). <a href="https://doi.org/10.1214/19-AOS1914">Controlled sequential monte carlo</a>. <em>The Annals of Statistics</em>, <em>48</em>(5), 2904–2929.
 </div>
 <div id="ref-Heng+2024" class="csl-entry" role="listitem">
 Heng, J., Bortoli, V. D., and Doucet, A. (2024). <a href="https://doi.org/10.1214/23-STS908"><span class="nocase">Diffusion Schr<span class="nocase">ö</span>dinger Bridges for Bayesian Computation</span></a>. <em>Statistical Science</em>, <em>39</em>(1), 90–99.
@@ -448,8 +481,17 @@ Montanari, A., and Wu, Y. (2023). <a href="https://arxiv.org/abs/2304.11449">Pos
 <div id="ref-Neal2001" class="csl-entry" role="listitem">
 Neal, R. M. (2001). <a href="https://doi.org/10.1023/A:1008923215028">A<span>nnealed Importance Sampling</span></a>. <em>Statistics and Computing</em>, <em>11</em>, 125–139.
 </div>
+<div id="ref-Tang+2024" class="csl-entry" role="listitem">
+Tang, W., Wu, Y., and Zhou, X. (2024). <a href="https://doi.org/10.3934/naco.2024015"><span class="nocase">Discrete-Time Simulated Annealing: A Convergence Analysis via the Eyring-Kramers Law</span></a>. <em>Numerical Algebra, Control and Optimization</em>.
+</div>
+<div id="ref-Thin+2021" class="csl-entry" role="listitem">
+Thin, A., Kotelevskii, N., Doucet, A., Durmus, A., Moulines, E., and Panov, M. (2021). <a href="https://proceedings.mlr.press/v139/thin21a.html">Monte carlo variational auto-encoders</a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 10247–10257. PMLR.
+</div>
 <div id="ref-Vargas-Grathwohl-Doucet2023" class="csl-entry" role="listitem">
 Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview.net/forum?id=8pvnfTAbu1f"><span>Denoising Diffusion Samplers</span></a>. In <em>The eleventh international conference on learning representations</em>.
+</div>
+<div id="ref-Wu+2020" class="csl-entry" role="listitem">
+Wu, H., Köhler, J., and Noe, F. (2020). <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/41d80bfc327ef980528426fc810a6d7a-Paper.pdf"><span>Stochastic Normalizing Flows</span></a>. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, <em>Advances in neural information processing systems</em>,Vol. 33, pages 5933–5944. Curran Associates, Inc.
 </div>
 <div id="ref-Zhang+2021" class="csl-entry" role="listitem">
 Zhang, B., Sahai, T., and Marzouk, Y. (2021). <a href="https://openreview.net/forum?id=dHruzYDH719">Sampling via controlled stochastic dynamical systems</a>. In <em>I (still) can’t believe it’s not better! NeurIPS 2021 workshop</em>.
@@ -457,9 +499,7 @@ Zhang, B., Sahai, T., and Marzouk, Y. (2021). <a href="https://openreview.net/fo
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="math inline">\(\pi_p(x_p)/\pi_0P_1P_2\cdots P_p\)</span> は多くの場合計算不能である．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>ただし，<span class="math inline">\(P_i^{-1}\)</span> とは，<span class="math display">\[ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) \]</span> で定まる確率核とした．<span class="math inline">\(\otimes\)</span> の記法は<a href="../../../static/Notations.html#kernels">こちら</a>も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>このウェイトの表示は，<span class="math inline">\(P_i^{-1}/P_i=\pi_{i-1}/\pi_i\)</span> が成り立つことから直ちに従う．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>ただし，<span class="math inline">\(P_i^{-1}\)</span> とは，<span class="math display">\[ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) \]</span> で定まる確率核とした．<span class="math inline">\(\otimes\)</span> の記法は<a href="../../../static/Notations.html#kernels">こちら</a>も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
