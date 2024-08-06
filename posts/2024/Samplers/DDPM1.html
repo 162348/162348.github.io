@@ -21,6 +21,40 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -86,11 +120,11 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="拡散模型の訓練の加速 – Hirofumi Shiba">
-<meta property="og:description" content="前項で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
+<meta property="og:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="拡散模型の訓練の加速 – Hirofumi Shiba">
-<meta name="twitter:description" content="前項で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
+<meta name="twitter:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -164,14 +198,14 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">8/02/2024</p>
+        <p class="date">8/06/2024</p>
       </div>
     </div>
     
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">8/05/2024</p>
+        <p class="date-modified">8/07/2024</p>
       </div>
     </div>
       
@@ -180,15 +214,27 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      前項で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．
+      前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．
     </div>
   </div>
   
   </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#問題点と改善したいこと" id="toc-問題点と改善したいこと" class="nav-link active" data-scroll-target="#問題点と改善したいこと"><span class="header-section-number">1</span> 問題点と改善したいこと</a></li>
+  <li><a href="#dataloader-の引数について" id="toc-dataloader-の引数について" class="nav-link" data-scroll-target="#dataloader-の引数について"><span class="header-section-number">2</span> <code>DataLoader</code> の引数について</a>
+  <ul class="collapse">
+  <li><a href="#num_workers" id="toc-num_workers" class="nav-link" data-scroll-target="#num_workers"><span class="header-section-number">2.1</span> <code>num_workers</code></a></li>
+  <li><a href="#pin_memeory" id="toc-pin_memeory" class="nav-link" data-scroll-target="#pin_memeory"><span class="header-section-number">2.2</span> <code>pin_memeory</code></a></li>
+  <li><a href="#prefetch_factor" id="toc-prefetch_factor" class="nav-link" data-scroll-target="#prefetch_factor"><span class="header-section-number">2.3</span> <code>prefetch_factor</code></a></li>
+  </ul></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -202,8 +248,58 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <p>$$</p>
 <p>$$</p>
 </div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Samplers/DDPM_files/figure-html/fig-encoding-output-1.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption><a href="../../../posts/2024/Samplers/DDPM.html">前稿：拡散模型の実装――PyTorch によるハンズオン</a></figcaption>
+</figure>
+</div>
+<section id="問題点と改善したいこと" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="問題点と改善したいこと"><span class="header-section-number">1</span> 問題点と改善したいこと</h2>
+<p>データセットの読み込みの段階において，次のコードがある：</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>kwargs <span class="op">=</span> {<span class="st">'num_workers'</span>: <span class="dv">5</span>, <span class="st">'pin_memory'</span>: <span class="va">True</span>, <span class="st">'prefetch_factor'</span>: <span class="dv">2</span>}</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>train_loader <span class="op">=</span> DataLoader(dataset<span class="op">=</span>train_dataset, batch_size<span class="op">=</span>train_batch_size, shuffle<span class="op">=</span><span class="va">True</span>, <span class="op">**</span>kwargs)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>test_loader  <span class="op">=</span> DataLoader(dataset<span class="op">=</span>test_dataset,  batch_size<span class="op">=</span>inference_batch_size, shuffle<span class="op">=</span><span class="va">False</span>,  <span class="op">**</span>kwargs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>これはデータセット（今回は<code>MNIST</code>）を読み込み，iterable 型としての仕様を可能にするためのコードである．</p>
+<p>上述の通りのコードだとエポック 18 で <code>RuntimeError: Shared memory manager connection has timed out</code> を得たが，<code>num_workers=0</code> とするとエラーが発生しなかった．</p>
+<p>しかし，<code>num_workers=0</code> （デフォルト設定）とすると，デフォルトの単一プロセス処理が実行されるため，並列による高速化の恩恵を受けられない．その結果，１エポック 12 分以上なので，40 時間以上をかける必要が出てきた（寝てる間もディスプレイをオフにするだけでスリープさせず，回し続ける）．</p>
+<div class="callout callout-style-simple callout-important no-icon callout-titled" title="今回の目標">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+今回の目標
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>うまく並列処理をするようなコードに書き直すことで，ローカル環境でも１日以内で実行できるようにしたい．これが難しい場合は，統数研のスパコンを利用してでも良いから，並列処理ができるようになってみたい．</p>
+</div>
+</div>
+</section>
+<section id="dataloader-の引数について" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="dataloader-の引数について"><span class="header-section-number">2</span> <code>DataLoader</code> の引数について</h2>
+<p><a href="https://pytorch.org/docs/stable/data.html"><code>DataLoader</code> メソッドのドキュメント</a> を参照すると，</p>
+<section id="num_workers" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="num_workers"><span class="header-section-number">2.1</span> <code>num_workers</code></h3>
+<p>は正整数に設定されると，その数だけ並列に動く ‘worker’ が起動され，マルチプロセス処理が実行される．</p>
+<p>しかし，子プロセスも同等のメモリを占めるため，値が大きすぎるとランタイムエラーが発生する（<a href="https://github.com/pytorch/pytorch/issues/13246#issuecomment-905703662">issue #13246</a> 参照）．</p>
+<p>さらに，この際の並列処理は Python の <code>multiprocessing</code> パッケージによるもので，Windows と MacOS では（Unix 系のような <code>fork()</code> ではなく） <code>spawn()</code> が呼ばれる．これは別のインタープリターを開始するため，コードの大部分を <code>if __name__ == "__main__":</code> で囲まない限り，同じコードを何回も実行することとなり，ランタイムエラーが出現することとなる．</p>
+</section>
+<section id="pin_memeory" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="pin_memeory"><span class="header-section-number">2.2</span> <code>pin_memeory</code></h3>
+<p>しかし，CUDA 上のテンソルオブジェクトを並列処理で共有することは非推奨であり，その際は自動メモリ固定 (automatic memory pinning) を行う必要がある．</p>
+<p>pinned memory とは page-locked メモリとも呼ばれ，通常の pageable メモリより転送速度が速いという．</p>
+<p>さて，paging とはなんだろうか？（一旦後回し）</p>
+</section>
+<section id="prefetch_factor" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="prefetch_factor"><span class="header-section-number">2.3</span> <code>prefetch_factor</code></h3>
+<p>は各 <code>worker</code> が取ってきてストックしておくバッチの数である．</p>
+<p>すなわち，<code>num_workers * prefetch_factor</code> だけデータをメモリに読み込んでおくことになる．</p>
 
 
+</section>
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
