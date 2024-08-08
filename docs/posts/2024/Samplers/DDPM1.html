@@ -227,7 +227,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
    
   <ul>
   <li><a href="#問題点と改善したいこと" id="toc-問題点と改善したいこと" class="nav-link active" data-scroll-target="#問題点と改善したいこと"><span class="header-section-number">1</span> 問題点と改善したいこと</a></li>
-  <li><a href="#num_workers-について" id="toc-num_workers-について" class="nav-link" data-scroll-target="#num_workers-について"><span class="header-section-number">2</span> <code>num_workers</code> について</a></li>
+  <li><a href="#dataloader-の引数について" id="toc-dataloader-の引数について" class="nav-link" data-scroll-target="#dataloader-の引数について"><span class="header-section-number">2</span> <code>DataLoader</code> の引数について</a>
+  <ul class="collapse">
+  <li><a href="#num_workers" id="toc-num_workers" class="nav-link" data-scroll-target="#num_workers"><span class="header-section-number">2.1</span> <code>num_workers</code></a></li>
+  <li><a href="#pin_memeory" id="toc-pin_memeory" class="nav-link" data-scroll-target="#pin_memeory"><span class="header-section-number">2.2</span> <code>pin_memeory</code></a></li>
+  <li><a href="#prefetch_factor" id="toc-prefetch_factor" class="nav-link" data-scroll-target="#prefetch_factor"><span class="header-section-number">2.3</span> <code>prefetch_factor</code></a></li>
+  </ul></li>
+  <li><a href="#google-colab-の利用" id="toc-google-colab-の利用" class="nav-link" data-scroll-target="#google-colab-の利用"><span class="header-section-number">3</span> Google Colab の利用</a></li>
   </ul>
 </nav>
     </div>
@@ -268,13 +274,40 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>うまく並列処理をするようなコードに書き直すことで，ローカル環境でも１日以内で実行できるようにしたい．これが難しい場合は，統数研のスパコンを利用してでも良いから，並列処理ができるようになってみたい．</p>
+<p>うまく並列処理をするようなコードに書き直すことで，ローカル環境でも１日以内で実行できるようにしたい．</p>
 </div>
 </div>
 </section>
-<section id="num_workers-について" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="num_workers-について"><span class="header-section-number">2</span> <code>num_workers</code> について</h2>
+<section id="dataloader-の引数について" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="dataloader-の引数について"><span class="header-section-number">2</span> <code>DataLoader</code> の引数について</h2>
 <p><a href="https://pytorch.org/docs/stable/data.html"><code>DataLoader</code> メソッドのドキュメント</a> を参照すると，</p>
+<section id="num_workers" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="num_workers"><span class="header-section-number">2.1</span> <code>num_workers</code></h3>
+<p>は正整数に設定されると，その数だけ並列に動く ‘worker’ が起動され，マルチプロセス処理が実行される．</p>
+<p>しかし，子プロセスも同等のメモリを占めるため，値が大きすぎるとランタイムエラーが発生する（<a href="https://github.com/pytorch/pytorch/issues/13246#issuecomment-905703662">issue #13246</a> 参照）．</p>
+<p>さらに，この際の並列処理は Python の <code>multiprocessing</code> パッケージによるもので，Windows と MacOS では（Unix 系のような <code>fork()</code> ではなく） <code>spawn()</code> が呼ばれる．これは別のインタープリターを開始するため，コードの大部分を <code>if __name__ == "__main__":</code> で囲まない限り，同じコードを何回も実行することとなり，ランタイムエラーが出現することとなる．</p>
+</section>
+<section id="pin_memeory" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="pin_memeory"><span class="header-section-number">2.2</span> <code>pin_memeory</code></h3>
+<p>しかし，CUDA 上のテンソルオブジェクトを並列処理で共有することは非推奨であり，その際は自動メモリ固定 (automatic memory pinning) を行う必要がある．</p>
+<p>pinned memory とは page-locked メモリとも呼ばれ，通常の pageable メモリより転送速度が速いという．</p>
+<p>さて，paging とはなんだろうか？（一旦後回し）</p>
+</section>
+<section id="prefetch_factor" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="prefetch_factor"><span class="header-section-number">2.3</span> <code>prefetch_factor</code></h3>
+<p>は各 <code>worker</code> が取ってきてストックしておくバッチの数である．</p>
+<p>すなわち，<code>num_workers * prefetch_factor</code> だけデータをメモリに読み込んでおくことになる．</p>
+</section>
+</section>
+<section id="google-colab-の利用" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="google-colab-の利用"><span class="header-section-number">3</span> Google Colab の利用</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/A100.png" class="img-fluid figure-img"></p>
+<figcaption>A100（8/6/2024 時点）</figcaption>
+</figure>
+</div>
+<p>A100 が税込 1,494,000 円であったが，これを利用すると１エポック 22 秒で実行できた．</p>
 
 
 </section>
