@@ -78,7 +78,7 @@ p = plot(traj_for_animation_x[1:1], traj_for_animation_y[1:1],
             # markersize=2,
             # markeralpha=0.6,
             color="#78C2AD"
-            ,background_color = "#F0F1EB"
+            #,background_color = "#F0F1EB"
 )
 
 anim = @animate for i in 1:min(length(traj_for_animation_x), 2000)
@@ -88,4 +88,4 @@ anim = @animate for i in 1:min(length(traj_for_animation_x), 2000)
     end
 end
 
-gif(anim, "zigzag_fps14.gif", fps=14)
+gif(anim, "zigzag_fps14_WhiteBackground.gif", fps=14)
