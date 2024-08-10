@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 
-<title>Hirofumi Shiba - 拡散模型の訓練の加速</title>
+<title>Hirofumi Shiba - Neural Network 訓練の加速</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -119,12 +119,12 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 拡散模型の訓練の加速">
-<meta property="og:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
+<meta property="og:title" content="Hirofumi Shiba - Neural Network 訓練の加速">
+<meta property="og:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックを調べた．筆者のローカルマシンは M2 Mac mini であるため，CUDA がなく，皮層的な内容に終始している．Apple Silicon 上では，小さなモデルであっても MPS (Metal Performance Shaders) を用いることで５倍以上の高速化が可能であった．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 拡散模型の訓練の加速">
-<meta name="twitter:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．">
+<meta name="twitter:title" content="Hirofumi Shiba - Neural Network 訓練の加速">
+<meta name="twitter:description" content="前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックを調べた．筆者のローカルマシンは M2 Mac mini であるため，CUDA がなく，皮層的な内容に終始している．Apple Silicon 上では，小さなモデルであっても MPS (Metal Performance Shaders) を用いることで５倍以上の高速化が可能であった．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -175,11 +175,10 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">拡散模型の訓練の加速</h1>
-            <p class="subtitle lead">PyTorch によるハンズオン２</p>
+      <h1 class="title">Neural Network 訓練の加速</h1>
+            <p class="subtitle lead">PyTorch について調べたこと</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
-                <div class="quarto-category">Sampling</div>
                 <div class="quarto-category">Python</div>
               </div>
                   </div>
@@ -191,7 +190,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -205,7 +204,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">8/07/2024</p>
+        <p class="date-modified">8/10/2024</p>
       </div>
     </div>
       
@@ -214,7 +213,7 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックと，スパコンの仕様方法を検討する．
+      前稿で DDPM の実装を紹介したが，実際にローカルのマシンで訓練をしてみると２日かかる．これを加速するためのテクニックを調べた．筆者のローカルマシンは M2 Mac mini であるため，CUDA がなく，皮層的な内容に終始している．Apple Silicon 上では，小さなモデルであっても MPS (Metal Performance Shaders) を用いることで５倍以上の高速化が可能であった．
     </div>
   </div>
   
@@ -233,7 +232,13 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   <li><a href="#pin_memeory" id="toc-pin_memeory" class="nav-link" data-scroll-target="#pin_memeory"><span class="header-section-number">2.2</span> <code>pin_memeory</code></a></li>
   <li><a href="#prefetch_factor" id="toc-prefetch_factor" class="nav-link" data-scroll-target="#prefetch_factor"><span class="header-section-number">2.3</span> <code>prefetch_factor</code></a></li>
   </ul></li>
-  <li><a href="#google-colab-の利用" id="toc-google-colab-の利用" class="nav-link" data-scroll-target="#google-colab-の利用"><span class="header-section-number">3</span> Google Colab の利用</a></li>
+  <li><a href="#高速化法" id="toc-高速化法" class="nav-link" data-scroll-target="#高速化法"><span class="header-section-number">3</span> 高速化法</a>
+  <ul class="collapse">
+  <li><a href="#google-colab-の利用" id="toc-google-colab-の利用" class="nav-link" data-scroll-target="#google-colab-の利用"><span class="header-section-number">3.1</span> Google Colab の利用</a></li>
+  <li><a href="#torch.nn.dataparallel-の使用" id="toc-torch.nn.dataparallel-の使用" class="nav-link" data-scroll-target="#torch.nn.dataparallel-の使用"><span class="header-section-number">3.2</span> <code>torch.nn.DataParallel</code> の使用</a></li>
+  </ul></li>
+  <li><a href="#mps-で本当に高速になっているのか" id="toc-mps-で本当に高速になっているのか" class="nav-link" data-scroll-target="#mps-で本当に高速になっているのか"><span class="header-section-number">4</span> <code>mps</code> で本当に高速になっているのか？</a></li>
+  
   </ul>
 </nav>
     </div>
@@ -299,8 +304,11 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <p>すなわち，<code>num_workers * prefetch_factor</code> だけデータをメモリに読み込んでおくことになる．</p>
 </section>
 </section>
-<section id="google-colab-の利用" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="google-colab-の利用"><span class="header-section-number">3</span> Google Colab の利用</h2>
+<section id="高速化法" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="高速化法"><span class="header-section-number">3</span> 高速化法</h2>
+<section id="google-colab-の利用" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="google-colab-の利用"><span class="header-section-number">3.1</span> Google Colab の利用</h3>
+<p>結局この方法でトレーニングをし，<a href="../../../posts/2024/Samplers/DDPM.html">前稿</a> を完成させたのであった．</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="Files/A100.png" class="img-fluid figure-img"></p>
@@ -308,11 +316,104 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </figure>
 </div>
 <p>A100 が税込 1,494,000 円であったが，これを利用すると１エポック 22 秒で実行できた．</p>
-
-
+</section>
+<section id="torch.nn.dataparallel-の使用" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="torch.nn.dataparallel-の使用"><span class="header-section-number">3.2</span> <code>torch.nn.DataParallel</code> の使用</h3>
+<p>自分のローカルマシンは CUDA がないため利用できないが，ある場合は <code>PyTorch</code> のモジュールで並列処理が可能である．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+</section>
+</section>
+<section id="mps-で本当に高速になっているのか" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="mps-で本当に高速になっているのか"><span class="header-section-number">4</span> <code>mps</code> で本当に高速になっているのか？</h2>
+<p>アップルは <a href="https://developer.apple.com/jp/metal/">Metal</a> という計算 API を提供しており，これが Apple Silicon で利用できる．</p>
+<div id="42adf36d" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>DEVICE <span class="op">=</span> torch.device(<span class="st">"mps"</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>train_batch_size <span class="op">=</span> <span class="dv">128</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>epochs <span class="op">=</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>とし，１エポックにかかる時間を比較する．その他の設定は前節と同様．</p>
+<div id="46f74797" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Start training DDPMs..."</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>model.train()</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>start_time <span class="op">=</span> time.time()</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(epochs):</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    noise_prediction_loss <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> batch_idx, (x, _) <span class="kw">in</span> tqdm(<span class="bu">enumerate</span>(train_loader), total<span class="op">=</span><span class="bu">len</span>(train_loader)):</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        optimizer.zero_grad()</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.to(DEVICE)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        noisy_input, epsilon, pred_epsilon <span class="op">=</span> diffusion(x)</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        loss <span class="op">=</span> denoising_loss(pred_epsilon, epsilon)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        noise_prediction_loss <span class="op">+=</span> loss.item()</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        loss.backward()</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        optimizer.step()</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\t</span><span class="st">Epoch"</span>, epoch <span class="op">+</span> <span class="dv">1</span>, <span class="st">"complete!"</span>, <span class="st">"</span><span class="ch">\t</span><span class="st">Denoising Loss: "</span>, noise_prediction_loss <span class="op">/</span> batch_idx)</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>total_time <span class="op">=</span> time.time() <span class="op">-</span> start_time</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Finish!! Total time: "</span>, total_time)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>12:58 であった．一方で，CPU でも訓練してみる．</p>
+<div id="a0cce554" class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>DEVICE <span class="op">=</span> torch.device(<span class="st">"cpu"</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> Denoiser(image_resolution<span class="op">=</span>img_size,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                    hidden_dims<span class="op">=</span>hidden_dims, </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                    diffusion_time_embedding_dim<span class="op">=</span>timestep_embedding_dim, </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                    n_times<span class="op">=</span>n_timesteps).to(DEVICE)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>diffusion <span class="op">=</span> Diffusion(model, image_resolution<span class="op">=</span>img_size, n_times<span class="op">=</span>n_timesteps, beta_minmax<span class="op">=</span>beta_minmax, device<span class="op">=</span>DEVICE).to(DEVICE)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Start training DDPMs..."</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>model.train()</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>start_time <span class="op">=</span> time.time()</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(epochs):</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    noise_prediction_loss <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> batch_idx, (x, _) <span class="kw">in</span> tqdm(<span class="bu">enumerate</span>(train_loader), total<span class="op">=</span><span class="bu">len</span>(train_loader)):</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        optimizer.zero_grad()</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.to(DEVICE)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        noisy_input, epsilon, pred_epsilon <span class="op">=</span> diffusion(x)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        loss <span class="op">=</span> denoising_loss(pred_epsilon, epsilon)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        noise_prediction_loss <span class="op">+=</span> loss.item()</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        loss.backward()</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        optimizer.step()</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\t</span><span class="st">Epoch"</span>, epoch <span class="op">+</span> <span class="dv">1</span>, <span class="st">"complete!"</span>, <span class="st">"</span><span class="ch">\t</span><span class="st">Denoising Loss: "</span>, noise_prediction_loss <span class="op">/</span> batch_idx)</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>total_time <span class="op">=</span> time.time() <span class="op">-</span> start_time</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Finish!! Total time: "</span>, total_time)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>１時間越え！</p>
 </section>
 
-</main> <!-- /main -->
+
+
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 終わりに</h2><div class="quarto-appendix-contents">
+
+<p>あまりに時間がかかるので，本記事は <code>eval: false</code> としておく．</p>
+
+
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><a href="https://qiita.com/m__k/items/87b3b1da15f35321ecf5">PyTorchでGPUを並列で使えるようにするtorch.nn.DataParallelのメモ</a> などを参照した．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {

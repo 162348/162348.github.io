@@ -1,28 +1,91 @@
 ---
-title: "ノイズ対照学習"
+title: "表現学習とノイズ対照学習"
 author: "司馬 博文"
 date: 7/29/2024
-date-modified: 7/29/2024
+date-modified: 8/10/2024
 categories: [Deep]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 深層潜在モデルを敵対的に学習させる手法である **NCL (Noise-Contrastive Learning)** について述べる．
+abstract: 深層潜在モデルを敵対的に学習させる手法である **NCL (Noise-Contrastive Learning)** について述べる．この手法は，表現学習や非線型独立成分分析に応用を持つ．識別性を保った深層潜在モデルを学習しようとする方法は，因果的表現学習とも呼ばれている．
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## 非線型独立成分分析と表現学習
+## 表現学習と非線型独立成分分析
 
-### 導入
+### 表現学習とは何か？
 
-[@Locatello+2019] が警鐘を鳴らしている通り，表現学習 [@Bengio+2013] とはことさらに disentangle （＝要因ごとにデータ内の変動を説明して分離すること）がなされた潜在表現を得れば良いというものではない．
+::: {.callout-tip appearance="simple" icon="false"}
 
-表現学習の代表的手法としては，[$\beta$-VAE](Deep4.qmd#sec-beta-VAE) がある．加えて，ノイズ対照学習に基づいた方法 [@Oord+2019] があり，同等の性能を誇る．
+1. 教師あり学習による表現学習
+2. 生成による表現学習
+3. 自己教師あり表現学習
+4. ノイズ対照による表現学習
+5. 独立成分分析による表現学習
 
-また，データの disentangle というのは，独立成分分析の目標と重なる部分が大きい．いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない．^[The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. [@Khemakhem+2020] Section 6．]
+:::
+
+極めて高精度な分類器が完成してすぐのころ，分類タスクが極めて上手なニューラルネットワークは他の下流タスクでも良い成績が観察され，最初に考えられた方法が１であった．一方でこのスキームではすぐにドメインシフトと転移学習が問題になった．
+
+これを克服するのが２の方法である．高精度なデータを生成できる深層潜在模型が学習された場合，その潜在変数は現実の何らかの表象になっているだろう，というアイデアは analysis-by-synthesis [@Roberts1963], [@Lee-Mumford2003] とも呼ばれている．
+
+この方法は，文字のストローク（トメ，ハネ）が集まった構造に注目するなど，データの生成過程がある程度明らかなものでは特に性能が良い [@Lake+2015]．
+
+[$\beta$-VAE](Deep4.qmd#sec-beta-VAE) [@Higgins+2017] や BiGAN [@Donahue+2017] はその例であるが，ImageNet などの大規模データに対する分類や分割のタスクで十分な性能はまだ見られていない．
+
+### 生成から雑音除去へ
+
+２よりも高い性能を誇るのが３である．生成のためには大変多くの特徴量が必要であるが，下流タスクに重要なのはその一部のみに限る．このような場合，[Denoising AE](Deep4.qmd#sec-denoising-autoencoder) [@Vincent+2008] のように「データにノイズを印加してこれを戻すのに必要な知識は何か？」を問うことが極めて普遍的な力を持つ．
+
+雑音除去と同様に，表現学習に極めて有効なタスクがマスク除去 [@Devlin+2019] である．これは画像領域にも応用されている：BEiT [@Bao+2022]．**masked autoencoder** [@He+2022] が現在の state of the art である．
+
+### ノイズ対照学習による表現学習
+
+ノイズ対照学習に基づいた方法が第４勢力として登場してきている．例えば CPC (Contrastive Predictive Coding) [@Oord+2019] は，言語，音声，画像，３次元空間での強化学習など，多くの領域で有力な代替を提供するようである．
+
+この方法では，雑音やマスク除去とは違った方法で，予測問題として表現学習を解く．^[予測符号化 ([predictive coding](https://en.wikipedia.org/wiki/Predictive_coding)) [@Elias1955] は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である [@Rao-Ballard1999]．また word2vec [@Mikolov2013] から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．] その結果雑音・マスク除去と違い，ある程度どのようなデータを「似ている」とするかの制御が効く美点がある．これを **距離学習** ともいう．^[[@Murphy2023 p.1056] 第32.3.4.2節も参照．]
+
+#### CPC [@Oord+2019]
+
+![Contrastive Predictive Coding [@Oord+2019]](Images/contrastive_repr4.jpeg)
+
+まずエンコーダー $z_t=g_{\text{enc}}(x_t)$ を作る．続いて，自己回帰モデル $g_{\text{ar}}$ を用いて $z_{1:t}$ を要約して予測しようとする．
+
+この段階で潜在表現 $c_t=g_{\text{ar}}(z_{1:t})$ が作られることを期待するのであるが，直接 $p(x|c)$ を予測しようとしてしまうと，必ずしも有用な潜在表現 $c$ が得られるとは限らない．
+
+そこで，距離 $k$ だけ離れたデータ $x_{t+k}$ の尤度比
+$$
+f_k(x_{t+k},c_t)\propt\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
+$$
+を，
+$$
+f_k(x_{t+k},c_t)=\exp\paren{z_{t+k}^\top W_kc_t}
+$$
+の形で予測しようとし，この荷重 $W_k$ の推定を考える．
+
+これは，表現学習においては予測 $p(x|c)$ が至上命題であるわけではなく，$x$ と $c$ の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である（**InfoMax** ともいう）．^[相互情報量は$$I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}$$ と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．]
+
+このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．[@Oord+2019] では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) [@Cho+2014] という RNN の変種が使われている．
+
+こうして推定された $(z_t,c_t)$ は，$x_{1:t}$ までのヒストリを見た要約が欲しい場合は $c_t$ を，そうでない場合は $z_t$ を，データ $x_t$ の潜在表現として使える．
+
+#### CLIP [@Radford+2019]
+
+ノイズ対照学習に基づくアプローチの美点は，別のモーダリティを持つデータを統合しやすい点にある．
+
+![画像に対する種々のノイズ対照学習法がどのようなノイズと対照させるか [@Murphy2023 p.1055]](Images/CLIP.png)
+
+### 独立成分分析による表現学習
+
+表現学習の１つの目標である **disentangle** とは，要因ごとにデータ内の変動を説明して分離することをいう．これを達成するには，データやモデルに追加の仮定を課すことが必要な場合が多い点が困難さを増している [@Locatello+2020]．
+
+この disentangle は独立成分分析の目標と重なる部分が大きい．
+
+いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない [@Khemakhem+2020]．^[The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. [@Khemakhem+2020] Section 6．] これを **因果的表現学習** (causal representation learning) ともいう．^[[@Murphy2023 p.1060] 33.4.1節も参照．]
 
 VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通している．
 
@@ -76,35 +139,9 @@ $$
 
 また逆の方向には，非線型 ICA モデルを変分ベイズや確率的勾配降下法により推定することができる．
 
-### 予測による表現学習
+### VAE の識別可能性
 
-予測符号化 ([predictive coding](https://en.wikipedia.org/wiki/Predictive_coding)) [@Elias1955] は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である [@Rao-Ballard1999]．
-
-また word2vec [@Mikolov2013] から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．
-
-この予測問題として表現学習を解く方法は CPC (Contrastive Predictive Coding) として，言語，音声，画像，３次元空間での強化学習など，極めて多くの領域で良い表現学習を提供することが実証されている [@Oord+2019]．
-
-![Contrastive Predictive Coding [@Oord+2019]](Images/contrastive_repr4.jpeg)
-
-まずエンコーダー $z_t=g_{\text{enc}}(x_t)$ を作る．続いて，自己回帰モデル $g_{\text{ar}}$ を用いて $z_{1:t}$ を要約して予測しようとする．
-
-この段階で潜在表現 $c_t=g_{\text{ar}}(z_{1:t})$ が作られることを期待するのであるが，直接 $p(x|c)$ を予測しようとしてしまうと，必ずしも有用な潜在表現 $c$ が得られるとは限らない．
-
-そこで，距離 $k$ だけ離れたデータ $x_{t+k}$ の尤度比
-$$
-f_k(x_{t+k},c_t)\propt\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
-$$
-を，
-$$
-f_k(x_{t+k},c_t)=\exp\paren{z_{t+k}^\top W_kc_t}
-$$
-の形で予測しようとし，この荷重 $W_k$ の推定を考える．
-
-これは，表現学習においては予測 $p(x|c)$ が至上命題であるわけではなく，$x$ と $c$ の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である．^[相互情報量は$$I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}$$ と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．]
-
-このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．[@Oord+2019] では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) [@Cho+2014] という RNN の変種が使われている．
-
-こうして推定された $(z_t,c_t)$ は，$x_{1:t}$ までのヒストリを見た要約が欲しい場合は $c_t$ を，そうでない場合は $z_t$ を，データ $x_t$ の潜在表現として使える．
+VAE の事前分布が特定の混合分布の形を持つならば，補助変数 $u$ が存在しない場合でも，VAE は識別可能な因果グラフを与えるという [@Kivva+2021], [@Kivva+2022], [@Lopez+2024]．
 
 ## 参考文献 {.appendix}
 

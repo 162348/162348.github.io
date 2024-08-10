@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - ノイズ対照学習</title>
+<title>Hirofumi Shiba - 表現学習とノイズ対照学習</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -133,12 +133,12 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - ノイズ対照学習">
-<meta property="og:description" content="深層潜在モデルを敵対的に学習させる手法である NCL (Noise-Contrastive Learning) について述べる．">
+<meta property="og:title" content="Hirofumi Shiba - 表現学習とノイズ対照学習">
+<meta property="og:description" content="深層潜在モデルを敵対的に学習させる手法である NCL (Noise-Contrastive Learning) について述べる．この手法は，表現学習や非線型独立成分分析に応用を持つ．識別性を保った深層潜在モデルを学習しようとする方法は，因果的表現学習とも呼ばれている．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - ノイズ対照学習">
-<meta name="twitter:description" content="深層潜在モデルを敵対的に学習させる手法である NCL (Noise-Contrastive Learning) について述べる．">
+<meta name="twitter:title" content="Hirofumi Shiba - 表現学習とノイズ対照学習">
+<meta name="twitter:description" content="深層潜在モデルを敵対的に学習させる手法である NCL (Noise-Contrastive Learning) について述べる．この手法は，表現学習や非線型独立成分分析に応用を持つ．識別性を保った深層潜在モデルを学習しようとする方法は，因果的表現学習とも呼ばれている．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -189,7 +189,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">ノイズ対照学習</h1>
+      <h1 class="title">表現学習とノイズ対照学習</h1>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
               </div>
@@ -216,7 +216,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">7/29/2024</p>
+        <p class="date-modified">8/10/2024</p>
       </div>
     </div>
       
@@ -225,7 +225,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      深層潜在モデルを敵対的に学習させる手法である <strong>NCL (Noise-Contrastive Learning)</strong> について述べる．
+      深層潜在モデルを敵対的に学習させる手法である <strong>NCL (Noise-Contrastive Learning)</strong> について述べる．この手法は，表現学習や非線型独立成分分析に応用を持つ．識別性を保った深層潜在モデルを学習しようとする方法は，因果的表現学習とも呼ばれている．
     </div>
   </div>
   
@@ -237,12 +237,15 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#非線型独立成分分析と表現学習" id="toc-非線型独立成分分析と表現学習" class="nav-link active" data-scroll-target="#非線型独立成分分析と表現学習"><span class="header-section-number">1</span> 非線型独立成分分析と表現学習</a>
+  <li><a href="#表現学習と非線型独立成分分析" id="toc-表現学習と非線型独立成分分析" class="nav-link active" data-scroll-target="#表現学習と非線型独立成分分析"><span class="header-section-number">1</span> 表現学習と非線型独立成分分析</a>
   <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">1.1</span> 導入</a></li>
-  <li><a href="#sec-identifiability" id="toc-sec-identifiability" class="nav-link" data-scroll-target="#sec-identifiability"><span class="header-section-number">1.2</span> 深層潜在モデルの識別可能性</a></li>
-  <li><a href="#非線型独立成分分析" id="toc-非線型独立成分分析" class="nav-link" data-scroll-target="#非線型独立成分分析"><span class="header-section-number">1.3</span> 非線型独立成分分析</a></li>
-  <li><a href="#予測による表現学習" id="toc-予測による表現学習" class="nav-link" data-scroll-target="#予測による表現学習"><span class="header-section-number">1.4</span> 予測による表現学習</a></li>
+  <li><a href="#表現学習とは何か" id="toc-表現学習とは何か" class="nav-link" data-scroll-target="#表現学習とは何か"><span class="header-section-number">1.1</span> 表現学習とは何か？</a></li>
+  <li><a href="#生成から雑音除去へ" id="toc-生成から雑音除去へ" class="nav-link" data-scroll-target="#生成から雑音除去へ"><span class="header-section-number">1.2</span> 生成から雑音除去へ</a></li>
+  <li><a href="#ノイズ対照学習による表現学習" id="toc-ノイズ対照学習による表現学習" class="nav-link" data-scroll-target="#ノイズ対照学習による表現学習"><span class="header-section-number">1.3</span> ノイズ対照学習による表現学習</a></li>
+  <li><a href="#独立成分分析による表現学習" id="toc-独立成分分析による表現学習" class="nav-link" data-scroll-target="#独立成分分析による表現学習"><span class="header-section-number">1.4</span> 独立成分分析による表現学習</a></li>
+  <li><a href="#sec-identifiability" id="toc-sec-identifiability" class="nav-link" data-scroll-target="#sec-identifiability"><span class="header-section-number">1.5</span> 深層潜在モデルの識別可能性</a></li>
+  <li><a href="#非線型独立成分分析" id="toc-非線型独立成分分析" class="nav-link" data-scroll-target="#非線型独立成分分析"><span class="header-section-number">1.6</span> 非線型独立成分分析</a></li>
+  <li><a href="#vae-の識別可能性" id="toc-vae-の識別可能性" class="nav-link" data-scroll-target="#vae-の識別可能性"><span class="header-section-number">1.7</span> VAE の識別可能性</a></li>
   </ul></li>
   
   </ul>
@@ -260,17 +263,79 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="非線型独立成分分析と表現学習" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="非線型独立成分分析と表現学習"><span class="header-section-number">1</span> 非線型独立成分分析と表現学習</h2>
-<section id="導入" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1.1</span> 導入</h3>
-<p><span class="citation" data-cites="Locatello+2019">(<a href="#ref-Locatello+2019" role="doc-biblioref">Locatello et al., 2019</a>)</span> が警鐘を鳴らしている通り，表現学習 <span class="citation" data-cites="Bengio+2013">(<a href="#ref-Bengio+2013" role="doc-biblioref">Bengio et al., 2013</a>)</span> とはことさらに disentangle （＝要因ごとにデータ内の変動を説明して分離すること）がなされた潜在表現を得れば良いというものではない．</p>
-<p>表現学習の代表的手法としては，<a href="../../../posts/2024/Kernels/Deep4.html#sec-beta-VAE"><span class="math inline">\(\beta\)</span>-VAE</a> がある．加えて，ノイズ対照学習に基づいた方法 <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span> があり，同等の性能を誇る．</p>
-<p>また，データの disentangle というのは，独立成分分析の目標と重なる部分が大きい．いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<section id="表現学習と非線型独立成分分析" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="表現学習と非線型独立成分分析"><span class="header-section-number">1</span> 表現学習と非線型独立成分分析</h2>
+<section id="表現学習とは何か" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="表現学習とは何か"><span class="header-section-number">1.1</span> 表現学習とは何か？</h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ol type="1">
+<li>教師あり学習による表現学習</li>
+<li>生成による表現学習</li>
+<li>自己教師あり表現学習</li>
+<li>ノイズ対照による表現学習</li>
+<li>独立成分分析による表現学習</li>
+</ol>
+</div>
+</div>
+</div>
+<p>極めて高精度な分類器が完成してすぐのころ，分類タスクが極めて上手なニューラルネットワークは他の下流タスクでも良い成績が観察され，最初に考えられた方法が１であった．一方でこのスキームではすぐにドメインシフトと転移学習が問題になった．</p>
+<p>これを克服するのが２の方法である．高精度なデータを生成できる深層潜在模型が学習された場合，その潜在変数は現実の何らかの表象になっているだろう，というアイデアは analysis-by-synthesis <span class="citation" data-cites="Roberts1963">(<a href="#ref-Roberts1963" role="doc-biblioref">Roberts, 1963</a>)</span>, <span class="citation" data-cites="Lee-Mumford2003">(<a href="#ref-Lee-Mumford2003" role="doc-biblioref">Lee and Mumford, 2003</a>)</span> とも呼ばれている．</p>
+<p>この方法は，文字のストローク（トメ，ハネ）が集まった構造に注目するなど，データの生成過程がある程度明らかなものでは特に性能が良い <span class="citation" data-cites="Lake+2015">(<a href="#ref-Lake+2015" role="doc-biblioref">Lake et al., 2015</a>)</span>．</p>
+<p><a href="../../../posts/2024/Kernels/Deep4.html#sec-beta-VAE"><span class="math inline">\(\beta\)</span>-VAE</a> <span class="citation" data-cites="Higgins+2017">(<a href="#ref-Higgins+2017" role="doc-biblioref">Higgins et al., 2017</a>)</span> や BiGAN <span class="citation" data-cites="Donahue+2017">(<a href="#ref-Donahue+2017" role="doc-biblioref">Donahue et al., 2017</a>)</span> はその例であるが，ImageNet などの大規模データに対する分類や分割のタスクで十分な性能はまだ見られていない．</p>
+</section>
+<section id="生成から雑音除去へ" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="生成から雑音除去へ"><span class="header-section-number">1.2</span> 生成から雑音除去へ</h3>
+<p>２よりも高い性能を誇るのが３である．生成のためには大変多くの特徴量が必要であるが，下流タスクに重要なのはその一部のみに限る．このような場合，<a href="../../../posts/2024/Kernels/Deep4.html#sec-denoising-autoencoder">Denoising AE</a> <span class="citation" data-cites="Vincent+2008">(<a href="#ref-Vincent+2008" role="doc-biblioref">Vincent et al., 2008</a>)</span> のように「データにノイズを印加してこれを戻すのに必要な知識は何か？」を問うことが極めて普遍的な力を持つ．</p>
+<p>雑音除去と同様に，表現学習に極めて有効なタスクがマスク除去 <span class="citation" data-cites="Devlin+2019">(<a href="#ref-Devlin+2019" role="doc-biblioref">Devlin et al., 2019</a>)</span> である．これは画像領域にも応用されている：BEiT <span class="citation" data-cites="Bao+2022">(<a href="#ref-Bao+2022" role="doc-biblioref">Bao et al., 2022</a>)</span>．<strong>masked autoencoder</strong> <span class="citation" data-cites="He+2022">(<a href="#ref-He+2022" role="doc-biblioref">He et al., 2022</a>)</span> が現在の state of the art である．</p>
+</section>
+<section id="ノイズ対照学習による表現学習" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="ノイズ対照学習による表現学習"><span class="header-section-number">1.3</span> ノイズ対照学習による表現学習</h3>
+<p>ノイズ対照学習に基づいた方法が第４勢力として登場してきている．例えば CPC (Contrastive Predictive Coding) <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span> は，言語，音声，画像，３次元空間での強化学習など，多くの領域で有力な代替を提供するようである．</p>
+<p>この方法では，雑音やマスク除去とは違った方法で，予測問題として表現学習を解く．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> その結果雑音・マスク除去と違い，ある程度どのようなデータを「似ている」とするかの制御が効く美点がある．これを <strong>距離学習</strong> ともいう．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<section id="cpc-oord2019" class="level4" data-number="1.3.1">
+<h4 data-number="1.3.1" class="anchored" data-anchor-id="cpc-oord2019"><span class="header-section-number">1.3.1</span> CPC <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span></h4>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/contrastive_repr4.jpeg" class="img-fluid figure-img"></p>
+<figcaption>Contrastive Predictive Coding <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span></figcaption>
+</figure>
+</div>
+<p>まずエンコーダー <span class="math inline">\(z_t=g_{\text{enc}}(x_t)\)</span> を作る．続いて，自己回帰モデル <span class="math inline">\(g_{\text{ar}}\)</span> を用いて <span class="math inline">\(z_{1:t}\)</span> を要約して予測しようとする．</p>
+<p>この段階で潜在表現 <span class="math inline">\(c_t=g_{\text{ar}}(z_{1:t})\)</span> が作られることを期待するのであるが，直接 <span class="math inline">\(p(x|c)\)</span> を予測しようとしてしまうと，必ずしも有用な潜在表現 <span class="math inline">\(c\)</span> が得られるとは限らない．</p>
+<p>そこで，距離 <span class="math inline">\(k\)</span> だけ離れたデータ <span class="math inline">\(x_{t+k}\)</span> の尤度比 <span class="math display">\[
+f_k(x_{t+k},c_t)\,\propto\,\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
+\]</span> を， <span class="math display">\[
+f_k(x_{t+k},c_t)=\exp\left(z_{t+k}^\top W_kc_t\right)
+\]</span> の形で予測しようとし，この荷重 <span class="math inline">\(W_k\)</span> の推定を考える．</p>
+<p>これは，表現学習においては予測 <span class="math inline">\(p(x|c)\)</span> が至上命題であるわけではなく，<span class="math inline">\(x\)</span> と <span class="math inline">\(c\)</span> の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である（<strong>InfoMax</strong> ともいう）．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．<span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span> では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) <span class="citation" data-cites="Cho+2014">(<a href="#ref-Cho+2014" role="doc-biblioref">Cho et al., 2014</a>)</span> という RNN の変種が使われている．</p>
+<p>こうして推定された <span class="math inline">\((z_t,c_t)\)</span> は，<span class="math inline">\(x_{1:t}\)</span> までのヒストリを見た要約が欲しい場合は <span class="math inline">\(c_t\)</span> を，そうでない場合は <span class="math inline">\(z_t\)</span> を，データ <span class="math inline">\(x_t\)</span> の潜在表現として使える．</p>
+</section>
+<section id="clip-radford2019" class="level4" data-number="1.3.2">
+<h4 data-number="1.3.2" class="anchored" data-anchor-id="clip-radford2019"><span class="header-section-number">1.3.2</span> CLIP <span class="citation" data-cites="Radford+2019">(<a href="#ref-Radford+2019" role="doc-biblioref">Radford et al., 2019</a>)</span></h4>
+<p>ノイズ対照学習に基づくアプローチの美点は，別のモーダリティを持つデータを統合しやすい点にある．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/CLIP.png" class="img-fluid figure-img"></p>
+<figcaption>画像に対する種々のノイズ対照学習法がどのようなノイズと対照させるか <span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 1055</a>)</span></figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="独立成分分析による表現学習" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="独立成分分析による表現学習"><span class="header-section-number">1.4</span> 独立成分分析による表現学習</h3>
+<p>表現学習の１つの目標である <strong>disentangle</strong> とは，要因ごとにデータ内の変動を説明して分離することをいう．これを達成するには，データやモデルに追加の仮定を課すことが必要な場合が多い点が困難さを増している <span class="citation" data-cites="Locatello+2020">(<a href="#ref-Locatello+2020" role="doc-biblioref">Locatello et al., 2020</a>)</span>．</p>
+<p>この disentangle は独立成分分析の目標と重なる部分が大きい．</p>
+<p>いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span>．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> これを <strong>因果的表現学習</strong> (causal representation learning) ともいう．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
 <p>VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通している．</p>
 </section>
-<section id="sec-identifiability" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="sec-identifiability"><span class="header-section-number">1.2</span> 深層潜在モデルの識別可能性</h3>
+<section id="sec-identifiability" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="sec-identifiability"><span class="header-section-number">1.5</span> 深層潜在モデルの識別可能性</h3>
 <p>仮に追加に観測されている変数 <span class="math inline">\(u\)</span> が存在して，事前分布 <span class="math inline">\(p_\theta(z|u)\)</span> は <span class="math inline">\(z\)</span> 上で積の形に分解し，指数型分布族に属するとする．すなわち，潜在変数は <span class="math inline">\(U\)</span> で条件づければ互いに独立であるとする．この仮定が識別可能性の鍵となる <span class="citation" data-cites="Hyvarinen+2019">(<a href="#ref-Hyvarinen+2019" role="doc-biblioref">Hyvarinen et al., 2019</a>)</span>．</p>
 <p><span class="math inline">\(u\)</span> はタイムスタンプや前時点での観測，信頼できないラベルなどがありえる <span class="citation" data-cites="Hyvarinen-Morioka2016">(<a href="#ref-Hyvarinen-Morioka2016" role="doc-biblioref">Hyvärinen and Morioka, 2016</a>)</span>．</p>
 <p>観測 <span class="math inline">\(X\)</span> と潜在変数 <span class="math inline">\(Z\)</span> に対して，<span class="math inline">\(\theta=(f,T,\lambda)\)</span> をパラメータとして <span class="math display">\[
@@ -301,38 +366,20 @@ T\circ f^{-1}=A\circ \widetilde{T}\circ\widetilde{f}^{-1}+c
 </div>
 <p>加えて，モデルが真の分布を含む場合，変分下界の最大化は上述の線型変換 <span class="math inline">\(A\)</span> の違いを除いて <span class="math inline">\(\theta\)</span> の一致推定に成功する．</p>
 </section>
-<section id="非線型独立成分分析" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="非線型独立成分分析"><span class="header-section-number">1.3</span> 非線型独立成分分析</h3>
+<section id="非線型独立成分分析" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="非線型独立成分分析"><span class="header-section-number">1.6</span> 非線型独立成分分析</h3>
 <p>非線型独立成分分析は，ある独立な成分からなる潜在変数 <span class="math display">\[
 p(z)=\prod_{i=1}^dp_i(z_i)
 \]</span> に対して，観測がこの非線型変換 <span class="math inline">\(x=f(z)\)</span> であると仮定し，データ生成過程を特定しようとする営みである．</p>
 <p>これは上のモデルの <span class="math inline">\(\epsilon=0\)</span> とした場合に他ならない．</p>
 <p>つまるところ，従来からの深層生成モデリングのうち，統計的に特別な意味を持つものが非線型独立成分分析と捉えることもできるはずである．すなわち，生成モデルと非線型独立成分分析は，モデルの骨子自体は共通で，その適用目的が違うに過ぎない（<a href="../../../posts/2024/Samplers/Sampling.html#sec-sampling-as-synthesis">この稿</a> も参照）．</p>
-<p>ただし，統計モデルと見る以上は識別可能性が肝要である．しかし近年の ICA は，識別可能性を緩めた形 <a href="#sec-identifiability" class="quarto-xref">1.2</a> で得ることに成功しており，これにより深層生成モデルとの同一視が進むことになる <span class="citation" data-cites="Hyvarinen+2019">(<a href="#ref-Hyvarinen+2019" role="doc-biblioref">Hyvarinen et al., 2019</a>)</span>, <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span>．</p>
+<p>ただし，統計モデルと見る以上は識別可能性が肝要である．しかし近年の ICA は，識別可能性を緩めた形 <a href="#sec-identifiability" class="quarto-xref">1.5</a> で得ることに成功しており，これにより深層生成モデルとの同一視が進むことになる <span class="citation" data-cites="Hyvarinen+2019">(<a href="#ref-Hyvarinen+2019" role="doc-biblioref">Hyvarinen et al., 2019</a>)</span>, <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span>．</p>
 <p>これにより，VAE などの深層生成モデルをより統計的に意味のあるものとすることができる．上述の定理により識別可能性を確保した VAE を iVAE (identifiable VAE) <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span> と呼ぶ．</p>
 <p>また逆の方向には，非線型 ICA モデルを変分ベイズや確率的勾配降下法により推定することができる．</p>
 </section>
-<section id="予測による表現学習" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="予測による表現学習"><span class="header-section-number">1.4</span> 予測による表現学習</h3>
-<p>予測符号化 (<a href="https://en.wikipedia.org/wiki/Predictive_coding">predictive coding</a>) <span class="citation" data-cites="Elias1955">(<a href="#ref-Elias1955" role="doc-biblioref">Elias, 1955</a>)</span> は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である <span class="citation" data-cites="Rao-Ballard1999">(<a href="#ref-Rao-Ballard1999" role="doc-biblioref">Rao and Ballard, 1999</a>)</span>．</p>
-<p>また word2vec <span class="citation" data-cites="Mikolov2013">(<a href="#ref-Mikolov2013" role="doc-biblioref">Mikolov et al., 2013</a>)</span> から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．</p>
-<p>この予測問題として表現学習を解く方法は CPC (Contrastive Predictive Coding) として，言語，音声，画像，３次元空間での強化学習など，極めて多くの領域で良い表現学習を提供することが実証されている <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span>．</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="Images/contrastive_repr4.jpeg" class="img-fluid figure-img"></p>
-<figcaption>Contrastive Predictive Coding <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span></figcaption>
-</figure>
-</div>
-<p>まずエンコーダー <span class="math inline">\(z_t=g_{\text{enc}}(x_t)\)</span> を作る．続いて，自己回帰モデル <span class="math inline">\(g_{\text{ar}}\)</span> を用いて <span class="math inline">\(z_{1:t}\)</span> を要約して予測しようとする．</p>
-<p>この段階で潜在表現 <span class="math inline">\(c_t=g_{\text{ar}}(z_{1:t})\)</span> が作られることを期待するのであるが，直接 <span class="math inline">\(p(x|c)\)</span> を予測しようとしてしまうと，必ずしも有用な潜在表現 <span class="math inline">\(c\)</span> が得られるとは限らない．</p>
-<p>そこで，距離 <span class="math inline">\(k\)</span> だけ離れたデータ <span class="math inline">\(x_{t+k}\)</span> の尤度比 <span class="math display">\[
-f_k(x_{t+k},c_t)\,\propto\,\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
-\]</span> を， <span class="math display">\[
-f_k(x_{t+k},c_t)=\exp\left(z_{t+k}^\top W_kc_t\right)
-\]</span> の形で予測しようとし，この荷重 <span class="math inline">\(W_k\)</span> の推定を考える．</p>
-<p>これは，表現学習においては予測 <span class="math inline">\(p(x|c)\)</span> が至上命題であるわけではなく，<span class="math inline">\(x\)</span> と <span class="math inline">\(c\)</span> の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-<p>このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．<span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a>)</span> では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) <span class="citation" data-cites="Cho+2014">(<a href="#ref-Cho+2014" role="doc-biblioref">Cho et al., 2014</a>)</span> という RNN の変種が使われている．</p>
-<p>こうして推定された <span class="math inline">\((z_t,c_t)\)</span> は，<span class="math inline">\(x_{1:t}\)</span> までのヒストリを見た要約が欲しい場合は <span class="math inline">\(c_t\)</span> を，そうでない場合は <span class="math inline">\(z_t\)</span> を，データ <span class="math inline">\(x_t\)</span> の潜在表現として使える．</p>
+<section id="vae-の識別可能性" class="level3" data-number="1.7">
+<h3 data-number="1.7" class="anchored" data-anchor-id="vae-の識別可能性"><span class="header-section-number">1.7</span> VAE の識別可能性</h3>
+<p>VAE の事前分布が特定の混合分布の形を持つならば，補助変数 <span class="math inline">\(u\)</span> が存在しない場合でも，VAE は識別可能な因果グラフを与えるという <span class="citation" data-cites="Kivva+2021">(<a href="#ref-Kivva+2021" role="doc-biblioref">Kivva et al., 2021</a>)</span>, <span class="citation" data-cites="Kivva+2022">(<a href="#ref-Kivva+2022" role="doc-biblioref">Kivva et al., 2022</a>)</span>, <span class="citation" data-cites="Lopez+2024">(<a href="#ref-Lopez+2024" role="doc-biblioref">Lopez et al., 2024</a>)</span>．</p>
 </section>
 </section>
 
@@ -345,14 +392,26 @@ f_k(x_{t+k},c_t)=\exp\left(z_{t+k}^\top W_kc_t\right)
 
 
 </div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Bengio+2013" class="csl-entry" role="listitem">
-Bengio, Y., Courville, A., and Vincent, P. (2013). <a href="https://doi.org/10.1109/TPAMI.2013.50">Representation learning: A review and new perspectives</a>. <em>IEEE Trans. Pattern Anal. Mach. Intell.</em>, <em>35</em>(8), 1798–1828.
+<div id="ref-Bao+2022" class="csl-entry" role="listitem">
+Bao, H., Dong, L., Piao, S., and Wei, F. (2022). <a href="https://openreview.net/forum?id=p-BhZSz59o4"><span>BE</span>iT: <span>BERT</span> pre-training of image transformers</a>. In <em>International conference on learning representations</em>.
 </div>
 <div id="ref-Cho+2014" class="csl-entry" role="listitem">
 Cho, K., Merriënboer, B. van, Gulcehre, C., Bahdanau, D., Bougares, F., Schwenk, H., and Bengio, Y. (2014). <a href="https://doi.org/10.3115/v1/D14-1179">Learning phrase representations using <span>RNN</span> encoder<span>–</span>decoder for statistical machine translation</a>. In A. Moschitti, B. Pang, and W. Daelemans, editors, <em>Proceedings of the 2014 conference on empirical methods in natural language processing (<span>EMNLP</span>)</em>, pages 1724–1734. Doha, Qatar: Association for Computational Linguistics.
 </div>
+<div id="ref-Devlin+2019" class="csl-entry" role="listitem">
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. (2019). <a href="https://aclanthology.org/N19-1423/">BERT: Pre-training of deep bidirectional transformers for language understanding</a>. In <em>Proceedings of the 2019 conference of the north american chapter of the association for computational linguistics: Human language technologies</em>,Vol. 1, pages 4171–4186.
+</div>
+<div id="ref-Donahue+2017" class="csl-entry" role="listitem">
+Donahue, J., Krähenbühl, P., and Darrell, T. (2017). <a href="https://openreview.net/forum?id=BJtNZAFgg">Adversarial feature learning</a>. In <em>International conference on learning representations</em>.
+</div>
 <div id="ref-Elias1955" class="csl-entry" role="listitem">
 Elias, P. (1955). <a href="https://doi.org/10.1109/TIT.1955.1055126">Predictive coding–i</a>. <em>IRE Transactions on Information Theory</em>, <em>1</em>(1), 16–24.
+</div>
+<div id="ref-He+2022" class="csl-entry" role="listitem">
+He, K., Chen, X., Xie, S., Li, Y., Dollár, P., and Girshick, R. (2022). Masked autoencoders are scalable vision learners. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 16000–16009.
+</div>
+<div id="ref-Higgins+2017" class="csl-entry" role="listitem">
+Higgins, I., Matthey, L., Pal, A., Burgess, C., Glorot, X., Botvinick, M., … Lerchner, A. (2017). <a href="https://openreview.net/forum?id=Sy2fzU9gl">Beta-<span>VAE</span>: Learning basic visual concepts with a constrained variational framework</a>. In <em>International conference on learning representations</em>.
 </div>
 <div id="ref-Hyvarinen-Morioka2017" class="csl-entry" role="listitem">
 Hyvarinen, A., and Morioka, H. (2017). <a href="https://proceedings.mlr.press/v54/hyvarinen17a.html"><span class="nocase">Nonlinear ICA of Temporally Dependent Stationary Sources</span></a>. In A. Singh and J. Zhu, editors, <em>Proceedings of the 20th international conference on artificial intelligence and statistics</em>,Vol. 54, pages 460–469. PMLR.
@@ -366,23 +425,53 @@ Hyvärinen, A., and Morioka, H. (2016). Unsupervised feature extraction by time-
 <div id="ref-Khemakhem+2020" class="csl-entry" role="listitem">
 Khemakhem, I., Kingma, D., Monti, R., and Hyvarinen, A. (2020). <a href="https://proceedings.mlr.press/v108/khemakhem20a.html">Variational autoencoders and nonlinear ICA: A unifying framework</a>. In S. Chiappa and R. Calandra, editors, <em>Proceedings of the twenty third international conference on artificial intelligence and statistics</em>,Vol. 108, pages 2207–2217. PMLR.
 </div>
-<div id="ref-Locatello+2019" class="csl-entry" role="listitem">
-Locatello, F., Bauer, S., Lučić, M., Rätsch, G., Gelly, S., Schölkopf, B., and Bachem, O. F. (2019). <a href="http://proceedings.mlr.press/v97/locatello19a.html">Challenging common assumptions in the unsupervised learning of disentangled representations</a>. In <em>International conference on machine learning</em>.
+<div id="ref-Kivva+2022" class="csl-entry" role="listitem">
+Kivva, B., Rajendran, G., Ravikumar, P. K., and Aragam, B. (2022). <a href="https://openreview.net/forum?id=UeG3kt_Ebg2">Identifiability of deep generative models under mixture priors without auxiliary information</a>. In <em>UAI 2022 workshop on causal representation learning</em>.
+</div>
+<div id="ref-Kivva+2021" class="csl-entry" role="listitem">
+Kivva, B., Rajendran, G., Ravikumar, P., and Aragam, B. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/966aad8981dcc75b5b8ab04427a833b2-Paper.pdf">Learning latent causal graphs via mixture oracles</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 18087–18101. Curran Associates, Inc.
+</div>
+<div id="ref-Lake+2015" class="csl-entry" role="listitem">
+Lake, B. M., Salakhutdinov, R., and Tenenbaum, J. B. (2015). <a href="https://doi.org/10.1126/science.aab3050">Human-level concept learning through probabilistic program induction</a>. <em>Science</em>, <em>350</em>(6266), 1332–1338.
+</div>
+<div id="ref-Lee-Mumford2003" class="csl-entry" role="listitem">
+Lee, T. S., and Mumford, D. (2003). <a href="https://doi.org/10.1364/JOSAA.20.001434">Hierarchical bayesian inference in the visual cortex</a>. <em>J. Opt. Soc. Am. A</em>, <em>20</em>(7), 1434–1448.
+</div>
+<div id="ref-Locatello+2020" class="csl-entry" role="listitem">
+Locatello, F., Bauer, S., Lucic, M., Raetsch, G., Gelly, S., Schölkopf, B., and Bachem, O. (2020). <a href="http://jmlr.org/papers/v21/19-976.html">A sober look at the unsupervised learning of disentangled representations and their evaluation</a>. <em>Journal of Machine Learning Research</em>, <em>21</em>(209), 1–62.
+</div>
+<div id="ref-Lopez+2024" class="csl-entry" role="listitem">
+Lopez, R., Huetter, J.-C., Hajiramezanali, E., Pritchard, J. K., and Regev, A. (2024). <a href="https://proceedings.mlr.press/v236/lopez24a.html">Toward the identifiability of comparative deep generative models</a>. In F. Locatello and V. Didelez, editors, <em>Proceedings of the third conference on causal learning and reasoning</em>,Vol. 236, pages 868–912. PMLR.
 </div>
 <div id="ref-Mikolov2013" class="csl-entry" role="listitem">
 Mikolov, T., Chen, K., Corrado, G., and Dean, J. (2013). <em><a href="https://arxiv.org/abs/1301.3781">Efficient estimation of word representations in vector space</a></em>.
 </div>
+<div id="ref-Murphy2023" class="csl-entry" role="listitem">
+Murphy, K. P. (2023). <em><a href="http://probml.github.io/book2">Probabilistic machine learning: Advanced topics</a></em>. MIT Press.
+</div>
 <div id="ref-Oord+2019" class="csl-entry" role="listitem">
 Oord, A. van den, Li, Y., and Vinyals, O. (2019). <a href="https://arxiv.org/abs/1807.03748">Representation learning with contrastive predictive coding</a>.
+</div>
+<div id="ref-Radford+2019" class="csl-entry" role="listitem">
+Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., and Sutskever, I. (2019). <em><a href="https://github.com/openai/gpt-2?tab=readme-ov-file">Language models are unsupervised multitask learners</a></em>.
 </div>
 <div id="ref-Rao-Ballard1999" class="csl-entry" role="listitem">
 Rao, R. P. N., and Ballard, D. H. (1999). <a href="https://doi.org/10.1038/4580">Predictive coding in the visual cortex: A functional interpretation of some extra-classical receptive-field effects</a>. <em>Nature Neuroscience</em>, <em>2</em>(1), 79–87.
 </div>
+<div id="ref-Roberts1963" class="csl-entry" role="listitem">
+Roberts, L. G. (1963). <em>Machine perception of three-dimensional solids</em> (PhD thesis). Massachusetts Institute of Technology. Retrieved from <a href="http://hdl.handle.net/1721.1/11589">http://hdl.handle.net/1721.1/11589</a>
+</div>
+<div id="ref-Vincent+2008" class="csl-entry" role="listitem">
+Vincent, P., Larochelle, H., Bengio, Y., and Manzagol, P.-A. (2008). <a href="https://doi.org/10.1145/1390156.1390294">Extracting and composing robust features with denoising autoencoders</a>. In <em>Proceedings of the 25th international conference on machine learning</em>, pages 1096–1103. New York, NY, USA: Association for Computing Machinery.
+</div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span> Section 6．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>相互情報量は<span class="math display">\[I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}\]</span> と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>予測符号化 (<a href="https://en.wikipedia.org/wiki/Predictive_coding">predictive coding</a>) <span class="citation" data-cites="Elias1955">(<a href="#ref-Elias1955" role="doc-biblioref">Elias, 1955</a>)</span> は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である <span class="citation" data-cites="Rao-Ballard1999">(<a href="#ref-Rao-Ballard1999" role="doc-biblioref">Rao and Ballard, 1999</a>)</span>．また word2vec <span class="citation" data-cites="Mikolov2013">(<a href="#ref-Mikolov2013" role="doc-biblioref">Mikolov et al., 2013</a>)</span> から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 1056</a>)</span> 第32.3.4.2節も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>相互情報量は<span class="math display">\[I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}\]</span> と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. <span class="citation" data-cites="Khemakhem+2020">(<a href="#ref-Khemakhem+2020" role="doc-biblioref">Khemakhem et al., 2020</a>)</span> Section 6．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 1060</a>)</span> 33.4.1節も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

@@ -168,11 +168,11 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Hirofumi Shiba - 拡散模型の実装">
-<meta property="og:description" content="拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．今回は PyTorch を用いて，DDPM の実装の概要を見る．">
+<meta property="og:description" content="今回は PyTorch を用いて， Ho et. al.&nbsp;[NeurIPS 33(2020)] による DDPM (Denoising Diffusion Probabilistic Model) の実装の概要を見る．DDPM は拡散模型の最初の例の１つであり，ノイズからデータ分布まで到達するフローを定める拡散過程（雑音除去過程）を，データをノイズにする拡散過程の時間反転として学習する方法である．画像や動画だけでなく，離散空間上でタンパク質などの構造生成でも state of the art の性能を示すモデルである．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 拡散模型の実装">
-<meta name="twitter:description" content="拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．今回は PyTorch を用いて，DDPM の実装の概要を見る．">
+<meta name="twitter:description" content="今回は PyTorch を用いて， Ho et. al.&nbsp;[NeurIPS 33(2020)] による DDPM (Denoising Diffusion Probabilistic Model) の実装の概要を見る．DDPM は拡散模型の最初の例の１つであり，ノイズからデータ分布まで到達するフローを定める拡散過程（雑音除去過程）を，データをノイズにする拡散過程の時間反転として学習する方法である．画像や動画だけでなく，離散空間上でタンパク質などの構造生成でも state of the art の性能を示すモデルである．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -262,7 +262,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．今回は <code>PyTorch</code> を用いて，DDPM の実装の概要を見る．
+      今回は <code>PyTorch</code> を用いて， Ho et. al.&nbsp;[NeurIPS 33(2020)] による DDPM (Denoising Diffusion Probabilistic Model) の実装の概要を見る．DDPM は拡散模型の最初の例の１つであり，ノイズからデータ分布まで到達するフローを定める拡散過程（雑音除去過程）を，データをノイズにする拡散過程の時間反転として学習する方法である．画像や動画だけでなく，離散空間上でタンパク質などの構造生成でも state of the art の性能を示すモデルである．
     </div>
   </div>
   
@@ -305,7 +305,7 @@ window.Quarto = {
 <section id="ハイパーパラメーターの設定" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="ハイパーパラメーターの設定"><span class="header-section-number">1</span> ハイパーパラメーターの設定</h2>
 <p><span class="math inline">\(\beta_0=10^{-4}\)</span> から <span class="math inline">\(\beta_T=0.02\)</span> までを，<code>n_timesteps = 1000</code> 等分し，その間のダイナミクスを <code>hidden_dim = 256</code> 次元の CNN ８層で学習する．</p>
-<div id="e9b94a7f" class="cell" data-execution_count="1">
+<div id="674f62fa" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>必要なパッケージの読み込み</summary>
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
@@ -325,8 +325,8 @@ window.Quarto = {
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>dataset_path <span class="op">=</span> <span class="st">'~/hirofumi/datasets'</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
-<div id="5e7aafa2" class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>DEVICE <span class="op">=</span> torch.device(<span class="st">"mps"</span>)</span>
+<div id="2f066e53" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>DEVICE <span class="op">=</span> torch.device(<span class="st">"mps"</span>)  <span class="co"># MacOS 上で実行しました</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> <span class="st">'MNIST'</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>img_size <span class="op">=</span> (<span class="dv">32</span>, <span class="dv">32</span>, <span class="dv">3</span>)   <span class="cf">if</span> dataset <span class="op">==</span> <span class="st">"CIFAR10"</span> <span class="cf">else</span> (<span class="dv">28</span>, <span class="dv">28</span>, <span class="dv">1</span>) <span class="co"># (width, height, channels)</span></span>
@@ -348,7 +348,7 @@ window.Quarto = {
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>torch.manual_seed(seed)</span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>np.random.seed(seed)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="038c0a0f" class="cell" data-execution_count="3">
+<div id="13cfcf19" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>データセットの読み込み</summary>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torchvision.datasets <span class="im">import</span> MNIST, CIFAR10</span>
@@ -378,9 +378,10 @@ window.Quarto = {
 <h2 data-number="2" class="anchored" data-anchor-id="モデル定義"><span class="header-section-number">2</span> モデル定義</h2>
 <section id="タイムステップ-t-の位置埋め込み" class="level3" data-number="2.1">
 <h3 data-number="2.1" class="anchored" data-anchor-id="タイムステップ-t-の位置埋め込み"><span class="header-section-number">2.1</span> タイムステップ <span class="math inline">\(t\)</span> の位置埋め込み</h3>
-<p><span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> ではトランスフォーマー <span class="citation" data-cites="Vaswani+2017">(<a href="#ref-Vaswani+2017" role="doc-biblioref">Vaswani et al., 2017</a>)</span> 同様の sinusoidal positional encoding を用いてタイムステップ <span class="math inline">\(t\)</span> の情報をデータに統合したものが，パラメータの共有された CNN に与えられる．</p>
-<p>こうすることで <code>n_timesteps = 1000</code> の別々の NN を訓練するより遥かに効率的に設計できている．</p>
-<div id="2ce80c50" class="cell" data-execution_count="4">
+<p><span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> ではトランスフォーマー <span class="citation" data-cites="Vaswani+2017">(<a href="#ref-Vaswani+2017" role="doc-biblioref">Vaswani et al., 2017</a>)</span> 同様の sinusoidal positional encoding を用いて <code>timestep_embedding_dim = 256</code> 次元の潜在表現を得て，タイムステップ <span class="math inline">\(t\)</span> の情報をデータに統合する．</p>
+<p>そのタイムステップが統合されたデータが，同一に CNN に与えられ，その CNN のパラメータが学習される．</p>
+<p>こうすることで <code>n_timesteps = 1000</code> の別々の NN を訓練するより遥かに効率的な学習が可能である．</p>
+<div id="14db3abc" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SinusoidalPosEmb(nn.Module):</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, dim):</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()</span>
@@ -398,8 +399,8 @@ window.Quarto = {
 </section>
 <section id="ニューラルネットワークの構成" class="level3" data-number="2.2">
 <h3 data-number="2.2" class="anchored" data-anchor-id="ニューラルネットワークの構成"><span class="header-section-number">2.2</span> ニューラルネットワークの構成</h3>
-<p>ここでは同じ次元の CNN を重ねて作ることとする．<span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> では U-Net <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> アーキテクチャを用いている．</p>
-<div id="f7277455" class="cell" data-execution_count="5">
+<p><span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> では U-Net <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> アーキテクチャを用いているが，ここでは同じ次元の CNN を <code>n_layers=8</code> 層重ねて作ることとする．</p>
+<div id="83d3e3c7" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ConvBlock(nn.Conv2d):</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">        Conv2D Block</span></span>
@@ -440,7 +441,7 @@ window.Quarto = {
 </section>
 <section id="デコーダーの定義" class="level3" data-number="2.3">
 <h3 data-number="2.3" class="anchored" data-anchor-id="デコーダーの定義"><span class="header-section-number">2.3</span> デコーダーの定義</h3>
-<div id="d9ac94a6" class="cell" data-execution_count="6">
+<div id="f49be930" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Denoiser(nn.Module):</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, image_resolution, hidden_dims<span class="op">=</span>[<span class="dv">256</span>, <span class="dv">256</span>], diffusion_time_embedding_dim <span class="op">=</span> <span class="dv">256</span>, n_times<span class="op">=</span><span class="dv">1000</span>):</span>
@@ -485,7 +486,7 @@ window.Quarto = {
 </section>
 <section id="エンコーダーの定義" class="level3" data-number="2.4">
 <h3 data-number="2.4" class="anchored" data-anchor-id="エンコーダーの定義"><span class="header-section-number">2.4</span> エンコーダーの定義</h3>
-<div id="9e0cc8fc" class="cell" data-execution_count="7">
+<div id="ea3d3141" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Diffusion(nn.Module):</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, model, image_resolution<span class="op">=</span>[<span class="dv">32</span>, <span class="dv">32</span>, <span class="dv">3</span>], n_times<span class="op">=</span><span class="dv">1000</span>, beta_minmax<span class="op">=</span>[<span class="fl">1e-4</span>, <span class="fl">2e-2</span>], device<span class="op">=</span><span class="st">'cuda'</span>):</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    </span>
@@ -602,7 +603,7 @@ window.Quarto = {
 </section>
 <section id="エンコーディングの様子" class="level3" data-number="2.5">
 <h3 data-number="2.5" class="anchored" data-anchor-id="エンコーディングの様子"><span class="header-section-number">2.5</span> エンコーディングの様子</h3>
-<div id="00121829" class="cell" data-execution_count="8">
+<div id="c7cc5714" class="cell" data-execution_count="8">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> count_parameters(model):</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">sum</span>(p.numel() <span class="cf">for</span> p <span class="kw">in</span> model.parameters() <span class="cf">if</span> p.requires_grad)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -611,9 +612,7 @@ window.Quarto = {
 <pre><code>Number of model parameters:  4870913</code></pre>
 </div>
 </div>
-<div id="413a0fc5" class="cell" data-execution_count="9">
-<details class="code-fold">
-<summary>データセットの読み込みと show_image() の定義</summary>
+<div id="21f9f267" class="cell" data-execution_count="9">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> batch_idx, (x, _) <span class="kw">in</span> <span class="bu">enumerate</span>(test_loader):</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> x.to(DEVICE)</span>
@@ -624,7 +623,6 @@ window.Quarto = {
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> show_image(x, idx):</span>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    fig <span class="op">=</span> plt.figure()</span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    plt.imshow(x[idx].transpose(<span class="dv">0</span>, <span class="dv">1</span>).transpose(<span class="dv">1</span>, <span class="dv">2</span>).detach().cpu().numpy())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>show_image(perturbed_images, idx<span class="op">=</span><span class="dv">0</span>)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>show_image(perturbed_images, idx<span class="op">=</span><span class="dv">1</span>)</span>
@@ -634,13 +632,13 @@ window.Quarto = {
 <div aria-describedby="fig-encoding-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="quarto-layout-row">
 <div class="cell-output cell-output-display quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-encoding" style="flex-basis: 33.3%;justify-content: flex-start;">
-<div id="fig-encoding-1" class="quarto-figure quarto-figure-center quarto-float anchored">
+<div id="fig-encoding-1" class="quarto-figure quarto-figure-center quarto-float anchored" width="341" height="337">
 <figure class="quarto-float quarto-subfloat-fig figure">
 <div aria-describedby="fig-encoding-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="DDPM_files/figure-html/fig-encoding-output-1.png" data-ref-parent="fig-encoding" width="341" height="337" class="figure-img">
+<img src="DDPM_files/figure-html/fig-encoding-output-1.png" id="fig-encoding-1" data-ref-parent="fig-encoding" width="341" height="337" class="figure-img">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-encoding-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-(a) 左がテストデータ，右に行くほど完全なノイズに近づく．
+(a)
 </figcaption>
 </figure>
 </div>
@@ -680,7 +678,7 @@ window.Quarto = {
 </section>
 <section id="モデル訓練" class="level2" data-number="3">
 <h2 data-number="3" class="anchored" data-anchor-id="モデル訓練"><span class="header-section-number">3</span> モデル訓練</h2>
-<div id="6659f07e" class="cell" data-execution_count="11">
+<div id="ae49a6e5" class="cell" data-execution_count="11">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Start training DDPMs..."</span>)</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>model.train()</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -723,12 +721,12 @@ window.Quarto = {
 <p>この訓練コードも，前述の <code>train_loader</code> の定義が <code>if __name__ == '__main__':</code> と同じ <code>if</code> ブロックに入れる必要がある．</p>
 <p>さもなくば，並列処理が実行できず，訓練には大変な時間がかかる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <p>そこでここでは別の Python ファイル (<a href="https://colab.research.google.com/drive/15IkmB8yijkfV7mRZieZkrD1oXDDHDrA5?usp=sharing">Google Colab</a>) で実行して，結果を読み込むこととする．</p>
-<div id="504f3ffa" class="cell" data-execution_count="12">
+<div id="06ec42b3" class="cell" data-execution_count="12">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>generated_images <span class="op">=</span> torch.load(<span class="st">"Files/generated_images1.pt"</span>, map_location<span class="op">=</span>torch.device(<span class="st">'cpu'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>/var/folders/gx/6w78f6997l5___173r25fp3m0000gn/T/ipykernel_6216/3728020930.py:3: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+<pre><code>/var/folders/gx/6w78f6997l5___173r25fp3m0000gn/T/ipykernel_6810/3728020930.py:3: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
   generated_images = torch.load("Files/generated_images1.pt", map_location=torch.device('cpu'))</code></pre>
 </div>
 </div>
@@ -739,7 +737,7 @@ window.Quarto = {
 </section>
 <section id="データ生成" class="level2" data-number="4">
 <h2 data-number="4" class="anchored" data-anchor-id="データ生成"><span class="header-section-number">4</span> データ生成</h2>
-<div id="d2f84d79" class="cell" data-execution_count="13">
+<div id="2a1511b6" class="cell" data-execution_count="13">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
@@ -875,7 +873,7 @@ window.Quarto = {
 </section>
 <section id="モデル評価" class="level2" data-number="5">
 <h2 data-number="5" class="anchored" data-anchor-id="モデル評価"><span class="header-section-number">5</span> モデル評価</h2>
-<div id="92e49aa0" class="cell" data-execution_count="17">
+<div id="b93bcb59" class="cell" data-execution_count="17">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> draw_sample_image(x, postfix):</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>,<span class="dv">8</span>))</span>
@@ -883,7 +881,7 @@ window.Quarto = {
 <span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    plt.title(<span class="st">"Visualization of </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(postfix))</span>
 <span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    plt.imshow(np.transpose(make_grid(x.detach().cpu(), padding<span class="op">=</span><span class="dv">2</span>, normalize<span class="op">=</span><span class="va">True</span>), (<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="0fb966b1" class="cell" data-execution_count="18">
+<div id="d4c9c590" class="cell" data-execution_count="18">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>draw_sample_image(perturbed_images, <span class="st">"Perturbed Images"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
@@ -893,7 +891,7 @@ window.Quarto = {
 </div>
 </div>
 </div>
-<div id="0e2dfad0" class="cell" data-execution_count="19">
+<div id="86b75c78" class="cell" data-execution_count="19">
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>draw_sample_image(generated_images, <span class="st">"Generated Images"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
@@ -903,7 +901,7 @@ window.Quarto = {
 </div>
 </div>
 </div>
-<div id="088a5b4f" class="cell" data-execution_count="20">
+<div id="a763cff1" class="cell" data-execution_count="20">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>draw_sample_image(x[:inference_batch_size], <span class="st">"Ground-truth Images"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
