@@ -1,0 +1,85 @@
+---
+title: "拡散模型による条件付き生成"
+subtitle: "フローマッチングへ"
+author: "司馬 博文"
+date: 8/10/2024
+date-modified: 8/10/2024
+categories: [Deep, Sampling]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: 拡散模型は拡張性にも優れており，条件付けが容易である．現状は誘導付き拡散によってこれが実現されるが，連続的な条件付き生成のために，フローマッチングなる方法が提案された．
+listing: 
+    -   id: diffusion-listing
+        type: grid
+        sort: false
+        contents:
+            - "Diffusion.qmd"
+            # - "SM1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+
+::: {#diffusion-listing}
+:::
+
+## 誘導付き拡散模型
+
+拡散模型の美点には，条件付けが可能で拡張性に優れているという点もある．
+
+$c$ がクラスラベルなどの離散変数である場合への拡張が初めに考えられた．
+
+この場合，DDPM [@Ho+2020] でタイムステップ $t$ を positional encoding したようにしてデータに埋め込むことができる．$c$ が $x_t$ と同じ画像である場合は，[@Ho+2022] のように $x_t$ にそのまま連結することも考えられる．
+
+### 導入
+
+基本的には，データ $X$ とそのラベル $C$ に対して，結合分布 $(C,X)$ をモデリングする．
+
+目的関数は条件付き分布 $X|C$ の正確性を表すようにデザインされる．
+
+### 分類器による誘導 (CG: Classifier Guidance) [@Dhariwal-Nichol2021]
+
+仮に分類器 $p_\phi(c|x)$ がすでに存在する場合，Bayes の定理
+$$
+\log p(x|c)=\log p(c|x)+\log p(x)-\log p(c)
+$$
+$$
+\therefore\qquad\nabla_x\log p(x|c)=\nabla_x\log p(x)+\nabla_x\log p(c|x)
+$$
+を通じて，$\nabla_x\log p(x)$ だけでなく $\nabla_x\log p(c|x)$ も利用可能になる．
+
+すなわち，分類器 $p_\phi(c|x)$ を利用した誘導が可能になる．
+
+
+### Classifier-Free Diffusion Guidance [@Ho-Salimans2021]
+
+すぐに分類器 $p_\phi(c|x)$ の使用から脱却することが考えられた．
+
+その場合は，$p(x|c),p(x)$ のいずれもデータから学べば良い．
+
+これは乱暴な解決に聞こえるかもしれないが，
+$$
+p(x)=p(x|\empty)
+$$
+とみなせば，簡単な拡張によって単一のニューラルネットワークで実現可能である．
+
+### Cascaded Generation [@Ho+2022] {#sec-CascadedGeneration}
+
+条件付き生成の技術はそのままで，最終的なクオリティを向上させるためには，Cascading が使用可能である．
+
+これは， $p(x|c)$ のモデリングは，$x$ の解像度が低い状態で行い，この低解像度画像を次の条件付き拡散モデルの条件付け $c$ とするものである．
+
+この方法の美点は，条件付き生成器をたくさんスタックしたのちに，拡散模型間の段階でも Gauss ノイズや blur を印加することで，さらに最終的なクオリティが上げられるという [@Ho+2022]．これを **conditioning augmentation** と呼んでいる．
+
+## フローマッチングによる連続な条件付け
+
+### 導入
+
+連続な変数に対する条件付き確率からの生成は CcGAN [@Ding+2021] などでも試みられていた．
+
