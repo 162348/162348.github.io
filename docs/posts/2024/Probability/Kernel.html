@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 
 <title>Hirofumi Shiba - 確率核という概念</title>
 <style>
@@ -51,6 +51,8 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
 <link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -85,6 +87,35 @@ div.csl-indent {
     "search-label": "Search"
   }
 }</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-kernel-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-kernel-listing'] = new List('listing-kernel-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
 <script type="text/javascript">
@@ -134,12 +165,12 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Hirofumi Shiba - 確率核という概念">
-<meta property="og:description" content="確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論の中心に据えられるべき中心概念である．MCMC も確率核の分析に帰着する．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Probability/assets/profile.jpg">
+<meta property="og:description" content="確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論，確率論，さらにはデータ解析の中心に据えられるべき中心概念であると言えるかもしれない．例えば，カーネル法とは確率核に沿った埋め込みである．MCMC の性質も，本質的に確率核の性質が決定する．また確率核は，確率空間の圏の射となる．このように，多くのデータ解析手法の中核に位置する数学的本体たる「確率核」への入門を目指すのが本記事である．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Probability/Images/P.svg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 確率核という概念">
-<meta name="twitter:description" content="確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論の中心に据えられるべき中心概念である．MCMC も確率核の分析に帰着する．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Probability/assets/profile.jpg">
+<meta name="twitter:description" content="確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論，確率論，さらにはデータ解析の中心に据えられるべき中心概念であると言えるかもしれない．例えば，カーネル法とは確率核に沿った埋め込みである．MCMC の性質も，本質的に確率核の性質が決定する．また確率核は，確率空間の圏の射となる．このように，多くのデータ解析手法の中核に位置する数学的本体たる「確率核」への入門を目指すのが本記事である．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Probability/Images/P.svg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -190,6 +221,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">確率核という概念</h1>
+            <p class="subtitle lead">データ解析の営みを確率空間の圏上で理解する</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Probability</div>
                 <div class="quarto-category">Kernel</div>
@@ -206,7 +238,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -217,13 +249,19 @@ window.Quarto = {
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">8/11/2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論の中心に据えられるべき中心概念である．MCMC も確率核の分析に帰着する．
+      確率核という概念は現状あまりポピュラーではないと思われるが，数学的にいえば，Markov 過程論，確率論，さらにはデータ解析の中心に据えられるべき中心概念であると言えるかもしれない．例えば，カーネル法とは確率核に沿った埋め込みである．MCMC の性質も，本質的に確率核の性質が決定する．また確率核は，確率空間の圏の射となる．<br>このように，多くのデータ解析手法の中核に位置する数学的本体たる「確率核」への入門を目指すのが本記事である．
     </div>
   </div>
   
@@ -235,18 +273,24 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a>
   <ul class="collapse">
-  <li><a href="#確率核が数学的に重要な理由" id="toc-確率核が数学的に重要な理由" class="nav-link" data-scroll-target="#確率核が数学的に重要な理由"><span class="header-section-number">1.1</span> 確率核が数学的に重要な理由</a></li>
-  <li><a href="#圏論についての補足" id="toc-圏論についての補足" class="nav-link" data-scroll-target="#圏論についての補足"><span class="header-section-number">1.2</span> 圏論についての補足</a></li>
+  <li><a href="#確率核と-markov-連鎖" id="toc-確率核と-markov-連鎖" class="nav-link" data-scroll-target="#確率核と-markov-連鎖"><span class="header-section-number">1.1</span> 確率核と Markov 連鎖</a></li>
+  <li><a href="#mathcalpe-上の幾何学" id="toc-mathcalpe-上の幾何学" class="nav-link" data-scroll-target="#mathcalpe-上の幾何学"><span class="header-section-number">1.2</span> <span class="math inline">\(\mathcal{P}(E)\)</span> 上の幾何学</a></li>
+  <li><a href="#確率核が数学的に重要な理由" id="toc-確率核が数学的に重要な理由" class="nav-link" data-scroll-target="#確率核が数学的に重要な理由"><span class="header-section-number">1.3</span> 確率核が数学的に重要な理由</a></li>
+  <li><a href="#カーネル法でいうカーネルも確率核" id="toc-カーネル法でいうカーネルも確率核" class="nav-link" data-scroll-target="#カーネル法でいうカーネルも確率核"><span class="header-section-number">1.4</span> カーネル法でいう「カーネル」も確率核</a></li>
+  <li><a href="#圏論についての補足" id="toc-圏論についての補足" class="nav-link" data-scroll-target="#圏論についての補足"><span class="header-section-number">1.5</span> 圏論についての補足</a></li>
+  <li><a href="#圏論と現代数学" id="toc-圏論と現代数学" class="nav-link" data-scroll-target="#圏論と現代数学"><span class="header-section-number">1.6</span> 圏論と現代数学</a></li>
+  <li><a href="#圏論から見た確率核" id="toc-圏論から見た確率核" class="nav-link" data-scroll-target="#圏論から見た確率核"><span class="header-section-number">1.7</span> 圏論から見た「確率核」</a></li>
+  <li><a href="#関連ページ" id="toc-関連ページ" class="nav-link" data-scroll-target="#関連ページ"><span class="header-section-number">1.8</span> 関連ページ</a></li>
   </ul></li>
   <li><a href="#核の定義と性質" id="toc-核の定義と性質" class="nav-link" data-scroll-target="#核の定義と性質"><span class="header-section-number">2</span> 核の定義と性質</a>
   <ul class="collapse">
   <li><a href="#定義" id="toc-定義" class="nav-link" data-scroll-target="#定義"><span class="header-section-number">2.1</span> 定義</a></li>
   <li><a href="#核の例" id="toc-核の例" class="nav-link" data-scroll-target="#核の例"><span class="header-section-number">2.2</span> 核の例</a></li>
-  <li><a href="#核の作用" id="toc-核の作用" class="nav-link" data-scroll-target="#核の作用"><span class="header-section-number">2.3</span> 核の作用</a></li>
+  <li><a href="#sec-kernel-action" id="toc-sec-kernel-action" class="nav-link" data-scroll-target="#sec-kernel-action"><span class="header-section-number">2.3</span> 核の作用</a></li>
   </ul></li>
-  <li><a href="#真の見方" id="toc-真の見方" class="nav-link" data-scroll-target="#真の見方"><span class="header-section-number">3</span> 真の見方</a>
+  <li><a href="#sec-kernel-as-function" id="toc-sec-kernel-as-function" class="nav-link" data-scroll-target="#sec-kernel-as-function"><span class="header-section-number">3</span> 関数としての確率核</a>
   <ul class="collapse">
   <li><a href="#核の可測性" id="toc-核の可測性" class="nav-link" data-scroll-target="#核の可測性"><span class="header-section-number">3.1</span> 核の可測性</a></li>
   </ul></li>
@@ -260,34 +304,156 @@ window.Quarto = {
 
 
 
-<p></p><div id="tweet-45103"></div><script>tweet={"url":"https:\/\/twitter.com\/sp_monte_carlo\/status\/1758594237782692187","author_name":"Sam Power","author_url":"https:\/\/twitter.com\/sp_monte_carlo","html":"\u003Cblockquote class=\"twitter-tweet\" align=\"center\"\u003E\u003Cp lang=\"en\" dir=\"ltr\"\u003ESpending time with it, you realise that the star of the show in MCMC is the Markov kernel. Once you embrace that, you&#39;re free to deploy the Markov kernel in whichever paradigm feels most comfortable. \u003Ca href=\"https:\/\/t.co\/Uik0bZMAcz\"\u003Ehttps:\/\/t.co\/Uik0bZMAcz\u003C\/a\u003E\u003C\/p\u003E&mdash; Sam Power (@sp_monte_carlo) \u003Ca href=\"https:\/\/twitter.com\/sp_monte_carlo\/status\/1758594237782692187?ref_src=twsrc%5Etfw\"\u003EFebruary 16, 2024\u003C\/a\u003E\u003C\/blockquote\u003E\n\u003Cscript async src=\"https:\/\/platform.twitter.com\/widgets.js\" charset=\"utf-8\"\u003E\u003C\/script\u003E\n\n","width":550,"height":null,"type":"rich","cache_age":"3153600000","provider_name":"Twitter","provider_url":"https:\/\/twitter.com","version":"1.0"};document.getElementById("tweet-45103").innerHTML = tweet["html"];</script><p></p>
 <div class="hidden">
 <p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
 <p>$$</p>
 <p>$$</p>
 </div>
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<blockquote class="blockquote">
 <p>確率核 <span class="math inline">\(P\)</span> こそが Markov 連鎖の数学的本体である．</p>
-<p>可測空間 <span class="math inline">\((E,\mathcal{E})\)</span> 上の確率核 <span class="math inline">\(P\)</span> が定まると，任意のスタート地点 <span class="math inline">\(x\in E\)</span> に対して，これを起点とする Markov 過程 <span class="math inline">\(\{X^x_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega)\)</span> が構成できる．</p>
-<p>ここで謎の標本空間 <span class="math inline">\((\Omega,\mathcal{F},\operatorname{P})\)</span> が出てきたし，<span class="math inline">\(X^x_n\)</span> は確率変数であり，このままでは取り扱いは困難である．</p>
-<p>大きくの自然科学分野において Markov 連鎖 <span class="math inline">\(\{X^x_n\}_{n=0}^\infty\)</span> が基本語彙になる理由の１つとして，<span class="math inline">\(\mathcal{P}(E)\)</span> 上の決定論的な力学系 <span class="math inline">\(\{(P^*)^n\delta_x\}_{n=0}^\infty\subset\mathcal{P}(E)\)</span> を定めることが挙げられる．</p>
-<p>決定論的な力学は，Hamilton の定式化などを通じて，有限次元空間上の力学系に帰着する．しかし，確率的に振る舞う系は，上述の通り無限次元空間上の力学系になることが，取り扱いの難しさの一因になっていると言える．</p>
-<p>しかし，一度同じく「力学系」に帰着してしまえば，その数学的な大枠は共通するはずである．実際，モンテカルロ法が定める <span class="math inline">\(\mathcal{P}(E)\)</span> 上の力学系を，勾配流として理解することが進んでいる <span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span>．</p>
-<p>さらに興味深いことには，多くの基本的な力学系（減衰振動など）は指数収束をするが，同様にして多くの基本的な Markov 核は指数収束をする．</p>
-<p>これが <span class="math inline">\(x\in E\)</span> に依らずに同じ点に近づくことを <strong>忘却性</strong> (loss of memory)，近づく先がちゃんと確率測度になることを <strong>エルゴード性</strong> (ergodicity) という．</p>
-<section id="導入" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
-<section id="確率核が数学的に重要な理由" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="確率核が数学的に重要な理由"><span class="header-section-number">1.1</span> 確率核が数学的に重要な理由</h3>
-<p><strong>確率核</strong> を確率空間の射とみる見方が急速に浸透しており，これは <a href="../../../posts/2023/Probability/MarkovCategory.html">Markov 圏</a> の概念にも後押しされて急速に浸透しつつある．</p>
-<p>特にマルコフ過程の解析においては必要不可欠な役割を果たす．</p>
-<p>だが，まだ純粋に数学的な文献を除いて，あまりポピュラーな概念であるとは言えないのが現状であろう．</p>
+</blockquote>
+<p></p><div id="tweet-87048"></div><script>tweet={"url":"https:\/\/twitter.com\/sp_monte_carlo\/status\/1758594237782692187","author_name":"Sam Power","author_url":"https:\/\/twitter.com\/sp_monte_carlo","html":"\u003Cblockquote class=\"twitter-tweet\" align=\"center\"\u003E\u003Cp lang=\"en\" dir=\"ltr\"\u003ESpending time with it, you realise that the star of the show in MCMC is the Markov kernel. Once you embrace that, you&#39;re free to deploy the Markov kernel in whichever paradigm feels most comfortable. \u003Ca href=\"https:\/\/t.co\/Uik0bZMAcz\"\u003Ehttps:\/\/t.co\/Uik0bZMAcz\u003C\/a\u003E\u003C\/p\u003E&mdash; Sam Power (@sp_monte_carlo) \u003Ca href=\"https:\/\/twitter.com\/sp_monte_carlo\/status\/1758594237782692187?ref_src=twsrc%5Etfw\"\u003EFebruary 16, 2024\u003C\/a\u003E\u003C\/blockquote\u003E\n\u003Cscript async src=\"https:\/\/platform.twitter.com\/widgets.js\" charset=\"utf-8\"\u003E\u003C\/script\u003E\n\n","width":550,"height":null,"type":"rich","cache_age":"3153600000","provider_name":"Twitter","provider_url":"https:\/\/twitter.com","version":"1.0"};document.getElementById("tweet-87048").innerHTML = tweet["html"];</script><p></p>
+<section id="確率核と-markov-連鎖" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="確率核と-markov-連鎖"><span class="header-section-number">1.1</span> 確率核と Markov 連鎖</h3>
+<p><span class="math inline">\((E,\mathcal{E}),(F,\mathcal{F})\)</span> を可測空間とする．確率核とは関数 <span class="math inline">\(E\to\mathcal{P}(F)\)</span> のことをいう（ほとんどの場合可測になる <a href="#sec-kernel-as-function" class="quarto-xref">3</a>）．ただし，<span class="math inline">\(\mathcal{P}(F)\)</span> は <span class="math inline">\(F\)</span> 上の確率測度全体の集合とした．多くの場合，<span class="math inline">\(\mathcal{P}(E)\)</span> は Banach 空間内の <span class="math inline">\(w^*\)</span>-閉な凸集合になっている．</p>
+<p><span class="math inline">\(E\)</span> 上の確率核 <span class="math inline">\(P:E\to\mathcal{P}(E)\)</span> が定まると，任意のスタート地点 <span class="math inline">\(x\in E\)</span> に対して，これを起点とする Markov 連鎖 <span class="math inline">\(\{X^x_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega)\)</span> が構成できる．</p>
+<p>ここで，確率変数 <span class="math inline">\(X^x_n\)</span> を定義するために謎の標本空間 <span class="math inline">\((\Omega,\mathcal{F},\operatorname{P})\)</span> を出さざるを得なかった．これは構成のために必要であるが，ご存知の通り <span class="math inline">\(\Omega\)</span> の性質が問題になる場面はほとんどない．数学的な本体は核 <span class="math inline">\(P\)</span> なのである．まさに「核」．</p>
+<p>Markov 連鎖の実体は分布であるが，これは確率核 <span class="math inline">\(P\)</span> を用いて <span class="math inline">\(\{(P^*)^n\delta_x\}_{n=0}^\infty\subset\mathcal{P}(E)\)</span> と表せる： <span class="math display">\[
+X^x_n\sim (P^*)^n\delta_x,\qquad n\in\mathbb{N}.
+\]</span> <span class="math inline">\((P^*)^n\)</span> は第 <a href="#sec-kernel-action" class="quarto-xref">2.3</a> 節参照．<span class="math inline">\(\delta_x\)</span> は <span class="math inline">\(x\in E\)</span> 上のデルタ測度である．</p>
+<p>ここで，<span class="math inline">\(X^x_n\)</span> 自体は確率変数＝可測変数であり，測度論的な存在であるが，<span class="math inline">\((P^*)^n\delta_x\)</span> は <span class="math inline">\(\mathcal{P}(E)\)</span> 上の点であり，全体として <span class="math inline">\(\mathcal{P}(E)\)</span> 上の（確定的な）力学系を定めている．ランダムネスが消えているのである！ただしその代わり，例え <span class="math inline">\(E=\mathbb{R}^d\)</span> であっても，<span class="math inline">\(\mathcal{P}(E)\)</span> は無限次元空間になっている．</p>
+<p>古典力学などが扱う決定論的な運動は，Hamilton の定式化などを通じて，有限次元空間上の幾何学に帰着する．</p>
+<p>確率的な系は，確率核 <span class="math inline">\(P\)</span> を通じて，無限次元空間 <span class="math inline">\(\mathcal{P}(E)\)</span> 上の幾何学に帰着するのである．時代は情報幾何学である．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 </section>
-<section id="圏論についての補足" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="圏論についての補足"><span class="header-section-number">1.2</span> 圏論についての補足</h3>
-<p>なお，<strong>射</strong> という用語も，代数幾何から他の数学分野へ浸透したという実感があるが，近年は純粋数学のコミュニティからも出つつあると感じられる．射の概念について，重要なコメントをここに共有したい：</p>
+<section id="mathcalpe-上の幾何学" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="mathcalpe-上の幾何学"><span class="header-section-number">1.2</span> <span class="math inline">\(\mathcal{P}(E)\)</span> 上の幾何学</h3>
+<p><span class="math inline">\(\mathcal{P}(E)\)</span> が無限次元と言えど，一度同じく「力学系」に帰着してしまえば，その数学的な大枠は共通するはずである．</p>
+<p>まず，物理学で重要な幾何学的原理として，変分原理がある．これは，空間上に自由エネルギーや作用などの汎函数を定義して，これを最小化するものとしてダイナミクスを理解する方法である．</p>
+<p>実際，モンテカルロ法が定める <span class="math inline">\(\mathcal{P}(E)\)</span> 上の力学系を，勾配流として理解することが進んでいる <span class="citation" data-cites="Chopin+2023">(<a href="#ref-Chopin+2023" role="doc-biblioref">Chopin et al., 2023</a>)</span>．</p>
+<p>最適輸送の名前の下で，<span class="math inline">\(\mathcal{P}(E)\)</span> の幾何学を考慮したサンプリング法の開発も進んでいる．</p>
+<p>エルゴード理論において，多くの基本的な力学系（減衰振動など）は指数収束をするが，同様にして多くの基本的な Markov 核も指数収束をする．</p>
+<!-- これが $x\in E$ に依らずに同じ点に近づくことを **忘却性** (loss of memory)，近づく先がちゃんと確率測度になることを **エルゴード性** (ergodicity) という． -->
+</section>
+<section id="確率核が数学的に重要な理由" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="確率核が数学的に重要な理由"><span class="header-section-number">1.3</span> 確率核が数学的に重要な理由</h3>
+<p><strong>確率核</strong> を確率空間の射とみる見方が急速に浸透しており，これは <a href="../../../posts/2023/Probability/MarkovCategory.html">Markov 圏</a> の概念にも後押しされて急速に浸透しつつある．</p>
+<p>Markov 圏は確率論，情報理論，統計学，因果推論に散らばっている基本的な概念に対して，統一的に形式的な定義を与える枠組みとして期待されている．</p>
+<p>例えば，「エントロピー」は情報源や通信路が「決定論的」な状態からどれほどかけ離れているか？の指標として特徴付けることができるという <span class="citation" data-cites="Perrone2024">(<a href="#ref-Perrone2024" role="doc-biblioref">Perrone, 2024</a>)</span>．</p>
+<p>また Markov 圏上で一般化された形で，Kolmogorov や Hewitt-Savage の 0-1 法則，Blackwell の定理，エルゴード分解定理などが，純粋に代数的に証明されているという <span class="citation" data-cites="Perrone2024">(<a href="#ref-Perrone2024" role="doc-biblioref">Perrone, 2024</a>)</span>．</p>
+<p>この独立性の代数・図式的な特徴付けは，<a href="../../../posts/2024/Computation/PGM1.html">確率的グラフィカルモデル</a> の分野の結果（<span class="citation" data-cites="Hammersley-Clifford1971">(<a href="#ref-Hammersley-Clifford1971" role="doc-biblioref">Hammersley and Clifford, 1971</a>)</span> の定理など）と重なる部分も多い．</p>
+<p>だが，確率核の概念は，純粋に数学的な文献を除いてまだあまりポピュラーな概念であるとは言えないのが現状であろう．</p>
+</section>
+<section id="カーネル法でいうカーネルも確率核" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="カーネル法でいうカーネルも確率核"><span class="header-section-number">1.4</span> カーネル法でいう「カーネル」も確率核</h3>
+<p>実際，カーネル法でいう「カーネル関数」も，（いつでも <a href="../../../posts/2024/Kernels/Kernel.html#sec-Gauss-kernel">RBF カーネル</a> のように確率核になるとは限らないが）核の一種である．</p>
+<p>第 <a href="#sec-kernel-as-function" class="quarto-xref">3</a> 節で説明するように，核とは可測写像 <span class="math inline">\(K:E\to\mathcal{S}(F)\)</span> でもある．ただし，<span class="math inline">\(\mathcal{S}(F)\)</span> は符号付き測度の集合とした．</p>
+<p><span class="math inline">\(\mathcal{S}(F)\)</span> は極めて大きい空間である．例えば <span class="math inline">\(F\)</span> 上の <span class="math inline">\(\sigma\)</span>-有限測度 <span class="math inline">\(\nu\in\mathcal{S}(F)\)</span> を１つ定める毎に，Radon-Nikodym の定理により Banach 空間の同型 <span class="math display">\[
+L^1(\nu)\overset{\sim}{\to}\mathcal{S}^1(F)\hookrightarrow\mathcal{S}(F)
+\]</span> が引き起こされる．</p>
+<p>カーネル法とは，核 <span class="math inline">\(K:E\to\mathcal{S}(F)\)</span> に沿って <span class="math inline">\(E\)</span> 上の点を <span class="math inline">\(\mathcal{S}(F)\)</span> 上に埋め込む方法である．</p>
+<p>さらに <span class="math inline">\(K\)</span> が半正定値関数が定める変換であった場合，再生核 Hilbert 空間の理論により，<span class="math inline">\(\mathcal{S}(F)\)</span> の部分空間として，内積が <span class="math inline">\(K\)</span> の計算だけで効率的に計算できるようなものが選び出せる．</p>
+<p>こうして，<span class="math inline">\(E\)</span> 上のデータ解析を <span class="math inline">\(\mathcal{S}(F)\)</span> 上に写す非線型対応を導く，数学的に統一された方法が<a href="../../../posts/2024/Kernels/Kernel.html">カーネル法</a>である．</p>
+</section>
+<section id="圏論についての補足" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="圏論についての補足"><span class="header-section-number">1.5</span> 圏論についての補足</h3>
+<p>なお，<strong>射</strong> という用語も，代数幾何と代数トポロジーから多くの数学分野へ浸透した感があるが，近年は純粋数学のコミュニティからも出つつあると感じられる．</p>
+<p>「射」とは代数系の準同型の概念を一般化したものであり，「対象」と共に <a href="https://ncatlab.org/nlab/show/category">圏</a> (category) という代数系の構成要素である．</p>
+<p>一般にある対象とある射が圏をなすと言ったとき，その射は，対象の何らかの数学的構造を「保存」する働きを持つと理解される．例えば線型空間における線型写像，順序集合における単調写像，多様体における可微分写像，群や環における準同型が，それぞれの圏における「射」にあたる．</p>
+<p>一方で，可測空間や確率空間で可測写像を射に取ると，壊滅的に実りのない圏ができる．一体どうしてだろうか？</p>
+</section>
+<section id="圏論と現代数学" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="圏論と現代数学"><span class="header-section-number">1.6</span> 圏論と現代数学</h3>
+<p>数学的対象を中心に据えて数学を整理した <a href="https://ja.wikipedia.org/wiki/ニコラ・ブルバキ">Bourbaki</a> が現代数学の始まりであるという共通認識は一定に確立されている．</p>
+<p>しかし近年，実は射の方が重要な対象なのではないか，という共通了解もできつつある：</p>
 <blockquote class="blockquote">
 <p>余談だが、homomorphism の訳語として、準同形ということばが定着している。これは、同形もどきという意味だから、同形がだいじというブルバキの思想を反映したものといえよう。射のほうが基本的という、より現代的な視点にはそぐわないが、いまさら変えることもできないだろう。<span class="citation" data-cites="斎藤毅2010">(<a href="#ref-斎藤毅2010" role="doc-biblioref">斎藤毅, 2010</a>)</span></p>
 </blockquote>
+<p>例えば距離空間の射には選択の余地がある．連続関数を取るか，一様連続写像と取るか，<a href="https://ncatlab.org/nlab/show/short+map">非拡大写像</a>を取るかで，圏の振る舞いは全て違う．連続写像と取った場合は，位相空間の圏の充満部分圏になる．つまり，位相構造以外の構造は無理される．一様連続写像を取ると，完備性も見るようになる．非拡大写像を取ると，距離構造の全てが保存されるようになる．</p>
+<p>このようにして，Bourbaki は集合の上に構造を添加していく描像を数学に持ったが，現代的には射の選択によって構造を選択していると理解するのである．</p>
+</section>
+<section id="圏論から見た確率核" class="level3" data-number="1.7">
+<h3 data-number="1.7" class="anchored" data-anchor-id="圏論から見た確率核"><span class="header-section-number">1.7</span> 圏論から見た「確率核」</h3>
+<p>ここで，確率空間の圏において，射を確率核に取ると，極めて豊かな構造を持った圏 <span class="math inline">\(\mathrm{Stoch}\)</span> を得る．これは <a href="../../../posts/2023/Probability/MarkovCategory.html">Markov category</a> の１つとして調べられている．</p>
+<p>すなわち，<strong>確率空間の実体は，その可測空間としての構造にはないと言うべきである</strong>．実際，測度論が確率論において頻出するにも拘らず極めて非本質的に感じられることは，統計を営むものである一定の一致を得るだろう．</p>
+<p>この確率核と，これがなす圏の構造を調べることで，「確率空間」を「確率空間」たらしめるものは何か？が考えられている．この分野を<a href="https://ncatlab.org/nlab/show/synthetic+probability+theory">綜合的確率論</a> (synthetic probability theory) という <span class="citation" data-cites="Fritz2020">(<a href="#ref-Fritz2020" role="doc-biblioref">Fritz, 2020</a>)</span>．</p>
+</section>
+<section id="関連ページ" class="level3" data-number="1.8">
+<h3 data-number="1.8" class="anchored" data-anchor-id="関連ページ"><span class="header-section-number">1.8</span> 関連ページ</h3>
+<div id="listing-kernel-listing" class="quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Kernel" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1723437876984" data-listing-date-modified-sort="1723302000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="574">
+<a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+カーネル法の概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+半正定値カーネルから距離学習まで
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Bayesian,Computation" data-listing-date-sort="1702998000000" data-listing-file-modified-sort="1723367474697" data-listing-date-modified-sort="1719414000000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1389">
+<a href="../../../posts/2024/Computation/PGM1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Computation/PGM1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+数学者のための確率的グラフィカルモデル１
+</h5>
+<div class="card-subtitle listing-subtitle">
+ベイジアンネットワークとマルコフネットワーク
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2023-12-20
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Kernel" data-listing-date-sort="1699282800000" data-listing-file-modified-sort="1723364519771" data-listing-date-modified-sort="1710342000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="255">
+<a href="../../../posts/2023/KernelMethods/KernelMethods4Mathematicians.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2023/KernelMethods/KernelMethods.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+数学者のためのカーネル法概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+カーネル PCA と SVM を例として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2023-11-07
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
 </section>
 </section>
 <section id="核の定義と性質" class="level2" data-number="2">
@@ -306,14 +472,14 @@ window.Quarto = {
 <div class="callout-body-container callout-body">
 <p>２つの可測空間 <span class="math inline">\((E,\mathcal{E}),(F,\mathcal{F})\)</span> について，</p>
 <ol type="1">
-<li><p><strong>核</strong> <span class="math inline">\(T:E\to F\)</span> とは，関数 <span class="math inline">\(E\times\mathcal{F}\to[0,\infty]\)</span> であって次の２条件を満たすものをいう：<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<li><p><strong>核</strong> <span class="math inline">\(T:E\to F\)</span> とは，関数 <span class="math inline">\(E\times\mathcal{F}\to[0,\infty]\)</span> であって次の２条件を満たすものをいう：<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 <ol type="a">
-<li>任意の <span class="math inline">\(x\in E\)</span> に対して，<span class="math inline">\(T(x,-):\mathcal{F}\to[0,\infty]\)</span> は測度を定める．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
+<li>任意の <span class="math inline">\(x\in E\)</span> に対して，<span class="math inline">\(T(x,-):\mathcal{F}\to[0,\infty]\)</span> は測度を定める．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></li>
 <li>任意の <span class="math inline">\(A\in\mathcal{F}\)</span> に対して，<span class="math inline">\(T(-,A):E\to[0,\infty]\)</span> は可測関数である．</li>
 </ol></li>
-<li><p>更に (1) で <span class="math inline">\(P(x,F)=1\;(x\in E)\)</span> も成り立つとき，これを <strong>Markov 核</strong> または <strong>確率核</strong> という．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p></li>
-<li><p>核 <span class="math inline">\(T:E\times\mathcal{F}\to[0,\infty]\)</span> が <strong>有界</strong> であるとは，<span class="math inline">\(\sup_{x\in E}\|T(x,F)\|&lt;\infty\)</span> を満たすことをいう．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> すなわち，<span class="math inline">\(E\to M^1(F)\)</span> が有界な像を持つことをいう．</p></li>
-<li><p><span class="math inline">\(E\)</span> が確率空間でもあるとき，核は <strong>ランダム測度</strong> に等価である．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p></li>
+<li><p>更に (1) で <span class="math inline">\(P(x,F)=1\;(x\in E)\)</span> も成り立つとき，これを <strong>Markov 核</strong> または <strong>確率核</strong> という．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p></li>
+<li><p>核 <span class="math inline">\(T:E\times\mathcal{F}\to[0,\infty]\)</span> が <strong>有界</strong> であるとは，<span class="math inline">\(\sup_{x\in E}\|T(x,F)\|&lt;\infty\)</span> を満たすことをいう．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> すなわち，<span class="math inline">\(E\to M^1(F)\)</span> が有界な像を持つことをいう．</p></li>
+<li><p><span class="math inline">\(E\)</span> が確率空間でもあるとき，核は <strong>ランダム測度</strong> に等価である．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p></li>
 </ol>
 </div>
 </div>
@@ -323,7 +489,7 @@ window.Quarto = {
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-命題 (核の作用の特徴付け)<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a>
+命題 (核の作用の特徴付け)<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>
 </div>
 </div>
 <div class="callout-body-container callout-body">
@@ -346,7 +512,7 @@ V\left(\lim_{n\to\infty}f_n\right)=\lim_{n\to\infty}Vf_n.
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-例（核概念の一般性）<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>
+例（核概念の一般性）<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a>
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
@@ -380,7 +546,7 @@ Kf(x)=\int_Ek(x)\delta_x(dy)f(y)=k(x)f(x).
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-例（畳み込み核）<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a>
+例（畳み込み核）<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a>
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
@@ -394,7 +560,7 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 \mu K(A)&amp;=\int_{\mathbb{R}^d}\mu(dx)K(x,A)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}\mu(dx)\delta_x(A-y)\pi(dy)\\
 &amp;=\int_{\mathbb{R}^d}\mu(A-y)\pi(dy)=\pi*\mu(A).
 \end{align*}
-\]</span> 実は畳み込み核は強 Feller である．すなわち， 任意の有界可測関数 <span class="math inline">\(f\in\mathcal{L}_b(E)\)</span> に対して，<span class="math inline">\(Kf\in C(E)\)</span> は連続である．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+\]</span> 実は畳み込み核は強 Feller である．すなわち， 任意の有界可測関数 <span class="math inline">\(f\in\mathcal{L}_b(E)\)</span> に対して，<span class="math inline">\(Kf\in C(E)\)</span> は連続である．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
 </div>
 </div>
 </div>
@@ -417,42 +583,39 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 </div>
 </div>
 </section>
-<section id="核の作用" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="核の作用"><span class="header-section-number">2.3</span> 核の作用</h3>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="核の作用^[作用は [@Hairer2021-Convergence], [@Kallenberg2017 p.16], [@Dellacherie-Meyer1988 pp.2-3] が同様に定めている．最後の文献によると，この記法は Hunt によるものだという．$T\otimes S$ の存在は [@Gikhman-Skorokhod2004I p.76] 定理II.4.1 で示されており，$\otimes$ を **直積**，$\cdot$ を **畳み込み** と呼んでいる．]">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-核の作用<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a>
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-6" class="callout-6-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>核は写像 <span class="math inline">\(E\to\mathcal{M}(F)\)</span> と見れるため，その全体は自然に実線型空間をなす．</p>
-<ol type="1">
-<li><p>右作用 <span class="math inline">\(\mathcal{S}(E)\times\mathrm{Hom}_\mathrm{Stoch}(E,F)\to\mathcal{S}(E)\)</span> を <span class="math display">\[(\mu T)(A):=\int_E\mu(dx)T(x,A),\qquad A\in\mathcal{F},\]</span> で定める．</p></li>
-<li><p>左作用 <span class="math inline">\(\mathrm{Hom}_\mathrm{Stoch}(E,F)\times\mathcal{L}(F)\to\mathcal{L}(E)\)</span> を <span class="math display">\[(Tf)(x):=\int_FT(x,dy)f(y),\qquad x\in E,\]</span> で定める．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p></li>
-<li><p>核 <span class="math inline">\(S:F\to G\)</span> に対して，合成 <span class="math inline">\(T\otimes S:E\to F\times G\)</span> を <span class="math display">\[(T\otimes S)(x,A\times B):=\int_AT(x,dy)S(y,B),\qquad(x\in E,A\in\mathcal{F},B\in\mathcal{G}),\]</span> で定め，積を<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a> <span class="math display">\[(TS)(x,B):=(T\otimes S)(x,F\times B)=\int_FT(x,dy)S(y,B),\qquad(x\in E,B\in\mathcal{G}),\]</span> で定める．</p></li>
-</ol>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="命題（核の演算規則）^[(1)は [@Revuz1984 p.9] と [@Dellacherie-Meyer1988 5 p.3]，(2)は [@Dellacherie-Meyer1988 7 p.4]．]">
+<section id="sec-kernel-action" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-kernel-action"><span class="header-section-number">2.3</span> 核の作用</h3>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="核の作用^[作用は [@Hairer2021-Convergence], [@Kallenberg2017 p.16], [@Dellacherie-Meyer1988 pp.2-3] が同様に定めている．最後の文献によると，この記法は Hunt によるものだという．$T\otimes S$ の存在は [@Gikhman-Skorokhod2004I p.76] 定理II.4.1 で示されており，$\otimes$ を **直積**，$\cdot$ を **畳み込み** と呼んでいる．]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-命題（核の演算規則）<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a>
+核の作用<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>核は写像 <span class="math inline">\(E\to\mathcal{M}(F)\)</span> と見れるため，その全体は自然に実線型空間をなす．</p>
+<ol type="1">
+<li><p>右作用 <span class="math inline">\(\mathcal{S}(E)\times\mathrm{Hom}_\mathrm{Stoch}(E,F)\to\mathcal{S}(E)\)</span> を <span class="math display">\[(\mu T)(A):=\int_E\mu(dx)T(x,A),\qquad A\in\mathcal{F},\]</span> で定める．</p></li>
+<li><p>左作用 <span class="math inline">\(\mathrm{Hom}_\mathrm{Stoch}(E,F)\times\mathcal{L}(F)\to\mathcal{L}(E)\)</span> を <span class="math display">\[(Tf)(x):=\int_FT(x,dy)f(y),\qquad x\in E,\]</span> で定める．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p></li>
+<li><p>核 <span class="math inline">\(S:F\to G\)</span> に対して，合成 <span class="math inline">\(T\otimes S:E\to F\times G\)</span> を <span class="math display">\[(T\otimes S)(x,A\times B):=\int_AT(x,dy)S(y,B),\qquad(x\in E,A\in\mathcal{F},B\in\mathcal{G}),\]</span> で定め，積を<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a> <span class="math display">\[(TS)(x,B):=(T\otimes S)(x,F\times B)=\int_FT(x,dy)S(y,B),\qquad(x\in E,B\in\mathcal{G}),\]</span> で定める．</p></li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題（核の演算規則）^[(1)は [@Revuz1984 p.9] と [@Dellacherie-Meyer1988 5 p.3]，(2)は [@Dellacherie-Meyer1988 7 p.4]．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題（核の演算規則）<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a>
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>自然なペアリング <span class="math inline">\((-|-):\mathcal{S}(E)\times\mathcal{L}(F)\to[-\infty,\infty]\)</span> に関して，（両辺が意味を持つ限り）随伴性が成り立つ： <span class="math display">\[(\mu T|f)=(\mu|Tf)\]</span></li>
-<li>核は積に関して結合的である：<span class="math inline">\((LM)N=L(MN)\)</span>．<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a></li>
+<li>核は積に関して結合的である：<span class="math inline">\((LM)N=L(MN)\)</span>．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a></li>
 </ol>
 <p>また，<span class="math inline">\((MN)f=M(Nf)\)</span> も成り立つ．<span class="math inline">\(E,F\)</span> が可算であるとき，<span class="math inline">\(\mathcal{P}(E),\mathcal{P}(F)\)</span> は行ベクトルの空間となり，確率核は確率行列となる．</p>
 </div>
@@ -482,7 +645,7 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-命題（作用の非拡大性）<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a>
+命題（作用の非拡大性）<a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a>
 </div>
 </div>
 <div class="callout-body-container callout-body">
@@ -513,12 +676,12 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 </div>
 </section>
 </section>
-<section id="真の見方" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="真の見方"><span class="header-section-number">3</span> 真の見方</h2>
+<section id="sec-kernel-as-function" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-kernel-as-function"><span class="header-section-number">3</span> 関数としての確率核</h2>
 <p><span class="math inline">\(F\)</span> が可分距離空間であるとき，確率核とは本質的に可測関数 <span class="math inline">\(E\to\mathcal{P}(F)\)</span> である．</p>
 <section id="核の可測性" class="level3" data-number="3.1">
 <h3 data-number="3.1" class="anchored" data-anchor-id="核の可測性"><span class="header-section-number">3.1</span> 核の可測性</h3>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="命題">
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
@@ -550,7 +713,7 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 </div>
 <div id="callout-12" class="callout-12-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p><a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a></p>
+<p><a href="#fn17" class="footnote-ref" id="fnref17" role="doc-noteref"><sup>17</sup></a></p>
 <dl>
 <dt>(2)<span class="math inline">\(\Rightarrow\)</span>(1)</dt>
 <dd>
@@ -564,6 +727,7 @@ Kf(x)&amp;=\int_{\mathbb{R}^d}K(x,dz)f(z)=\int_{\mathbb{R}^d}\int_{\mathbb{R}^d}
 </div>
 </div>
 </div>
+
 
 
 
@@ -596,11 +760,17 @@ Del&nbsp;Moral, P. (2004). <em>Feynman-kac formulae</em>. Springer New York.
 <div id="ref-Dellacherie-Meyer1988" class="csl-entry" role="listitem">
 Dellacherie, C., and Meyer, P. A. (1988). <em>Probabilities and potential c: Potential theory for discrete and continuous semigroups</em>,Vol. 151. E;sevier Science Publishers B.V.
 </div>
+<div id="ref-Fritz2020" class="csl-entry" role="listitem">
+Fritz, T. (2020). <a href="https://doi.org/10.1016/j.aim.2020.107239"><span class="nocase">A Synthetic Approach to Markov Kernels, Conditional Independence and Theorems on Sufficient Statistics</span></a>. <em>Advances in Mathematics</em>, <em>370</em>, 107239.
+</div>
 <div id="ref-Gikhman-Skorokhod2004I" class="csl-entry" role="listitem">
 Gikhman, I. I., and Skorokhod, A. V. (2004). <em>The theory of stochastic processes i</em>. Springer Berlin, Heidelberg.
 </div>
 <div id="ref-Hairer2021-Convergence" class="csl-entry" role="listitem">
 Hairer, M. (2021). <em><a href="https://www.hairer.org/notes/Convergence.pdf">Convergence of markov processes</a></em>.
+</div>
+<div id="ref-Hammersley-Clifford1971" class="csl-entry" role="listitem">
+Hammersley, J., and Clifford, P. (1971). <em><a href="https://ora.ox.ac.uk/objects/uuid:4ea849da-1511-4578-bb88-6a8d02f457a6">Markov fields on finite graphs and lattices</a></em>.
 </div>
 <div id="ref-Jacod-Shiryaev2003" class="csl-entry" role="listitem">
 Jacod, J., and Shiryaev, A. N. (2003). <em><a href="https://link.springer.com/book/10.1007/978-3-662-05265-5">Limit theorems for stochastic processes</a></em>,Vol. 288. Springer Berlin, Heidelberg.
@@ -620,6 +790,9 @@ Kulik, A. (2018). <em><a href="https://doi.org/10.1515/9783110458930">Ergodic be
 <div id="ref-LeGall2016" class="csl-entry" role="listitem">
 Le Gall, J.-F. (2016). <em><a href="https://link.springer.com/book/10.1007/978-3-319-31089-3">Brownian motion, martingales, and stochastic calculus</a></em>,Vol. 274. Springer Cham.
 </div>
+<div id="ref-Perrone2024" class="csl-entry" role="listitem">
+Perrone, P. (2024). <a href="https://doi.org/10.1109/TIT.2023.3328825">Markov categories and entropy</a>. <em>IEEE Transactions on Information Theory</em>, <em>70</em>(3), 1671–1692.
+</div>
 <div id="ref-Revuz1984" class="csl-entry" role="listitem">
 Revuz, D. (1984). <em>Markov chains</em>,Vol. 11. North-Holland Publishing Company.
 </div>
@@ -635,22 +808,23 @@ Revuz, D., and Yor, M. (1999). <em>Continuous martingales and brownian motion</e
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="citation" data-cites="Jacod-Shiryaev2003">(<a href="#ref-Jacod-Shiryaev2003" role="doc-biblioref">Jacod and Shiryaev, 2003</a>)</span> p.65，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110, <span class="citation" data-cites="Klenke2020">(<a href="#ref-Klenke2020" role="doc-biblioref">Klenke, 2020</a>)</span> 8.3節 p.204 では transition kernel，<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.1，<span class="citation" data-cites="Revuz-Yor1999">(<a href="#ref-Revuz-Yor1999" role="doc-biblioref">Revuz and Yor, 1999</a>)</span> 定義III.1.1.1 p.79，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984</a>)</span> 定義1.1.1.1 p.8，<span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017</a>)</span> p.16, <span class="citation" data-cites="Bass2011">(<a href="#ref-Bass2011" role="doc-biblioref">Bass, 2011</a>)</span> 定義19.2 p.154 では kernel と呼んでいる．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984</a>)</span> 定義1.1.1.1 p.8 では符号付き測度であることを許しているが，我々はその場合は <strong>符号付き核</strong> と呼ぶこととしよう．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p><span class="citation" data-cites="Crisan-Doucet2002">(<a href="#ref-Crisan-Doucet2002" role="doc-biblioref">Crisan and Doucet, 2002</a>)</span> p.737 では Markov transition kernel，<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004</a>)</span> p.9 では Markov kernel，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110 では transition probability kernel or simply probability kernel と呼び，<span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020</a>)</span> 定義4.1 p.36, <span class="citation" data-cites="Bremaud20-Processes">(<a href="#ref-Bremaud20-Processes" role="doc-biblioref">Bremaud, 2020</a>)</span> 3.3.3節 p.135 では propability kernel，<span class="citation" data-cites="Kulik2018">(<a href="#ref-Kulik2018" role="doc-biblioref">Kulik, 2018</a>)</span> p.25 では probability kernel としてさらに半群性も満たす族を transition probability kernels と呼ぶ．<span class="citation" data-cites="LeGall2016">(<a href="#ref-LeGall2016" role="doc-biblioref">Le Gall, 2016</a>)</span> pp.151-152 は Markovian transition kernel と transition semigroup と呼ぶ．<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.2 は Markovian kernel．<span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017</a>)</span> p.29 と <span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span> では可測関数 <span class="math inline">\(E\to\mathcal{P}(F)\)</span> と定義しており，transition kernel と呼んでしまう．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.2，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110．<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004, p. 9</a>)</span> は (bounded) integral operator と呼ぶ．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p><span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011, p. 110</a>)</span> 3.5節 も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn6"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span> 命題1.3．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn7"><p><span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> 7 p.4，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span>，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 13</a>)</span> 演習1.13．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn8"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 10</a>)</span>．p.36 も参照．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn9"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 36</a>)</span>，<span class="citation" data-cites="Revuz-Yor1999">(<a href="#ref-Revuz-Yor1999" role="doc-biblioref">Revuz and Yor, 1999, p. 412</a>)</span>．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn10"><p>作用は <span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span>, <span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017, p. 16</a>)</span>, <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 2–3</a>)</span> が同様に定めている．最後の文献によると，この記法は Hunt によるものだという．<span class="math inline">\(T\otimes S\)</span> の存在は <span class="citation" data-cites="Gikhman-Skorokhod2004I">(<a href="#ref-Gikhman-Skorokhod2004I" role="doc-biblioref">Gikhman and Skorokhod, 2004, p. 76</a>)</span> 定理II.4.1 で示されており，<span class="math inline">\(\otimes\)</span> を <strong>直積</strong>，<span class="math inline">\(\cdot\)</span> を <strong>畳み込み</strong> と呼んでいる．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn11"><p>これが <span class="math inline">\(\mathcal{E}\)</span>-可測であることは，<span class="math inline">\(f\)</span> の単関数近似を考えることで示せる <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, p. 2</a>)</span>．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn12"><p><span class="citation" data-cites="鎌谷研吾2021">(<a href="#ref-鎌谷研吾2021" role="doc-biblioref">鎌谷研吾, 2021, p. 382</a>)</span> の呼称に一致．<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, p. 4</a>)</span> は composition，<span class="citation" data-cites="Gikhman-Skorokhod2004I">(<a href="#ref-Gikhman-Skorokhod2004I" role="doc-biblioref">Gikhman and Skorokhod, 2004, p. 76</a>)</span> 定理II.4.1 は畳み込みと呼ぶ．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn13"><p>(1)は <span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span> と <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 5 p.3</a>)</span>，(2)は <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 7 p.4</a>)</span>．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn14"><p>これは一般の符号付き核については成り立たない <span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 12</a>)</span>．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn15"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 12</a>)</span>．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn16"><p><span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017, p. 30</a>)</span> 補題1.14 では Borel 空間について示している．<span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span> ではあらかじめ (2) を定義としている．<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004, p. 7</a>)</span> は最初からこれによって <span class="math inline">\(\sigma\)</span>-代数を定義する．<span class="citation" data-cites="Ambrosio+2008">(<a href="#ref-Ambrosio+2008" role="doc-biblioref">Ambrosio et al., 2008, p. 121</a>)</span> も初めからこれを通じて，可分距離空間 <span class="math inline">\(Y\)</span> に対する Borel 写像 <span class="math inline">\(X\to\mathcal{P}(Y)\)</span> を定義する．(3) は <span class="citation" data-cites="Ambrosio+2008">(<a href="#ref-Ambrosio+2008" role="doc-biblioref">Ambrosio et al., 2008, p. 121</a>)</span>．<a href="#fnref16" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>ちょうど，非線型力学系において，Koopman　作用素を導入することで，扱う空間が無限次元になってしまう代わりに，ダイナミクスの線型性を回復することに似ている．非線型力学系を扱うにあたって，非線型性の除去が肝心であるように，確率的な系の分析において，ランダムネスを取り除くことが重要であったようだ．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Jacod-Shiryaev2003">(<a href="#ref-Jacod-Shiryaev2003" role="doc-biblioref">Jacod and Shiryaev, 2003</a>)</span> p.65，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110, <span class="citation" data-cites="Klenke2020">(<a href="#ref-Klenke2020" role="doc-biblioref">Klenke, 2020</a>)</span> 8.3節 p.204 では transition kernel，<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.1，<span class="citation" data-cites="Revuz-Yor1999">(<a href="#ref-Revuz-Yor1999" role="doc-biblioref">Revuz and Yor, 1999</a>)</span> 定義III.1.1.1 p.79，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984</a>)</span> 定義1.1.1.1 p.8，<span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017</a>)</span> p.16, <span class="citation" data-cites="Bass2011">(<a href="#ref-Bass2011" role="doc-biblioref">Bass, 2011</a>)</span> 定義19.2 p.154 では kernel と呼んでいる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984</a>)</span> 定義1.1.1.1 p.8 では符号付き測度であることを許しているが，我々はその場合は <strong>符号付き核</strong> と呼ぶこととしよう．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Crisan-Doucet2002">(<a href="#ref-Crisan-Doucet2002" role="doc-biblioref">Crisan and Doucet, 2002</a>)</span> p.737 では Markov transition kernel，<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004</a>)</span> p.9 では Markov kernel，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110 では transition probability kernel or simply probability kernel と呼び，<span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020</a>)</span> 定義4.1 p.36, <span class="citation" data-cites="Bremaud20-Processes">(<a href="#ref-Bremaud20-Processes" role="doc-biblioref">Bremaud, 2020</a>)</span> 3.3.3節 p.135 では propability kernel，<span class="citation" data-cites="Kulik2018">(<a href="#ref-Kulik2018" role="doc-biblioref">Kulik, 2018</a>)</span> p.25 では probability kernel としてさらに半群性も満たす族を transition probability kernels と呼ぶ．<span class="citation" data-cites="LeGall2016">(<a href="#ref-LeGall2016" role="doc-biblioref">Le Gall, 2016</a>)</span> pp.151-152 は Markovian transition kernel と transition semigroup と呼ぶ．<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.2 は Markovian kernel．<span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017</a>)</span> p.29 と <span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span> では可測関数 <span class="math inline">\(E\to\mathcal{P}(F)\)</span> と定義しており，transition kernel と呼んでしまう．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> p.2，<span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011</a>)</span> 3.5節 p.110．<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004, p. 9</a>)</span> は (bounded) integral operator と呼ぶ．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Kolokoltsov2011-Generators">(<a href="#ref-Kolokoltsov2011-Generators" role="doc-biblioref">Kolokoltsov, 2011, p. 110</a>)</span> 3.5節 も参照．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span> 命題1.3．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988</a>)</span> 7 p.4，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span>，<span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 13</a>)</span> 演習1.13．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 10</a>)</span>．p.36 も参照．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 36</a>)</span>，<span class="citation" data-cites="Revuz-Yor1999">(<a href="#ref-Revuz-Yor1999" role="doc-biblioref">Revuz and Yor, 1999, p. 412</a>)</span>．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>作用は <span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span>, <span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017, p. 16</a>)</span>, <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 2–3</a>)</span> が同様に定めている．最後の文献によると，この記法は Hunt によるものだという．<span class="math inline">\(T\otimes S\)</span> の存在は <span class="citation" data-cites="Gikhman-Skorokhod2004I">(<a href="#ref-Gikhman-Skorokhod2004I" role="doc-biblioref">Gikhman and Skorokhod, 2004, p. 76</a>)</span> 定理II.4.1 で示されており，<span class="math inline">\(\otimes\)</span> を <strong>直積</strong>，<span class="math inline">\(\cdot\)</span> を <strong>畳み込み</strong> と呼んでいる．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p>これが <span class="math inline">\(\mathcal{E}\)</span>-可測であることは，<span class="math inline">\(f\)</span> の単関数近似を考えることで示せる <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, p. 2</a>)</span>．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p><span class="citation" data-cites="鎌谷研吾2021">(<a href="#ref-鎌谷研吾2021" role="doc-biblioref">鎌谷研吾, 2021, p. 382</a>)</span> の呼称に一致．<span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, p. 4</a>)</span> は composition，<span class="citation" data-cites="Gikhman-Skorokhod2004I">(<a href="#ref-Gikhman-Skorokhod2004I" role="doc-biblioref">Gikhman and Skorokhod, 2004, p. 76</a>)</span> 定理II.4.1 は畳み込みと呼ぶ．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn14"><p>(1)は <span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 9</a>)</span> と <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 5 p.3</a>)</span>，(2)は <span class="citation" data-cites="Dellacherie-Meyer1988">(<a href="#ref-Dellacherie-Meyer1988" role="doc-biblioref">Dellacherie and Meyer, 1988, pp. 7 p.4</a>)</span>．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn15"><p>これは一般の符号付き核については成り立たない <span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 12</a>)</span>．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn16"><p><span class="citation" data-cites="Revuz1984">(<a href="#ref-Revuz1984" role="doc-biblioref">Revuz, 1984, p. 12</a>)</span>．<a href="#fnref16" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn17"><p><span class="citation" data-cites="Kallenberg2017">(<a href="#ref-Kallenberg2017" role="doc-biblioref">Kallenberg, 2017, p. 30</a>)</span> 補題1.14 では Borel 空間について示している．<span class="citation" data-cites="Hairer2021-Convergence">(<a href="#ref-Hairer2021-Convergence" role="doc-biblioref">Hairer, 2021</a>)</span> ではあらかじめ (2) を定義としている．<span class="citation" data-cites="DelMoral04-FeynmanKacFormulae">(<a href="#ref-DelMoral04-FeynmanKacFormulae" role="doc-biblioref">Del&nbsp;Moral, 2004, p. 7</a>)</span> は最初からこれによって <span class="math inline">\(\sigma\)</span>-代数を定義する．<span class="citation" data-cites="Ambrosio+2008">(<a href="#ref-Ambrosio+2008" role="doc-biblioref">Ambrosio et al., 2008, p. 121</a>)</span> も初めからこれを通じて，可分距離空間 <span class="math inline">\(Y\)</span> に対する Borel 写像 <span class="math inline">\(X\to\mathcal{P}(Y)\)</span> を定義する．(3) は <span class="citation" data-cites="Ambrosio+2008">(<a href="#ref-Ambrosio+2008" role="doc-biblioref">Ambrosio et al., 2008, p. 121</a>)</span>．<a href="#fnref17" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

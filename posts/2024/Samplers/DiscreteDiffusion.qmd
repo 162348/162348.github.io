@@ -1,0 +1,120 @@
+---
+title: "離散空間上のフローベース模型"
+subtitle: "位相構造を取り入れた次世代の構造生成へ"
+author: "司馬博文"
+date: 8/9/2024
+date-modified: 8/10/2024
+image: Files/best.gif
+categories: [Deep, Sampling, Nature]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: 画像と動画に関してだけでなく，化学分子の構造生成の分野でも拡散模型が state of the art となっている．これは，連続空間上だけでなく，グラフなどの離散空間上でも拡散模型が拡張されたことが大きい．本稿では，離散データを連続潜在空間に埋め込むことなく，直接離散空間上に拡散模型をデザインする方法をまとめる．
+listing: 
+    -   id: diffusion-listing
+        type: grid
+        sort: false
+        contents:
+            - "NF1.qmd"
+            - "NF3.qmd"
+            - "DDPM.qmd"
+            - "Diffusion.qmd"
+            - "Diffusion1.qmd"
+            - "Diffusion2.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+::: {#diffusion-listing}
+:::
+
+## 離散雑音除去拡散模型 (D3PM) [@Austin+2021] {#sec-D3PM}
+
+[![Minimal Implementation of a D3PM by Simo Ryu [@Simo2024] (Tap to image to visit his repository)](Files/best.gif)](https://github.com/cloneofsimo/d3pm/blob/main/contents/best.gif)
+
+### はじめに
+
+離散データ上のフローベースのサンプリング法として，Argmax Flows と Multinomial Diffusion が [@Hoogeboom+2021] により提案された．
+
+D3PM [@Austin+2021] はこの拡張として提案されたものである．
+
+その結果，D3PM は BERT [@Lewis+2020-BART] などのマスク付き言語モデルと等価になる．
+
+### ノイズ過程
+
+#### 設計意図
+
+効率的な訓練のために，
+
+1. $q(x_t|x_0)$ からシミュレーション可能
+2. $q(x_{t-1}|x_t,x_0)$ が評価可能
+
+であるとする．これにより，
+$$
+L_{t-1}(x_0):=\int_\cX\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}\,q(x_t|x_0)\,dx_t
+$$  
+の Monte Carlo 近似が可能になる．
+
+$p(x_T)=q(x_T|x_0)$ を一様分布など，簡単にシミュレーション可能な分布とする．
+
+#### 実装
+
+$x_0\in\cX$ は，$[K]$-値の離散ベクトル $x_0^{(i)}$ が $D$ 個集まったものとする．ただし，$x_0^{(i)}$ は one-hot encoding による横ベクトルとする．
+
+すると，ある確率行列 $Q_t$ に関して，
+$$
+Q(-|x_{t-1})=x_{t-1}Q_t=\cdots=x_0Q_1\cdots Q_t
+$$
+と表せる．右辺の第 $i$ 行は，次 $k\in[K]$ の状態に至る確率を表す確率ベクトルとなっている．
+
+するとこの逆は，ベイズの定理より
+$$
+q(x_{t-1}|x_t,x_0)=\frac{q(x_t|x_{t-1},x_0)q(x_{t-1}|x_0)}{q(x_t|x_0)}
+$$
+$$
+Q(-|x_t,x_0)=
+$$
+
+#### 核 $Q$ の取り方
+
+$$
+Q_t:=(1-\beta_t)I_K+\frac{\beta_t}{K}
+$$
+と取った場合を一様核という．
+
+または，$Q_t$ として **脱落核** を取ることもできる．これは１つの点 $m\in[K]$ を吸収点とする方法である：
+$$
+(Q_t)_{ij}:=\begin{cases}1&i=j=m,\\
+1-\beta_t&i=j\in[K]\setminus\{m\}\\
+\beta_t&\otherwise
+\end{cases}
+$$
+
+### 除去過程
+
+$p_\theta(x_{t-1}|x_t)$ をモデリングするのではなく，$\wt{p}_\theta(x_0|x_t)$ をモデリングし，
+$$
+p_\theta(x_{t-1}|x_t)\propt\sum_{\wt{x}_0\in[K]}q(x_{t-1}|x_t,\wt{x}_0)\wt{p}_\theta(\wt{x}_0|x_t)
+$$
+は間接的にモデリングする．
+
+これにより，ステップ数を小さく取った場合でも，$k$ ステップをまとめて $p_\theta(x_{t-k}|x_t)$ をいきなりサンプリングするということも十分に可能になるためである．
+
+### BERT [@Devlin+2019] との対応
+
+$Q_t$ として，一様核と脱落核を重ね合わせたとする．
+
+すなわち，各トークンを各ステップで $\al=10\%$ でマスクし，$\beta=5\%$ で一様にリサンプリングし，これを元に戻す逆過程を学習する．
+
+これは BERT [@Devlin+2019] と全く同じ目的関数を定める．
+
+MaskGIT (Masked Generative Image Transformer) [@Chang+2022] も，画像をベクトル量子化した後に，全く同様の要領でマスク・リサンプリングをし，これを回復しようとする．これはトランスフォーマーなどの自己回帰的モデルを用いて逐次的に生成するより，サンプリングがはるかに速くなるという．
+
+## 参考文献 {.appendix}
+
+[@Simo2024] に素晴らしい教育的リポジトリがある．D3PM の 425 行での PyTorch での実装を提供している．

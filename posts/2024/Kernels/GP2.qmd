@@ -1,71 +1,125 @@
 ---
-title: "Gauss 過程を用いた統計解析２"
-subtitle: 理論編
-author: "司馬 博文"
+title: "Gauss 過程を用いたベイズ推論"
+subtitle: "理論編"
+author: "司馬博文"
 date: 2/11/2024
+date-modified: 8/8/2024
+image: Images/Gibbs.svg
 categories: [Bayesian, Kernel, Process]
-toc: true
-number-sections: true
-code-block-bg: true
-code-fold: false
-code-annotations: select
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-crossref:
-    sec-prefix: 節
-    eq-prefix: 式
-    def-prefix: 定義
-    def-title: 定義
-    thm-prefix: 定理
-    thm-title: 定理
-    fig-prefix: 図
-    fig-title: 図
 abstract-title: 概要
-abstract: Gauss 過程は関数に対するノンパラメトリックモデルである．ニューラルネットワークも，例えば１層で全結合のものは，隠れ素子数が無限になる極限で Gauss 過程回帰と等価である．
+abstract: Gauss 過程は関数に対するノンパラメトリックモデルである．正確には，関数空間上の共役確率分布を定めるため，Gauss 過程を用いて回帰関数に関する効率的な Bayes 推論が可能になる．ニューラルネットワークも，例えば１層で全結合のものは，隠れ素子数が無限になる極限で Gauss 過程回帰と等価になる．
 ---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+[![実践編も参照（画像をタップでリンクを開く）](../../../docs/posts/2024/Kernels/GP_files/figure-html/cell-10-output-1.png)](GP.qmd)
+
+## 導入
 
 > ガウス過程はベイズ統計の立場から見たカーネル法ということができます．[@持橋-大羽2019]
 
-{{< include ../../../_preamble.qmd >}}
+### Gauss 過程とは
 
-## 導入
+Gauss 過程 $\{X_t\}_{t\in T}\subset\L(\Om;\R^d)$ とは，各変数 $X_t$ が正規分布を持つ確率過程である．転置
+$$
+X_-:\om\mapsto\Map(T;\R^d)
+$$
+を考えれば，これはランダムに定まる添え字集合 $T$ 上の関数と見れる．
+
+それゆえ，Gauss 過程は，関数空間 $\Map(T;\R^d)$ 上の確率分布を定める際に使うことが出来る．
+
+### クリギング (Kriging)
+
+Gauss 過程回帰の歴史的端緒の１つは，空間統計学における [**クリギング**](https://ja.wikipedia.org/wiki/クリギング) [@Krige1951] である．
+
+これは空間上の各地で取られているデータから，データのない地点におけるデータを内挿する方法である．（[@Krige1951] は特に鉱山評価において用いている）．
+
+現代的な言葉で言えば，これは $T=\R^2$ 上での Gauss 過程回帰を用いた統計推測である．
+
+### Gauss 過程回帰
+
+尤度も Gauss である場合，事後分布も Gauss 過程になるため，正確な計算が可能である．
+
+一方で一般の尤度の場合は，変分推論 [@Wilkinson+2023] が行われる．
+
+タスクが分類である場合は，Pólya-Gamma 分布に基づくデータ拡張に基づく変分推論 [@Wenzel+2019], [@Galy-Fajou2020] も用いられる．
+
+### ニューラルネットワークとの対応
 
 独立同分布な事前分布の下で，１層の全結合ニューラルネットワークは，隠れ素子数が無限になる極限で Gauss 過程回帰と等価である [@Neal1996]．
 
 したがって，[@Williams1996] などの方法で対応する Gauss 過程が特定できれば，当該のニューラルネットワークと等価な Bayes 推論が可能になる．
 
-Gauss 過程との同様の対応は，多層のニューラルネットワークの間にもつけられている [@Lee+2018]．この論文では，ニューラルネットワークの性能を凌駕することが観察されている．
+Gauss 過程との同様の対応は，多層のニューラルネットワークの間にもつけられている [@Lee+2018]．この際の Gauss 過程のカーネルは NN-GP 核と呼ばれており，CNN [@Novak+2019] や一般化 (Tensor Program [@Yang2020]) など，各方面で特徴づけが進んでいる．
 
-しかし現状でニューラルネットワークが Gauss 過程を越えるのは，推論手法である誤差逆伝播法 [@Rumelhart+1986] においてであろう．
+しかしニューラルネットワークは隠れ層において適応的に適切な基底関数を学習できる一方で，Gauss 過程回帰は実行する前に適切な正定値カーネルを選ぶ必要がある．
 
-## Gauss 過程回帰の理論
+## 推論法
 
-### カーネル
-
-#### 動径基底関数カーネル {#sec-rbf-kernel}
-
-動径基底関数カーネル (Radial Basis Function kernel) [@持橋-大羽2019 p.68] または Squared Exponential kernel [@Rasmussen-Williams2006 p.14] は
-$$
-k(r):=\sigma^2\exp\paren{-\frac{r^2}{2}}
-$$
-で定まるカーネルである．`GPy` での実装は[こちら](https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF)．
-
-#### 定数カーネル
-
-### 推論手法
-
-#### Expectation Propagation 法
+### Expectation Propagation 法
 
 > EP might not converge in some cases since quadrature is used. [`GPML` 4.2 Documentation](http://gaussianprocess.org/gpml/code/matlab/doc/)
 
-#### FITC (Fully Independent Training Conditional) 推論
+### FITC (Fully Independent Training Conditional) [@Snelson-Ghahramani2005]
 
-#### MCMC
+複数のデータを１つのデータに要約し，有効的なデータ数を減らす方法を inducing point または pseudo-input と呼ぶ．
+
+### MCMC
 
 MCMC は唯一ブラックボックスとして用いることが出来ない推論手法である．また，勾配ベースの周辺尤度最適化も MCMC では不可能である．
 
 > Inference by MCMC sampling is the only inference method that cannot be used as a black box. Also gradient-based marginal likelihood optimisation is not possible with MCMC. Please see usageSampling for a toy example illustrating the usage of the implemented samplers. [`GPML` 4.2 Documentation](http://gaussianprocess.org/gpml/code/matlab/doc/)
 
 この関門が乗り越えられたならば，Gauss 過程による機械学習の応用は大きく進展するだろう．
+
+$S^1$-値の Gauss 過程は，データ拡張に基づく MCMC により推論できる [@Jona-Lasinio+2012]．
+
+また，関数空間からの事後分布サンプリングを高速化することも考えられている [@Wilson+2020]．
+
+### Kalman フィルター
+
+事前分布として設定した Gauss 過程を，線型 Gauss な状態空間モデルとして解釈することで，Gauss 過程回帰を Kalman フィルタリングによって解く [@Hartikainen-Sarkka2010] ことも考えられている．
+
+この方法は特に，時系列データに対して，Gauss 過程回帰を通じて外挿をするタスクにおいて考えられている [@Sarkka+2013], [@Adam+2020]．
+
+## カーネルの学習
+
+Gauss 過程を用いて，ニューラルネットワークのような外挿汎化性を獲得するためには，適切な正定値カーネルをデータから適応的に学習できるようになる必要がある [@Wilson-Adams2013], [@Wilson+2014]．
+
+実はこのカーネル学習はニューラルネットワークの学習と類似していく．実際，NN と GP が相補的な役割を果たすことが最も良い実践を生むかもしれない．
+
+### Deep Kernel Learning (DKL) [@Wilson+2016] {#sec-DKL}
+
+$$
+K(x,y)=\exp\paren{-\frac{1}{2\sigma^2}\abs{h_\theta(x)-h_\theta(y)}^2}
+$$
+というように，深層学習と Gauss 過程回帰を組み合わせる発想は [@Salakhutdinov-Hinton2007] から存在した．
+
+この方法は，ニューラルネットワークの最後の一層を Gauss 過程に取り替えることに相当する．
+
+しかし [@Ober+2021] によると，通常のニューラルネット以上に深刻な過適応を見せやすく，完全にベイズによるアプローチを採る方法を議論している．
+
+### Deep Gaussian Process (DGS) [@Damianou-Lawrence2013]
+
+GP をスタックして深層な階層モデルにするという発想であるが，学習が極めて困難になる．
+
+### Neural Tangent Kernel (NTK) [@Jacot+2018]
+
+ある一定の条件の下では，訓練中／訓練後の DNN が，学習率 $\eta\to0$，幅無限大の極限でどのようなカーネルを持った GP に対応するかを導くことができる．
+
+しかし，NTK の仮定は特に「初期値からほとんどパラメータ値は変化しない (lazy training) [@Chizat+2019]」というものも含意しており，これが実際と乖離している [@Woodworth+2020]．
+
+実際，幅無限大の極限で，元々の NTK の理論では特徴学習をしないということが示せてしまう．しかし，これはパラメータの変換を通じて修正することができ，NTK 理論の射程はさらに広がっている [@Yang-Hu2021]．^[[@Yang-Hu2021] は幅無限大極限において特徴学習が起こるための十分条件も与えている．]
+
+## 文献紹介 {.appendix}
+
+[@Gortler+2019] というサイトに注目．インタラクティブに，Gauss 過程の表現力の高さが経験できる．
+
+[@Duvenaud2014] は種々のカーネルを可視化して比較している．
+
+[@Liu+2020] は GP のスケーラビリティに関するサーベイである．

@@ -1,0 +1,110 @@
+---
+title: "拡散模型による条件付き生成"
+subtitle: "フローマッチングへ"
+author: "司馬 博文"
+date: 8/10/2024
+date-modified: 8/10/2024
+categories: [Deep, Sampling]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: 拡散模型は拡張性にも優れており，条件付けが容易である．現状は誘導付き拡散によってこれが実現されるが，連続的な条件付き生成のために，フローマッチングなる方法が提案された．
+listing: 
+    -   id: diffusion-listing
+        type: grid
+        sort: false
+        contents:
+            - "Diffusion.qmd"
+            # - "SM1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+
+::: {#diffusion-listing}
+:::
+
+## 誘導付き拡散模型
+
+拡散模型の美点には，条件付けが可能で拡張性に優れているという点もある．
+
+実際，拡散模型の提案後直ちに，Conditional VAE [@Kingma+2014] などの従来手法を凌駕する条件付き生成が可能であることが理解された．
+
+$c$ がクラスラベルなどの離散変数である場合への「誘導」による拡張が初めに考えられた．
+
+### はじめに
+
+「誘導」ではまず，DDPM [@Ho+2020] でタイムステップ $t$ を positional encoding したようにしてデータに埋め込むことができる．$c$ が $x_t$ と同じ画像である場合は，[@Ho+2022] のように $x_t$ にそのまま連結することも考えられる．
+
+基本的には，データ $X$ とそのラベル $C$ に対して，結合分布 $(C,X)$ をモデリングする．
+
+目的関数は条件付き分布 $X|C$ の正確性を表すようにデザインされる．
+
+その結果，各ステップで少しずつ $x_t$ が $p(x_t|c)$ にそぐうように誘導されていく．
+
+### 分類器による誘導 (CG: Classifier Guidance) [@Dhariwal-Nichol2021]
+
+仮に分類器 $p_\phi(c|x)$ がすでに存在する場合，Bayes の定理
+$$
+\log p(x|c)=\log p(c|x)+\log p(x)-\log p(c)
+$$
+$$
+\therefore\qquad\nabla_x\log p(x|c)=\nabla_x\log p(x)+\nabla_x\log p(c|x)
+$$
+を通じて，$\nabla_x\log p(x)$ だけでなく $\nabla_x\log p(c|x)$ も利用可能になる．
+
+すなわち，分類器 $p_\phi(c|x)$ を利用した誘導が可能になる．
+
+
+### Classifier-Free Diffusion Guidance [@Ho-Salimans2021]
+
+すぐに分類器 $p_\phi(c|x)$ の使用から脱却することが考えられた．
+
+その場合は，$p(x|c),p(x)$ のいずれもデータから学べば良い．
+
+これは乱暴な解決に聞こえるかもしれないが，
+$$
+p(x)=p(x|\emptyset)
+$$
+とみなせば，簡単な拡張によって単一のニューラルネットワークで実現可能である．
+
+### Cascaded Generation [@Ho+2022] {#sec-CascadedGeneration}
+
+条件付き生成の技術はそのままで，最終的なクオリティを向上させるためには，Cascading が使用可能である．
+
+これは， $p(x|c)$ のモデリングは，$x$ の解像度が低い状態で行い，この低解像度画像を次の条件付き拡散モデルの条件付け $c$ とするものである．
+
+この方法の美点は，条件付き生成器をたくさんスタックしたのちに，拡散模型間の段階でも Gauss ノイズや blur を印加することで，さらに最終的なクオリティが上げられるという [@Ho+2022]．これを **conditioning augmentation** と呼んでいる．
+
+Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] このアーキテクチャを用いている．
+
+### Self-Conditioning [@Chen+2023]
+
+拡散モデルを自己再帰的に用い，自身の前回の出力を今回の入力として逐次的にサンプリングを繰り返すことで，サンプリングのクオリティをさらに向上する自己条件づけが [@Chen+2023] で提案された．
+
+この方法は RoseTTAFold Diffusion [@Watson+2023] によるたんぱく質構造生成でも用いられている：
+
+![RFdiffusion generating a novel protein that binds to the insulin receptor. Taken from [Baker Lab HP](https://www.bakerlab.org/2023/07/11/diffusion-model-for-protein-design/)](Files/RFDiff.gif)
+
+## フローマッチングによる連続な条件付け
+
+### はじめに
+
+連続な変数に対する条件付き確率からの生成は CcGAN [@Ding+2021] などでも試みられていた．
+
+AlphaFold 3 [@Abramson+2024] や RoseTTAFold Diffusion [@Watson+2023], [@Krishna+2024] など，たんぱく質構造生成模型において拡散モデルが用いられている理由も，高精度な条件付き生成が可能であることが大きいという．
+
+## 文献紹介 {.appendix}
+
+メンダコ氏によるブログ記事 [AlphaFold の進化史](https://horomary.hatenablog.com/entry/2024/06/30/211033) は AlphaFold3 が丁寧に解説されている．当該ブログは丁寧に書かれており，大変おすすめできる．
+
+> Alphafold3とは長大な条件付けネットワークを備えた全原子拡散生成モデルであると前述したとおり、Alphafold3では必須入力としてタンパク質配列を、任意入力として核酸配列、SMILES形式で表現された低分子リガンド、金属イオンなどを長大な条件付けネットワークに入力することで、拡散モデルへの条件付けベクトルを作成します。
+
+> DeepLearningで大規模分子の構造分布を予測するなんて数年前には考えられませんでしたが、拡散モデルによってすでに現実になりつつあります。一例として Distributional GraphormerというMicrosoft Researchの研究 [@Zheng+2024] を紹介します。
+
+続きはぜひ，[メンダコ氏のブログ](https://horomary.hatenablog.com/entry/2024/06/30/211033#AlphaFold3-2024)でお読みください．

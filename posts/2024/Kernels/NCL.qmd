@@ -1,30 +1,152 @@
 ---
-title: "ノイズ対照学習"
-author: "司馬 博文"
+title: "表現学習と非線型独立成分分析"
+subtitle: "「データ理解」に向けた深層潜在変数モデル"
+author: "司馬博文"
 date: 7/29/2024
-date-modified: 7/29/2024
+date-modified: 8/12/2024
 categories: [Deep]
+image: Images/contrastive_repr4.jpeg
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 深層潜在モデルを敵対的に学習させる手法である **NCL (Noise-Contrastive Learning)** について述べる．
+abstract: 表現学習，非線型独立成分分析など，「生成」以外の潜在変数模型の応用法を横断してレビューする．識別性を保った深層潜在モデルを学習しようとする方法は，因果的表現学習とも呼ばれている．
+listing: 
+    -   id: kernel-listing
+        type: grid
+        sort: false
+        contents:
+            - "Kernel.qmd"
+            - "Manifold.qmd"
+            - "../Samplers/EBM.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+shift-heading-level-by: -2
 ---
 
-{{< include ../../../_preamble.qmd >}}
+### 関連ページ {.unnumbered .unlisted}
 
-## 非線型独立成分分析と表現学習
+::: {#kernel-listing}
+:::
 
-### 導入
 
-[@Locatello+2019] が警鐘を鳴らしている通り，表現学習 [@Bengio+2013] とはことさらに disentangle （＝要因ごとにデータ内の変動を説明して分離すること）がなされた潜在表現を得れば良いというものではない．
+{{< include ../../../assets/_preamble.qmd >}}
 
-表現学習の代表的手法としては，[$\beta$-VAE](Deep4.qmd#sec-beta-VAE) がある．加えて，ノイズ対照学習に基づいた方法 [@Oord+2019] があり，同等の性能を誇る．
+### 表現学習とは何か？
 
-また，データの disentangle というのは，独立成分分析の目標と重なる部分が大きい．いや，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement と言うべきかもしれない．^[The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. [@Khemakhem+2020] Section 6．]
+::: {.callout-tip appearance="simple" icon="false" title="表現学習５つのアプローチ"}
 
-VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通している．
+1. 教師あり学習による表現学習
+2. 生成による表現学習
+3. 自己教師あり表現学習
+4. ノイズ対照による表現学習
+5. 独立成分分析による表現学習
+
+:::
+
+極めて高精度な分類器が完成してすぐのころ，分類タスクが極めて上手なニューラルネットワークは他の下流タスクでも良い成績が観察され，最初に考えられた方法が１であった（[距離学習](Kernel.qmd#sec-distance-learning)でも同様）．
+
+一方でこのスキームではすぐにドメインシフトと転移学習が問題になった．
+
+これを克服するのが２の方法である．高精度なデータを生成できる深層潜在模型が学習された場合，その潜在変数は現実の何らかの表象になっているだろう，というアイデアは analysis-by-synthesis [@Roberts1963], [@Lee-Mumford2003] とも呼ばれている．
+
+この方法は，文字のストローク（トメ，ハネ）が集まった構造に注目するなど，データの生成過程がある程度明らかなものでは特に性能が良い [@Lake+2015]．
+
+[$\beta$-VAE](Deep4.qmd#sec-beta-VAE) [@Higgins+2017] や BiGAN [@Donahue+2017] はその例であるが，ImageNet などの大規模データに対する分類や分割のタスクで十分な性能はまだ見られていないという．
+
+### 生成から雑音除去へ
+
+２よりも表現学習として良い性質を持つのが３である．
+
+生成のためには大変多くの特徴量が必要であるが，下流タスクに重要なのはその一部のみに限る．このような場合，[Denoising Autoencoder](Deep4.qmd#sec-denoising-autoencoder) [@Vincent+2008] のように「データにノイズを印加してこれを戻すのに必要な知識は何か？」を問うことが極めて普遍的な力を持つ．
+
+雑音除去と同様に，表現学習に極めて有効なタスクがマスク除去 [@Devlin+2019] である．これは画像領域にも応用されている：BEiT [@Bao+2022]．**masked autoencoder** [@He+2022] が現在の state of the art であるようである．
+
+### 対照学習による表現学習 {#sec-NCL4RL}
+
+ノイズ対照学習に基づいた方法が第４勢力として登場（再興）してきている．multiview representation learning とも呼ばれる．
+
+#### ノイズ対照学習 (NCL) {#sec-NCL}
+
+この方法では，雑音やマスク除去とは違った方法で，「真のデータをノイズと見分ける」という予測問題として表現学習を解く．^[予測符号化 ([predictive coding](https://en.wikipedia.org/wiki/Predictive_coding)) [@Elias1955] は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である [@Rao-Ballard1999]．]
+
+この方法は最初自然言語処理で大きな成功を収めた [@Mnih-Kavukcuoglu2013]．例えば word2vec [@Mikolov2013], [@Mikolov2013b] も NCL に基づく．
+
+一方で前述の通り，BART や GPT などの現代の言語モデルは，ノイズ対照の先へ行き，デノイジングやデマスキングによる表現学習を行っている．
+
+しかし NCL には，雑音・マスク除去と違い，ある程度どのようなデータを「似ている」とするかの制御が効くという美点がある．これを [**距離学習**](Kernel.qmd#sec-distance-learning) ともいう．^[[@Murphy2023 p.1056] 第32.3.4.2節も参照．]
+
+発展した対照学習法，例えば CPC (Contrastive Predictive Coding) [@Oord+2019] は，言語，音声，画像，３次元空間での強化学習など，多くの領域で有力な代替を提供するようである．
+
+また CLIP [@Radford+2019] では，データのモーダリティを超えて，言語と画像の関係について大規模に事前学習をさせることが可能になっている．
+
+#### 対照的予測符号化 (CPC) [@Oord+2019] {#sec-CPC}
+
+![Contrastive Predictive Coding [@Oord+2019]](Images/contrastive_repr4.jpeg)
+
+まずエンコーダー $z_t=g_{\text{enc}}(x_t)$ を作る．続いて，自己回帰モデル $g_{\text{ar}}$ を用いて $z_{1:t}$ を要約して予測しようとする．
+
+この段階で潜在表現 $c_t=g_{\text{ar}}(z_{1:t})$ が作られることを期待するのであるが，直接 $p(x|c)$ を予測しようとしてしまうと，必ずしも有用な潜在表現 $c$ が得られるとは限らない．
+
+そこで，距離 $k$ だけ離れたデータ $x_{t+k}$ の尤度比
+$$
+f_k(x_{t+k},c_t)\propt\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
+$$
+を，
+$$
+f_k(x_{t+k},c_t)=\exp\paren{z_{t+k}^\top W_kc_t}
+$$
+の形で予測しようとし，この荷重 $W_k$ の推定を考える．
+
+これは，表現学習においては予測 $p(x|c)$ が至上命題であるわけではなく，$x$ と $c$ の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標（**InfoMax** [@Linsker1988] ともいう）であり，**InfoNCE 損失** または [$n$-ペア損失](Kernel.qmd#sec-triplet-loss) [@Sohn2016] とも呼ばれる．^[相互情報量は$$I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}$$ と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．]
+
+このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．[@Oord+2019] では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) [@Cho+2014] という RNN の変種が使われている．
+
+こうして推定された $(z_t,c_t)$ は，$x_{1:t}$ までのヒストリを見た要約が欲しい場合は $c_t$ を，そうでない場合は $z_t$ を，データ $x_t$ の潜在表現として使える．
+
+#### 対照的言語-画像事前学習 (CLIP) [@Radford+2019]
+
+ノイズ対照学習に基づくアプローチの美点は，別のモーダリティを持つデータを統合しやすい点にある．
+
+これを用いて，言語と画像の関係について大規模に事前学習をさせたのが OpenAI の [CLIP](https://openai.com/index/clip/) [@Radford+2019] である．
+
+![画像に対する種々のノイズ対照学習法がどのようなノイズと対照させるか [@Murphy2023 p.1055]](Images/CLIP.png)
+
+[対照学習による深層距離学習において重要なのは，正のノイズと負のノイズを各サンプル $x$ に対してどう作るか？である](Kernel.qmd#sec-deep-metric-learning) [@Tian+2020WhatMakes]．
+
+SimCLR [@Chen+2020SimCLR] は，$x$ に対する変換（ランダムなトリミング，リサイズ，並行移動など）を学習し，データ拡張によって正のノイズと負のノイズを作る．
+
+CMC (Contrastive Multiple Coding) [@Tian+2020] は，$x$ の輝度 (luma) と彩度 (chroma) を取り出して正のノイズと負のノイズとする．
+
+SupCon (Supervised Contrastive Learning) [@Khosla+2020] は画像に対するラベルングが得られるとき，これを教師的に用いて正のノイズと負のノイズを作る．これは [近傍成分分析 (NCA)](Kernel.qmd#sec-NCA) [@Goldberger+2004] と対照学習を組み合わせた発想であり，実際後続の分類タスクがうまく，ロバストになるという．
+
+#### 非対照学習
+
+Vision Transformer (ViT) で用いられる DINO (Self-Distilation with no Labels) [@Caron+2021] などは，負のノイズを使わず，正のノイズのみを使った表現学習法である．
+
+BYOL (Bootstrap Your Own Latent) [@Grill+2020] も負のノイズを使わない手法であるが，目的関数には似ているノイズを寄せるための項しかなく，深層表現が退化しない理由はどうやら学習ダイナミクスの方にあるという．
+
+Barlow Twins [@Zbontar+2021] では，正のノイズとの間の，各特徴量に関する相関係数行列 $C$ から定まる
+$$
+\L:=\sum_{i=1}^p(1-C_{ii})^2+\lambda\sum_{i\ne j}C_{ij}^2
+$$
+を目的関数とする．
+
+第二項の存在により，負のノイズがなくとも表現が縮退することが回避される．この方法は，HSIC [@Gretton+2007] などのカーネル独立性検定法を，表現学習に応用している形とみれる．
+
+### 独立成分分析による表現学習
+
+表現学習の１つの目標である **disentangle** とは，要因ごとにデータ内の変動を説明して分離することをいう．
+
+これを達成するには，データやモデルに追加の仮定が必要な場合が多い [@Locatello+2020]．どのような状況で安定した disentanglement が可能であるかについて，独立成分分析の知見，特に指数型分布族と識別可能性の概念を通じて理解する試みがある [@Khemakhem+2020], [@Roeder+2021], [@Halva+2021]．
+
+特に，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement であるとするならば，「深層模型がいつ識別可能になるか？」は基本的な問題だというべきだろう [@Khemakhem+2020]．^[The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. [@Khemakhem+2020] Section 6．]
+
+このような立場を **因果的表現学習** (causal representation learning) ともいう．^[[@Murphy2023 p.1060] 33.4.1節も参照．]
+
+VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通しており，１つの分野の発見が他に資することが多い．
 
 ### 深層潜在モデルの識別可能性 {#sec-identifiability}
 
@@ -72,41 +194,32 @@ $$
 
 ただし，統計モデルと見る以上は識別可能性が肝要である．しかし近年の ICA は，識別可能性を緩めた形 [-@sec-identifiability] で得ることに成功しており，これにより深層生成モデルとの同一視が進むことになる [@Hyvarinen+2019], [@Khemakhem+2020]．
 
+### VAE の識別可能性
+
 これにより，VAE などの深層生成モデルをより統計的に意味のあるものとすることができる．上述の定理により識別可能性を確保した VAE を iVAE (identifiable VAE) [@Khemakhem+2020] と呼ぶ．
 
 また逆の方向には，非線型 ICA モデルを変分ベイズや確率的勾配降下法により推定することができる．
 
-### 予測による表現学習
+また [@Kivva+2021], [@Kivva+2022], [@Lopez+2024] によると，VAE の事前分布が特定の混合分布の形を持つならば，補助変数 $u$ が存在しない場合でも，VAE は識別可能な因果グラフを与えるという．
 
-予測符号化 ([predictive coding](https://en.wikipedia.org/wiki/Predictive_coding)) [@Elias1955] は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である [@Rao-Ballard1999]．
+### InfoMax {#sec-InfoMax}
 
-また word2vec [@Mikolov2013] から始まり，BART や GPT などの言語モデルはこの方法による表現学習を行っている．
+CPC [-@sec-CPC] が目指したように，元データの情報量を最大限保った潜在表現を獲得することが，後続タスクにおいて有利になるだろう．
 
-この予測問題として表現学習を解く方法は CPC (Contrastive Predictive Coding) として，言語，音声，画像，３次元空間での強化学習など，極めて多くの領域で良い表現学習を提供することが実証されている [@Oord+2019]．
+実は，生物の脳の認識様式もこれに沿っていると考えられ，視覚神経に関する研究を起源として **効率的符号化仮説** (Efficient Coding Hypothesis) [@Barlow1961], [@Barlow1972] または情報処理分野において **情報量最大化仮説** (InfoMax) [@Linsker1988], [@Bell-Sejnowski1995] と呼ばれている．
 
-![Contrastive Predictive Coding [@Oord+2019]](Images/contrastive_repr4.jpeg)
+この仮説は視覚の研究における vision as inverse graphics [@Romaszko+2017] / analysis by synthesis [@Kersten+2004], [@Yuille-Kersten2006] から，一般に脳が外界モデルを獲得するプロセスに拡張され，**ベイズ脳仮説** [@Doya+2006] とも呼ばれる [@島崎秀昭2019]．
 
-まずエンコーダー $z_t=g_{\text{enc}}(x_t)$ を作る．続いて，自己回帰モデル $g_{\text{ar}}$ を用いて $z_{1:t}$ を要約して予測しようとする．
+情報理論においては，information bottleneck principle [@Tishby+2000], [@Tishby-Zaslavsky2015] としても継承されている．
 
-この段階で潜在表現 $c_t=g_{\text{ar}}(z_{1:t})$ が作られることを期待するのであるが，直接 $p(x|c)$ を予測しようとしてしまうと，必ずしも有用な潜在表現 $c$ が得られるとは限らない．
 
-そこで，距離 $k$ だけ離れたデータ $x_{t+k}$ の尤度比
-$$
-f_k(x_{t+k},c_t)\propt\frac{p(x_{t+k}|c_t)}{p(x_{t+k})}
-$$
-を，
-$$
-f_k(x_{t+k},c_t)=\exp\paren{z_{t+k}^\top W_kc_t}
-$$
-の形で予測しようとし，この荷重 $W_k$ の推定を考える．
 
-これは，表現学習においては予測 $p(x|c)$ が至上命題であるわけではなく，$x$ と $c$ の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標である．^[相互情報量は$$I(x;c)=\sum p(x,c)\log\frac{p(x|c)}{p(x)}$$ と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．]
 
-このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．[@Oord+2019] では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) [@Cho+2014] という RNN の変種が使われている．
-
-こうして推定された $(z_t,c_t)$ は，$x_{1:t}$ までのヒストリを見た要約が欲しい場合は $c_t$ を，そうでない場合は $z_t$ を，データ $x_t$ の潜在表現として使える．
 
 ## 参考文献 {.appendix}
 
 [@Hyvarinen-Morioka2016], [@Hyvarinen-Morioka2017], [@Hyvarinen+2019] は深層潜在モデルが識別可能になるための条件を示した非線型 ICA の論文である．
 
+Efficient coding 仮説と InfoMax については，[@島崎秀昭2019] が大変良い日本語文献である．
+
+> 例えばハエの視覚細胞を用いた実験で神経細胞の非線形な応答関数が外界の視覚刺激の分布に適応し，出力が一様に分布することで神経細胞のダイナミックレンジが効率よく使用されていることが示されている [@Laughlin1981], [@Brenner+2000]．このように非線形器を外界の分布に適応させる過程を学習と呼ぶ． [@島崎秀昭2019]

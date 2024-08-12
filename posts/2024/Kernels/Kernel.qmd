@@ -1,0 +1,407 @@
+---
+title: "カーネル法の概観"
+subtitle: "半正定値カーネルから距離学習まで"
+author: "司馬博文"
+date: 8/10/2024
+date-modified: 8/11/2024
+image: Images/Gibbs.svg
+categories: [Kernel]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+listing: 
+    -   id: kernel-listing
+        type: grid
+        sort: false
+        contents:
+            # - "SVM.qmd"
+            - "GP.qmd"
+            - "GP2.qmd"
+            - "../../2023/KernelMethods/KernelMethods4Mathematicians.qmd"
+            - "Kernel1.qmd"
+            - "Manifold.qmd"
+            - "NCL.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+shift-heading-level-by: -1
+abstract-title: 概要
+abstract: カーネル法とは，半正定値カーネルを用いてデータを Hilbert 空間内に埋め込むことで，非線型な変換を行う統一的な手法である．再生核 Hilbert 空間の理論により，写した先における内積は，半正定値カーネルの評価を通じて効率的に計算できるため，無限次元空間上での表現に対する tractable な手段を提供する．適切な半正定値カーネルを用いることで，データの「類似度」を定義することができる．本稿では半正定値カーネルの理論と距離学習法を扱う．
+---
+
+### 関連ページ {.unnumbered .unlisted}
+
+::: {#kernel-listing}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 半正定値カーネル
+
+### はじめに
+
+カーネル法は，カーネルの選択と構成が第一歩になる．
+
+例えば [Gauss 過程](GP2.qmd) は，平均関数と共分散関数＝正定値カーネルを定めるごとに定まる．従って Gauss 過程回帰などを実行する前には，適切な事前 Gauss 過程を定める半正定値カーネルを選ぶ必要がある．
+
+::: {.callout-tip title="定義（正定値核関数）^[[@Murphy2022 p.565] 17.1節は，半正定値核のことを Mercer 核とも呼んでいる．]" icon="false" collapse="true"}
+
+一般に **核** とは，可測関数 $E,F$ の間の写像 $K:E\to\cS(F)$ をいう．ただし，$\cS(F)$ は $F$ 上の符号付き測度全体の集合とする．
+
+特に $F$ 上の確率測度の全体 $\cP(F)$ に値を取る核を [**確率核**](../Probability/Kernel.qmd) という．
+
+**核（関数）** とは，$F$ 上に自然な $\sigma$-有限測度 $\nu\in\cS(F)$ がある際に，次を満たす積分核 $k:E\times F\to\R$ をいう：
+$$
+K(x,A)=\int_A k(x,y)\,d\nu(y).
+$$
+
+**正定値核** とは，この積分核 $k$ であって，さらに半正定値関数でもあるものをいう．
+
+以降，本稿でカーネルと言った場合，積分核となる関数 $k:E\times F\to\R$ を指す．一般のカーネルについては，[確率核の稿](../Probability/Kernel.qmd)を参照．
+
+:::
+
+### 定常カーネル
+
+距離空間 $(T,d)$ 上の Gauss 過程 $(X_t)$ が定常的である場合，共分散関数
+$$
+\C(s,t):=\E\SQuare{(X_s-\E[X_s])(X_t-\E[X_t])},\qquad s,t\in T
+$$
+は距離 $d(s,t)$ のみの関数になる．
+
+このような半正定値関数 $\C$ の例を $T=\R^d$ として挙げる．
+
+#### Poisson 核
+
+::: {.callout-tip title="定義 (Poisson kernel)" icon="false"}
+
+（$\R^d$ 上の）Poisson 核とは，Cauchy 分布 $\rC(0,\ell^{-1})$ の特性関数
+$$
+K(x,y;\ell)=\exp\paren{-\frac{\norm{x-y}_1}{\ell}}
+$$
+をいう．
+
+:::
+
+#### Gauss 核 {#sec-Gauss-kernel}
+
+::: {.callout-tip title="定義 (Gaussian Radial Basis Function kernel / Squared Exponential kernel)^[RBF は [@持橋-大羽2019 p.68]，SE は [@Rasmussen-Williams2006 p.14] の用語．[@Murphy2023] では両方が併記されている．Gaussian kernel とも呼ばれる．]" icon="false"}
+
+Gauss 核（動径基底関数カーネルともいう）とは，Gauss 分布 $\rN(0,\ell^{-2})$ の特性関数
+$$
+K(x,y;\ell):=\exp\paren{-\frac{\abs{x-y}^2}{2\ell^2}}
+$$
+をいう．^[他のパラメータの入れ方もある．例えば [`GPy` での実装](https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF) は $\sigma^2\exp\paren{-\frac{r^2}{2}}$ を採用している．Fourier 変換や偏微分方程式論の文脈では $\frac{1}{(4\pi t)^{d/2}}\exp\paren{-\frac{r^2}{4}}$ も良く用いられる．これは熱方程式の基本解になるためである．]
+
+:::
+
+[Radial Basis Function](https://en.wikipedia.org/wiki/Radial_basis_function) とは動径 $r=\abs{x}$ の関数であることをいう．RBF カーネルと言ったとき特に Gauss 核を指すことが多いが，これは混乱を招く．[@Murphy2023] では Squared Exponential kernel の語が使われているが，ここでは Gauss 核と呼ぶ．
+
+#### 関連度自動決定核 (ARD) {#sec-ARD-kernel}
+
+::: {.callout-tip title="定義 (ARD: Autonatic Relevance Determination)^[[@MacKay1994], [@Neal1996 p.16] なども参照．]" icon="false"}
+
+Gauss カーネルの Euclid ノルムを Mahalanobis ノルムに変更したもの
+$$
+K(r;\Sigma,\sigma^2)=\sigma^2\exp\paren{-\frac{r^\top\Sigma^{-1}r}{2}}
+$$
+を関連度自動決定カーネルともいう．
+
+:::
+
+そもそも関連度自動決定 [@MacKay1994], [@Neal1996 p.16] またはスパースベイズ学習 [@Tipping2001] とは，ニューラルネットワークの最初のレイヤーの荷重をスパースにするために分散不定の正規分布を事前分布として導入する，という技法である [@Loeliger+2016]．
+
+一般に出力をスパースにするためのフレームワークとしても活用され，ARD 核はその最たる例である．
+
+#### Matérn 核
+
+ARD 核は軟化性能を持つため，見本道は無限回微分可能になってしまう．
+
+これが不適な状況下では，[Matérn 核](https://en.wikipedia.org/wiki/Mat%C3%A9rn_covariance_function)
+$$
+K(r;\nu,\ell)=\frac{2^{1-\nu}}{\Gamma(\nu)}\paren{\frac{\sqrt{2\nu}r}{\ell}}^\nu K_\nu\paren{\frac{\sqrt{2\nu}r}{\ell}}
+$$
+などが用いられることがある．ただし，$K_\nu$ は修正 Bessel 関数とする．
+
+$\nu$ は滑らか度を決定し，見本道は $\floor{\nu}$ 階 $L^2$-微分可能になる．$\nu\to\infty$ の極限で Gauss 核に収束する．
+
+$\nu=1/2$ の場合
+$$
+K(r;1/2,\ell)=\exp\paren{-\frac{r}{\ell}}
+$$
+であり，対応する Gauss 過程は [Ornstein-Uhlenbeck 過程](../Process/OU1.qmd) である．
+
+#### 定常スペクトル核
+
+任意の（定常な）正定値関数は，ある関数 $p$ に関して
+$$
+K(r)=\int_{\R^d}p(\om)e^{i\om^\top r}\,d\om
+$$ {#eq-spectral-decomposition}
+と表せる．この $p$ は **スペクトル密度** という．
+
+$K$ が RBF 核であるとき，$p$ もそうなる：
+$$
+p(\om)=\sqrt{2\pi\ell^2}\exp\Paren{-2\pi^2\om^2\ell^2}.
+$$
+
+この対応を用いて，スペクトル密度 $p$ をデザインすることで，様々な正定値カーネルを得ることが出来る．
+
+例えば spectral mixture kernel [@Wilson-Adams2013] では，スケール母数と位置母数とについて RBF 核の混合を考えることで，新たな正定値カーネルを構成する．
+
+### 非定常カーネル
+
+環境統計学などにおいて，空間相関の仕方が時間的に変化していくという設定がよくある．
+
+このような場合は，一般の２変数の半正定値カーネル関数を考えることが有用である．
+
+#### 多項式核
+
+$$
+K(x,y)=(x^\top y+c)^M
+$$
+は非斉次項 $c$ を持つ，$M$ 次の多項式核と呼ばれる．
+
+#### Gibbs 核
+
+Gibbs 核 [@Gibbs1997] は，ハイパーパラメータ $\sigma,\ell$ を入力に依存するようにした RBF 核である：
+$$
+K(x,y)=\sigma(x)\sigma(y)\sqrt{\frac{2\ell(x)\ell(y)}{\ell(x)^2+\ell(y)^2}}\exp\paren{-\frac{\abs{x-y}^2}{\ell(x)^2+\ell(y)^2}}.
+$$
+
+このようにすることで，$\sigma,\ell$ を別の Gauss 過程でモデリングし，階層モデルを考えることもできる [@Heinonen+2016]．
+
+#### スペクトル核 [@Remes+2017]
+
+正定値核は Fourier 変換を通じて，スペクトル密度によって指定することもできる（Bochner の定理）．
+
+この手法は，非定常核に対しても [@Remes+2017] が拡張している．
+
+### 位相空間上の核
+
+文章上の string kernel [@Lodhi+2002] やグラフ上の graph kernel [@Kriege+2020] も考えられている．
+
+#### 乱歩核
+
+[@Borgwardt+2006] は random walk kernel を提案しており，$\R^d$ へ埋め込まれるようなものの計算量は $O(n^3d)$ である．
+
+### Weisfeiler-Lehman 核
+
+さらに効率の良いカーネルとして Weisfeiler-Lehman カーネル [@Shervashidze+2011] もある．
+
+### 核の構成
+
+#### 半正定値核のなす正錐
+
+半正定値核は $\Map(T^2,\R)$ 上で閉凸錐をなす．すなわち，
+$$
+c_1K_1+c_2K_2,\qquad c_1,c_2\ge0,
+$$
+とその各点収束極限は再び半正定値核である．
+
+#### カーネル密度推定量 (KDE) {#sec-KDE}
+
+データ $\{x_n\}\subset\cX$ と半正定値核 $K$ に対して，
+$$
+p(x|\{x_n\})=\frac{1}{N}\sum_{n=1}^NK_\ell(x,x_n)
+$$
+は再び半正定値核である．これを **Parzen 窓推定量** または **カーネル密度推定量** という．
+
+ただし，$\ell$ は **幅** (bandwidth) とよばれるハイパーパラメータである．例えば $K$ が動径 $r$ の関数であるとき，
+$$
+K_\ell(r):=\frac{1}{\ell}K\paren{\frac{r}{\ell}}
+$$
+などと導入できる．
+
+#### カーネル回帰
+
+データが $\cD=\{(x_i,y_i)\}_{i=1}^n$ という形で与えられ，平均 $\E[Y|X,\cD]$ を推定することを考える．
+
+この際，まず結合密度を次の形で推定する：
+$$
+p(y,x|\cD)=\frac{1}{n}\sum_{i=1}^nK_\ell(x,x_i)K_\ell(y,y_i)
+$$
+これを用いると，次のように平均が推定できる：
+$$
+\E[Y|X,\cD]=\int_{\cY} yp(y|X,\cD)\,dy=\sum_{i=1}^ny_iw_i(x),\qquad w_i(x):=\frac{K_\ell(x,x_i)}{\sum_{j=1}^nK_\ell(x,x_j)}.
+$$
+
+この手続きを，カーネル回帰 / カーネル平滑化 / [@Nadaraya1964]-[@Watson1964] 推定量という．
+
+#### 局所線型回帰 (LLR)
+
+カーネル回帰では $\E[Y|X,\cD]$ を，$\{y_i\}$ の適切な線型和として予測していた．
+
+代わりに，
+$$
+\mu(x):=\min_{\beta}\sum_{i=1}^n\Paren{y_i-\beta^\top\phi(x_i)}^2K_\ell(x,x_i)
+$$
+によって $\E[Y|X,\cD]$ を予測することを，局所線型回帰 (locally linear regression) または [LOWESS (Locally Weighted Scatterplot Smoothing)](https://en.wikipedia.org/wiki/Local_regression) [@Cleveland1979], [@Cleveland-Devlin1988]，または [Savitsky-Golay フィルター](https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter) [@Savitzky-Golay1964] という．
+
+#### 半正定値構成
+
+::: {.callout-tip title="命題" icon="false"}
+
+$K:T^2\to\bC$ を半正定値，$f:\cX\to\bC$ を関数とする．
+$$
+\wt{K}(x,y):=f(x)K(x,y)\ov{f(y)}
+$$
+は再び半正定値である．
+
+:::
+
+#### 核の押し出し
+
+$S^1\simeq\cointerval{0,2\pi}$ 上の確率分布は，方向データとして，海洋学における波の方向，気象学における風向のモデリングに応用を持つ．
+
+全射 $\pi:\R\epi S^1$ に従って，$\R$-値の Gauss 過程を，方向データ値の Gauss 過程に押し出すことが出来る [@Jona-Lasinio+2012]．
+
+これに伴い，$\R$-値の核 $K:\R\to\cP(\R)$ を $S^1$-値に押し出すこともできる：
+$$
+\pi_*K:\R\to\cP(\R)\xrightarrow{\pi_*}\cP(S^1).
+$$
+
+$\pi$ による Gauss 分布の押し出し $\pi_*\rN_1(\mu,\sigma^2)$ は [wrapped normal distribution](https://en.wikipedia.org/wiki/Wrapped_normal_distribution) と呼ばれている．これに対応し，この Gauss 過程は wrapped Gaussian process と呼ばれている [@Jona-Lasinio+2012]．
+
+### 核の Monte Carlo 近似
+
+#### カーネルの近似
+
+以上，種々のカーネル関数を紹介してきたが，これらはデータに関して効率的に計算される必要がある．
+
+特に潜在空間上での Gram 行列の逆行列または Cholesky 分解を計算する $O(n^3)$ の複雑性が難点である [@Liu+2020]．
+
+このデータ数 $n$ に関してスケールしない点が従来カーネル法の難点とされてきたが，これはランダムなカーネル関数を用いた Monte Carlo 近似によって高速化できる．$m$ 個のランダムに選択された基底関数を用いれば，Monte Carlo 誤差を許して計算量は $O(nm+m^3)$ にまで圧縮できる．
+
+#### Random Fourier Features
+
+正定値核のスペクトル表現 ([-@eq-spectral-decomposition]) を通じて，核の値 $K(x,y)$ を Monte Carlo 近似をすることが出来る．
+
+例えば $K$ が RBF 核であるとき，$p$ は正規密度になるから，Gauss 確率変数からのサンプリングを通じてこれを実現できる：
+$$
+K(x,y)\approx\phi(x)^\top\phi(y),\qquad \phi(x):=\sqrt{\frac{1}{D}}\vctr{\sin(Z^\top x)}{\cos(Z^\top x)},Z=(z_{ij}),z_{ij}\iidsim\rN(0,\sigma^{-2}).
+$$
+
+これは核の値 $K(x,y)$ を，逆に（ランダムに定まる）特徴ベクトル $\phi(x),\phi(y)$ の値を通じて計算しているため，Random Fourier Features [@Rahimi-Recht2007], [@Sutherland-Schneider2015]，または Random Kitchen Sinks [@Rahimi-Recht2008] と呼ばれる．
+
+$Z$ の行を互いに直交するように取ることで，Monte Carlo 推定の精度が上がる．これを orthogonal random features [@Yu+2016] と呼ぶ．
+
+## 距離学習 {#sec-metric-learning}
+
+### はじめに
+
+２つのデータ点 $x_1,x_2\in\cX$ に対して，その意味論的な距離 $d(x_1,x_2)$ を学習することを考える．
+
+これはある種の表現学習として，分類，クラスタリング，[次元縮約](Manifold.qmd) などの事前タスクとしても重要である．顔認識など，computer vision への応用が大きい．
+
+古典的には，$K$-近傍分類器と対置させ，これが最大の精度を発揮するような距離を学習することが考えられる
+
+また，ニューラルネットワークにより埋め込み $f:\cX\mono\R^d$ を構成し，その後 $\R^d$ 上の Euclid 距離を $d$ として用いるとき，これを **深層距離学習** (deep metric learning) という．
+
+深層距離学習では距離学習自体が下流タスクとなっており，その性能が深層埋め込み $f$ に依存している．実際，深層距離学習の性能は芳しいと言えないことが知られている [@Musgrave+2020]．
+
+### $K$-近傍分類
+
+ラベル付きデータ $\cD=\{(x_i,y_i)\}\subset\cX\times[C]$ が与えられているとする．
+
+$K$-近傍分類法は，「$x$ の近傍上位 $K$ 個のデータに訊いてみる」という方法であり，こうして得る事後確率
+$$
+p(y=c|x,\cD)=\frac{1}{K}\sum_{i\in\cD_K(x)}1_{\Brace{y_i=c}}
+$$
+から $x$ のラベルを予測する．
+
+この事後分布をさらにクラスタリングに用いたものが [$K$-平均法](../Computation/VI.qmd) [@MacQueen1967], [@Lloyd1982] である
+
+[$K$-近傍法](https://ja.wikipedia.org/wiki/K近傍法)はそのシンプルな発想に拘らず一致性と，良い収束レートを持つ [@Chaudhuri-DasGupta2014]．
+
+一様カーネル
+$$
+K(r;\ell):=\frac{1}{2\ell}1_{[0,\ell]}(r)
+$$
+が定める密度推定量を，どの
+
+### Mahalanobis 距離の学習
+
+$$
+d(x_1,x_2;M):=\sqrt{(x_1-x_2)^\top M(x_1-x_2)}
+$$
+というパラメトリックモデルを過程し，$M$ を学習することを考える．
+
+#### 大マージン最近傍 [LMNN, @Weinberger+2005]
+
+Large margin nearest neighbor (LMNN) [@Weinberger+2005], [@Weinberger-Saul2009] は，$K$-近傍分類器による後続タスクが最も精度が良くなるように $M$ を学習する方法をいう．
+
+各データ番号 $i\in[n]$ に対して，これと似ているデータ番号の集合 $N_i\subset[n]$ が与えられているとする（ラベルが同一であるデータ点など）．これに対して，$\lambda\in(0,1),m\ge0$ をハイパーパラメータとして，
+$$
+\L(M):=(1-\lambda)\L^-(M)+\lambda\L^+(M),\qquad\lambda\in(0,1),
+$$
+$$
+\L^-(M):=\sum_{i=1}^n\sum_{j\in N_i}d(x_i,x_j;M)^2,\quad\L^+(M):=\sum_{i=1}^n\sum_{j\in N_i}\sum_{k=1}^N\delta_{ik}\Paren{m+d(x_i,x_j;M)^2-d(x_i,x_k;M)^2}^2,
+$$
+を最小化するように $M$ を学習する．
+
+$\L$ は凸関数であるため，半正定値計画法が適用できる．また，$M:=W^\top W$ によりパラメータ変換をして，$W$ に関して解くことで，問題の凸性を失う代わりに次元数を削減できる．
+
+#### 近傍成分分析 [NCA, @Goldberger+2004] {#sec-NCA}
+
+近傍成分分析 (NCA: Neighborhood Component Analysis) [@Goldberger+2004] では $W$ を学習する．
+
+類似度行列 $W$ に関して，[確率的近傍埋め込み](Manifold.qmd#sec-SNE) でも使うモデル
+$$
+p_{ij}^W:=\frac{\exp\paren{-\abs{Wx_i-Wx_j}^2}}{\sum_{k\neq i}\exp\paren{-\abs{Wx_i-Wx_k}^2}}
+$$
+を考える．各 $i\in[n]$ について，$x_i$ 以外のデータから $x_j$ のラベルを $1$-近傍分類器で正しく予測する確率が最大になるように，
+$$
+\L(W):=1-\frac{1}{N}J(W),\quad J(W):=\sum_{i=1}^n\sum_{(i,j)\in E}p_{ij}^W
+$$
+を最小化するように学習する．ただし，辺の集合 $E$ は，ラベルの同じデータを結ぶとした．
+
+### 深層距離学習 {#sec-deep-metric-learning}
+
+#### 分類に基づく目的関数
+
+深層距離学習では目的関数の設定が重要である．
+
+最も初等的には，自己符号化器などで分類問題を解き，その内部表現（よく最後から２層目を用いる）での Euclid 距離を距離関数に用いる方法がある．
+
+しかし，距離の情報を学習するために，分類タスクは弱すぎるようである．
+
+#### ２者比較に基づく目的関数
+
+$$
+\L(\theta;x_i,x_j):=\delta_{y_i,y_j}d(z_i,z_j)^2+(1-\delta_{y_i,y_j})\Paren{m-d(z_i,z_j)^2}_+,\qquad z_i=f_\theta(x_i)
+$$
+という損失関数は **対照的損失** (contrastive loss) [@Chopra+2005] と呼ばれる．
+
+この損失はラベル $y_i,y_j$ が同一のデータ $x_i,x_j$ の潜在表現の距離を近づけ，ラベルが異なるデータは $m$ 以上は話すように埋め込み $f_\theta$ を学習する．
+
+この際に用いるニューラルネットワークは，同時に２つの入力 $x_i,x_j$ をとって学習することから，**双子ネットワーク** (Siamese network) とも呼ばれる．
+
+#### ３者比較に基づく目的関数 {#sec-triplet-loss}
+
+この方法は直ちに三子損失 (triplet loss) [@Schroff+2015]，$n$-ペア損失 ($n$-pair loss) [@Sohn2016], [@Oord+2018] に拡張された．
+
+このことにより，$x_i,x_j$ の「近さ」のスケールと「遠さ」のスケールが一致し，安定した結果が得られる．
+
+三子損失は，各データ $x_i$ に対して，「似ている」ペア $x_i^+$ と「似ていない」ペア $x_i^-$ を事前に選び，
+$$
+\L(\theta;x_i,x_i^+,x_i^-):=\Paren{d_\theta(x_i,x_i^+)^2-d_\theta(x_i,x_i^-)^2+m}_+,\qquad m\in\R
+$$
+と定められる．このとき，$x_i$ は参照点 (anchor) と呼ばれる．
+
+この方法は $x_i^+,x_i^-$ を選ばなければいけないが，その分拡張性に優れる．[ノイズ対照学習](NCL.qmd) の稿も参照．
+
+$n$-ペア損失では，負のデータ $x_i^-$ をさらに増やす．これは [@Oord+2019 Contrastive Predictive Coding] にて，[InfoMax の観点から表現学習に用いられたもの](NCL.qmd#sec-CPC)と一致する．
+
+#### ３者比較の加速
+
+負の例 $x_i^-$ を特に情報量が高いもの [hard negatives, @Faghri+2018] を選ぶことで，学習を加速させることができる．
+
+これは，３者損失を提案した Google の [FaceNet](https://en.wikipedia.org/wiki/FaceNet) [@Schroff+2015] で考えられた戦略である．
+
+クラスラベルが得られる場合，各クラスから代表的なデータを選んでおくことで $O(n)$ にまで加速できる [@Movshovitz-Attias+2017]．この代表点は固定して１つに定める必要はなく，ソフトな形で選べる [@Qian+2019]．
+
+## 終わりに {.appendix}
+
+ここで扱った深層距離学習は，現代的には[表現学習](NCL.qmd)として更なる発展を見ている．
+

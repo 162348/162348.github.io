@@ -52,6 +52,8 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
 <link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -86,6 +88,35 @@ div.csl-indent {
     "search-label": "Search"
   }
 }</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-kernel-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-kernel-listing'] = new List('listing-kernel-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
 <script type="text/javascript">
@@ -136,11 +167,11 @@ window.Quarto = {
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Hirofumi Shiba - 数学者のためのカーネル法概観">
 <meta property="og:description" content="数学者のために，カーネル法によるデータ解析が何をやっているのかを抽象的に説明する．カーネルとは対称な２変数関数であり，これを用いてデータ点を，データ空間上の関数に変換することで非線型変換を獲得するための道具である．">
-<meta property="og:image" content="https://162348.github.io/posts/2023/KernelMethods/assets/profile.jpg">
+<meta property="og:image" content="https://162348.github.io/posts/2023/KernelMethods/KernelMethods.svg">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - 数学者のためのカーネル法概観">
 <meta name="twitter:description" content="数学者のために，カーネル法によるデータ解析が何をやっているのかを抽象的に説明する．カーネルとは対称な２変数関数であり，これを用いてデータ点を，データ空間上の関数に変換することで非線型変換を獲得するための道具である．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2023/KernelMethods/assets/profile.jpg">
+<meta name="twitter:image" content="https://162348.github.io/posts/2023/KernelMethods/KernelMethods.svg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -191,7 +222,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">数学者のためのカーネル法概観</h1>
-            <p class="subtitle lead">Kernel Methods for Mathematicians</p>
+            <p class="subtitle lead">カーネル PCA と SVM を例として</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Kernel</div>
               </div>
@@ -241,7 +272,7 @@ window.Quarto = {
   <ul>
   <li><a href="#導入" id="toc-導入" class="nav-link active" data-scroll-target="#導入"><span class="header-section-number">1</span> 導入</a>
   <ul class="collapse">
-  <li><a href="#データの非線型変換としてのカーネル法" id="toc-データの非線型変換としてのカーネル法" class="nav-link" data-scroll-target="#データの非線型変換としてのカーネル法"><span class="header-section-number">1.1</span> データの非線型変換としてのカーネル法</a></li>
+  <li><a href="#データの非線型変換" id="toc-データの非線型変換" class="nav-link" data-scroll-target="#データの非線型変換"><span class="header-section-number">1.1</span> データの非線型変換</a></li>
   <li><a href="#sec-1-1" id="toc-sec-1-1" class="nav-link" data-scroll-target="#sec-1-1"><span class="header-section-number">1.2</span> カーネル法の歴史</a></li>
   <li><a href="#カーネル法の課題" id="toc-カーネル法の課題" class="nav-link" data-scroll-target="#カーネル法の課題"><span class="header-section-number">1.3</span> カーネル法の課題</a></li>
   </ul></li>
@@ -255,9 +286,9 @@ window.Quarto = {
   <li><a href="#データ解析のやり方" id="toc-データ解析のやり方" class="nav-link" data-scroll-target="#データ解析のやり方"><span class="header-section-number">3.1</span> データ解析のやり方</a></li>
   <li><a href="#例ridge回帰" id="toc-例ridge回帰" class="nav-link" data-scroll-target="#例ridge回帰"><span class="header-section-number">3.2</span> 例：Ridge回帰</a></li>
   <li><a href="#発展" id="toc-発展" class="nav-link" data-scroll-target="#発展"><span class="header-section-number">3.3</span> 発展</a></li>
-  <li><a href="#例主成分分析" id="toc-例主成分分析" class="nav-link" data-scroll-target="#例主成分分析"><span class="header-section-number">3.4</span> 例：主成分分析</a></li>
+  <li><a href="#sec-KPCA" id="toc-sec-KPCA" class="nav-link" data-scroll-target="#sec-KPCA"><span class="header-section-number">3.4</span> 例：主成分分析</a></li>
   <li><a href="#例svm" id="toc-例svm" class="nav-link" data-scroll-target="#例svm"><span class="header-section-number">3.5</span> 例：SVM</a></li>
-  <li><a href="#総括" id="toc-総括" class="nav-link" data-scroll-target="#総括"><span class="header-section-number">3.6</span> 総括</a></li>
+  
   </ul></li>
   </ul>
 </nav>
@@ -269,6 +300,136 @@ window.Quarto = {
 
 
 
+<div id="listing-kernel-listing" class="quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Bayesian,Kernel,Python" data-listing-date-sort="1707577200000" data-listing-file-modified-sort="1723364400171" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="592">
+<a href="../../../posts/2024/Kernels/GP.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../docs/posts/2024/Kernels/GP_files/figure-html/cell-10-output-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Gauss 過程を用いた統計解析
+</h5>
+<div class="card-subtitle listing-subtitle">
+実践編（回帰と分類）
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-11
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Bayesian,Kernel,Process" data-listing-date-sort="1707577200000" data-listing-file-modified-sort="1723364367142" data-listing-date-modified-sort="1723042800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="216">
+<a href="../../../posts/2024/Kernels/GP2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Gauss 過程を用いたベイズ推論
+</h5>
+<div class="card-subtitle listing-subtitle">
+理論編
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-11
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Kernel" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1723364402449" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="239">
+<a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+表現学習の概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+教師あり学習の枠組みを超えて
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="3" data-categories="Kernel" data-listing-date-sort="1710342000000" data-listing-file-modified-sort="1723208781093" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="48">
+<a href="../../../posts/2024/Kernels/Kernel1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<div class="listing-item-img-placeholder card-img-top" style="height: 150px;">&nbsp;</div>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+カーネル法１
+</h5>
+<div class="card-subtitle listing-subtitle">
+カーネル平均埋め込み
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-03-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="4" data-categories="Deep,Nature,Statistics" data-listing-date-sort="1722265200000" data-listing-file-modified-sort="1723364034997" data-listing-date-modified-sort="1723302000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="407">
+<a href="../../../posts/2024/Kernels/Manifold.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../../2024/Kernels/Images/UMAPvSNE.png" alt="UMAP and t-SNE applied to the Fashion MNIST dataset; tap to visit https://pair-code.github.io/understanding-umap/" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+次元縮約法の概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+最古にして最難のタスクと多様体学習
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-30
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="5" data-categories="Deep" data-listing-date-sort="1722178800000" data-listing-file-modified-sort="1723300830784" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="258">
+<a href="../../../posts/2024/Kernels/NCL.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../../2024/Kernels/Images/contrastive_repr4.jpeg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+表現学習とノイズ対照学習
+</h5>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-29
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
 <div class="hidden">
 <p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
 <p>$$</p>
@@ -276,10 +437,10 @@ window.Quarto = {
 </div>
 <section id="導入" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="導入"><span class="header-section-number">1</span> 導入</h2>
-<p>カーネル法はデータ解析の観点から見ると，非線型な前処理を施すことで，その後の線型なデータ解析の性能を向上させるための手法であると言える．</p>
-<p>これはニューラルネットワークと比較すると，カーネル関数を適応的に決められない一方で，可算無限個の基底を用いた無限次元の特徴空間上の表現を得ることが出来るという相違点がある．</p>
-<section id="データの非線型変換としてのカーネル法" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="データの非線型変換としてのカーネル法"><span class="header-section-number">1.1</span> データの非線型変換としてのカーネル法</h3>
+<p>カーネル法とは，非線型な前処理を施すことで，その後の線型なデータ解析の性能を向上させるための手法であると言える．</p>
+<p>これはニューラルネットワークと違いカーネル関数を決める段階が必要がある一方で，無限次元の特徴空間（再生核 Hilbert 空間）上の表現を得ることが出来るという美点がある．</p>
+<section id="データの非線型変換" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="データの非線型変換"><span class="header-section-number">1.1</span> データの非線型変換</h3>
 <p>線型手法が使えないときに，変数変換を挟むことで線型分離可能な問題に還元するという手法は広く見られる．</p>
 <section id="box-cox-変換" class="level4" data-number="1.1.1">
 <h4 data-number="1.1.1" class="anchored" data-anchor-id="box-cox-変換"><span class="header-section-number">1.1.1</span> Box-Cox 変換</h4>
@@ -299,13 +460,13 @@ x \longmapsto x^{(\lambda)} = \begin{cases}
 </section>
 </section>
 <section id="sec-1-1" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="sec-1-1"><span class="header-section-number">1.2</span> カーネル法の歴史<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></h3>
+<h3 data-number="1.2" class="anchored" data-anchor-id="sec-1-1"><span class="header-section-number">1.2</span> カーネル法の歴史</h3>
 <p>1992年，当時は2023年に生きる我々と全く同じく，ニューラルネットワーク（以降NN）のブームのさなかにあった（当時は第二期ブーム）．このブームを一度終わらせたのが，<span class="citation" data-cites="Boser+1992">(<a href="#ref-Boser+1992" role="doc-biblioref">Boser et al., 1992</a>)</span> によるカーネル法であった．</p>
 <p>当時は数学の範疇から出たことがなかったカーネルの概念を用いて，SVMを非線形化したKernel SVMという手法を提案したのである．以降，非線形問題を扱えるモデルとして，NNを凌ぐ勢いで発展し，NNがvanishing gradientsという障壁にぶつかったこともあり，2000年から2006年を「深層学習の冬」とまで言わしめた．</p>
 </section>
 <section id="カーネル法の課題" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="カーネル法の課題"><span class="header-section-number">1.3</span> カーネル法の課題</h3>
-<p>2006年というのは，<span class="citation" data-cites="Hinton+2006">(<a href="#ref-Hinton+2006" role="doc-biblioref">Hinton et al., 2006</a>)</span>, <span class="citation" data-cites="Hinton-Salakhutdinov2006">(<a href="#ref-Hinton-Salakhutdinov2006" role="doc-biblioref">Hinton and Salakhutdinov, 2006</a>)</span> の年である．この自己符号化器の発表がきっかけになり，DNNの訓練がますます効率的になり，一方でKernel SVMは次の2つの障壁に直面しており，現在のDNN最強の時代を我々は見ている．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>2006年というのは，<span class="citation" data-cites="Hinton+2006">(<a href="#ref-Hinton+2006" role="doc-biblioref">Hinton et al., 2006</a>)</span>, <span class="citation" data-cites="Hinton-Salakhutdinov2006">(<a href="#ref-Hinton-Salakhutdinov2006" role="doc-biblioref">Hinton and Salakhutdinov, 2006</a>)</span> の年である．この自己符号化器の発表がきっかけになり，DNNの訓練がますます効率的になり，一方でKernel SVMは次の2つの障壁に直面しており，現在のDNN最強の時代を我々は見ている．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 <ol type="1">
 <li>種々のタスクに対して，最適なカーネルが何かがわかっていない．</li>
 <li>データ数が多すぎると実行不可能になる．</li>
@@ -331,7 +492,7 @@ x \longmapsto x^{(\lambda)} = \begin{cases}
 <p>関数 <span class="math inline">\(k:\Omega\times\Omega\to\mathbb{R}\)</span> が<strong>正定値カーネル</strong>であるとは，次の２条件を満たすことをいう：</p>
 <ol type="1">
 <li>対称性：<span class="math inline">\(k(x,y)=k(y,x)\)</span>．</li>
-<li>正値性：任意有限個の点 <span class="math inline">\(x_1,\cdots,x_n\in\Omega\)</span> に対し，行列 <span class="math inline">\(\bigl(k(x_i,x_j)\bigr)^n_{i,j=1}\)</span> は半正定値：<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> <span class="math display">\[
+<li>正値性：任意有限個の点 <span class="math inline">\(x_1,\cdots,x_n\in\Omega\)</span> に対し，行列 <span class="math inline">\(\bigl(k(x_i,x_j)\bigr)^n_{i,j=1}\)</span> は半正定値：<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> <span class="math display">\[
   \sum_{i,j=1}^nc_ic_jk(x_i,x_j)\ge0,\qquad c_i\in\mathbb{R}.
 \]</span></li>
 </ol>
@@ -366,7 +527,7 @@ x \longmapsto x^{(\lambda)} = \begin{cases}
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>任意の集合 <span class="math inline">\(\Omega\)</span> 上の正定値カーネル <span class="math inline">\(k\)</span> に対して，<span class="math inline">\(\Omega\)</span> 上の関数からなるHilbert空間 <span class="math inline">\(H_k\)</span> であって，以下を満たすものが一意に定まる：<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>任意の集合 <span class="math inline">\(\Omega\)</span> 上の正定値カーネル <span class="math inline">\(k\)</span> に対して，<span class="math inline">\(\Omega\)</span> 上の関数からなるHilbert空間 <span class="math inline">\(H_k\)</span> であって，以下を満たすものが一意に定まる：<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
 <ol type="1">
 <li><span class="math inline">\(k(-,x)\in H_k\;(\forall_{x\in\Omega})\)</span>．</li>
 <li>（再生性）<span class="math inline">\((f\,|\,k(-,x))_{H_k}=f(x)\)</span>．</li>
@@ -437,7 +598,7 @@ x \longmapsto x^{(\lambda)} = \begin{cases}
 <p><span class="math display">\[
   f=f_\Phi:=\sum_{i=1}^nc_i\Phi(X_i)
 \]</span></p>
-<p>という形のみで解を探せば良いことが判る．これは <span class="math inline">\(f=f_\Phi\oplus f_\perp\)</span> という直交分解を考えることで従う．つまり，最適化はデータ点 <span class="math inline">\(\Phi(X_1),\cdots,\Phi(X_n)\)</span> の張る有限次元部分空間上のみで考えれば良い．この事実にはRepresenter定理という仰々しい名前がついている．</p>
+<p>という形のみで解を探せば良いことが判る．これは <span class="math inline">\(f=f_\Phi\oplus f_\perp\)</span> という直交分解を考えることで従う．つまり，最適化はデータ点 <span class="math inline">\(\Phi(X_1),\cdots,\Phi(X_n)\)</span> の張る有限次元部分空間上のみで考えれば良い．この事実には representer 定理 <span class="citation" data-cites="Kimeldorf-Wahba1970">(<a href="#ref-Kimeldorf-Wahba1970" role="doc-biblioref">Kimeldorf and Wahba, 1970</a>)</span>, <span class="citation" data-cites="Scholkopf+2001">(<a href="#ref-Scholkopf+2001" role="doc-biblioref">Schölkopf et al., 2001</a>)</span> という名前がついている．</p>
 <p>すると目的関数は</p>
 <p><span class="math display">\[
 \frac{1}{N}\sum_{i=1}^N\biggl(Y_i-\sum_{j=1}^Nc_jk(X_i,X_j)\biggr)^2+\lambda\underbrace{\sum_{i,j=1}^Nc_ic_jk(X_i,X_j)}_{=c^\top Kc}
@@ -453,16 +614,16 @@ x \longmapsto x^{(\lambda)} = \begin{cases}
 </section>
 <section id="発展" class="level3" data-number="3.3">
 <h3 data-number="3.3" class="anchored" data-anchor-id="発展"><span class="header-section-number">3.3</span> 発展</h3>
-<p>ここで，最初の節 <a href="#sec-1-1" class="quarto-xref">節&nbsp;1.2</a> で紹介した2つの問題点に戻る．</p>
+<p>第 <a href="#sec-1-1" class="quarto-xref">1.2</a> 節で紹介した2つの問題点に戻る．</p>
 <ol type="1">
 <li>種々のタスクに対して，最適なカーネルが何かがわかっていない．</li>
 <li>データ数が多すぎると実行不可能になる．</li>
 </ol>
 <p>この2.について，カーネルRidge回帰の例だと，逆行列 $<span class="math inline">\((K+n\lambda_nI_n)^{-1}\)</span> の計算が実行不可能になるという形で現前する．しかし，Woodburyの公式から，低ランク近似が得られていれば，それを活用できる．一般にGram行列の固有値の減衰は速いことが知られており，この低ランク近似の戦略は筋が良いと言える．</p>
-<p>1.について，まずSVMなどの教師あり学習の設定では，CVを使うことでカーネル選択をすることができる．が，教師なし学習では一般的な方法はない．特にカーネル主成分分析（次節の例）．しかし，これを適応的に学習するというのは良いアイデアだろう．Multiple Kernel Learning <span class="citation" data-cites="Gonen+2011">(<a href="#ref-Gonen+2011" role="doc-biblioref">Gönen and Alpaydin, 2011</a>)</span> はカーネルの凸結合を学習し，Deep Kernel Learning <span class="citation" data-cites="Wilson+2016">(<a href="#ref-Wilson+2016" role="doc-biblioref">Wilson et al., 2016</a>)</span> はNNによってカーネルを学習する．</p>
+<p>1.について，まずSVMなどの教師あり学習の設定では，CVを使うことでカーネル選択をすることができる．が，教師なし学習では一般的な方法はない．特にカーネル主成分分析（次節の例）．しかし，これを適応的に学習するというのは良いアイデアだろう．Multiple Kernel Learning <span class="citation" data-cites="Gonen+2011">(<a href="#ref-Gonen+2011" role="doc-biblioref">Gönen and Alpaydin, 2011</a>)</span> はカーネルの凸結合を学習し，<a href="../../../posts/2024/Kernels/GP2.html#sec-DKL">Deep Kernel Learning</a> <span class="citation" data-cites="Wilson+2016">(<a href="#ref-Wilson+2016" role="doc-biblioref">Wilson et al., 2016</a>)</span> はNNによってカーネルを学習する．</p>
 </section>
-<section id="例主成分分析" class="level3" data-number="3.4">
-<h3 data-number="3.4" class="anchored" data-anchor-id="例主成分分析"><span class="header-section-number">3.4</span> 例：主成分分析</h3>
+<section id="sec-KPCA" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="sec-KPCA"><span class="header-section-number">3.4</span> 例：主成分分析</h3>
 <p>主成分分析を抽象的に理解すれば，分散が大きい方向に射影をすることで，「意味がある方向」を見つける手法なのであった．</p>
 <p>主成分方向とは</p>
 <p><span class="math display">\[
@@ -500,9 +661,13 @@ v\in\left\{\sum_{j=1}^nc_j\Phi(x_j)\in H_k\;\middle|\;c_j\in\mathbb{R}\right\}
 \text{subject to}\quad\lambda_i\left(\sum_{j=1}^nc_jk(x_i,x_j)+\gamma\right)\ge1\quad(i\in[n])
 \]</span> という，やはり凸二次計画問題を解けば良い．</p>
 </section>
-<section id="総括" class="level3" data-number="3.6">
-<h3 data-number="3.6" class="anchored" data-anchor-id="総括"><span class="header-section-number">3.6</span> 総括</h3>
-<div class="callout callout-style-default callout-note no-icon callout-titled">
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level3 appendix" data-number="3.6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3.6</span> 文献紹介</h2><div class="quarto-appendix-contents">
+
+<div class="callout callout-style-simple callout-note no-icon callout-titled" title="まとめ">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
@@ -515,20 +680,12 @@ v\in\left\{\sum_{j=1}^nc_j\Phi(x_j)\in H_k\;\middle|\;c_j\in\mathbb{R}\right\}
 <p>典型的には，線型手法の目的関数が <span class="math inline">\((\Phi(X_i)|\Phi(X_j)),(f|\Phi(X_i))\)</span> で表現され，さらに解がデータ数の次元を持った有限次元部分空間で見つかる．その結果，Gram行列の解析に帰着し，データ数 <span class="math inline">\(n\)</span> に依存するが，個々のデータの形式に依らない！データはベクトルでなく，カーネルが定義できさえすれば，確率分布自体でも問題がない．</p>
 </div>
 </div>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="KernelMethods.jpg" class="img-fluid figure-img"></p>
-<figcaption>book cover</figcaption>
-</figure>
-</div>
+<p>歴史と題した第 <a href="#sec-1-1" class="quarto-xref">1.2</a> 節は <span class="citation" data-cites="Ghojogh+2021">(<a href="#ref-Ghojogh+2021" role="doc-biblioref">Ghojogh et al., 2021</a>)</span> も参考にした．</p>
 
 
 
-</section>
-</section>
 
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-Aronszajn50-ReproducingKernels" class="csl-entry" role="listitem">
 Aronszajn, N. (1950). Theory of reproducing kernels. <em>Transactions of the American Mathematical Society</em>, <em>68</em>(3), 337–404.
 </div>
@@ -550,11 +707,17 @@ Hinton, G. E., Esindero, S., and Teh, Y.-W. (2006). <a href="https://direct.mit.
 <div id="ref-Hinton-Salakhutdinov2006" class="csl-entry" role="listitem">
 Hinton, G. E., and Salakhutdinov, R. R. (2006). <a href="https://www.science.org/doi/10.1126/science.1127647">Reducing the dimensionality of data with neural networks</a>. <em>Science</em>, <em>313</em>(5786), 504–507.
 </div>
+<div id="ref-Kimeldorf-Wahba1970" class="csl-entry" role="listitem">
+Kimeldorf, G. S., and Wahba, G. (1970). <a href="http://www.jstor.org/stable/2239347">A correspondence between bayesian estimation on stochastic processes and smoothing by splines</a>. <em>The Annals of Mathematical Statistics</em>, <em>41</em>(2), 495–502.
+</div>
+<div id="ref-Scholkopf+2001" class="csl-entry" role="listitem">
+Schölkopf, B., Herbrich, R., and Smola, A. J. (2001). A generalized representer theorem. In D. Helmbold and B. Williamson, editors, <em>Computational learning theory</em>, pages 416–426. Berlin, Heidelberg: Springer Berlin Heidelberg.
+</div>
 <div id="ref-Tarzanagh+2023" class="csl-entry" role="listitem">
 Tarzanagh, D. A., Li, T., Thrampoulidis, C., and Oymak, S. (2023). <em><a href="https://arxiv.org/abs/2308.16898">Transformers as support vector machines</a></em>.
 </div>
 <div id="ref-Wilson+2016" class="csl-entry" role="listitem">
-Wilson, A. G., Hu, Z., Salakhutdinov, R., and Xing, E. P. (2016). Deep kernel learning. <em>Proceedings of the 19th International Conference on Artificial Intelligence and Statistics</em>, <em>51</em>, 370–378.
+Wilson, A. G., Hu, Z., Salakhutdinov, R., and Xing, E. P. (2016). <a href="https://proceedings.mlr.press/v51/wilson16.html">Deep kernel learning</a>. <em>Proceedings of the 19th International Conference on Artificial Intelligence and Statistics</em>, <em>51</em>, 370–378.
 </div>
 <div id="ref-Hardle+2004" class="csl-entry" role="listitem">
 Wolfgang Härdle, M. M., Axel Werwatz, and Sperlich, S. (2004). <em>Nonparametric and semiparametric models</em>. Springer Berlin, Heidelberg.
@@ -563,10 +726,9 @@ Wolfgang Härdle, M. M., Axel Werwatz, and Sperlich, S. (2004). <em>Nonparametri
 
 <ol>
 <li id="fn1"><p><span class="citation" data-cites="Hardle+2004">(<a href="#ref-Hardle+2004" role="doc-biblioref">Wolfgang Härdle and Sperlich, 2004, p. 162</a>)</span><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><span class="citation" data-cites="Ghojogh+2021">(<a href="#ref-Ghojogh+2021" role="doc-biblioref">Ghojogh et al., 2021</a>)</span> など参考．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>一方でここにきて，現代におけるDNNの最先端とも言えるTransformerをSVMとみなせる，という報告も出てきた <span class="citation" data-cites="Tarzanagh+2023">(<a href="#ref-Tarzanagh+2023" role="doc-biblioref">Tarzanagh et al., 2023</a>)</span><a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p>このようにして構成される行列をGram行列と呼ぶ．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p><span class="citation" data-cites="Aronszajn50-ReproducingKernels">(<a href="#ref-Aronszajn50-ReproducingKernels" role="doc-biblioref">Aronszajn, 1950</a>)</span> 参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>一方でここにきて，現代におけるDNNの最先端とも言えるTransformerをSVMとみなせる，という報告も出てきた <span class="citation" data-cites="Tarzanagh+2023">(<a href="#ref-Tarzanagh+2023" role="doc-biblioref">Tarzanagh et al., 2023</a>)</span><a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>このようにして構成される行列をGram行列と呼ぶ．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Aronszajn50-ReproducingKernels">(<a href="#ref-Aronszajn50-ReproducingKernels" role="doc-biblioref">Aronszajn, 1950</a>)</span> 参照．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

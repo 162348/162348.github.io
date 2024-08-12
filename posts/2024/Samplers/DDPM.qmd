@@ -1,7 +1,7 @@
 ---
 title: "拡散模型の実装"
 subtitle: "PyTorch によるハンズオン"
-author: "司馬 博文"
+author: "司馬博文"
 date: 8/2/2024
 date-modified: 8/5/2024
 categories: [Deep, Sampling, Python]
@@ -11,13 +11,13 @@ bibliography:
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．今回は `PyTorch` を用いて，DDPM の実装の概要を見る．
+abstract: 今回は `PyTorch` を用いて， Ho et. al. [NeurIPS 33(2020)] による DDPM (Denoising Diffusion Probabilistic Model) の実装の概要を見る．DDPM は拡散模型の最初の例の１つであり，ノイズからデータ分布まで到達するフローを定める拡散過程（雑音除去過程）を，データをノイズにする拡散過程の時間反転として学習する方法である．画像や動画だけでなく，離散空間上でタンパク質などの構造生成でも state of the art の性能を示すモデルである．
 code-fold: false
 # execute:
 #     eval: false
 ---
 
-{{< include ../../../_preamble.qmd >}}
+{{< include ../../../assets/_preamble.qmd >}}
 
 ## ハイパーパラメーターの設定
 
@@ -44,7 +44,7 @@ dataset_path = '~/hirofumi/datasets'
 ```
 
 ```{python}
-DEVICE = torch.device("mps")
+DEVICE = torch.device("mps")  # MacOS 上で実行しました
 
 dataset = 'MNIST'
 img_size = (32, 32, 3)   if dataset == "CIFAR10" else (28, 28, 1) # (width, height, channels)
@@ -58,7 +58,7 @@ beta_minmax=[1e-4, 2e-2]
 train_batch_size = 128
 inference_batch_size = 64
 lr = 5e-5
-epochs = 100
+epochs = 300
 
 seed = 1234
 
@@ -97,9 +97,11 @@ test_loader  = DataLoader(dataset=test_dataset,  batch_size=inference_batch_size
 
 ### タイムステップ $t$ の位置埋め込み
 
-[@Ho+2020] ではトランスフォーマー [@Vaswani+2017] 同様の sinusoidal positional encoding を用いてタイムステップ $t$ の情報をデータに統合したものが，パラメータの共有された CNN に与えられる．
+[@Ho+2020] ではトランスフォーマー [@Vaswani+2017] 同様の sinusoidal positional encoding を用いて `timestep_embedding_dim = 256` 次元の潜在表現を得て，タイムステップ $t$ の情報をデータに統合する．
 
-こうすることで `n_timesteps = 1000` の別々の NN を訓練するより遥かに効率的に設計できている．
+そのタイムステップが統合されたデータが，同一に CNN に与えられ，その CNN のパラメータが学習される．
+
+こうすることで `n_timesteps = 1000` の別々の NN を訓練するより遥かに効率的な学習が可能である．
 
 ```{python}
 class SinusoidalPosEmb(nn.Module):
@@ -119,7 +121,7 @@ class SinusoidalPosEmb(nn.Module):
 
 ### ニューラルネットワークの構成
 
-ここでは同じ次元の CNN を重ねて作ることとする．[@Ho+2020] では U-Net [@Ronneberger+2015] アーキテクチャを用いている．
+[@Ho+2020] では U-Net [@Ronneberger+2015] アーキテクチャを用いているが，ここでは同じ次元の CNN を `n_layers=8` 層重ねて作ることとする．
 
 ```{python}
 class ConvBlock(nn.Conv2d):
@@ -332,7 +334,6 @@ print("Number of model parameters: ", count_parameters(diffusion))
 ```
 
 ```{python}
-#| code-fold: true
 #| code-summary: データセットの読み込みと show_image() の定義
 model.eval()
 for batch_idx, (x, _) in enumerate(test_loader):
@@ -349,7 +350,6 @@ def show_image(x, idx):
 ```{python}
 #| layout-ncol: 3
 #| label: fig-encoding
-#| fig-cap: 左がテストデータ，右に行くほど完全なノイズに近づく．
 show_image(perturbed_images, idx=0)
 show_image(perturbed_images, idx=1)
 show_image(perturbed_images, idx=2)
@@ -387,20 +387,25 @@ total_time = time.time() - start_time
 print("Finish!! Total time: ", total_time)
 ```
 
-::: {.callout-important title="注" collapse="true" icon="false"}
+::: {.callout-important title="注（訓練時間が長すぎる）" collapse="true" icon="false"}
 
 この訓練コードも，前述の `train_loader` の定義が `if __name__ == '__main__':` と同じ `if` ブロックに入れる必要がある．
 
-さもなくば，並列処理が実行できず，訓練には大変な時間がかかる．^[`kwargs = {'num_workers': 5, 'pin_memory': True, 'prefetch_factor': 2}` でも１エポック 12 分以上なので，40 時間以上はかかる．さらにこの場合エポック 18 で `RuntimeError: Shared memory manager connection has timed out` を得たため，`num_workers=0` とせざるを得なかった．]
+そのため，別の Python ファイルで実行することにしたが，やはり訓練には大変な時間がかかる．
 
-そこでここでは別の Python ファイル ([Google Colab](https://colab.research.google.com/drive/15IkmB8yijkfV7mRZieZkrD1oXDDHDrA5?usp=sharing)) で実行して，結果を読み込むこととする．
+`kwargs = {'num_workers': 5, 'pin_memory': True, 'prefetch_factor': 2}` でも１エポック 12 分以上なので，40 時間以上はかかる．さらにこの場合エポック 18 で `RuntimeError: Shared memory manager connection has timed out` を得たため，`num_workers=0` とせざるを得なかった．
+
+と考えたが，どうやらデータの読み込みは全くボトルネックになっておらず，`num_workers=0` に設定したことは訓練時間には何の影響もなかった．
+
+このような考察は[次稿](DDPM1.qmd)に譲り，ここでは別の Python ファイル ([Google Colab](https://colab.research.google.com/drive/15IkmB8yijkfV7mRZieZkrD1oXDDHDrA5?usp=sharing)) で実行して，結果を読み込むこととする．
 
 ```{python}
 model.eval()
-generated_images = torch.load("Files/generated_images0.pt")
+
+generated_images = torch.load("Files/generated_images1.pt", map_location=torch.device('cpu'))
 ```
 
-GPU に乗った状態で読み込まれることに注意．
+`map_location=torch.device('cpu')` を省略すると，デフォルトでは GPU に乗った状態で読み込まれることに注意．
 
 :::
 
@@ -466,3 +471,5 @@ draw_sample_image(x[:inference_batch_size], "Ground-truth Images")
 ## 参考 {.appendix}
 
 本稿は，[Minsu Jackson Kang 氏](https://velog.io/@mskang/about) による [チュートリアル](https://github.com/Jackson-Kang/Pytorch-Diffusion-Model-Tutorial) を参考にした．
+
+300 エポック `epochs = 300` 回したのに生成された画像が思ったよりも鮮明でない．これはエポックを増やせば解決するのか？他の設定が微妙なのだろうか？
