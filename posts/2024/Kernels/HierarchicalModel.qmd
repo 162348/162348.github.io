@@ -3,6 +3,7 @@ title: "階層模型再論"
 author: "司馬 博文"
 date: 8/12/2024
 date-modified: 8/12/2024
+image: Images/PCA.svg
 categories: [Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -51,3 +52,110 @@ listing:
 しかし，数学的には全く同じ枠組みで記述できる．従って，そのように扱うことは一定の価値を持つだろう．
 
 本稿では問題とする潜在変数モデルを線型かつ１層に固定し，それぞれの文脈での「使い方の違い」に注目することを目指す．
+
+## 主成分分析 (PCA) {#sec-PCA}
+
+### はじめに
+
+主成分分析では，$p$ 次元のデータ $\{x_i\}_{i=1}^n\subset\R^p$ の各成分を，より少数の潜在変数を持った１層の線型 Gauss 模型
+
+![](Images/PCA.svg)
+
+で説明しようとする．
+
+最も，このような潜在変数モデルとしての見方とベイズ推定による一般化は probabilistic PCA [@Tipping-Bishop1999] / SPCA (Sensible PCA) [@Roweis1997] として初めて自覚された見方である．
+
+$Z^1,\cdots,Z^r$ 上の事前分布がデルタ分布に縮退している場合が古典的な PCA である [@Roweis1997]．
+
+いずれの場合も追加の過程なくしてモデルは識別可能性がなく，後続タスクに応じて種々の制約を追加することで所望の解を得る，という動的な使い方がなされる．
+
+以降，$X\in\L(\Om;\R^p),Z\in\L(\Om;\R^r)$ を確率変数，
+$$
+\b{X}=(x_i^j)\in M_{n,p}(\R),\b{Z}=(z_i^j)\in M_{n,r}(\R)
+$$
+を行列として，probabilistic PCA の見方を先に提示し，その特別な場合として種々の特殊化手法を見る．
+
+### 概要
+
+これは，データ行列を
+$$
+\b{X}:=\vctrr{x_1^\top}{\vdots}{x_n^\top}\in M_{n,p}(\R)
+$$
+で定めたとき，データ次元 $p$ より小さい数の成分 $r$ で説明しようとする：
+$$
+\b{X}\approx\b{Z}C^\top,\qquad\b{Z}:=\vctrr{z_1^\top}{\vdots}{z_n^\top}\in M_{n,r}(\R),C\in M_{p,r}(\R).
+$$
+
+この問題は $\b{X}$ の [特異値分解](../FunctionalAnalysis/SVD.qmd) (SVD) $\b{X}=U\Sigma V^\top$ により解ける：
+$$
+\b{Z}=U\Sigma_{1:r}^\al A=\b{X}(\underbrace{V\Sigma^{\al-1}_{1:r}A}_{=:W}),\qquad C:=V\Sigma_{1:r}^{1-\al}(A^{-1})^\top.
+$$
+ただし，$\al\in\R,A\in\GL_p(\R)$ は任意である．この解は，特異値分解の性質により，残差を Hilbert-Schmidt ノルムの意味で最小にする：
+$$
+\min_C\norm{\b{X}-\b{Z}C^\top}_\HS=\min_C\frac{1}{n}\sum_{i=1}^n\abs{x_i-Cz_i}^2=\sigma_{r+1}
+$$ {#eq-PCA-objective}
+この目的関数は復元誤差とも理解できる．ただし，$\sigma_{r+1}$ は行列 $\b{Z}C$ の第 $r+1$ 特異値である．
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* 古典的には，$z_{ij}$ を（主成分）**得点** (score)，$c_{ij}$ を **負荷量** (loading) ともいう [@足立-山本2024]．
+* 機械学習では $Z^1,\cdots,Z^r$ を **潜在因子**，$W\in M_{pr}(\R)$ を **荷重** (weight) ともいう [@Murphy2022]．
+
+:::
+
+### 主成分分散最大化
+
+荷重行列 $W$ が $W^\top W=I_r$ を満たすという制約条件を追加すると，目的関数 ([-@eq-PCA-objective]) は潜在変数の分散を最大にすることと等価になる：
+$$
+\argmin_{W}\norm{\b{X}-\b{Z}W}_\HS=\argmin_W\Tr((\b{X}W)^\top\b{X}W).
+$$ {#eq-PCA-objective2}
+
+すなわち，$\b{Z}=\b{X}W$ の変動が差大になるようにすれば良いが，そのためには，確率変数 $X$ のデータ行列 $\b{X}$ から計算した経験共分散行列 $S\in M_{p}(\R)_+$ の固有ベクトルのうち，対応する固有値が大きいものから $w_1,\cdots,w_r$ として荷重行列とすれば良い：
+$$
+W:=(w_1\;\cdots\;w_r).
+$$
+
+実はこれは解の１つに過ぎず，$W$ に右から直交行列を乗じて「回転」させたものは全て解になる．上の解は追加の条件 $Z^\top Z=I_r$ を課すことで特定される．
+
+### 計算上の注意
+
+各次元に関する長さのスケールを揃えるために，PCA を始める前にデータを正規化しておくか，または共分散行列 $S$ の代わりに，相関行列を用いるべきである．
+
+また，実際に最適化や相関行列の固有値分解をすることはなく，基本的に SVD の方が $O(np^2)+O(p^3)$ と高速である．さらに次元 $p$ が高い場合は，**確率的 SVD** [@Halko+2011], [@Drineas+2016] を用いてさらに $O(nr^2)+(r^3)$ まで削減できる．このような手法は確率的数値解析と呼ばれる [@Murray+2023]．
+
+### 線型射影による次元縮約 {#sec-dimension-reduction}
+
+$W^\top W=I_r$ の仮定の下での PCA の目的関数 ([-@eq-PCA-objective]) は，潜在変数の分散最大化 ([-@eq-PCA-objective2]) の他に，データ変数 $X$ の最小誤差の線型射影を求める問題とも見れる：
+$$
+\argmin_W\norm{\b{X}-\b{Z}W}_\HS=\argmin_W\norm{\b{X}-\b{X}WW^\top}_\HS.
+$$
+
+なお，一般の行列 $A$ について $P_A=A(A^{-1}A)^+A^\top$ は $\Im A$ 上の直交射影になる．$A$ が直交行列であるとき，$P_A=AA^\top$ が成り立つ．
+
+### 因子分析志向の主成分分析
+
+因子分析では，$Z^1,\cdots,Z^r$ を対等な因子と見て，それぞれのデータへの影響を調べたい．このような場合は，
+$$
+\frac{1}{n}\b{Z}^\top\b{Z}=I_r
+$$
+が自然な制約になる．この際の解は，直交行列 $T\in O_r(\R)$ の違いを除いて，
+$$
+\b{Z}=\sqrt{n}UT,\qquad C=\frac{1}{\sqrt{n}}V\Sigma_{1:r}T,\qquad W=\sqrt{n}V\Sigma_{1:r}^{-1}T,
+$$
+まで確定する．
+
+しばしば，追加の仮定
+$$
+C^\top C=\diag(\rho_{1:r}),\qquad \rho_1\ge\cdots\ge\rho_r\ge0
+$$
+を課して得られる一意な解
+$$
+\b{Z}=\sqrt{n}U,\qquad C=\frac{1}{\sqrt{n}}V\Sigma_{1:r},\qquad W=\sqrt{n}V\Sigma_{1:r}^{-1},
+$$
+を **初期解** と呼び，これを「回転」させることで他の解が探索され，所望の分解を探す．
+
+因子分析では [@Thurstone1947] 以来，種々の回転法とアルゴリズムが蓄積している [@足立-山本2024]．一般にこの文脈では，[@Thurstone1947] にいう「単純構造」を達成した，解釈が容易な因子をドメイン知識に基づいて構成することを目指す．この「単純構造」とは，現代でいう一種の disentangled factor と理解できる．
+
+## 因子分析 (FA)
+
+主成分分析が「低階数近似」ならば，因子分析は「高階数近似」というべきである [@足立浩平2023]．
