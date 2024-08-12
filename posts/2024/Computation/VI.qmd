@@ -3,22 +3,39 @@ title: "変分推論１"
 subtitle: "K-平均アルゴリズム"
 author: "司馬博文"
 date: 2/3/2024
-date-modified: 2/17/2024
+date-modified: 8/12/2024
 categories: [Computation, Python]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 数学者のために，変分推論の基本的な考え方を説明するシリーズであるが，今回は変分 Bayes アルゴリズムの特殊な場合である EM アルゴリズムの，さらにその特殊な場合である $K$-平均法の説明から始める．$K$-平均法は第一義的にはモデルフリーの（確率論と関係のない）クラスタリングアルゴリズムである．
-# jupyter: genai
+abstract: |
+    本稿では，[$K$-平均アルゴリズム](https://ja.wikipedia.org/wiki/K%E5%B9%B3%E5%9D%87%E6%B3%95) によるクラスタリングの考え方と問題点を，Python による実演を通じてみる．[次稿](VI2.qmd) で，$K$-平均アルゴリズムの model-aware な一般化として [EM アルゴリズム](https://ja.wikipedia.org/wiki/EM%E3%82%A2%E3%83%AB%E3%82%B4%E3%83%AA%E3%82%BA%E3%83%A0) を説明し，その共通の問題点「初期値依存性」と「局所解へのトラップ」の数理的な理解を目指す．
+listing: 
+    -   id: vi-listing
+        type: grid
+        sort: false
+        contents:
+            - VI2.qmd
+            - VI3.qmd
+            - ../Kernels/Kernel.qmd
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-本稿では，[$K$-平均アルゴリズム](https://ja.wikipedia.org/wiki/K%E5%B9%B3%E5%9D%87%E6%B3%95) によるクラスタリングの考え方と問題点を，Python による実演を通じてみる．次の [稿](VI2.qmd) で，$K$-平均アルゴリズムの確率的な一般化として [EM アルゴリズム](https://ja.wikipedia.org/wiki/EM%E3%82%A2%E3%83%AB%E3%82%B4%E3%83%AA%E3%82%BA%E3%83%A0) を説明し，その共通の問題点「初期値依存性」と「局所解へのトラップ」の数理的な理解を目指す．
+
 
 より図が見やすい PDF 版は [こちら](report1.pdf)．
+
+### 関連ページ {.unnumbered .unlisted}
+
+::: {#vi-listing}
+:::
+
 
 ## 導入
 
@@ -28,7 +45,7 @@ abstract: 数学者のために，変分推論の基本的な考え方を説明�
 
 一方で原論文 [@Lloyd1982] では，[パルス符号変調](https://ja.wikipedia.org/wiki/%E3%83%91%E3%83%AB%E3%82%B9%E7%AC%A6%E5%8F%B7%E5%A4%89%E8%AA%BF) の文脈で，アナログ信号の量子化の方法として提案している．^[Lloyd は 1957 年には発表していたが，論文の形になったのが 1982 である．$K$-means という名前の初出は [@MacQueen1967] とされている．]
 
-実際，いまでも $K$-平均法は（非可逆）データ圧縮に用いられる．クラスター中心での画像の値と，それ以外では帰属先のクラスター番号のみを保存すれば良いというのである．このようなアプローチを **ベクトル量子化** (vector quantization) という．^[[@MacKay2003 p.284]，[@Bishop2006 p.429]．クラスター中心は **符号表ベクトル** または 代表ベクトル (code-book vector) という．]
+実際，$K$-平均法は（非可逆）データ圧縮にも用いられる．クラスター中心での画像の値と，それ以外では帰属先のクラスター番号のみを保存すれば良いというのである．このようなアプローチを **ベクトル量子化** (vector quantization) という．^[[@MacKay2003 p.284]，[@Bishop2006 p.429]，[@Murphy2022 p.722] 21.3.3節．クラスター中心は **符号表ベクトル** または 代表ベクトル (code-book vector) という．]
 
 ソフト $K$-平均法とは，このようなデータ点のクラスターへの一意な割り当てを，ソフトマックス関数を用いて軟化したアルゴリズムであり，多少アルゴリズムとしての振る舞いは改善するとされている．
 
@@ -40,7 +57,23 @@ J:=\sum_{n=1}^N\sum_{k=1}^Kr_{nk}\norm{x_n-\mu_k}^2
 $$
 という損失関数の逐次最小化アルゴリズムとみなせる．
 
-この見方は，[ML アルゴリズム](VI2.qmd) への一般化の軸となる．
+この見方は，[EM アルゴリズム](VI2.qmd) への一般化の軸となる．
+
+しかしこの目的関数 $J$ が非凸関数であることが，第 [-@sec-result] 節で示す実験結果で見る通り，アルゴリズムに強い初期値依存性をもたらす．
+
+### $K$-平均法の変種
+
+#### $K$-means++
+
+$K$-平均法アルゴリズムの初期値依存性を，クラスタがより互いに離れるようにクラス割り当て法を修正することで対策した **最遠点クラスタリング** [@Gonzalez1985] が提案された．これは **$K$-means++** [@David-Sergei2007] とも呼ばれており，データ圧縮法として用いた場合は復元誤差が $O(\log K)$ でバウンド出来ることも示されている．
+
+#### $K$-medoids
+
+[medoid](https://en.wikipedia.org/wiki/Medoid) とは，データの間に何らかの「類似度」が定義されている際に，クラスター内で他データ点との類似度が最大になる点を意味する．
+
+この medoid を mean の代わりに用いたアルゴリズムは，データ内の外れ値により強くなるとされる．
+
+$K$-medoids クラスタリングを行うアルゴリズムに Partitioning Around Medoids (PAM) [@Kaufmann-Rousseeuw1987] や Voronoi iteration [@Park-Jun2009] が知られている．
 
 ### 用いるデータ {#sec-data}
 
@@ -1345,7 +1378,7 @@ print(f'正解数: {num_correct5} vs. {num_correct6}     正解率: {accr5*100:.
 ```
 
 
-## 実験結果まとめ
+## 実験結果まとめ {#sec-result}
 
 ::: {.callout-note icon="false" title="結論"}
 * データ [-@sec-data] に対して，（初期値 $(m'_1,m_2,m_3)$ で）ソフト $K$-平均法を適用すると，
@@ -1363,4 +1396,4 @@ print(f'正解数: {num_correct5} vs. {num_correct6}     正解率: {accr5*100:.
 
 の問題が未解決であり，恣意性が残る．
 
-誰がどう使ってもうまくいくようなアルゴリズムであると言うことは出来ない．
+これを，ベイズ混合モデリングにより解決する方法を[次稿](VI2.qmd)で紹介する．
