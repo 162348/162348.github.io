@@ -3,7 +3,7 @@ title: "非線型な次元縮約法の概観"
 subtitle: "最古にして最難のタスクと多様体学習"
 author: "司馬博文"
 date: 7/30/2024
-date-modified: 8/14/2024
+date-modified: 8/15/2024
 image: Images/UMAPvSNE.png
 categories: [Deep, Nature, Statistics, Geometry]
 bibliography: 
@@ -130,9 +130,9 @@ MDU ではさらに一般的な行列 $D$ を取ることができる．とい�
 
 MDS 法の難点の１つに，データがある部分多様体上に存在する場合，その部分多様体上の測地距離を尊重できないという点がある．
 
-この測地距離を，グラフにより捉える手法が Isomap [@Tenenbaum+2000] である．
+このデータの部分多様体構造を尊重した測地距離をグラフにより捉え，MDS を実行する手法が Isomap [@Tenenbaum+2000] である．
 
-::: {.callout-tip appearance="simple" icon="false"}
+::: {.callout-tip appearance="simple" icon="false" title="Isomap：データの多様体構造を尊重した MDS"}
 
 1. データを頂点とした $K$-近傍グラフを構成する．
 2. 測地距離を，このグラフ上の最短距離として近似する．
@@ -172,26 +172,42 @@ $$
 
 ## 局所線型埋め込み (LLE)
 
-ここまで手法は畢竟，類似度行列 $Y$ に関して，kPCA は特徴空間上でのスペクトル分解，Isomap はデータのなす $K$-近傍グラフ上でのスペクトル分解を考えている．
+### はじめに
+
+ここまでの手法は畢竟，類似度行列 $Y$ に関して，kPCA は特徴空間上でのスペクトル分解，Isomap はデータのなす $K$-近傍グラフ上でのスペクトル分解を考えている．
 
 これに対して，スパースなスペクトル分解を用いることで，データの局所的構造がさらに尊重できることが，**局所線型埋め込み** (LLE: Local Linear Embedding) [@Roweis-Saul2000] として提案された．
 
+この方法は Isomap よりデータの摂動に関して頑健であることが知られている．
+
+### アルゴリズム
+
 この方法では，データ多様体の接空間に注目する．
 
-まず，各点をその $K$-近傍点の線型結合で表す：
+まず，各点をその $K$-近傍点の線型結合で表す方法を，次のように学習する：
 $$
 \wh{W}=\min_{W}\sum_{i=1}^n\paren{x_i-\sum_{j=1}^nw_{ij}x_j}^2,\qquad\subjectto\begin{cases}w_{ij}=0&x_i,x_j\,\text{は}\,K\text{-近傍でない}\\\sum_{j=1}^Nw_{ij}=1&\text{任意の}\,i\in[N]\,\text{について}\end{cases}
 $$
-そして，この局所構造を保った低次元埋め込みを構成する：
+こうして得た $\wh{W}$ はスパース行列になる．この $W$ を通じて，局所構造を保った低次元埋め込みを構成する：
 $$
 \wh{Z}=\argmin_Z\sum_{i=1}^n\Norm{z_i-\sum_{j=1}^n\wh{w}_{ij}z_j}_2^2.
 $$
 
-この方法は Isomap より頑健であることが知られている．
+この最適化問題は，$I_n-W$ の [特異値分解](../FunctionalAnalysis/SVD.qmd) に帰着する．
+
+### Hessian 埋め込み (HE)
+
+Hessian Eigenmaps [@Donoho-Grimes2003] は微分幾何学的見方を推し進め，Hessian からの情報を取り入れた局所線型埋め込みの変種である．
+
+### 接空間配置 (TSA)
+
+Tangent Space Alignment [@Zhang-Zha2004] はより明示的に接空間の構造に注目する．
 
 ## スペクトル埋め込み (SE / LE) {#sec-LE}
 
-Laplacian Eigenmaps または spectral embedding [@Mikhali-Partha2001] は，データ点の $K$-近傍グラフ $(Y,E)$ 上で
+
+
+Laplacian Eigenmaps または Spectral Embedding [@Mikhali-Partha2001] は，データ点の $K$-近傍グラフ $(Y,E)$ 上で
 $$
 \L(Z):=\sum_{(i,j)\in E}W_{ij}\norm{z_i-z_j}_2^2,\qquad W_{ij}:=\exp\paren{-\frac{\norm{y_i-y_j}_2^2}{2\sigma^2}}
 $$
@@ -201,7 +217,7 @@ $$
 $$
 \L(Z)=2\Tr(Z^\top LZ)
 $$
-を満たすようになっている．
+とも表せる．
 
 この量は，$Z$ をグラフ上の関数と見た際の Dirichlet 汎函数になっており，グラフ上の関数としての「滑らかさ」の尺度となっている．
 
@@ -312,7 +328,7 @@ Mapper [@Singh+2007] は，距離空間 $E$ 上のデータ $\{x_i\}\subset E$ �
 
 :::
 
-[@Emerson+2023] では特許のデータを用い，各企業を技術空間 $\R^{430}$ 内に埋め込んだ後，mapper [@Singh+2007] によりグラフ化したところ，企業の独自戦略が可視化されたという．
+[@Emerson+2023] では特許のデータを用い，各企業を技術空間 $\R^{430}$ 内に埋め込んだ後，mapper によりグラフ化したところ，企業の独自戦略が可視化できるという：
 
 {{< video https://www.youtube.com/embed/0LQpJiecCvw?si=I-6R3dn8EAAG8xs1 >}}
 
@@ -326,12 +342,12 @@ Mapper [@Singh+2007] は，距離空間 $E$ 上のデータ $\{x_i\}\subset E$ �
 
 ## 文献 {.appendix}
 
+[@Yao2011] は LLE, Laplacian Eigenmaps, カーネル PCA, Diffusion Maps の関連性を扱っている講義スライドである．
+
 [@Wattemnerg+2016] はインタラクティブに t-SNE の性質を理解できるウェブページである．[Understanding UMAP](https://pair-code.github.io/understanding-umap/) も同様にして，UMAP と t-SNE の比較を与えている．
 
 [@Murphy2022] 第20章は次元縮約という題で，PCA, FA から自己符号化器，多様体学習を解説している．[@Burges2010] が同じテーマのしばらく前のサーベイである．
 
-[@Tipping-Bishop1999] の著者である [@Bishop-Bishop2024] 第16章も読みたい．
-
-[@本武陽一2017] も注目．
+多様体学習に関しては [@本武陽一2017] も注目．
 
 PCA は Kosambi-Karhunen-Loéve 変換ともいう [@Bishop-Bishop2024 p.497]．PCA からとにかくスペクトルとの関連が深い．
