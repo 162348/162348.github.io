@@ -2,13 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.549">
+<meta name="generator" content="quarto-1.4.552">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - フローベース模型</title>
+<title>Hirofumi Shiba - ニューラル微分方程式</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -164,12 +164,12 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - フローベース模型">
-<meta property="og:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
+<meta property="og:title" content="Hirofumi Shiba - ニューラル微分方程式">
+<meta property="og:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - フローベース模型">
-<meta name="twitter:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
+<meta name="twitter:title" content="Hirofumi Shiba - ニューラル微分方程式">
+<meta name="twitter:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -220,7 +220,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">フローベース模型</h1>
+      <h1 class="title">ニューラル微分方程式</h1>
             <p class="subtitle lead">シミュレーションなしの拡散モデルとしての連続正則化流</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
@@ -249,7 +249,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">8/10/2024</p>
+        <p class="date-modified">8/19/2024</p>
       </div>
     </div>
       
@@ -258,7 +258,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．
+      Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．
     </div>
   </div>
   
@@ -270,12 +270,13 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#sec-CNF" id="toc-sec-CNF" class="nav-link active" data-scroll-target="#sec-CNF"><span class="header-section-number">1</span> 連続時間極限 (CNF)</a>
+  <li><a href="#sec-CNF" id="toc-sec-CNF" class="nav-link active" data-scroll-target="#sec-CNF"><span class="header-section-number">1</span> 連続時間正則化流 (CNF)</a>
   <ul class="collapse">
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
-  <li><a href="#neural-ode-chen2018" id="toc-neural-ode-chen2018" class="nav-link" data-scroll-target="#neural-ode-chen2018"><span class="header-section-number">1.2</span> Neural ODE <span class="citation" data-cites="Chen+2018">(Chen et al., 2018)</span></a></li>
-  <li><a href="#ffjord-grathwohl2019" id="toc-ffjord-grathwohl2019" class="nav-link" data-scroll-target="#ffjord-grathwohl2019"><span class="header-section-number">1.3</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(Grathwohl et al., 2019)</span></a></li>
-  <li><a href="#フローマッチング-lipman2023" id="toc-フローマッチング-lipman2023" class="nav-link" data-scroll-target="#フローマッチング-lipman2023"><span class="header-section-number">1.4</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span></a></li>
+  <li><a href="#実装" id="toc-実装" class="nav-link" data-scroll-target="#実装"><span class="header-section-number">1.2</span> 実装</a></li>
+  <li><a href="#neural-ode-chen2018" id="toc-neural-ode-chen2018" class="nav-link" data-scroll-target="#neural-ode-chen2018"><span class="header-section-number">1.3</span> Neural ODE <span class="citation" data-cites="Chen+2018">(Chen et al., 2018)</span></a></li>
+  <li><a href="#ffjord-grathwohl2019" id="toc-ffjord-grathwohl2019" class="nav-link" data-scroll-target="#ffjord-grathwohl2019"><span class="header-section-number">1.4</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(Grathwohl et al., 2019)</span></a></li>
+  <li><a href="#フローマッチング-lipman2023" id="toc-フローマッチング-lipman2023" class="nav-link" data-scroll-target="#フローマッチング-lipman2023"><span class="header-section-number">1.5</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span></a></li>
   </ul></li>
   <li><a href="#確率的補間" id="toc-確率的補間" class="nav-link" data-scroll-target="#確率的補間"><span class="header-section-number">2</span> 確率的補間</a></li>
   </ul>
@@ -293,13 +294,15 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
+<section id="関連ページ" class="level3 unnumbered unlisted">
+<h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-flow-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1723300341512" data-listing-date-modified-sort="1722870000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="313">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724069740599" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="422">
 <a href="../../../posts/2024/Samplers/NF.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
-<img src="../../../posts/2024/Samplers/Files/NF2.png" class="thumbnail-image card-img" style="height: 150px;">
+<img src="../../../posts/2024/Samplers/Files/NF/NSF_result.png" class="thumbnail-image card-img" style="height: 150px;">
 </p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
@@ -317,7 +320,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723129200000" data-listing-file-modified-sort="1723807608742" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723129200000" data-listing-file-modified-sort="1724044682103" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
 <a href="../../../posts/2024/Samplers/DiscreteDiffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -339,16 +342,18 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1723278003488" data-listing-date-modified-sort="1722610800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="560">
+<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1724069684501" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1966">
 <a href="../../../posts/2024/Samplers/NF2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<div class="listing-item-img-placeholder card-img-top" style="height: 150px;">&nbsp;</div>
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/NF/Glow_output.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
 正規化流
 </h5>
 <div class="card-subtitle listing-subtitle">
-TensorFlow によるハンズオン
+<code>normflows</code> によるハンズオン
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -359,10 +364,12 @@ TensorFlow によるハンズオン
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1723350249429" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="408">
+<div class="g-col-1" data-index="3" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724055263896" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="409">
 <a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="Files/NF2.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/fig-generation3-output-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
 拡散模型
@@ -379,7 +386,7 @@ TensorFlow によるハンズオン
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="Deep,Sampling" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1723361179773" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="136">
+<div class="g-col-1" data-index="4" data-categories="Deep,Sampling" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1723447877131" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="136">
 <a href="../../../posts/2024/Samplers/NF3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Files/unnormalized_target.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -399,7 +406,7 @@ TensorFlow によるハンズオン
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="Deep,Python" data-listing-date-sort="1722524400000" data-listing-file-modified-sort="1723350249429" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="4" data-listing-word-count-sort="775">
+<div class="g-col-1" data-index="5" data-categories="Deep,Python" data-listing-date-sort="1722524400000" data-listing-file-modified-sort="1723447877131" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="4" data-listing-word-count-sort="775">
 <a href="../../../posts/2024/Samplers/SM1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="SM1_files/figure-html/cell-3-output-1.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -424,30 +431,35 @@ JAX によるハンズオン
 No matching items
 </div>
 </div>
+</section>
 <section id="sec-CNF" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="sec-CNF"><span class="header-section-number">1</span> 連続時間極限 (CNF)</h2>
+<h2 data-number="1" class="anchored" data-anchor-id="sec-CNF"><span class="header-section-number">1</span> 連続時間正則化流 (CNF)</h2>
 <section id="はじめに" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
-<p>フロー <span class="math inline">\((x_t)\)</span> は，あるベクトル場 <span class="math inline">\(F:\mathbb{R}^d\times[0,T]\to\mathbb{R}^d\)</span> に関して ODE <span class="math display">\[
+<p>ベクトル場 <span class="math inline">\(F:\mathbb{R}^d\times[0,T]\to\mathbb{R}^d\)</span> に関して ODE <span class="math display">\[
 \frac{d x_t}{d t}=F(x_t,t)
-\]</span> を満たすとし，適切な <span class="math inline">\(F\)</span> をニューラルネットによって学習する．</p>
-<p>学習した <span class="math inline">\(F\)</span> に対しては，Euler の方法により <span class="math inline">\((x_t)\)</span> を計算できる： <span class="math display">\[
+\]</span> を満たす曲線 <span class="math inline">\((x_t)\)</span> を積分曲線，またはフローという．</p>
+<p>CNF では，<span class="math inline">\((x_t)\)</span> はデータ分布とノイズ分布を結ぶダイナミクスとし，適切な <span class="math inline">\(F\)</span> をニューラルネットによって学習することが考えられる．</p>
+</section>
+<section id="実装" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="実装"><span class="header-section-number">1.2</span> 実装</h3>
+<p><span class="math inline">\(F\)</span> を学習しさえすれば，Euler の方法によりフロー <span class="math inline">\((x_t)\)</span> を数値計算できる： <span class="math display">\[
 x_{t+\epsilon}=x_t+\epsilon F(x_t,t).
 \]</span></p>
-<p>さらにフロー <span class="math inline">\((f_t)\)</span> の Jacobian が必要であるが，これは <span class="math display">\[
-\frac{d L}{d t}(t)=\operatorname{Tr}\biggr(J_{F_t}(x_t)\biggl),\qquad L(t):=\log\lvert\det J(f_t)(x_0)\rvert
+<p>さらに尤度の評価のためにはフロー <span class="math inline">\((f_t)\)</span> の Jacobian が必要であるが，これは <span class="math display">\[
+\frac{d L}{d t}(t)=\operatorname{Tr}\biggr(J_{F_t}(x_t)\biggl),\qquad L(t):=\log\lvert\det J_{f_t}(x_0)\rvert
 \]</span> を利用することで，<span class="math inline">\(L\)</span> の微分関数として得ることができる．</p>
-<p>こうして，<span class="math inline">\((x_t)\)</span> のシミュレーションと <span class="math inline">\((f_t)\)</span> の Jacobian の計算が，いずれも ODE の数値解を求めることに帰着された．</p>
+<p>こうして，<span class="math inline">\((x_t)\)</span> のシミュレーションと <span class="math inline">\((f_t)\)</span> の Jacobian の計算が，いずれも <span class="math inline">\(F\)</span> が定める ODE の数値解を求めることに帰着された．</p>
 </section>
-<section id="neural-ode-chen2018" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="neural-ode-chen2018"><span class="header-section-number">1.2</span> Neural ODE <span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018</a>)</span></h3>
+<section id="neural-ode-chen2018" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="neural-ode-chen2018"><span class="header-section-number">1.3</span> Neural ODE <span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018</a>)</span></h3>
 </section>
-<section id="ffjord-grathwohl2019" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="ffjord-grathwohl2019"><span class="header-section-number">1.3</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(<a href="#ref-Grathwohl+2019" role="doc-biblioref">Grathwohl et al., 2019</a>)</span></h3>
+<section id="ffjord-grathwohl2019" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="ffjord-grathwohl2019"><span class="header-section-number">1.4</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(<a href="#ref-Grathwohl+2019" role="doc-biblioref">Grathwohl et al., 2019</a>)</span></h3>
 <p>この方法では，<span class="math inline">\(\operatorname{Tr}(J_{F_t}(x_t))\)</span> の計算に Hutchinson の跡推定量を用いる．これにより計算は加速されるというのである．</p>
 </section>
-<section id="フローマッチング-lipman2023" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="フローマッチング-lipman2023"><span class="header-section-number">1.4</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span></h3>
+<section id="フローマッチング-lipman2023" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="フローマッチング-lipman2023"><span class="header-section-number">1.5</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span></h3>
 <p>フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span>, rectified flow <span class="citation" data-cites="Liu+2023-Flow">(<a href="#ref-Liu+2023-Flow" role="doc-biblioref">Liu et al., 2023</a>)</span></p>
 </section>
 </section>
@@ -563,6 +575,24 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     // clear code selection
     e.clearSelection();
   });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
   function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
@@ -597,7 +627,11 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
     });
   }
   const xrefs = window.document.querySelectorAll('a.quarto-xref');

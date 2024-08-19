@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 
 <title>Hirofumi Shiba - 正規化流</title>
 <style>
@@ -166,13 +166,13 @@ window.Quarto = {
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Hirofumi Shiba - 正規化流">
 <meta property="og:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/Files/NF2.png">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/Files/NF/NSF_result.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta property="og:image:height" content="700">
 <meta property="og:image:width" content="1500">
 <meta name="twitter:title" content="Hirofumi Shiba - 正規化流">
 <meta name="twitter:description" content="確率分布を Gauss 潜在変数の非線型な押し出しとしてモデリングする．この押し出しを深層ニューラルネットワークでモデリングすれば，豊かな表現力が得られる．加えて，このニューラルネットワークを可逆に設計すれば，このモデルの尤度も評価することが出来る．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/Files/NF2.png">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/Files/NF/NSF_result.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:image-height" content="700">
 <meta name="twitter:image-width" content="1500">
@@ -239,7 +239,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -253,7 +253,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">8/06/2024</p>
+        <p class="date-modified">8/19/2024</p>
       </div>
     </div>
       
@@ -274,17 +274,44 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#正則化流-nf-tabak-vanden-eijnden2010" id="toc-正則化流-nf-tabak-vanden-eijnden2010" class="nav-link active" data-scroll-target="#正則化流-nf-tabak-vanden-eijnden2010"><span class="header-section-number">1</span> 正則化流 (NF) <span class="citation" data-cites="Tabak-Vanden-Eijnden2010">(Esteban G. Tabak and Vanden-Eijnden, 2010)</span></a>
+  <li><a href="#概観" id="toc-概観" class="nav-link active" data-scroll-target="#概観"><span class="header-section-number">1</span> 概観</a>
   <ul class="collapse">
   <li><a href="#原理" id="toc-原理" class="nav-link" data-scroll-target="#原理"><span class="header-section-number">1.1</span> 原理</a></li>
   <li><a href="#実装" id="toc-実装" class="nav-link" data-scroll-target="#実装"><span class="header-section-number">1.2</span> 実装</a></li>
-  <li><a href="#応用" id="toc-応用" class="nav-link" data-scroll-target="#応用"><span class="header-section-number">1.3</span> 応用</a></li>
+  <li><a href="#アーキテクチャ" id="toc-アーキテクチャ" class="nav-link" data-scroll-target="#アーキテクチャ"><span class="header-section-number">1.3</span> アーキテクチャ</a></li>
   </ul></li>
-  <li><a href="#離散流-dnf" id="toc-離散流-dnf" class="nav-link" data-scroll-target="#離散流-dnf"><span class="header-section-number">2</span> 離散流 (DNF)</a>
+  <li><a href="#sec-coupling-flow" id="toc-sec-coupling-flow" class="nav-link" data-scroll-target="#sec-coupling-flow"><span class="header-section-number">2</span> カップリング流</a>
   <ul class="collapse">
-  <li><a href="#カップリング流" id="toc-カップリング流" class="nav-link" data-scroll-target="#カップリング流"><span class="header-section-number">2.1</span> カップリング流</a></li>
-  <li><a href="#自己回帰流" id="toc-自己回帰流" class="nav-link" data-scroll-target="#自己回帰流"><span class="header-section-number">2.2</span> 自己回帰流</a></li>
-  <li><a href="#残差フロー" id="toc-残差フロー" class="nav-link" data-scroll-target="#残差フロー"><span class="header-section-number">2.3</span> 残差フロー</a></li>
+  <li><a href="#概要" id="toc-概要" class="nav-link" data-scroll-target="#概要"><span class="header-section-number">2.1</span> 概要</a></li>
+  <li><a href="#real-nvp" id="toc-real-nvp" class="nav-link" data-scroll-target="#real-nvp"><span class="header-section-number">2.2</span> Real NVP</a></li>
+  <li><a href="#glow-kingma-dhariwal2018" id="toc-glow-kingma-dhariwal2018" class="nav-link" data-scroll-target="#glow-kingma-dhariwal2018"><span class="header-section-number">2.3</span> GLOW <span class="citation" data-cites="Kingma-Dhariwal2018">(D. P. Kingma and Dhariwal, 2018)</span></a></li>
+  </ul></li>
+  <li><a href="#sec-autoregressive-flow" id="toc-sec-autoregressive-flow" class="nav-link" data-scroll-target="#sec-autoregressive-flow"><span class="header-section-number">3</span> 自己回帰流</a>
+  <ul class="collapse">
+  <li><a href="#概要-1" id="toc-概要-1" class="nav-link" data-scroll-target="#概要-1"><span class="header-section-number">3.1</span> 概要</a></li>
+  <li><a href="#sec-MAF" id="toc-sec-MAF" class="nav-link" data-scroll-target="#sec-MAF"><span class="header-section-number">3.2</span> マスク付き自己回帰流 (MAF)</a></li>
+  <li><a href="#sec-IAF" id="toc-sec-IAF" class="nav-link" data-scroll-target="#sec-IAF"><span class="header-section-number">3.3</span> 逆自己回帰流 (IAF)</a></li>
+  <li><a href="#parallel-wavenet-でのサンプリング加速" id="toc-parallel-wavenet-でのサンプリング加速" class="nav-link" data-scroll-target="#parallel-wavenet-でのサンプリング加速"><span class="header-section-number">3.4</span> Parallel WaveNet でのサンプリング加速</a></li>
+  </ul></li>
+  <li><a href="#積によるフロー" id="toc-積によるフロー" class="nav-link" data-scroll-target="#積によるフロー"><span class="header-section-number">4</span> 積によるフロー</a>
+  <ul class="collapse">
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">4.1</span> はじめに</a></li>
+  <li><a href="#スプライン" id="toc-スプライン" class="nav-link" data-scroll-target="#スプライン"><span class="header-section-number">4.2</span> スプライン</a></li>
+  </ul></li>
+  <li><a href="#残差フロー" id="toc-残差フロー" class="nav-link" data-scroll-target="#残差フロー"><span class="header-section-number">5</span> 残差フロー</a>
+  <ul class="collapse">
+  <li><a href="#sec-Hutchinson" id="toc-sec-Hutchinson" class="nav-link" data-scroll-target="#sec-Hutchinson"><span class="header-section-number">5.1</span> Jacobian を推定する方法</a></li>
+  <li><a href="#jacobian-が計算可能な場合" id="toc-jacobian-が計算可能な場合" class="nav-link" data-scroll-target="#jacobian-が計算可能な場合"><span class="header-section-number">5.2</span> Jacobian が計算可能な場合</a></li>
+  </ul></li>
+  <li><a href="#応用" id="toc-応用" class="nav-link" data-scroll-target="#応用"><span class="header-section-number">6</span> 応用</a>
+  <ul class="collapse">
+  <li><a href="#sec-NF-Bayes" id="toc-sec-NF-Bayes" class="nav-link" data-scroll-target="#sec-NF-Bayes"><span class="header-section-number">6.1</span> 変分推論のサブルーチンとして</a></li>
+  <li><a href="#ベイズ計算" id="toc-ベイズ計算" class="nav-link" data-scroll-target="#ベイズ計算"><span class="header-section-number">6.2</span> ベイズ計算</a></li>
+  <li><a href="#密度推定" id="toc-密度推定" class="nav-link" data-scroll-target="#密度推定"><span class="header-section-number">6.3</span> 密度推定</a></li>
+  <li><a href="#表現学習" id="toc-表現学習" class="nav-link" data-scroll-target="#表現学習"><span class="header-section-number">6.4</span> 表現学習</a></li>
+  <li><a href="#生成" id="toc-生成" class="nav-link" data-scroll-target="#生成"><span class="header-section-number">6.5</span> 生成</a></li>
+  <li><a href="#蒸留" id="toc-蒸留" class="nav-link" data-scroll-target="#蒸留"><span class="header-section-number">6.6</span> 蒸留</a></li>
+  <li><a href="#sbi" id="toc-sbi" class="nav-link" data-scroll-target="#sbi"><span class="header-section-number">6.7</span> SBI</a></li>
   </ul></li>
   
   </ul>
@@ -302,15 +329,17 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
+<section id="関連ページ" class="level3 unnumbered unlisted">
+<h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-flow-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1723447877130" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="54">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724070571752" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="61">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="Files/NF2.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top"><img src="Files/NF/NSF_result.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-フローベース模型
+ニューラル微分方程式
 </h5>
 <div class="card-subtitle listing-subtitle">
 シミュレーションなしの拡散モデルとしての連続正則化流
@@ -324,16 +353,18 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1723447877131" data-listing-date-modified-sort="1722610800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="560">
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1724070571752" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1966">
 <a href="../../../posts/2024/Samplers/NF2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<div class="listing-item-img-placeholder card-img-top" style="height: 150px;">&nbsp;</div>
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/NF/Glow_output.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
 正規化流
 </h5>
 <div class="card-subtitle listing-subtitle">
-TensorFlow によるハンズオン
+<code>normflows</code> によるハンズオン
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -344,10 +375,12 @@ TensorFlow によるハンズオン
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1723447877106" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="408">
+<div class="g-col-1" data-index="2" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724070571746" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="409">
 <a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="Files/unnormalized_target.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/fig-generation3-output-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
 拡散模型
@@ -369,14 +402,22 @@ TensorFlow によるハンズオン
 No matching items
 </div>
 </div>
-<section id="正則化流-nf-tabak-vanden-eijnden2010" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="正則化流-nf-tabak-vanden-eijnden2010"><span class="header-section-number">1</span> 正則化流 (NF) <span class="citation" data-cites="Tabak-Vanden-Eijnden2010">(<a href="#ref-Tabak-Vanden-Eijnden2010" role="doc-biblioref">Esteban G. Tabak and Vanden-Eijnden, 2010</a>)</span></h2>
+</section>
+<section id="概観" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="概観"><span class="header-section-number">1</span> 概観</h2>
+<p>正則化流 (NF: Normalizing Flow) とは <span class="citation" data-cites="Tabak-Vanden-Eijnden2010">(<a href="#ref-Tabak-Vanden-Eijnden2010" role="doc-biblioref">Esteban G. Tabak and Vanden-Eijnden, 2010</a>)</span> が提案・造語した生成モデリングアプローチであり，ニューラルネットワークとしては画像生成を念頭に NICE <span class="citation" data-cites="Dinh+2015">(<a href="#ref-Dinh+2015" role="doc-biblioref">Dinh et al., 2015</a>)</span>（のちに Real NVP <span class="citation" data-cites="Dinh+2017">(<a href="#ref-Dinh+2017" role="doc-biblioref">Dinh et al., 2017</a>)</span>）がはじめに提案された．</p>
+<p>アイデアとしては，ニューラルネットワークの一層一層を可逆に設計するという制約を課すのみである．</p>
 <section id="原理" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="原理"><span class="header-section-number">1.1</span> 原理</h3>
+<section id="基底分布の押し出しとしての生成モデリング" class="level4" data-number="1.1.1">
+<h4 data-number="1.1.1" class="anchored" data-anchor-id="基底分布の押し出しとしての生成モデリング"><span class="header-section-number">1.1.1</span> 基底分布の押し出しとしての生成モデリング</h4>
 <p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a>，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a>，<a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> など，深層生成モデルは，潜在空間 <span class="math inline">\(\mathcal{Z}\)</span> 上の基底分布 <span class="math inline">\(p(z)dz\)</span> を，パラメータ <span class="math inline">\(w\in\mathcal{W}\)</span> を持つ深層ニューラルネットによる変換 <span class="math inline">\(f_w:\mathcal{Z}\times\mathcal{W}\to\mathcal{X}\)</span> を通じて，押し出し <span class="math display">\[
 p_w(x):=(f_w)_*p(x)
 \]</span> により <span class="math inline">\(\mathcal{X}\)</span> 上の分布をモデリングする．</p>
 <p>このモデル <span class="math inline">\(\{p_w\}_{w\in\mathcal{W}}\)</span> の尤度は解析的に表示できない．そこで，<a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> <span class="citation" data-cites="Goodfellow+2014">(<a href="#ref-Goodfellow+2014" role="doc-biblioref">Goodfellow et al., 2014</a>)</span> は敵対的な学習規則を用いれば，尤度の評価を回避できるというアイデアに基づくものであり，<a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Diederik Kingma and Welling, 2014</a>)</span> は変分下界を通じて尤度を近似するというものであった．</p>
+</section>
+<section id="逆変換の利用" class="level4" data-number="1.1.2">
+<h4 data-number="1.1.2" class="anchored" data-anchor-id="逆変換の利用"><span class="header-section-number">1.1.2</span> 逆変換の利用</h4>
 <p><strong>正則化流</strong> (normalizing flow / flow-based models) では，<a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> に似て，「逆変換」を利用することを考える．</p>
 <p>すなわち，<span class="math inline">\(\{f_w\}\subset\mathcal{L}(\mathcal{Z},\mathcal{X})\)</span> が可逆であるように設計するのである．逆関数を <span class="math inline">\(g_w:=f_w^{-1}\)</span> と表すと，<span class="math inline">\(p_w(x)dx\)</span> は <span class="math inline">\(p(z)dz\)</span> の <span class="math inline">\(g_w\)</span> による引き戻しの関係になっているから，<a href="../../../posts/2023/Probability/Beta-Gamma.html#sec-transform">変数変換</a> を通じて， <span class="math display">\[
 p_w(x)=p(g_w(x))\lvert\det J_{g_w}(x)\rvert\;\mathrm{a.e.}\;
@@ -385,78 +426,63 @@ p_w(x)=p(g_w(x))\lvert\det J_{g_w}(x)\rvert\;\mathrm{a.e.}\;
 \log p_w(x)=\log p(g_w(x))+\log\lvert\det J_{g_w}(x)\rvert
 \]</span> を通じて，尤度の評価とパラメータの最尤推定が可能である．</p>
 </section>
+</section>
 <section id="実装" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="実装"><span class="header-section-number">1.2</span> 実装</h3>
-<p>上述のアイデアは，<span class="math inline">\(f\)</span> が表現力が高く数値的に可微分なモデルで表現できれば最も強力な形で実装できるが，これがまさにニューラルネットワークである．</p>
+<!-- 上述のアイデアは，$f$ が表現力が高く数値的に可微分なモデルで表現できれば最も強力な形で実装できる．これがまさにニューラルネットワークである． -->
 <p>従って，可逆なニューラルネットワーク <span class="math inline">\(\{f_w\}\subset\mathcal{L}(\mathcal{Z},\mathcal{X})\)</span> を設計することを考える．これは，各層が可逆な変換を定めるようにすることが必要十分である．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <p>このとき，行列式 <span class="math inline">\(\det:\mathrm{GL}_n(\mathbb{R})\to\mathbb{R}^\times\)</span> は群準同型であるから，<span class="math inline">\(g_w\)</span> のヤコビアンは，各層のヤコビアンの積として得られ，その対数は <span class="math display">\[
 \log\left|\det J_{g_w}(x)\right|=\sum_{i=1}^n\log\left|\det J_{g_i}(z_i)\right|,\qquad z_i:=f_i\circ\cdots\circ f_1(z),
 \]</span> と得られる．</p>
-<p>この条件はたしかにモデルに仮定を置いている（<span class="math inline">\(p(z)dz\)</span> は典型的に正規で，<span class="math inline">\(f_w\)</span> は可逆である）．しかしそれでも，深層ニューラルネットワーク <span class="math inline">\(\{f_w\}\)</span> の表現力は十分高いため，多様な密度のモデリングにも使うことが出来る <span class="citation" data-cites="Papamakarios+2021">(<a href="#ref-Papamakarios+2021" role="doc-biblioref">Papamakarios et al., 2021</a>)</span>．</p>
-<p>また一方で，変分推論における <span class="math inline">\(E\)</span>-ステップ（変分分布について期待値を取るステップ）などにおいて，複雑な分布からのサンプラーとしても用いられる <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．</p>
+<p>この条件はたしかにモデルに仮定を置いている．<span class="math inline">\(p(z)dz\)</span> は典型的に正規で，<span class="math inline">\(f_w\)</span> は可逆である．</p>
+<p>しかしそれでも，深層ニューラルネットワーク <span class="math inline">\(\{f_w\}\)</span> の表現力は十分高いため，多様な密度のモデリングにも使うことが出来る <span class="citation" data-cites="Papamakarios+2021">(<a href="#ref-Papamakarios+2021" role="doc-biblioref">Papamakarios et al., 2021</a>)</span>．</p>
 </section>
-<section id="応用" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="応用"><span class="header-section-number">1.3</span> 応用</h3>
-<section id="sec-NF-Bayes" class="level4" data-number="1.3.1">
-<h4 data-number="1.3.1" class="anchored" data-anchor-id="sec-NF-Bayes"><span class="header-section-number">1.3.1</span> ベイズ推定</h4>
-<p>変分推論において，変分事後分布のモデリングにフローが使えることを提唱し，フローベースのアプローチを有名にしたのが <span class="citation" data-cites="Rezebde0Niganed2015">(<a href="#ref-Rezebde0Niganed2015" role="doc-biblioref">Rezende and Mohamed, 2015</a>)</span> であった．</p>
-<p>このような変分ベイズ推論，特にベイズ深層学習に向けたフローベースモデルが盛んに提案されている：Householder flow <span class="citation" data-cites="Tomczak-Welling2017">(<a href="#ref-Tomczak-Welling2017" role="doc-biblioref">Tomczak and Welling, 2017</a>)</span> は VAE の改良, IAF <span class="citation" data-cites="Kingma+2016">(<a href="#ref-Kingma+2016" role="doc-biblioref">D. Kingma et al., 2016</a>)</span>, 乗法的正則化流 <span class="citation" data-cites="Louizos-Welling2017">(<a href="#ref-Louizos-Welling2017" role="doc-biblioref">Louizos and Welling, 2017</a>)</span>, Sylvester flow <span class="citation" data-cites="vandenBerg+2019">(<a href="#ref-vandenBerg+2019" role="doc-biblioref">Berg et al., 2019</a>)</span> など．</p>
-</section>
-<section id="ベイズ計算" class="level4" data-number="1.3.2">
-<h4 data-number="1.3.2" class="anchored" data-anchor-id="ベイズ計算"><span class="header-section-number">1.3.2</span> ベイズ計算</h4>
-<p>Neural Importance Sampling <span class="citation" data-cites="Muller+2019">(<a href="#ref-Muller+2019" role="doc-biblioref">Müller et al., 2019</a>)</span> とは，困難な分布からの重点サンプリングの際に，提案分布を正則化流で近似する方法である．</p>
-<p>Boltzmann Generator <span class="citation" data-cites="Noe+2019">(<a href="#ref-Noe+2019" role="doc-biblioref">Noé et al., 2019</a>)</span> は名前の通り，多体系の平衡分布から正則化流でサンプリングをするという手法である．</p>
-<p><span class="citation" data-cites="Hoffmann+2019">(<a href="#ref-Hoffmann+2019" role="doc-biblioref">Hoffman et al., 2019</a>)</span> は IAF を用いて目標分布を学習し，学習された密度 <span class="math inline">\(q\)</span> で変換後の分布から MCMC サンプリングをすることで効率がはるかに改善することを報告した．実際，フローによる変換を受けた後は対象分布は正規分布に近くなることから，MCMC サンプリングを減速させる要因の多くが消滅していることが期待される．</p>
-</section>
-<section id="密度推定" class="level4" data-number="1.3.3">
-<h4 data-number="1.3.3" class="anchored" data-anchor-id="密度推定"><span class="header-section-number">1.3.3</span> 密度推定</h4>
-<p>目標の分布 <span class="math inline">\(p_w\)</span> を Guass 分布 <span class="math inline">\(p\)</span> からの写像 <span class="math inline">\((f_w)_*p\)</span> として捉える発想は，まずなんといっても密度推定に用いられた <span class="citation" data-cites="Chen-Gopinath2000">(<a href="#ref-Chen-Gopinath2000" role="doc-biblioref">S. Chen and Gopinath, 2000</a>)</span>．</p>
-<p>この <span class="math inline">\(f_w\)</span> のモデリングにニューラルネットワークを用いるという発想は <span class="citation" data-cites="Rippel-Adams2013">(<a href="#ref-Rippel-Adams2013" role="doc-biblioref">Rippel and Adams, 2013</a>)</span> の Deep Density Model 以来であるようだ．</p>
-<p>その後同様の発想は非線型独立成分分析 <span class="citation" data-cites="Dinh+2015">(<a href="#ref-Dinh+2015" role="doc-biblioref">Dinh et al., 2015</a>)</span>，引き続き密度推定 <span class="citation" data-cites="Dinh+2017">(<a href="#ref-Dinh+2017" role="doc-biblioref">Dinh et al., 2017</a>)</span> に用いられた．</p>
-<p>現在は MAF <a href="#sec-MAF" class="quarto-xref">2.2.1</a> の性能が圧倒的である．</p>
-</section>
-<section id="表現学習" class="level4" data-number="1.3.4">
-<h4 data-number="1.3.4" class="anchored" data-anchor-id="表現学習"><span class="header-section-number">1.3.4</span> 表現学習</h4>
-<p>通常の VAE などは，あくまで <span class="math inline">\(p(x|z)\)</span> を学習する形をとるが，正則化流を用いて結合分布 <span class="math inline">\(p(x,z)\)</span> を学習することで，双方を対等にモデリングすることができる．</p>
-<p>これを flow-based <strong>hybrid model</strong> <span class="citation" data-cites="Nalisnick+2019">(<a href="#ref-Nalisnick+2019" role="doc-biblioref">Nalisnick et al., 2019</a>)</span> という．これは予測と生成のタスクでも良い性能を見せるが，分布外検知などの応用も示唆している．</p>
-<p>異常検知 <span class="citation" data-cites="Zhang+2020Detection">(<a href="#ref-Zhang+2020Detection" role="doc-biblioref">Zhang et al., 2020</a>)</span>，不確実性定量化 <span class="citation" data-cites="Charpentier+2020">(<a href="#ref-Charpentier+2020" role="doc-biblioref">Charpentier et al., 2020</a>)</span> のような種々の下流タスクに用いられた場合は，VAE など NN を２つ用いる手法よりもモデルが軽量で，順方向での１度の使用で足りるなどの美点があるという．</p>
-</section>
-<section id="生成" class="level4" data-number="1.3.5">
-<h4 data-number="1.3.5" class="anchored" data-anchor-id="生成"><span class="header-section-number">1.3.5</span> 生成</h4>
-<p>画像生成への応用が多い：GLOW <span class="citation" data-cites="Kingma-Dhariwal2018">(<a href="#ref-Kingma-Dhariwal2018" role="doc-biblioref">D. P. Kingma and Dhariwal, 2018</a>)</span> (<a href="https://openai.com/index/glow/">OpenAI release</a>), 残差フロー <span class="citation" data-cites="Chen+2019">(<a href="#ref-Chen+2019" role="doc-biblioref">R. T. Q. Chen et al., 2019</a>)</span> など．</p>
-<p>動画に対する応用も提案されている：VideoFlow <span class="citation" data-cites="Kumar+2020">(<a href="#ref-Kumar+2020" role="doc-biblioref">Kumar et al., 2020</a>)</span>．</p>
-<p>言語に対する応用もある <span class="citation" data-cites="Tran+2019">(<a href="#ref-Tran+2019" role="doc-biblioref">Tran et al., 2019</a>)</span>．言語は離散データであることが難点であるが，潜在空間上でフローを使うことも提案されている <span class="citation" data-cites="Ziegler-Rush2019">(<a href="#ref-Ziegler-Rush2019" role="doc-biblioref">Ziegler and Rush, 2019</a>)</span>．</p>
-</section>
-<section id="蒸留" class="level4" data-number="1.3.6">
-<h4 data-number="1.3.6" class="anchored" data-anchor-id="蒸留"><span class="header-section-number">1.3.6</span> 蒸留</h4>
-<p>純粋な生成モデリングの他に，IAF <a href="#sec-IAF" class="quarto-xref">2.2.2</a> は <span class="citation" data-cites="Oord+2018">(<a href="#ref-Oord+2018" role="doc-biblioref">Oord et al., 2018</a>)</span> において音声生成モデルの蒸留に用いられた．</p>
-<p>WaveFLOW <span class="citation" data-cites="Prenger+2018">(<a href="#ref-Prenger+2018" role="doc-biblioref">Prenger et al., 2018</a>)</span>, FloWaveNet <span class="citation" data-cites="Kim+2019">(<a href="#ref-Kim+2019" role="doc-biblioref">Kim et al., 2019</a>)</span> などもカップリング層を取り入れて WaveNet の高速化に成功している．</p>
-</section>
-<section id="sbi" class="level4" data-number="1.3.7">
-<h4 data-number="1.3.7" class="anchored" data-anchor-id="sbi"><span class="header-section-number">1.3.7</span> SBI</h4>
-<p>モデルの尤度は隠されており，入力 <span class="math inline">\(\theta\)</span> に対して，<span class="math inline">\(p(x|\theta)\)</span> からのサンプルのみが利用可能であるとする．このような状況でベイズ推論を行う問題を <strong>simulation-based inference (SBI)</strong> という．これはデータの分布のサンプルから学習して，似たようなデータを増やすという生成モデルのタスクに似ている．</p>
-<p>この際，任意の分布 <span class="math inline">\(p(\theta)\)</span> に対して，結合分布 <span class="math display">\[
-p(x,\theta)=p(x|\theta)p(\theta)
-\]</span> を，シミュレータから得られるサンプルのみから，フローベースモデルにより学習してしまうことで，ベイズ推論が可能になる <span class="citation" data-cites="Papamakarios+2019">(<a href="#ref-Papamakarios+2019" role="doc-biblioref">Papamakarios et al., 2019</a>)</span>．</p>
-<p>この方法はさらに，事後分布推定に特化することで，SMC-ABC などの従来の近似ベイズ計算技法の性能を超えていくようである <span class="citation" data-cites="Greenberg+2019">(<a href="#ref-Greenberg+2019" role="doc-biblioref">Greenberg et al., 2019</a>)</span>．</p>
+<section id="アーキテクチャ" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="アーキテクチャ"><span class="header-section-number">1.3</span> アーキテクチャ</h3>
+<p>次節 <a href="#sec-coupling-flow" class="quarto-xref">2</a> で紹介するカップリング流は大変親しみやすい．</p>
+<p>その特別な場合として自己回帰流（第 <a href="#sec-autoregressive-flow" class="quarto-xref">3</a> 節）があり，複雑な成分間の条件付き構造をモデリングできるが，その分高次元データに対する密度評価とサンプリングは遅くなる．</p>
 </section>
 </section>
-</section>
-<section id="離散流-dnf" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="離散流-dnf"><span class="header-section-number">2</span> 離散流 (DNF)</h2>
-<section id="カップリング流" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="カップリング流"><span class="header-section-number">2.1</span> カップリング流</h3>
+<section id="sec-coupling-flow" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-coupling-flow"><span class="header-section-number">2</span> カップリング流</h2>
+<section id="概要" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="概要"><span class="header-section-number">2.1</span> 概要</h3>
 <p>ある可微分同相 <span class="math inline">\(f_\theta:\mathbb{R}^m\to\mathbb{R}^m\)</span> と任意の関数 <span class="math inline">\(\Theta:\mathbb{R}^{n-m}\to\mathbb{R}^{n-m}\)</span> について， <span class="math display">\[
 (z^{(1)},z^{(2)})\mapsto (f_{\Theta(z^{(2)})}(z^{(1)}),z^{(2)})
-\]</span> で定まる変換を <strong>カップリング層</strong> という．</p>
+\]</span> で定まる変換を <strong>カップリング層</strong>，<span class="math inline">\(f\)</span> をカップリング関数，<span class="math inline">\(\Theta\)</span> を conditioner という．</p>
 <p>この逆変換は <span class="math display">\[
 (x^{(1)},x^{(2)})\mapsto (f^{-1}_{\Theta(x^{(2)})}(x^{(1)}),x^{(2)})
 \]</span> で与えられる．</p>
-<p>加えて，後半の成分 <span class="math inline">\((-)^{(2)}\)</span> には変換を施していないので，カップリング層の Jacobian は <span class="math inline">\(f\)</span> の Jacobian に一致する．</p>
+<p>加えて，後半の成分 <span class="math inline">\((-)^{(2)}\)</span> には変換を施していないので，カップリング層の Jacobian は <span class="math inline">\(f_\theta\)</span> の Jacobian に一致する．</p>
 <p><span class="math inline">\(f_\theta\)</span> は各成分が可逆になるように設計することで <span class="math inline">\(f_\theta^{-1}\)</span> が計算しやすくされることが多い．</p>
 </section>
-<section id="自己回帰流" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="自己回帰流"><span class="header-section-number">2.2</span> 自己回帰流</h3>
+<section id="real-nvp" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="real-nvp"><span class="header-section-number">2.2</span> Real NVP</h3>
+<p>カップリング流を最初に提案したのが <span class="citation" data-cites="Dinh+2015">(<a href="#ref-Dinh+2015" role="doc-biblioref">Dinh et al., 2015</a>)</span>, <span class="citation" data-cites="Dinh+2017">(<a href="#ref-Dinh+2017" role="doc-biblioref">Dinh et al., 2017</a>)</span> の RealNVP (Real-valued Non-Volume-Preserving) である．</p>
+<p>この方法では特に <span class="math display">\[
+f_{\Theta(z^{(2)})}(z^{(1)})=e^{f_{\Theta(z^{(2)})}^{(1)}} \odot z^{(1)}+f_{\Theta(z^{(2)})}^{(2)}(z^{(1)}),
+\]</span> という形を与えている．ただし <span class="math inline">\(\odot\)</span> はベクトルの成分ごとの積とした．</p>
+<p>実際に訓練する変換は <span class="math inline">\(f^{(1)}_\theta,f^{(2)}_\theta\)</span> のみであり，これを可逆に制約するということはなく，実装も簡単になっている．</p>
+<p>こうして得たカップリング層を，分割 <span class="math inline">\(z\mapsto(z^{(1)},z^{(2)})\)</span> を取り替えながら（permutation layer と呼ばれる） 32 層重ねるのみで，効率的な密度モデリングができる：</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../../../posts/2024/Samplers/NF2.html"><img src="../../../docs/posts/2024/Samplers/Files/NF2.png" class="img-fluid figure-img" alt="画像をタップしてコードを見る"></a></p>
+<figcaption>画像をタップしてコードを見る</figcaption>
+</figure>
+</div>
+</section>
+<section id="glow-kingma-dhariwal2018" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="glow-kingma-dhariwal2018"><span class="header-section-number">2.3</span> GLOW <span class="citation" data-cites="Kingma-Dhariwal2018">(<a href="#ref-Kingma-Dhariwal2018" role="doc-biblioref">D. P. Kingma and Dhariwal, 2018</a>)</span></h3>
+<p>Real NVP では簡単な置換 (permutation) が用いられていたところを，<span class="citation" data-cites="Kingma-Dhariwal2018">(<a href="#ref-Kingma-Dhariwal2018" role="doc-biblioref">D. P. Kingma and Dhariwal, 2018</a>)</span> では，<span class="math inline">\(1\times 1\)</span> の畳み込みに基づく，一般化されたカップリング・アーキテクチャを提案した．</p>
+<p>このことによる計算量の増加は，LU 分解の利用によって回避している．</p>
+<p><a href="https://openai.com/index/glow/">OpenAI release</a> に発表されているように，画像生成タスクに応用された．</p>
+</section>
+</section>
+<section id="sec-autoregressive-flow" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-autoregressive-flow"><span class="header-section-number">3</span> 自己回帰流</h2>
+<section id="概要-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="概要-1"><span class="header-section-number">3.1</span> 概要</h3>
+<p>自己回帰流 (autoregressive flow) とは，カップリング流のカップリング関数 <span class="math inline">\(f_\theta\)</span> を極限まで押し進めた立場である．</p>
 <p>入力 <span class="math inline">\(z\in\mathbb{R}^n\)</span> を形式上時系列と見做し，ある可微分関数 <span class="math inline">\(f_\theta:\mathbb{R}\to\mathbb{R}\)</span> と任意の関数列 <span class="math inline">\(\Theta_i\)</span> について， <span class="math display">\[
 x_i=f_{\Theta_i(x_{1:i-1})}(z_i)
 \]</span> と再帰的に定義していく変換 <span class="math inline">\(z\mapsto x\)</span> を <strong>自己回帰流</strong> という．</p>
@@ -464,43 +490,121 @@ x_i=f_{\Theta_i(x_{1:i-1})}(z_i)
 z_i=f_{\Theta_i(x_{1:i-1})}^{-1}(x_i)
 \]</span> で与えられる．</p>
 <p>自己回帰流の Jacobi 行列は上三角行列になるので，Jacobian は効率的に計算できる．</p>
-<section id="sec-MAF" class="level4" data-number="2.2.1">
-<h4 data-number="2.2.1" class="anchored" data-anchor-id="sec-MAF"><span class="header-section-number">2.2.1</span> マスク付き自己回帰流 (MAF)</h4>
-<p><span class="math inline">\(\Theta_i\)</span> は典型的に単一の自己回帰型のニューラルネットワークを用いてモデリングする．その際，<span class="math inline">\(\Theta_i\)</span> が <span class="math inline">\(x_{1:i-1}\)</span> のみに依存するようにマスクをする MAF (Masked Autoregressive Flow) <span class="citation" data-cites="Papamakarios+2017">(<a href="#ref-Papamakarios+2017" role="doc-biblioref">Papamakarios et al., 2017</a>)</span>．</p>
-<p><span class="citation" data-cites="Papamakarios+2017">(<a href="#ref-Papamakarios+2017" role="doc-biblioref">Papamakarios et al., 2017</a>)</span> では <span class="math inline">\(f\)</span> は affine 関数としている．</p>
 </section>
-<section id="sec-IAF" class="level4" data-number="2.2.2">
-<h4 data-number="2.2.2" class="anchored" data-anchor-id="sec-IAF"><span class="header-section-number">2.2.2</span> 逆自己回帰流 (IAF)</h4>
-<p>元から <span class="math inline">\(f^{-1}\)</span> の方をモデリングする方法を IAF (Inverse Autoregressive Flow) <span class="citation" data-cites="Kingma+2016">(<a href="#ref-Kingma+2016" role="doc-biblioref">D. Kingma et al., 2016</a>)</span> という．順方向のものが密度評価が速いのに比べ，IAF はサンプリングに使われる．</p>
-<p>Parallel WaveNet <span class="citation" data-cites="Oord+2018">(<a href="#ref-Oord+2018" role="doc-biblioref">Oord et al., 2018</a>)</span> では，WaveNet モデル <span class="math inline">\(p_t\)</span> からのサンプリングを加速させる方法として IAF <span class="math inline">\(p_s\)</span> を用いた．</p>
+<section id="sec-MAF" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-MAF"><span class="header-section-number">3.2</span> マスク付き自己回帰流 (MAF)</h3>
+<p><span class="math inline">\(\Theta_i\)</span> を単一の自己回帰型ニューラルネットワークを用いてモデリングするためには，<span class="math inline">\(\Theta_i\)</span> が <span class="math inline">\(x_{1:i-1}\)</span> のみに依存するようにマスク <span class="citation" data-cites="Germain+2015">(<a href="#ref-Germain+2015" role="doc-biblioref">Germain et al., 2015</a>)</span> をするとよい．</p>
+<p>この方法を採用したのが MAF (Masked Autoregressive Flow) <span class="citation" data-cites="Papamakarios+2017">(<a href="#ref-Papamakarios+2017" role="doc-biblioref">Papamakarios et al., 2017</a>)</span> であった．</p>
+<p>MAF では <span class="math inline">\(f\)</span> は affine 関数としている．</p>
+</section>
+<section id="sec-IAF" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-IAF"><span class="header-section-number">3.3</span> 逆自己回帰流 (IAF)</h3>
+<p><span class="math inline">\(f\)</span> と <span class="math inline">\(f^{-1}\)</span> を取り替え <span class="math display">\[
+x_i=f_{\Theta_i(z_{1:i-1})}(z_i)
+\]</span> としてモデリングする方法を IAF (Inverse Autoregressive Flow) <span class="citation" data-cites="Kingma+2016">(<a href="#ref-Kingma+2016" role="doc-biblioref">D. Kingma et al., 2016</a>)</span> という．</p>
+<p>これにより <span class="math inline">\(x_i\)</span> の生成のために <span class="math inline">\(x_1,\cdots,x_{i-1}\)</span> を先に評価する必要がなく，並列で生成することが可能になる．</p>
+<p>従って IAF はサンプリング用途に使われるが，その分 MAF より密度評価が遅くなってしまう．</p>
+</section>
+<section id="parallel-wavenet-でのサンプリング加速" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="parallel-wavenet-でのサンプリング加速"><span class="header-section-number">3.4</span> Parallel WaveNet でのサンプリング加速</h3>
+<p>Parallel WaveNet <span class="citation" data-cites="Oord+2018">(<a href="#ref-Oord+2018" role="doc-biblioref">Oord et al., 2018</a>)</span> では，WaveNet モデル <span class="math inline">\(p_t\)</span> からのサンプリングを加速させる方法として IAF <span class="math inline">\(p_s\)</span> を用いている．</p>
 <p><span class="math inline">\(p_t\)</span> の密度評価は高速であったため，<span class="math inline">\(\operatorname{KL}(p_s,p_t)\)</span> の値は，<span class="math inline">\(p_t\)</span> の評価と IAF <span class="math inline">\(p_s\)</span> からのサンプリングによって効率的に計算できる．</p>
 <p>この KL 乖離度を最適化することで <span class="math inline">\(p_t\)</span> のモデルを <span class="math inline">\(p_s\)</span> に移すことで，サンプルの質を保ちながらサンプリングを加速することに成功した．</p>
 </section>
 </section>
-<section id="残差フロー" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="残差フロー"><span class="header-section-number">2.3</span> 残差フロー</h3>
+<section id="積によるフロー" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="積によるフロー"><span class="header-section-number">4</span> 積によるフロー</h2>
+<section id="はじめに" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">4.1</span> はじめに</h3>
+<p>カップリング流と自己回帰流はいずれも変換 <span class="math inline">\(f_\theta:\mathbb{R}^m\to\mathbb{R}^m\)</span> に基づいており，次元 <span class="math inline">\(m\le n\)</span> が違うに過ぎない．</p>
+<p>この <span class="math inline">\(f_\theta\)</span> の表現力を高めることも重要である．</p>
+<p>そのためには，1次元の写像 <span class="math inline">\(f^i_\theta:\mathbb{R}\to\mathbb{R}\)</span> の積 <span class="math inline">\(f=(f^i)\)</span> としてデザインすることもできる．</p>
+</section>
+<section id="スプライン" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="スプライン"><span class="header-section-number">4.2</span> スプライン</h3>
+<p>指定した点 <span class="math inline">\(\{(x_i,y_i)\}\)</span> をなめらかに補間する曲線を一般に <strong>スプライン</strong> という．</p>
+<p>単調関数によって補間すると約束すれば，可逆な変換 <span class="math inline">\(f^i\)</span> を得る．</p>
+<p>スプラインを，2つの二次関数の商 (rational-quadratic spline) によって補間する方法を提案したのが，Neural Spline Flow <span class="citation" data-cites="Durkan+2019">(<a href="#ref-Durkan+2019" role="doc-biblioref">Durkan et al., 2019</a>)</span> である．</p>
+<p>この方法では，指定した点 <span class="math inline">\((x_i,y_i)\)</span> における微分係数が学習すべきパラメータとなる．</p>
+<p>例えば von Mises 分布が次のようにモデリングできる：</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../../../posts/2024/Samplers/NF2.html"><img src="Files/NF/NSF_timeline.png" class="img-fluid figure-img" alt="画像をタップでコードを見る"></a></p>
+<figcaption>画像をタップでコードを見る</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="残差フロー" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="残差フロー"><span class="header-section-number">5</span> 残差フロー</h2>
 <p>残差接続 <span class="math display">\[
 u\mapsto u+F(u)
 \]</span> において，残差ブロック <span class="math inline">\(F\)</span> が縮小写像になるようにすれば，全体として可逆な層となる．</p>
 <p>iResNet (Invertible Residual Networks) <span class="citation" data-cites="Behrmann+2019">(<a href="#ref-Behrmann+2019" role="doc-biblioref">Behrmann et al., 2019</a>)</span> では，これを CNN において実装した．</p>
-<section id="sec-Hutchinson" class="level4" data-number="2.3.1">
-<h4 data-number="2.3.1" class="anchored" data-anchor-id="sec-Hutchinson"><span class="header-section-number">2.3.1</span> Jacobian を推定する方法</h4>
+<section id="sec-Hutchinson" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="sec-Hutchinson"><span class="header-section-number">5.1</span> Jacobian を推定する方法</h3>
 <p>これは極めて一般的な層を定めてしまい，逆変換が不明であるが，Jacobian は <span class="math display">\[
 \log\lvert\det(I+J_F)\rvert=\sum_{k=1}^\infty\frac{(-1)^{k+1}}{k}\operatorname{Tr}(J_F^k)
 \]</span> を通じて，<span class="math inline">\(\operatorname{Tr}(J_F^k)\)</span> が Hutchinson の跡推定量により，その無限和が Russian-roulette 推定量 <span class="citation" data-cites="Hutchinson1990">(<a href="#ref-Hutchinson1990" role="doc-biblioref">Hutchinson, 1990</a>)</span>, <span class="citation" data-cites="Skilling1989">(<a href="#ref-Skilling1989" role="doc-biblioref">Skilling, 1989</a>)</span> により不偏推定できる <span class="citation" data-cites="Chen+2019">(<a href="#ref-Chen+2019" role="doc-biblioref">R. T. Q. Chen et al., 2019</a>)</span>．</p>
 </section>
-<section id="jacobian-が計算可能な場合" class="level4" data-number="2.3.2">
-<h4 data-number="2.3.2" class="anchored" data-anchor-id="jacobian-が計算可能な場合"><span class="header-section-number">2.3.2</span> Jacobian が計算可能な場合</h4>
+<section id="jacobian-が計算可能な場合" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="jacobian-が計算可能な場合"><span class="header-section-number">5.2</span> Jacobian が計算可能な場合</h3>
 <p><span class="math inline">\(J_F\)</span> のランクが低い場合は，<span class="math inline">\(I+J_F\)</span> の形の行列の Jacobian は効率的に計算できる．</p>
 <p>Planar flow <span class="citation" data-cites="Rezebde0Niganed2015">(<a href="#ref-Rezebde0Niganed2015" role="doc-biblioref">Rezende and Mohamed, 2015</a>)</span> では隠れ素子数１の残差接続層を用いたものである．</p>
 <p>Sylvester flow <span class="citation" data-cites="vandenBerg+2019">(<a href="#ref-vandenBerg+2019" role="doc-biblioref">Berg et al., 2019</a>)</span> も．</p>
 </section>
 </section>
+<section id="応用" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="応用"><span class="header-section-number">6</span> 応用</h2>
+<section id="sec-NF-Bayes" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="sec-NF-Bayes"><span class="header-section-number">6.1</span> 変分推論のサブルーチンとして</h3>
+<p>変分推論における <span class="math inline">\(E\)</span>-ステップ（変分分布について期待値を取るステップ）などにおいて，複雑な分布からのサンプラーとしても用いられる <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span>．</p>
+<p>この使い方を初めて提唱し，フローベースのアプローチを有名にしたのが <span class="citation" data-cites="Rezebde0Niganed2015">(<a href="#ref-Rezebde0Niganed2015" role="doc-biblioref">Rezende and Mohamed, 2015</a>)</span> であった．</p>
+<p>このような変分ベイズ推論，特にベイズ深層学習に向けたフローベースモデルが盛んに提案されている：Householder flow <span class="citation" data-cites="Tomczak-Welling2017">(<a href="#ref-Tomczak-Welling2017" role="doc-biblioref">Tomczak and Welling, 2017</a>)</span> は VAE の改良, IAF <span class="citation" data-cites="Kingma+2016">(<a href="#ref-Kingma+2016" role="doc-biblioref">D. Kingma et al., 2016</a>)</span>, 乗法的正則化流 <span class="citation" data-cites="Louizos-Welling2017">(<a href="#ref-Louizos-Welling2017" role="doc-biblioref">Louizos and Welling, 2017</a>)</span>, Sylvester flow <span class="citation" data-cites="vandenBerg+2019">(<a href="#ref-vandenBerg+2019" role="doc-biblioref">Berg et al., 2019</a>)</span> など．</p>
+</section>
+<section id="ベイズ計算" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="ベイズ計算"><span class="header-section-number">6.2</span> ベイズ計算</h3>
+<p>Neural Importance Sampling <span class="citation" data-cites="Muller+2019">(<a href="#ref-Muller+2019" role="doc-biblioref">Müller et al., 2019</a>)</span> とは，困難な分布からの重点サンプリングの際に，提案分布を正則化流で近似する方法である．</p>
+<p>Boltzmann Generator <span class="citation" data-cites="Noe+2019">(<a href="#ref-Noe+2019" role="doc-biblioref">Noé et al., 2019</a>)</span> は名前の通り，多体系の平衡分布から正則化流でサンプリングをするという手法である．</p>
+<p><span class="citation" data-cites="Hoffmann+2019">(<a href="#ref-Hoffmann+2019" role="doc-biblioref">Hoffman et al., 2019</a>)</span> は IAF を用いて目標分布を学習し，学習された密度 <span class="math inline">\(q\)</span> で変換後の分布から MCMC サンプリングをすることで効率がはるかに改善することを報告した．実際，フローによる変換を受けた後は対象分布は正規分布に近くなることから，MCMC サンプリングを減速させる要因の多くが消滅していることが期待される．</p>
+</section>
+<section id="密度推定" class="level3" data-number="6.3">
+<h3 data-number="6.3" class="anchored" data-anchor-id="密度推定"><span class="header-section-number">6.3</span> 密度推定</h3>
+<p>目標の分布 <span class="math inline">\(p_w\)</span> を Guass 分布 <span class="math inline">\(p\)</span> からの写像 <span class="math inline">\((f_w)_*p\)</span> として捉える発想は，まずなんといっても密度推定に用いられた <span class="citation" data-cites="Chen-Gopinath2000">(<a href="#ref-Chen-Gopinath2000" role="doc-biblioref">S. Chen and Gopinath, 2000</a>)</span>．</p>
+<p>この <span class="math inline">\(f_w\)</span> のモデリングにニューラルネットワークを用いるという発想は <span class="citation" data-cites="Rippel-Adams2013">(<a href="#ref-Rippel-Adams2013" role="doc-biblioref">Rippel and Adams, 2013</a>)</span> の Deep Density Model 以来であるようだ．</p>
+<p>その後同様の発想は非線型独立成分分析 <span class="citation" data-cites="Dinh+2015">(<a href="#ref-Dinh+2015" role="doc-biblioref">Dinh et al., 2015</a>)</span>，引き続き密度推定 <span class="citation" data-cites="Dinh+2017">(<a href="#ref-Dinh+2017" role="doc-biblioref">Dinh et al., 2017</a>)</span> に用いられた．</p>
+<p>現在は MAF <a href="#sec-MAF" class="quarto-xref">3.2</a> の性能が圧倒的である．</p>
+</section>
+<section id="表現学習" class="level3" data-number="6.4">
+<h3 data-number="6.4" class="anchored" data-anchor-id="表現学習"><span class="header-section-number">6.4</span> 表現学習</h3>
+<p>通常の VAE などは，あくまで <span class="math inline">\(p(x|z)\)</span> を学習する形をとるが，正則化流を用いて結合分布 <span class="math inline">\(p(x,z)\)</span> を学習することで，双方を対等にモデリングすることができる．</p>
+<p>これを flow-based <strong>hybrid model</strong> <span class="citation" data-cites="Nalisnick+2019">(<a href="#ref-Nalisnick+2019" role="doc-biblioref">Nalisnick et al., 2019</a>)</span> という．これは予測と生成のタスクでも良い性能を見せるが，分布外検知などの応用も示唆している．</p>
+<p>異常検知 <span class="citation" data-cites="Zhang+2020Detection">(<a href="#ref-Zhang+2020Detection" role="doc-biblioref">Zhang et al., 2020</a>)</span>，不確実性定量化 <span class="citation" data-cites="Charpentier+2020">(<a href="#ref-Charpentier+2020" role="doc-biblioref">Charpentier et al., 2020</a>)</span> のような種々の下流タスクに用いられた場合は，VAE など NN を２つ用いる手法よりもモデルが軽量で，順方向での１度の使用で足りるなどの美点があるという．</p>
+</section>
+<section id="生成" class="level3" data-number="6.5">
+<h3 data-number="6.5" class="anchored" data-anchor-id="生成"><span class="header-section-number">6.5</span> 生成</h3>
+<p>画像生成への応用が多い：GLOW <span class="citation" data-cites="Kingma-Dhariwal2018">(<a href="#ref-Kingma-Dhariwal2018" role="doc-biblioref">D. P. Kingma and Dhariwal, 2018</a>)</span> (<a href="https://openai.com/index/glow/">OpenAI release</a>), 残差フロー <span class="citation" data-cites="Chen+2019">(<a href="#ref-Chen+2019" role="doc-biblioref">R. T. Q. Chen et al., 2019</a>)</span> など．</p>
+<p>動画に対する応用も提案されている：VideoFlow <span class="citation" data-cites="Kumar+2020">(<a href="#ref-Kumar+2020" role="doc-biblioref">Kumar et al., 2020</a>)</span>．</p>
+<p>言語に対する応用もある <span class="citation" data-cites="Tran+2019">(<a href="#ref-Tran+2019" role="doc-biblioref">Tran et al., 2019</a>)</span>．言語は離散データであることが難点であるが，潜在空間上でフローを使うことも提案されている <span class="citation" data-cites="Ziegler-Rush2019">(<a href="#ref-Ziegler-Rush2019" role="doc-biblioref">Ziegler and Rush, 2019</a>)</span>．</p>
+</section>
+<section id="蒸留" class="level3" data-number="6.6">
+<h3 data-number="6.6" class="anchored" data-anchor-id="蒸留"><span class="header-section-number">6.6</span> 蒸留</h3>
+<p>純粋な生成モデリングの他に，IAF <a href="#sec-IAF" class="quarto-xref">3.3</a> は <span class="citation" data-cites="Oord+2018">(<a href="#ref-Oord+2018" role="doc-biblioref">Oord et al., 2018</a>)</span> において音声生成モデルの蒸留に用いられた．</p>
+<p>WaveFLOW <span class="citation" data-cites="Prenger+2018">(<a href="#ref-Prenger+2018" role="doc-biblioref">Prenger et al., 2018</a>)</span>, FloWaveNet <span class="citation" data-cites="Kim+2019">(<a href="#ref-Kim+2019" role="doc-biblioref">Kim et al., 2019</a>)</span> などもカップリング層を取り入れて WaveNet の高速化に成功している．</p>
+</section>
+<section id="sbi" class="level3" data-number="6.7">
+<h3 data-number="6.7" class="anchored" data-anchor-id="sbi"><span class="header-section-number">6.7</span> SBI</h3>
+<p>モデルの尤度は隠されており，入力 <span class="math inline">\(\theta\)</span> に対して，<span class="math inline">\(p(x|\theta)\)</span> からのサンプルのみが利用可能であるとする．このような状況でベイズ推論を行う問題を <strong>simulation-based inference (SBI)</strong> という．これはデータの分布のサンプルから学習して，似たようなデータを増やすという生成モデルのタスクに似ている．</p>
+<p>この際，任意の分布 <span class="math inline">\(p(\theta)\)</span> に対して，結合分布 <span class="math display">\[
+p(x,\theta)=p(x|\theta)p(\theta)
+\]</span> を，シミュレータから得られるサンプルのみから，フローベースモデルにより学習してしまうことで，ベイズ推論が可能になる <span class="citation" data-cites="Papamakarios+2019">(<a href="#ref-Papamakarios+2019" role="doc-biblioref">Papamakarios et al., 2019</a>)</span>．</p>
+<p>この方法はさらに，事後分布推定に特化することで，SMC-ABC などの従来の近似ベイズ計算技法の性能を超えていくようである <span class="citation" data-cites="Greenberg+2019">(<a href="#ref-Greenberg+2019" role="doc-biblioref">Greenberg et al., 2019</a>)</span>．</p>
+</section>
 </section>
 
 
 
-<div id="quarto-appendix" class="default"><section id="文献" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献</h2><div class="quarto-appendix-contents">
+<div id="quarto-appendix" class="default"><section id="文献" class="level2 appendix" data-number="7"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">7</span> 文献</h2><div class="quarto-appendix-contents">
 
 <p>Janosh Riebesell のリポジトリ <a href="https://github.com/janosh/awesome-normalizing-flows"><code>awesome-normalizing-flows</code></a> に実装がまとめられている．</p>
 <p><span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023</a>)</span> 第23章は入門に良い．詳細はサーベイ <span class="citation" data-cites="Kobyzev+2021">(<a href="#ref-Kobyzev+2021" role="doc-biblioref">Kobyzev et al., 2021</a>)</span>, <span class="citation" data-cites="Papamakarios+2021">(<a href="#ref-Papamakarios+2021" role="doc-biblioref">Papamakarios et al., 2021</a>)</span> に譲られている．</p>
@@ -532,8 +636,14 @@ Dinh, L., Krueger, D., and Bengio, Y. (2015). <a href="https://arxiv.org/abs/141
 <div id="ref-Dinh+2017" class="csl-entry" role="listitem">
 Dinh, L., Sohl-Dickstein, J., and Bengio, S. (2017). <a href="https://openreview.net/forum?id=HkpbnH9lx">Density estimation using real <span>NVP</span></a>. In <em>International conference on learning representations</em>.
 </div>
+<div id="ref-Durkan+2019" class="csl-entry" role="listitem">
+Durkan, C., Bekasov, A., Murray, I., and Papamakarios, G. (2019). <a href="https://proceedings.neurips.cc/paper_files/paper/2019/file/7ac71d433f282034e088473244df8c02-Paper.pdf">Neural spline flows</a>. In H. Wallach, H. Larochelle, A. Beygelzimer, F. dAlché-Buc, E. Fox, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 32. Curran Associates, Inc.
+</div>
 <div id="ref-Gao+2020" class="csl-entry" role="listitem">
 Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., and Wu, Y. N. (2020). <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper">Flow contrastive estimation of energy-based models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>.
+</div>
+<div id="ref-Germain+2015" class="csl-entry" role="listitem">
+Germain, M., Gregor, K., Murray, I., and Larochelle, H. (2015). <a href="https://proceedings.mlr.press/v37/germain15.html"><span class="nocase">MADE: Masked Autoencoder for Distribution Estimation</span></a>. In F. Bach and D. Blei, editors, <em>Proceedings of the 32nd international conference on machine learning</em>,Vol. 37, pages 881–889. Lille, France: PMLR.
 </div>
 <div id="ref-Goodfellow+2014" class="csl-entry" role="listitem">
 Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., … Bengio, Y. (2014). <a href="https://papers.nips.cc/paper/2014/hash/5ca3e9b122f61f8f06494c97b1afccf3-Abstract.html">Generative adversarial nets</a>. In <em>Advances in neural information processing systems</em>,Vol. 27, pages 1–9.
