@@ -1,17 +1,18 @@
 ---
-title: "ニューラル微分方程式"
-subtitle: "シミュレーションなしの拡散モデルとしての連続正則化流"
+title: "ニューラル常微分方程式"
+subtitle: "シミュレーションなしの拡散モデルとしての連続正規化流"
 author: "司馬 博文"
 date: 2/14/2024
 date-modified: 8/19/2024
 categories: [Deep, Sampling]
+image: Files/linear/output.gif
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．
+abstract: Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正規化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正規化流 (CNF) ともいう．
 listing: 
     -   id: flow-listing
         type: grid
@@ -34,42 +35,109 @@ listing:
 ::: {#flow-listing}
 :::
 
-## 連続時間正則化流 (CNF) {#sec-CNF}
+## ニューラル常微分方程式 (NODE) {#sec-CNF}
 
-### はじめに
+### ベクトル場のモデリング
 
 ベクトル場 $F:\R^d\times[0,T]\to\R^d$ に関して ODE
 $$
 \dd{x_t}{t}=F(x_t,t)
+$$ {#eq-ODE}
+を満たす曲線 $(x_t)$ を [**積分曲線**](https://ja.wikipedia.org/wiki/積分曲線) という．
+
+CNF (Continuous Normalizing Flow) では，$(x_t)$ はデータ分布とノイズ分布を結ぶダイナミクスとする．すなわち，フロー $(f_t)$ のうち $f_T$ によりノイズからのデータの生成を目指す．
+
+この積分曲線をモデリングするために，ベクトル場 $F$ をニューラルネットによってモデリングするが，CNF では離散化誤差を入れずに，連続なままモデリングする方法を考える．
+
+<!-- これは拡散過程が，$\{X_t\}$ をモデリングするために，その分布の軌道 $\{\L[X_t]\}$ をモデリングするのと対照的である． -->
+
+### Neural ODE
+
+$F$ が得られたならば，Euler の方法により積分曲線 $(x_t)$ を数値計算できる：
 $$
-を満たす曲線 $(x_t)$ を積分曲線，またはフローという．
-
-CNF では，$(x_t)$ はデータ分布とノイズ分布を結ぶダイナミクスとし，適切な $F$ をニューラルネットによって学習することが考えられる．
-
-### 実装
-
-$F$ を学習しさえすれば，Euler の方法によりフロー $(x_t)$ を数値計算できる：
-$$
-x_{t+\ep}=x_t+\ep F(x_t,t).
+x_{t+\ep}=x_t+\ep F(x_t,t),\qquad\ep>0.
 $$
 
-さらに尤度の評価のためにはフロー $(f_t)$ の Jacobian が必要であるが，これは
+この式の形から，$F$ が定める ODE を $\ep F(x_t,t)$ が定める $T/\ep$ 層の残差ネットワークによってモデリングすることもあり得たが，それではタイムステップ $\ep>0$ を自由に設定することができない．
+
+連続時間アプローチではこの出力 $x_T$ を得る手続きは，完全にネットワーク外の ODE ソルバーに任せてしまう．一方で，$\ep>0$ を自由に取れるように，連続なままダイナミクスをモデリングする．これが **NODE (Neural ODE)** [@Chen+2018] である．
+
+従って NODE ではその強みを活かし，$\ep>0$ を必ずしも等間隔ではなく，適応的な設定が追究される．
+
+### 訓練
+
+$F(x_t,t)$ を何度も使う NODE のスキームは，$x_0,x_T$ のみに依存した損失関数に関する誤差逆伝播法に向いていない．
+
+[@Chen+2018] では，最適制御の分野で知られていた [@Pontryagin+1962] の **随伴感度法** (adjoint sensitivity method) を用いた誤差逆伝播法の連続時間への拡張を提案している．
+
+時刻 $t$ での損失 $L_t(x_t)$ はパス $(x_t)$ の全体に依存する汎函数であるとする：
 $$
-\dd{L}{t}(t)=\Tr\Paren{J_{F_t}(x_t)},\qquad L(t):=\log\abs{\det J_{f_t}(x_0)}
+L_t(x_{t}):=L\paren{x_0+\int^t_0F_\theta(x_t,t)\,dt}.
 $$
-を利用することで，$L$ の微分関数として得ることができる．
 
-こうして，$(x_t)$ のシミュレーションと $(f_t)$ の Jacobian の計算が，いずれも $F$ が定める ODE の数値解を求めることに帰着された．
+$\dd{L_t}{\theta}$ を計算するためには，まずは次の **随伴**（状態） を考える：
+$$
+a(t):=\dd{L_t(x_t)}{x_t}.
+$$
 
-### Neural ODE [@Chen+2018]
+出力 $x_T$ が得られているとするならば，この随伴は [@Pontryagin+1962] の定理から次の ODE を後ろ向きに解けば良いため，実際に $x_t,L_t$ を計算して微分する必要はない：
+$$
+\dd{a(t)}{t}=-a(t)^\top\pp{F_\theta(x_t,t)}{x_t}.
+$$ {#eq-ODE-for-adjoint}
 
+この ODE にも $x_t$ の項が表れているが，ODE ([-@eq-ODE]) と同時に解けば良い．こうして $a(t)$ を得たのちは，
 
+$$
+\dd{L_t}{\theta}=-\int^t_0a(s)^\top\pp{F_\theta(x_s,s)}{\theta}\,ds
+$$ {#eq-ODE-for-gradient}
+によって最終的な勾配を得る．
 
-### FFJORD [@Grathwohl+2019]
+::: {.callout-tip appearance="simple" icon="false" title="勾配の計算法"}
 
-この方法では，$\Tr(J_{F_t}(x_t))$ の計算に Hutchinson の跡推定量を用いる．これにより計算は加速されるというのである．
+1. 誤差逆伝播により $D_xF_\theta,D_\theta F_\theta$ を得る．
+2. ODE ([-@eq-ODE]) と ([-@eq-ODE-for-adjoint]) を解いて随伴 $a(t)$ を得る．
+3. 勾配の計算 ([-@eq-ODE-for-gradient]) により勾配 $\dd{L_t}{\theta}$ を得る．
 
-### フローマッチング [@Lipman+2023]
+:::
+
+実際には，([-@eq-ODE]), ([-@eq-ODE-for-adjoint]), ([-@eq-ODE-for-gradient]) は同時に1つの ODE ソルバーへの関数呼び出しで解くことができる．
+
+### Jacobian の計算
+
+NODE を連続な正則化流として用いるためには，損失 $L$ に尤度 $p_T$ を登場させる必要がある：
+$$
+\log p_t(x_t)=\log p(x_0)-\log\abs{\det J_{f_t}(x_t)}.
+$$
+
+そして尤度の評価のためにはフロー $(f_t)$ の Jacobian $J_{f_t}(x_t)$ が必要である．
+
+[残差ネットワークによる正規化流](NF.qmd#sec-residual-flow) においては，Hutchinson の跡推定量を用いたり，残差接続の関数形を単純にして Jacobian を解析的に計算可能にしたりという方法で，Jacobian の計算 $O(d^3)$ を効率化していた．
+
+NODE では，Jacobian $J_{f_t}(x_t)$ は
+$$
+\dd{\log p_t(x_t)}{t}=-\dd{\log\abs{\det J_{f_t}(x_t)}}{t}=-\Tr\Paren{J_{F_t}(x_t)}
+$$
+を利用することで，$J_{F_t}$ の跡から得ることができる [@Chen+2018 定理1]：
+$$
+\log p_t(x_t)=\log p(x_0)-\int^t_0\Tr\Paren{J_{F_s}(x_s)}\,ds
+$$
+
+$\det J_{f_t}(x_t)$ の評価が $O(d^3)$ であることから，$\Tr(J_{F_t}(x_t))$ の計算は $O(d^2)$ で済む．
+
+こうして，勾配 $D_\theta L_t$ と Jacobian $J_{f_t}$ の計算が，いずれも $F_\theta$ の微分係数が定める ODE の数値解を求めることに帰着される．
+
+### Hutchinson の跡推定量による更なる軽量化
+
+FFJORD (Free-Form Jacobian of Reversible Dynamics) [@Grathwohl+2019] では，$\Tr(J_{F_t}(x_t))$ の計算に Hutchinson の跡推定量を用いる：
+$$
+\log p_t(x_t)=\log p(x_0)-\E\Square{\int^t_0\ep^\top J_{F_s}(x_s)\ep\,ds}.
+$$
+
+これにより最終的に $O(d)$ の計算量が達成される．
+
+![[@Grathwohl+2019 p.5]](Files/FFJORD.png)
+
+## フローマッチング [@Lipman+2023]
 
 フローマッチング [@Lipman+2023], rectified flow [@Liu+2023-Flow]
 
@@ -78,3 +146,7 @@ $$
 [@Albergo-Vanden-Eijnden2023] により提案されたもので，SiT (Scalable Interpolant Transformer) [@Ma+2024] でも用いられている技術である．
 
 [@Albergo+2023]
+
+## 文献紹介 {.appendix}
+
+[@Lettermann+2024] は NODE に触れつつ，随伴感度法を用いた複雑系のモデリングとパラメータ推定の方法を解説したチュートリアルである．

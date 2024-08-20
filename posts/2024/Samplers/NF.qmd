@@ -34,7 +34,7 @@ listing:
 
 ## 概観
 
-正則化流 (NF: Normalizing Flow) とは [@Tabak-Vanden-Eijnden2010] が提案・造語した生成モデリングアプローチであり，ニューラルネットワークとしては画像生成を念頭に NICE [@Dinh+2015]（のちに Real NVP [@Dinh+2017]）がはじめに提案された．
+正規化流 (NF: Normalizing Flow) とは [@Tabak-Vanden-Eijnden2010] が提案・造語した生成モデリングアプローチであり，ニューラルネットワークとしては画像生成を念頭に NICE [@Dinh+2015]（のちに Real NVP [@Dinh+2017]）がはじめに提案された．
 
 アイデアとしては，ニューラルネットワークの一層一層を可逆に設計するという制約を課すのみである．
 
@@ -52,7 +52,7 @@ $$
 
 #### 逆変換の利用
 
-**正則化流** (normalizing flow / flow-based models) では，[拡散モデル](Diffusion.qmd) に似て，「逆変換」を利用することを考える．
+**正規化流** (normalizing flow / flow-based models) では，[拡散モデル](Diffusion.qmd) に似て，「逆変換」を利用することを考える．
 
 すなわち，$\{f_w\}\subset\L(\cZ,\cX)$ が可逆であるように設計するのである．逆関数を $g_w:=f_w^{-1}$ と表すと，$p_w(x)dx$ は $p(z)dz$ の $g_w$ による引き戻しの関係になっているから，[変数変換](../../2023/Probability/Beta-Gamma.qmd#sec-transform) を通じて，
 $$
@@ -207,7 +207,9 @@ $p_t$ の密度評価は高速であったため，$\KL(p_s,p_t)$ の値は，$p
 
 [![画像をタップでコードを見る](Files/NF/NSF_timeline.png)](NF2.qmd)
 
-## 残差フロー
+## 残差フロー {#sec-residual-flow}
+
+### はじめに
 
 残差接続
 $$
@@ -217,21 +219,30 @@ $$
 
 iResNet (Invertible Residual Networks) [@Behrmann+2019] では，これを CNN において実装した．
 
-### Jacobian を推定する方法 {#sec-Hutchinson}
-
-これは極めて一般的な層を定めてしまい，逆変換が不明であるが，Jacobian は
-$$
-\log\abs{\det(I+J_F)}=\sum_{k=1}^\infty\frac{(-1)^{k+1}}{k}\Tr(J_F^k)
-$$
-を通じて，$\Tr(J_F^k)$ が Hutchinson の跡推定量により，その無限和が Russian-roulette 推定量 [@Hutchinson1990], [@Skilling1989] により不偏推定できる [@Chen+2019]．
+この方法のボトルネックは Jacobian の計算にある．愚直に計算すると入力の次元 $d$ に関して $O(d^3)$ の計算量が必要になるため，なんらかの方法で効率化が必要である．
 
 ### Jacobian が計算可能な場合
 
 $J_F$ のランクが低い場合は，$I+J_F$ の形の行列の Jacobian は効率的に計算できる．
 
-Planar flow [@Rezebde0Niganed2015] では隠れ素子数１の残差接続層を用いたものである．
+Planar flow [@Rezebde0Niganed2015] では隠れ素子数１の残差接続層を用いたものである：
+$$
+f(u)=u+v\sigma\Paren{w^\top u+b}.
+$$
+この設定では Jacobian が次のように計算できる：
+$$
+\det J_f(u)=1+w^\top v\sigma'\Paren{w^\top u+b}.
+$$
 
-Sylvester flow [@vandenBerg+2019] も．
+他に，circular flow [@Rezebde0Niganed2015] や Sylvester flow [@vandenBerg+2019] も同様な解析的な Jacobian の表示を与えるアーキテクチャである．
+
+### Jacobian を推定する方法 {#sec-Hutchinson}
+
+仮に変換 $F$ に制約を課さずとも，Jacobian は
+$$
+\log\abs{\det(I+J_F)}=\sum_{k=1}^\infty\frac{(-1)^{k+1}}{k}\Tr(J_F^k)
+$$
+を通じて，$\Tr(J_F^k)$ が Hutchinson の跡推定量 [@Hutchinson1990] により，その無限和が Russian-roulette 推定量 [@Skilling1989] により不偏推定できる [@Chen+2019]．
 
 ## 応用
 
@@ -241,13 +252,13 @@ Sylvester flow [@vandenBerg+2019] も．
 
 この使い方を初めて提唱し，フローベースのアプローチを有名にしたのが [@Rezebde0Niganed2015] であった．
 
-このような変分ベイズ推論，特にベイズ深層学習に向けたフローベースモデルが盛んに提案されている：Householder flow [@Tomczak-Welling2017] は VAE の改良, IAF [@Kingma+2016], 乗法的正則化流 [@Louizos-Welling2017], Sylvester flow [@vandenBerg+2019] など．
+このような変分ベイズ推論，特にベイズ深層学習に向けたフローベースモデルが盛んに提案されている：Householder flow [@Tomczak-Welling2017] は VAE の改良, IAF [@Kingma+2016], 乗法的正規化流 [@Louizos-Welling2017], Sylvester flow [@vandenBerg+2019] など．
 
 ### ベイズ計算
 
-Neural Importance Sampling [@Muller+2019] とは，困難な分布からの重点サンプリングの際に，提案分布を正則化流で近似する方法である．
+Neural Importance Sampling [@Muller+2019] とは，困難な分布からの重点サンプリングの際に，提案分布を正規化流で近似する方法である．
 
-Boltzmann Generator [@Noe+2019] は名前の通り，多体系の平衡分布から正則化流でサンプリングをするという手法である．
+Boltzmann Generator [@Noe+2019] は名前の通り，多体系の平衡分布から正規化流でサンプリングをするという手法である．
 
 [@Hoffmann+2019] は IAF を用いて目標分布を学習し，学習された密度 $q$ で変換後の分布から MCMC サンプリングをすることで効率がはるかに改善することを報告した．実際，フローによる変換を受けた後は対象分布は正規分布に近くなることから，MCMC サンプリングを減速させる要因の多くが消滅していることが期待される．
 
@@ -263,7 +274,7 @@ Boltzmann Generator [@Noe+2019] は名前の通り，多体系の平衡分布か
 
 ### 表現学習
 
-通常の VAE などは，あくまで $p(x|z)$ を学習する形をとるが，正則化流を用いて結合分布 $p(x,z)$ を学習することで，双方を対等にモデリングすることができる．
+通常の VAE などは，あくまで $p(x|z)$ を学習する形をとるが，正規化流を用いて結合分布 $p(x,z)$ を学習することで，双方を対等にモデリングすることができる．
 
 これを flow-based **hybrid model** [@Nalisnick+2019] という．これは予測と生成のタスクでも良い性能を見せるが，分布外検知などの応用も示唆している．
 
@@ -303,4 +314,4 @@ Janosh Riebesell のリポジトリ [`awesome-normalizing-flows`](https://github
 
 [@Chen-Gopinath2000] の時点では同様のアイデアは **Gaussianization** と呼ばれていた．
 
-[@Tabak-Vanden-Eijnden2010], [@Tabak-Turner2013] が正則化流の提案と命名を行った．
+[@Tabak-Vanden-Eijnden2010], [@Tabak-Turner2013] が正規化流の提案と命名を行った．

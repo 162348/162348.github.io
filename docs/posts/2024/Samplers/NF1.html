@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - ニューラル微分方程式</title>
+<title>Hirofumi Shiba - ニューラル常微分方程式</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -164,13 +164,13 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - ニューラル微分方程式">
-<meta property="og:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
+<meta property="og:title" content="Hirofumi Shiba - ニューラル常微分方程式">
+<meta property="og:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正規化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正規化流 (CNF) ともいう．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/Files/linear/output.gif">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - ニューラル微分方程式">
-<meta name="twitter:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/assets/profile.jpg">
+<meta name="twitter:title" content="Hirofumi Shiba - ニューラル常微分方程式">
+<meta name="twitter:description" content="Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正規化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正規化流 (CNF) ともいう．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/Files/linear/output.gif">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -220,8 +220,8 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">ニューラル微分方程式</h1>
-            <p class="subtitle lead">シミュレーションなしの拡散モデルとしての連続正則化流</p>
+      <h1 class="title">ニューラル常微分方程式</h1>
+            <p class="subtitle lead">シミュレーションなしの拡散モデルとしての連続正規化流</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
                 <div class="quarto-category">Sampling</div>
@@ -258,7 +258,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正則化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正則化流 (CNF) ともいう．
+      Gauss 分布からデータ分布までの変換を，可逆なニューラルネットワークでモデリングする正規化流は，ODE に基づいて設計することもできる．この方法は Neural ODE や連続な正規化流 (CNF) ともいう．
     </div>
   </div>
   
@@ -270,15 +270,17 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#sec-CNF" id="toc-sec-CNF" class="nav-link active" data-scroll-target="#sec-CNF"><span class="header-section-number">1</span> 連続時間正則化流 (CNF)</a>
+  <li><a href="#sec-CNF" id="toc-sec-CNF" class="nav-link active" data-scroll-target="#sec-CNF"><span class="header-section-number">1</span> ニューラル常微分方程式 (NODE)</a>
   <ul class="collapse">
-  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
-  <li><a href="#実装" id="toc-実装" class="nav-link" data-scroll-target="#実装"><span class="header-section-number">1.2</span> 実装</a></li>
-  <li><a href="#neural-ode-chen2018" id="toc-neural-ode-chen2018" class="nav-link" data-scroll-target="#neural-ode-chen2018"><span class="header-section-number">1.3</span> Neural ODE <span class="citation" data-cites="Chen+2018">(Chen et al., 2018)</span></a></li>
-  <li><a href="#ffjord-grathwohl2019" id="toc-ffjord-grathwohl2019" class="nav-link" data-scroll-target="#ffjord-grathwohl2019"><span class="header-section-number">1.4</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(Grathwohl et al., 2019)</span></a></li>
-  <li><a href="#フローマッチング-lipman2023" id="toc-フローマッチング-lipman2023" class="nav-link" data-scroll-target="#フローマッチング-lipman2023"><span class="header-section-number">1.5</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span></a></li>
+  <li><a href="#ベクトル場のモデリング" id="toc-ベクトル場のモデリング" class="nav-link" data-scroll-target="#ベクトル場のモデリング"><span class="header-section-number">1.1</span> ベクトル場のモデリング</a></li>
+  <li><a href="#neural-ode" id="toc-neural-ode" class="nav-link" data-scroll-target="#neural-ode"><span class="header-section-number">1.2</span> Neural ODE</a></li>
+  <li><a href="#訓練" id="toc-訓練" class="nav-link" data-scroll-target="#訓練"><span class="header-section-number">1.3</span> 訓練</a></li>
+  <li><a href="#jacobian-の計算" id="toc-jacobian-の計算" class="nav-link" data-scroll-target="#jacobian-の計算"><span class="header-section-number">1.4</span> Jacobian の計算</a></li>
+  <li><a href="#hutchinson-の跡推定量による更なる軽量化" id="toc-hutchinson-の跡推定量による更なる軽量化" class="nav-link" data-scroll-target="#hutchinson-の跡推定量による更なる軽量化"><span class="header-section-number">1.5</span> Hutchinson の跡推定量による更なる軽量化</a></li>
   </ul></li>
-  <li><a href="#確率的補間" id="toc-確率的補間" class="nav-link" data-scroll-target="#確率的補間"><span class="header-section-number">2</span> 確率的補間</a></li>
+  <li><a href="#フローマッチング-lipman2023" id="toc-フローマッチング-lipman2023" class="nav-link" data-scroll-target="#フローマッチング-lipman2023"><span class="header-section-number">2</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span></a></li>
+  <li><a href="#確率的補間" id="toc-確率的補間" class="nav-link" data-scroll-target="#確率的補間"><span class="header-section-number">3</span> 確率的補間</a></li>
+  
   </ul>
 </nav>
     </div>
@@ -298,7 +300,7 @@ window.Quarto = {
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-flow-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724069740599" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="422">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724137573763" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="445">
 <a href="../../../posts/2024/Samplers/NF.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -320,7 +322,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723129200000" data-listing-file-modified-sort="1724044682103" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723129200000" data-listing-file-modified-sort="1724070571747" data-listing-date-modified-sort="1723215600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
 <a href="../../../posts/2024/Samplers/DiscreteDiffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -342,7 +344,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1724069684501" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1966">
+<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1724133417263" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1863">
 <a href="../../../posts/2024/Samplers/NF2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -364,7 +366,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724055263896" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="409">
+<div class="g-col-1" data-index="3" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724115557459" data-listing-date-modified-sort="1722524400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="409">
 <a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -433,47 +435,109 @@ No matching items
 </div>
 </section>
 <section id="sec-CNF" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="sec-CNF"><span class="header-section-number">1</span> 連続時間正則化流 (CNF)</h2>
-<section id="はじめに" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
-<p>ベクトル場 <span class="math inline">\(F:\mathbb{R}^d\times[0,T]\to\mathbb{R}^d\)</span> に関して ODE <span class="math display">\[
+<h2 data-number="1" class="anchored" data-anchor-id="sec-CNF"><span class="header-section-number">1</span> ニューラル常微分方程式 (NODE)</h2>
+<section id="ベクトル場のモデリング" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="ベクトル場のモデリング"><span class="header-section-number">1.1</span> ベクトル場のモデリング</h3>
+<p>ベクトル場 <span class="math inline">\(F:\mathbb{R}^d\times[0,T]\to\mathbb{R}^d\)</span> に関して ODE <span id="eq-ODE"><span class="math display">\[
 \frac{d x_t}{d t}=F(x_t,t)
-\]</span> を満たす曲線 <span class="math inline">\((x_t)\)</span> を積分曲線，またはフローという．</p>
-<p>CNF では，<span class="math inline">\((x_t)\)</span> はデータ分布とノイズ分布を結ぶダイナミクスとし，適切な <span class="math inline">\(F\)</span> をニューラルネットによって学習することが考えられる．</p>
+\tag{1}\]</span></span> を満たす曲線 <span class="math inline">\((x_t)\)</span> を <a href="https://ja.wikipedia.org/wiki/積分曲線"><strong>積分曲線</strong></a> という．</p>
+<p>CNF (Continuous Normalizing Flow) では，<span class="math inline">\((x_t)\)</span> はデータ分布とノイズ分布を結ぶダイナミクスとする．すなわち，フロー <span class="math inline">\((f_t)\)</span> のうち <span class="math inline">\(f_T\)</span> によりノイズからのデータの生成を目指す．</p>
+<p>この積分曲線をモデリングするために，ベクトル場 <span class="math inline">\(F\)</span> をニューラルネットによってモデリングするが，CNF では離散化誤差を入れずに，連続なままモデリングする方法を考える．</p>
+<!-- これは拡散過程が，$\{X_t\}$ をモデリングするために，その分布の軌道 $\{\L[X_t]\}$ をモデリングするのと対照的である． -->
 </section>
-<section id="実装" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="実装"><span class="header-section-number">1.2</span> 実装</h3>
-<p><span class="math inline">\(F\)</span> を学習しさえすれば，Euler の方法によりフロー <span class="math inline">\((x_t)\)</span> を数値計算できる： <span class="math display">\[
-x_{t+\epsilon}=x_t+\epsilon F(x_t,t).
+<section id="neural-ode" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="neural-ode"><span class="header-section-number">1.2</span> Neural ODE</h3>
+<p><span class="math inline">\(F\)</span> が得られたならば，Euler の方法により積分曲線 <span class="math inline">\((x_t)\)</span> を数値計算できる： <span class="math display">\[
+x_{t+\epsilon}=x_t+\epsilon F(x_t,t),\qquad\epsilon&gt;0.
 \]</span></p>
-<p>さらに尤度の評価のためにはフロー <span class="math inline">\((f_t)\)</span> の Jacobian が必要であるが，これは <span class="math display">\[
-\frac{d L}{d t}(t)=\operatorname{Tr}\biggr(J_{F_t}(x_t)\biggl),\qquad L(t):=\log\lvert\det J_{f_t}(x_0)\rvert
-\]</span> を利用することで，<span class="math inline">\(L\)</span> の微分関数として得ることができる．</p>
-<p>こうして，<span class="math inline">\((x_t)\)</span> のシミュレーションと <span class="math inline">\((f_t)\)</span> の Jacobian の計算が，いずれも <span class="math inline">\(F\)</span> が定める ODE の数値解を求めることに帰着された．</p>
+<p>この式の形から，<span class="math inline">\(F\)</span> が定める ODE を <span class="math inline">\(\epsilon F(x_t,t)\)</span> が定める <span class="math inline">\(T/\epsilon\)</span> 層の残差ネットワークによってモデリングすることもあり得たが，それではタイムステップ <span class="math inline">\(\epsilon&gt;0\)</span> を自由に設定することができない．</p>
+<p>連続時間アプローチではこの出力 <span class="math inline">\(x_T\)</span> を得る手続きは，完全にネットワーク外の ODE ソルバーに任せてしまう．一方で，<span class="math inline">\(\epsilon&gt;0\)</span> を自由に取れるように，連続なままダイナミクスをモデリングする．これが <strong>NODE (Neural ODE)</strong> <span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018</a>)</span> である．</p>
+<p>従って NODE ではその強みを活かし，<span class="math inline">\(\epsilon&gt;0\)</span> を必ずしも等間隔ではなく，適応的な設定が追究される．</p>
 </section>
-<section id="neural-ode-chen2018" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="neural-ode-chen2018"><span class="header-section-number">1.3</span> Neural ODE <span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018</a>)</span></h3>
+<section id="訓練" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="訓練"><span class="header-section-number">1.3</span> 訓練</h3>
+<p><span class="math inline">\(F(x_t,t)\)</span> を何度も使う NODE のスキームは，<span class="math inline">\(x_0,x_T\)</span> のみに依存した損失関数に関する誤差逆伝播法に向いていない．</p>
+<p><span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018</a>)</span> では，最適制御の分野で知られていた <span class="citation" data-cites="Pontryagin+1962">(<a href="#ref-Pontryagin+1962" role="doc-biblioref">Pontryagin et al., 1962</a>)</span> の <strong>随伴感度法</strong> (adjoint sensitivity method) を用いた誤差逆伝播法の連続時間への拡張を提案している．</p>
+<p>時刻 <span class="math inline">\(t\)</span> での損失 <span class="math inline">\(L_t(x_t)\)</span> はパス <span class="math inline">\((x_t)\)</span> の全体に依存する汎函数であるとする： <span class="math display">\[
+L_t(x_{t}):=L\left(x_0+\int^t_0F_\theta(x_t,t)\,dt\right).
+\]</span></p>
+<p><span class="math inline">\(\frac{d L_t}{d \theta}\)</span> を計算するためには，まずは次の <strong>随伴</strong>（状態） を考える： <span class="math display">\[
+a(t):=\frac{d L_t(x_t)}{d x_t}.
+\]</span></p>
+<p>出力 <span class="math inline">\(x_T\)</span> が得られているとするならば，この随伴は <span class="citation" data-cites="Pontryagin+1962">(<a href="#ref-Pontryagin+1962" role="doc-biblioref">Pontryagin et al., 1962</a>)</span> の定理から次の ODE を後ろ向きに解けば良いため，実際に <span class="math inline">\(x_t,L_t\)</span> を計算して微分する必要はない： <span id="eq-ODE-for-adjoint"><span class="math display">\[
+\frac{d a(t)}{d t}=-a(t)^\top\frac{\partial F_\theta(x_t,t)}{\partial x_t}.
+\tag{2}\]</span></span></p>
+<p>この ODE にも <span class="math inline">\(x_t\)</span> の項が表れているが，ODE (<a href="#eq-ODE" class="quarto-xref">1</a>) と同時に解けば良い．こうして <span class="math inline">\(a(t)\)</span> を得たのちは，</p>
+<p><span id="eq-ODE-for-gradient"><span class="math display">\[
+\frac{d L_t}{d \theta}=-\int^t_0a(s)^\top\frac{\partial F_\theta(x_s,s)}{\partial \theta}\,ds
+\tag{3}\]</span></span> によって最終的な勾配を得る．</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="勾配の計算法">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+勾配の計算法
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>誤差逆伝播により <span class="math inline">\(D_xF_\theta,D_\theta F_\theta\)</span> を得る．</li>
+<li>ODE (<a href="#eq-ODE" class="quarto-xref">1</a>) と (<a href="#eq-ODE-for-adjoint" class="quarto-xref">2</a>) を解いて随伴 <span class="math inline">\(a(t)\)</span> を得る．</li>
+<li>勾配の計算 (<a href="#eq-ODE-for-gradient" class="quarto-xref">3</a>) により勾配 <span class="math inline">\(\frac{d L_t}{d \theta}\)</span> を得る．</li>
+</ol>
+</div>
+</div>
+<p>実際には，(<a href="#eq-ODE" class="quarto-xref">1</a>), (<a href="#eq-ODE-for-adjoint" class="quarto-xref">2</a>), (<a href="#eq-ODE-for-gradient" class="quarto-xref">3</a>) は同時に1つの ODE ソルバーへの関数呼び出しで解くことができる．</p>
 </section>
-<section id="ffjord-grathwohl2019" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="ffjord-grathwohl2019"><span class="header-section-number">1.4</span> FFJORD <span class="citation" data-cites="Grathwohl+2019">(<a href="#ref-Grathwohl+2019" role="doc-biblioref">Grathwohl et al., 2019</a>)</span></h3>
-<p>この方法では，<span class="math inline">\(\operatorname{Tr}(J_{F_t}(x_t))\)</span> の計算に Hutchinson の跡推定量を用いる．これにより計算は加速されるというのである．</p>
+<section id="jacobian-の計算" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="jacobian-の計算"><span class="header-section-number">1.4</span> Jacobian の計算</h3>
+<p>NODE を連続な正則化流として用いるためには，損失 <span class="math inline">\(L\)</span> に尤度 <span class="math inline">\(p_T\)</span> を登場させる必要がある： <span class="math display">\[
+\log p_t(x_t)=\log p(x_0)-\log\lvert\det J_{f_t}(x_t)\rvert.
+\]</span></p>
+<p>そして尤度の評価のためにはフロー <span class="math inline">\((f_t)\)</span> の Jacobian <span class="math inline">\(J_{f_t}(x_t)\)</span> が必要である．</p>
+<p><a href="../../../posts/2024/Samplers/NF.html#sec-residual-flow">残差ネットワークによる正規化流</a> においては，Hutchinson の跡推定量を用いたり，残差接続の関数形を単純にして Jacobian を解析的に計算可能にしたりという方法で，Jacobian の計算 <span class="math inline">\(O(d^3)\)</span> を効率化していた．</p>
+<p>NODE では，Jacobian <span class="math inline">\(J_{f_t}(x_t)\)</span> は <span class="math display">\[
+\frac{d \log p_t(x_t)}{d t}=-\frac{d \log\lvert\det J_{f_t}(x_t)\rvert}{d t}=-\operatorname{Tr}\biggr(J_{F_t}(x_t)\biggl)
+\]</span> を利用することで，<span class="math inline">\(J_{F_t}\)</span> の跡から得ることができる <span class="citation" data-cites="Chen+2018">(<a href="#ref-Chen+2018" role="doc-biblioref">Chen et al., 2018, p. 定理1</a>)</span>： <span class="math display">\[
+\log p_t(x_t)=\log p(x_0)-\int^t_0\operatorname{Tr}\biggr(J_{F_s}(x_s)\biggl)\,ds
+\]</span></p>
+<p><span class="math inline">\(\det J_{f_t}(x_t)\)</span> の評価が <span class="math inline">\(O(d^3)\)</span> であることから，<span class="math inline">\(\operatorname{Tr}(J_{F_t}(x_t))\)</span> の計算は <span class="math inline">\(O(d^2)\)</span> で済む．</p>
+<p>こうして，勾配 <span class="math inline">\(D_\theta L_t\)</span> と Jacobian <span class="math inline">\(J_{f_t}\)</span> の計算が，いずれも <span class="math inline">\(F_\theta\)</span> の微分係数が定める ODE の数値解を求めることに帰着される．</p>
 </section>
-<section id="フローマッチング-lipman2023" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="フローマッチング-lipman2023"><span class="header-section-number">1.5</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span></h3>
+<section id="hutchinson-の跡推定量による更なる軽量化" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="hutchinson-の跡推定量による更なる軽量化"><span class="header-section-number">1.5</span> Hutchinson の跡推定量による更なる軽量化</h3>
+<p>FFJORD (Free-Form Jacobian of Reversible Dynamics) <span class="citation" data-cites="Grathwohl+2019">(<a href="#ref-Grathwohl+2019" role="doc-biblioref">Grathwohl et al., 2019</a>)</span> では，<span class="math inline">\(\operatorname{Tr}(J_{F_t}(x_t))\)</span> の計算に Hutchinson の跡推定量を用いる： <span class="math display">\[
+\log p_t(x_t)=\log p(x_0)-\operatorname{E}\left[\int^t_0\epsilon^\top J_{F_s}(x_s)\epsilon\,ds\right].
+\]</span></p>
+<p>これにより最終的に <span class="math inline">\(O(d)\)</span> の計算量が達成される．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/FFJORD.png" class="img-fluid figure-img"></p>
+<figcaption><span class="citation" data-cites="Grathwohl+2019">(<a href="#ref-Grathwohl+2019" role="doc-biblioref">Grathwohl et al., 2019, p. 5</a>)</span></figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="フローマッチング-lipman2023" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="フローマッチング-lipman2023"><span class="header-section-number">2</span> フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span></h2>
 <p>フローマッチング <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span>, rectified flow <span class="citation" data-cites="Liu+2023-Flow">(<a href="#ref-Liu+2023-Flow" role="doc-biblioref">Liu et al., 2023</a>)</span></p>
 </section>
-</section>
-<section id="確率的補間" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="確率的補間"><span class="header-section-number">2</span> 確率的補間</h2>
+<section id="確率的補間" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="確率的補間"><span class="header-section-number">3</span> 確率的補間</h2>
 <p><span class="citation" data-cites="Albergo-Vanden-Eijnden2023">(<a href="#ref-Albergo-Vanden-Eijnden2023" role="doc-biblioref">Michael Samuel Albergo and Vanden-Eijnden, 2023</a>)</span> により提案されたもので，SiT (Scalable Interpolant Transformer) <span class="citation" data-cites="Ma+2024">(<a href="#ref-Ma+2024" role="doc-biblioref">Ma et al., 2024</a>)</span> でも用いられている技術である．</p>
 <p><span class="citation" data-cites="Albergo+2023">(<a href="#ref-Albergo+2023" role="doc-biblioref">Michael S. Albergo et al., 2023</a>)</span></p>
-
-
-
-
 </section>
 
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="Lettermann+2024">(<a href="#ref-Lettermann+2024" role="doc-biblioref">Lettermann et al., 2024</a>)</span> は NODE に触れつつ，随伴感度法を用いた複雑系のモデリングとパラメータ推定の方法を解説したチュートリアルである．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-Albergo+2023" class="csl-entry" role="listitem">
 Albergo, Michael S., Boffi, N. M., and Vanden-Eijnden, E. (2023). <a href="https://arxiv.org/abs/2303.08797">Stochastic interpolants: A unifying framework for flows and diffusions</a>.
 </div>
@@ -486,6 +550,9 @@ Chen, R. T. Q., Rubanova, Y., Bettencourt, J., and Duvenaud, D. K. (2018). <a hr
 <div id="ref-Grathwohl+2019" class="csl-entry" role="listitem">
 Grathwohl, W., Chen, R. T. Q., Bettencourt, J., and Duvenaud, D. (2019). <a href="https://openreview.net/forum?id=rJxgknCcK7">Scalable reversible generative models with free-form continuous dynamics</a>. In <em>International conference on learning representations</em>.
 </div>
+<div id="ref-Lettermann+2024" class="csl-entry" role="listitem">
+Lettermann, L., Jurado, A., Betz, T., Wörgötter, F., and Herzog, S. (2024). <a href="https://doi.org/10.1038/s42005-024-01606-9">Tutorial: A beginner’s guide to building a representative model of dynamical systems using the adjoint method</a>. <em>Communications Physics</em>, <em>7</em>(1), 128.
+</div>
 <div id="ref-Lipman+2023" class="csl-entry" role="listitem">
 Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M., and Le, M. (2023). <a href="https://openreview.net/forum?id=PqvMRDCJT9t">Flow matching for generative modeling</a>. In <em>The eleventh international conference on learning representations</em>.
 </div>
@@ -494,6 +561,9 @@ Liu, X., Gong, C., and liu, qiang. (2023). <a href="https://openreview.net/forum
 </div>
 <div id="ref-Ma+2024" class="csl-entry" role="listitem">
 Ma, N., Goldstein, M., Albergo, M. S., Boffi, N. M., Vanden-Eijnden, E., and Xie, S. (2024). <a href="https://arxiv.org/abs/2401.08740">SiT: Exploring flow and diffusion-based generative models with scalable interpolant transformers</a>.
+</div>
+<div id="ref-Pontryagin+1962" class="csl-entry" role="listitem">
+Pontryagin, L. S., Boltyanskii, V. G., Gamkrelidze, R. V., and Mishchenko, E. F. (1962). <em><a href="">The mathematical theory of optimal processes</a></em>. John Wiley &amp; Sons.
 </div>
 </div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
