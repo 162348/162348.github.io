@@ -4,7 +4,7 @@ subtitle: "深層生成モデル６"
 author: "司馬博文"
 date: 2/14/2024
 date-modified: 8/2/2024
-image: Files/fig-generation3-output-1.png
+image: Files/DDPM_outputs.png
 categories: [Deep, Process, Sampling]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -35,115 +35,129 @@ listing:
 ::: {#diffusion-listing}
 :::
 
-## 導入
+## デノイジング拡散模型 (DDPM) {#sec-DDPM}
 
-### アイデア
+### はじめに
 
-拡散モデルによる画像生成は，初め [@Dickstein+2015] で提案され，[@Ho+2020] で DDPM (Denoising Diffusion Probabilistic Model) として拡張された．^[VideoGPT の論文 [@Yan+2021] や，DALL-E2 の論文 [@Ramesh+2022]，GLIDE の論文 [@Nichol+2022] でも引用されている．]
+拡散モデルによる画像生成は，初め [@Dickstein+2015] で提案され，[@Ho+2020] で DDPM (Denoising Diffusion Probabilistic Model) として拡張された．
 
-[VAE](../Kernels/Deep4.qmd), [EBM](EBM.qmd), [正規化流](NF.qmd) はいずれもノイズからデータの分布までの変換を学ぼうとするが，拡散模型のアイデアは，**データをノイズにする方向の方が圧倒的に簡単である**ことを利用する．
+<!-- ^[VideoGPT の論文 [@Yan+2021] や，DALL-E2 の論文 [@Ramesh+2022]，GLIDE の論文 [@Nichol+2022] でも引用されている．] -->
 
-まず訓練データを，完全な Gauss 分布になるような変換を拡散過程によって行う．これを複数段階に分けて実行し，エンコーダー
+<!-- [VAE](../Kernels/Deep4.qmd), [EBM](EBM.qmd), [正規化流](NF.qmd) はいずれもノイズからデータの分布までの変換を学ぼうとするが，拡散模型のアイデアは，**データをノイズにする方向の方が圧倒的に簡単である**ことを利用する． -->
+
+DDPM では訓練データを，完全な Gauss 分布になるような変換を拡散過程によって行う．これを複数段階に分けて実行し，エンコーダー
 $$
-q(x_0,x_T)dx_T=\int\cdots\int q(x_0,x_1)dx_1\cdots q(x_{T-1},x_T)dx_{T-1}
+Q(x_0,-)=\int\cdots\int Q^1(x_0,dx_1)\cdots Q^T(x_{T-1},-)=\rN_d(0,I_d)
 $$
 を得る．
 
 続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で学習しようというのである．
 
-この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song+2021NeurIPS] などの方法が提案されている．
+この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song+2021NeurIPS] などの方法が提案されている．この特徴付けについては第 [-@sec-SGM] 節で詳しく述べる．
 
 この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる [@Huang+2021]．
 
-### 拡散モデルの例
+### エンコーダーの設定
 
-#### ADM [@Dhariwal-Nichol2021]
+前述の通り，DDPM はエンコーダー $q$ とデコーダー $p_\theta$ がそれぞれ複数層からなるような，階層的 VAE ともみなせる．
 
-ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] は ImageNet データの判別において当時の最先端であった BigGAN [@Brock+2019] の性能を凌駕した．
+<!-- 加えて，隠れ層は全て入力 $x_0$ と同じ次元 $d$ で作る点は，正規化流にも似ている（可逆とは限らないが）． -->
 
-そのアーキテクチャには [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] が用いられた．
-
-#### GLIDE [@Nichol+2022]
-
-OpenAI の [GLIDE](https://github.com/openai/glide-text2im) (Guided Language to Image Diffusion for Generation and Editing) [@Nichol+2022] は，[CLIP](https://openai.com/research/clip) (Contrastive Language-Image Pre-training) というトランスフォーマーベースの画像符号化器と組み合わされた，テキスト誘導付き拡散モデルである．
-
-#### Imagen [@Saharia+2022]
-
-Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という [Cascaded Generation](NF3.qmd#sec-CascadedGeneration) [@Ho+2022] に基づいた誘導付き拡散モデルを開発している．
-
-T5-XXL [@Raffel+2020] に基づく言語モデルを通じて言語と画像を同等の潜在空間にのせ，U-Net アーキテクチャを持った VDM [-@sec-VDM] でモデリングすることで，高精度な text-to-image を実現している．
-
-Palette [@Saharia+2022SIGGRAPH] は同様の仕組みで image-to-image を実現している．
-
-<!-- [@Yang+2023-Diff] は動画生成に応用している． -->
-
-#### 潜在拡散模型
-
-[VAE](../Kernels/Deep4.qmd) や [GAN](../Kernels/Deep3.qmd) と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．
-
-一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを **潜在拡散モデル** (latent diffusion model) [@Rombach+2022] という．これが [Stable Diffusion](https://ja.stability.ai/stable-diffusion) の元となっている．
-
-#### トランスフォーマーとの邂逅
-
-並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．
-
-潜在拡散モデルで [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] を用いていたところをトランスフォーマーに置換した **拡散トランスフォーマー** (DiT: Diffusion Transformer) [@Peebles-Xie2023] が発表された．
-
-その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) [@Ma+2024] が発表された．
-
-#### [Discrete Denoising Diffusion Probabilistic Models (D3PM)](DiscreteDiffusion.qmd#sec-D3PM) [@Austin+2021]
-
-Imagen にように言語を連続な潜在空間に埋め込む他に，直接離散空間上にも拡散模型を用いる事ができる．
-
-実はこのように設計された拡散模型は，BERT [@Lewis+2020-BART] などのマスク付き言語モデルと等価になる．
-
-MaskGIT (Masked Generative Image Transformer) [@Chang+2022] はこの枠組みに，画像をベクトル量子化して載せる．
-
-## デノイジング拡散模型 (DDPM) {#sec-DDPM}
-
-### はじめに
-
-DDPM はエンコーダー $q$ とデコーダー $p_\theta$ がそれぞれ複数層からなるような，階層的 VAE ともみなせる．
-
-加えて，隠れ層は全て入力 $x_0$ と同じ次元 $d$ で作る点は，正規化流にも似ている（可逆とは限らないが）．
-
-また，エンコーダー $q$ は
+ただし潜在空間上の事前分布は $\rN_d(0,I_d)$ で固定し，エンコーダー $q$ は
 $$
-q(x_0,x_T)\,dx_T=\rN_d(0,I_d)
+Q(x_0,dx_T)=q(x_0,x_T)\,dx_T=\rN_d(0,I_d)
 $$
-を満たすように，ノイズスケジュール $\{\beta_t\}$ の自由度のみを残して
+を満たすように，ノイズスケジュール $\{\beta_t\}$ の自由度のみをハイパーパラメータとして残して
 $$
-q(x_{t-1},x_t)\,dx_t:=\rN_d\paren{\sqrt{1-\beta_t}x_{t-1},\beta_tI_d},\qquad\beta_t\in(0,1),
+Q^t(x_{t-1},dx_t):=\rN_d\paren{\sqrt{1-\beta_t}x_{t-1},\beta_tI_d},\qquad\beta_t\in(0,1),
 $$
 で固定し，学習すべきパラメータは入れない．
 
-
-### デコーダーの設計
-
-次の分布は解析的に求まる：
+このとき
 $$
-q((x_t,x_0),x_{t-1})\,dx_{t-1}:=\rN_d\paren{\wt{\mu}_t(x_t,x_0),\wt{\beta}_tI_d}.
+Q^{1:t}(x_0,x_t)=\rN_d\paren{\sqrt{\al_t}x_0,(1-\al_t)I_d},\qquad\al_t:=\prod_{s=1}^t(1-\beta_s),
 $$
+であり，後述の通り，これは OU 過程をシミュレーションしていることにあたる（第 [-@sec-forward-diffusion] 節）．
+
+### デコーダーの設定
+
+核 $Q^t(x_{t-1},dx_t)$ の逆
+$$
+q(x_{t-1}|x_t)\,dx_{t-1}dx_t=Q^t(x_{t-1},dx_t)\,dx_{t-1}
+$$
+を考えたい．この際，$x_0$ で条件づけると，次のような表示を得る：
+
+::: {.callout-tip title="命題" icon="false"}
+
+$$
+q(x_{t-1}|x_t,x_0)\,dx_{t-1}=\rN_d\paren{\wt{\mu}_t(x_t,x_0),\wt{\beta}_tI_d}.
+$$
+ただし，$\wt{\mu}_t,\wt{\beta}_t$ は次のように定めた：
+$$
+\wt{\mu}_t(x_t,x_0):=\frac{(1-\al_{t-1})\sqrt{1-\beta_t}x_t+\sqrt{\al_{t-1}}\beta_tx_0}{1-\al_t},\qquad\wt{\beta}_t:=\frac{1-\al_{t-1}}{1-\al_t}\beta_t.
+$$
+
+:::
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+Bayes の定理から，
+\begin{align*}
+    q\Paren{x_{t-1},(x_t,x_0)}&=\frac{q(x_t|x_{t-1},x_0)q(x_{t-1}|x_0)}{q(x_t|x_0)}\\
+    &=\frac{q(x_t|x_{t-1})q(x_{t-1}|x_0)}{q(x_t|x_0)}.
+\end{align*}
+
+いま，
+$$
+q(x_t|x_{t-1})=\frac{1}{(2\pi\beta_t)^{d/2}}\exp\paren{-\frac{\abs{x_t-\sqrt{1-\beta_t}x_{t-1}}^2}{2\beta_t}}
+$$
+$$
+q(x_{t-1}|x_0)=\frac{1}{(2\pi(1-\al_{t-1}))^{d/2}}\exp\paren{-\frac{\abs{x_{t-1}-\sqrt{\al_{t-1}}x_0}^2}{2(1-\al_{t-1})}}
+$$
+$$
+q(x_t|x_0)=\frac{1}{(2\pi(1-\al_t))^{d/2}}\exp\paren{-\frac{\abs{x_t-\sqrt{\al_t}x_0}^2}{2(1-\al_t)}}
+$$
+であるから，これを代入して結論を得る．
+
+
+:::
 
 このことに基づいて，
 $$
-p_\theta(x_t,x_{t-1})=\rN_d\Paren{\mu_\theta(x_t,t),\Sigma_\theta(x_t,t)},\qquad\Sigma_\theta(x_t,t):=\sigma_t^2I_d,
+P^t_\theta(x_t,dx_{t-1})=\rN_d\Paren{\mu_\theta(x_t,t),\Sigma_\theta(x_t,t)},\qquad\Sigma_\theta(x_t,t):=\sigma_t^2I_d,
 $$ {#eq-decoder-model}
-とモデリングする．さらに $\sigma^2_t\in\{\beta_t,\wt{\beta}_t\}$ としてしまうことも多い．
+とモデリングする．
 
 総じて，データ分布を
 $$
-p_\theta(x_0):=\int_{\R^{d(T-1)}}p(x_T)p_\theta(x_T,x_{T-1})\cdots p_\theta(x_1,x_0)dx_{T-1}\cdots dx_1
+p_\theta(x_0)\,dx_0:=\int_{\R^{dT}}p(x_T)P^T_\theta(x_T,dx_{T-1})\cdots P^1_\theta(x_1,dx_0)dx_T
+$$ {#eq-decoder-model}
+としてモデリングすることになる．ただし，$p(x_T)\,dx_T=\rN_d(0,I_d)$．
+
+### DDPM
+
+DDPM [@Ho+2020] では，平均のモデリングにのみパラメータを入れて，分散は
 $$
-としてモデリングする．ただし，$p(x_T)\,dx_T=\rN_d(0,I_d)$．
+\Sigma_\theta(x_t,t):=\sigma_t^2I_d,\qquad\sigma^2_t\in\{\beta_t,\wt{\beta}_t\}
+$$
+としてしまう．
 
-### 変分推論
+$\beta_t$ の選択は Taylor 展開を通じた一次近似として正当化されるが，これにもニューラルネットワークを導入してより高次な近似をすることもできる [@Nichol-Dhariwal2021]．
 
-このモデルの対数尤度は，次のように下から評価できる：
+ただし $x_t$ は常に $d$ 次元で一定であるため，アーキテクチャは $U$-net や ConvNet などが用いられる．
+
+![DDPM の出力の例．画像をタップしてコードを見る](Files/DDPM_outputs.png)
+
+### 訓練
+
+このモデルの対数尤度 ([-@eq-decoder-model]) は $\R^{dT}$ 上の積分を含む．そこで VAE 同様，最初の選択が変分推論となる．
+
+次のように $-\L(x_0)$ によって下から評価できる：
+
 \begin{align*}
-    \log p_\theta(x_0)&=\log\int_{\R^{d(T-1)}}p_\theta(x_{0:T})\,dx_{1:T}\\
-    &=\log\paren{\int_{\R^{d(T-1)}}\frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}q(x_{1:T}|x_0)\,dx_{1:T}}\\
-    &\ge\int_{\R^{d(T-1)}}\log\paren{p(x_T)\prod_{t=1}^T\frac{p_\theta(x_{t-1}|x_t)}{q(x_t|x_{t-1})}}q(x_{1:T}|x_0)\,dx_{1:T}=:-\L(x_0)
+    \log p_\theta(x_0)&=\log\int_{\R^{dT}}p_\theta(x_{0:T})\,dx_{1:T}\\
+    &=\log\paren{\int_{\R^{dT}}\frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}q(x_{1:T}|x_0)\,dx_{1:T}}\\
+    &\ge\int_{\R^{dT}}\log\paren{p(x_T)\prod_{t=1}^T\frac{p_\theta(x_{t-1}|x_t)}{q(x_t|x_{t-1})}}q(x_{1:T}|x_0)\,dx_{1:T}\\
+    &=:-\L(x_0)
 \end{align*}
 
 このとき，
@@ -152,15 +166,17 @@ $$
 $$
 と展開できるが，登場する密度は全て正規密度であるため，全て計算できる．
 
-だが [@Ho+2020] では，実際の訓練は正確な変分推論を実行するのではなく，この $\L(x_0)$ を簡略化したもの
+### 代理目標
+
+DDPM [@Ho+2020] では，実際の訓練は正確な変分推論を実行するのではなく，この $\L(x_0)$ を簡略化したもの
 $$
 L'=\norm{\ep-\ep_0(X_t,t)}^2,\qquad t\sim\rU([T]),x_t\sim q_0(X_t),
 $$
 を用いた．[@Choi+2022] この議論をさらに進めている．
 
-### Variational Diffusion Model (VDM) [@Kingma+2021] {#sec-VDM}
+### 変分推論 (VDM) [@Kingma+2021] {#sec-VDM}
 
-VDM では正確に $\L(x_0)$ を最小化し，真の変分推論を実行することを試みる．
+VDM (Variational Diffusion Model) [@Kingma+2021] では正確に $\L(x_0)$ を最小化し，真の変分推論を実行することを試みる．
 
 エンコーダーの平均と分散
 $$
@@ -236,7 +252,7 @@ $$
 
 特に，[MCMC がベクトル場に関する決定論的なフローで効率化させられる](../Slides/ZigZagSampler.qmd)ように，SDE の代わりに ODE を使うことで拡散模型のサンプリングを効率化する事ができる．
 
-### 前向き拡散過程
+### 前向き拡散過程 {#sec-forward-diffusion}
 
 データ分布を正規分布に還元する際に DDPM [-@sec-DDPM] で用いた拡散過程は，パラメータ $\beta(t)$ を持った $0$ に回帰的な拡散過程である：
 $$
@@ -299,6 +315,8 @@ dY_t=\Paren{f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)}-\frac{\beta_t}{2}s_\theta(y_
 $$
 と，上記の確率的フロー ODE に Langevin 拡散の項を加えた形になっており，ODE によるアプローチはこの追加の Langevin 拡散項を消去することに等しい．
 
+## 応用
+
 ### サンプリング加速法 {#sec-acceleration}
 
 ODE を用いることで拡散模型のサンプリング速度が向上する．[@Nichol-Dhariwal2021] も参照．
@@ -330,6 +348,50 @@ Latent Score-based Generative Model (LSGM) [@Vahdat+2021] では，VAE と拡散
 また，[@Pandey+2022] では，まず VAE による生成モデルと作成し，その精度が足りない最終的な出力を高画質にするステップにのみ拡散模型を用いるスキームを提案している．
 
 
+
+### 拡散モデルの例
+
+#### ADM [@Dhariwal-Nichol2021]
+
+ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] は ImageNet データの判別において当時の最先端であった BigGAN [@Brock+2019] の性能を凌駕した．
+
+そのアーキテクチャには [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] が用いられた．
+
+#### GLIDE [@Nichol+2022]
+
+OpenAI の [GLIDE](https://github.com/openai/glide-text2im) (Guided Language to Image Diffusion for Generation and Editing) [@Nichol+2022] は，[CLIP](https://openai.com/research/clip) (Contrastive Language-Image Pre-training) というトランスフォーマーベースの対照学習による画像テキスト同時表現学習器と組み合わされた，テキスト誘導付き拡散モデルである．
+
+#### Imagen [@Saharia+2022]
+
+Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] という [Cascaded Generation](NF3.qmd#sec-CascadedGeneration) [@Ho+2022] に基づいた誘導付き拡散モデルを開発している．
+
+T5-XXL [@Raffel+2020] に基づく言語モデルを通じて言語と画像を同等の潜在空間にのせ，U-Net アーキテクチャを持った VDM [-@sec-VDM] でモデリングすることで，高精度な text-to-image を実現している．
+
+Palette [@Saharia+2022SIGGRAPH] は同様の仕組みで image-to-image を実現している．
+
+<!-- [@Yang+2023-Diff] は動画生成に応用している． -->
+
+#### 潜在拡散模型
+
+[VAE](../Kernels/Deep4.qmd) や [GAN](../Kernels/Deep3.qmd) と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．
+
+一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを **潜在拡散モデル** (latent diffusion model) [@Rombach+2022] という．これが [Stable Diffusion](https://ja.stability.ai/stable-diffusion) の元となっている．
+
+#### トランスフォーマーとの邂逅
+
+並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．
+
+潜在拡散モデルで [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] を用いていたところをトランスフォーマーに置換した **拡散トランスフォーマー** (DiT: Diffusion Transformer) [@Peebles-Xie2023] が発表された．
+
+その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) [@Ma+2024] が発表された．
+
+#### [Discrete Denoising Diffusion Probabilistic Models (D3PM)](DiscreteDiffusion.qmd#sec-D3PM) [@Austin+2021]
+
+Imagen にように言語を連続な潜在空間に埋め込む他に，直接離散空間上にも拡散模型を用いる事ができる．
+
+実はこのように設計された拡散模型は，BERT [@Lewis+2020-BART] などのマスク付き言語モデルと等価になる．
+
+MaskGIT (Masked Generative Image Transformer) [@Chang+2022] はこの枠組みに，画像をベクトル量子化して載せる．
 
 ## 参考文献 {.appendix}
 
