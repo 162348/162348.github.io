@@ -3,7 +3,7 @@ title: "拡散模型"
 subtitle: "深層生成モデル６"
 author: "司馬博文"
 date: 2/14/2024
-date-modified: 8/2/2024
+date-modified: 8/21/2024
 image: Files/DDPM_outputs.png
 categories: [Deep, Process, Sampling]
 bibliography: 
@@ -51,13 +51,13 @@ Q(x_0,-)=\int\cdots\int Q^1(x_0,dx_1)\cdots Q^T(x_{T-1},-)=\rN_d(0,I_d)
 $$
 を得る．
 
-続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で学習しようというのである．
+続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で変分推論により学習しようというのである．
 
-この際，[スコアマッチング](EBM.qmd#sec-SM) を使うこともでき，NCSN (Noise Conditioned Score Network) [@Song+2021NeurIPS] などの方法が提案されている．この特徴付けについては第 [-@sec-SGM] 節で詳しく述べる．
+この方法は，OU 過程をデータ分布に誘導するスコア場を，種々のノイズレベル $\sigma_t>0$ [スコアマッチング](EBM.qmd#sec-SM) により学習し，アニーリング Langevin サンプラーによりサンプリングをしていることに等価になる．
 
-この２つの手法は，ノイズスケジュールが異なるのみで本質的に同じ枠組みであるとみなせる [@Huang+2021]．
+このスコアベースの生成モデルとしての見方については，次の第 [-@sec-SGM] 節で詳しく述べるが，この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める [@Huang+2021]．
 
-### エンコーダーの設定
+### エンコーダーの設定 {#sec-DDPM-encoder}
 
 前述の通り，DDPM はエンコーダー $q$ とデコーダー $p_\theta$ がそれぞれ複数層からなるような，階層的 VAE ともみなせる．
 
@@ -75,7 +75,7 @@ $$
 
 このとき
 $$
-Q^{1:t}(x_0,x_t)=\rN_d\paren{\sqrt{\al_t}x_0,(1-\al_t)I_d},\qquad\al_t:=\prod_{s=1}^t(1-\beta_s),
+Q^{1:t}(x_0,dx_t)=\rN_d\paren{\sqrt{\al_t}x_0,(1-\al_t)I_d},\qquad\al_t:=\prod_{s=1}^t(1-\beta_s),
 $$
 であり，後述の通り，これは OU 過程をシミュレーションしていることにあたる（第 [-@sec-forward-diffusion] 節）．
 
@@ -133,7 +133,7 @@ p_\theta(x_0)\,dx_0:=\int_{\R^{dT}}p(x_T)P^T_\theta(x_T,dx_{T-1})\cdots P^1_\the
 $$ {#eq-decoder-model}
 としてモデリングすることになる．ただし，$p(x_T)\,dx_T=\rN_d(0,I_d)$．
 
-### DDPM
+### DDPM の実装 {#sec-DDPM-implementation}
 
 DDPM [@Ho+2020] では，平均のモデリングにのみパラメータを入れて，分散は
 $$
@@ -143,7 +143,24 @@ $$
 
 $\beta_t$ の選択は Taylor 展開を通じた一次近似として正当化されるが，これにもニューラルネットワークを導入してより高次な近似をすることもできる [@Nichol-Dhariwal2021]．
 
-ただし $x_t$ は常に $d$ 次元で一定であるため，アーキテクチャは $U$-net や ConvNet などが用いられる．
+加えて，$x_t,x_0$ で条件付けた $x_{t-1}$ の平均 $\wt{\mu}_t(x_t,x_0)$ は，
+$$
+x_t=\sqrt{\al_t}x_0+\sqrt{1-\al_t}\ep_t\quad\Leftrightarrow\quad x_0=\frac{1}{\sqrt{\al_t}}x_t-\frac{\sqrt{1-\al_t}}{\sqrt{\al_t}}\ep_t,\qquad\ep_t\sim\rN_d(0,I_d)
+$$
+を通じてパラメータ変換を施スト
+\begin{align*}
+    \wt{\mu}_t(x_t,\ep_t)&=\frac{1}{\sqrt{1-\beta_t}}\paren{\frac{1-\al_{t-1}}{1-\al_t}(1-\beta_t)x_t+\frac{\beta_t}{1-\al_t}x_t-\frac{\beta_t}{\sqrt{1-\al_t}}\ep_t}\\
+    &=\frac{1}{\sqrt{1-\beta_t}}\paren{x_t-\frac{\beta_t}{\sqrt{1-\al_t}}\ep_t}
+\end{align*}
+を得る．
+
+従って，$x_t$ から $x_{t-1}$ を予測する代わりに，$x_t$ から「どれくらいデノイジングするか？」を代わりに予測することもできる．すなわち，
+$$
+\wt{\mu}_\theta(x_t,t)=\frac{1}{\sqrt{1-\beta_t}}\paren{x_t-\frac{\beta_t}{\sqrt{1-\al_t}}\wt{\ep}_\theta(x_t,t)}
+$$
+というパラメータ変換により，$\wt{\mu}_t(x_t,t)$ の代わりに $\wt{\ep}_\theta(x_t,t)$ を予測する．
+
+また $x_t$ は常に $d$ 次元で一定であるため，アーキテクチャは $U$-net や ConvNet などが用いられる．
 
 ![DDPM の出力の例．画像をタップしてコードを見る](Files/DDPM_outputs.png)
 
@@ -151,113 +168,171 @@ $\beta_t$ の選択は Taylor 展開を通じた一次近似として正当化�
 
 このモデルの対数尤度 ([-@eq-decoder-model]) は $\R^{dT}$ 上の積分を含む．そこで VAE 同様，最初の選択が変分推論となる．
 
-次のように $-\L(x_0)$ によって下から評価できる：
+次のように $\L(\theta,q)$ によって下から評価できる：
 
 \begin{align*}
     \log p_\theta(x_0)&=\log\int_{\R^{dT}}p_\theta(x_{0:T})\,dx_{1:T}\\
     &=\log\paren{\int_{\R^{dT}}\frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}q(x_{1:T}|x_0)\,dx_{1:T}}\\
     &\ge\int_{\R^{dT}}\log\paren{p(x_T)\prod_{t=1}^T\frac{p_\theta(x_{t-1}|x_t)}{q(x_t|x_{t-1})}}q(x_{1:T}|x_0)\,dx_{1:T}\\
-    &=:-\L(x_0)
+    &=:\L(\theta,q).
 \end{align*}
 
-このとき，
-$$
-\L(x_0)=\KL\Paren{q(x_T|x_0),p(x_T)}+\sum_{t=2}^T\int_{\R^d}\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}q(x_t|x_0)\,dx_t-\int_{\R^d}\log p_\theta(x_0|x_1)q(x_1|x_0)\,dx_1
-$$
-と展開できるが，登場する密度は全て正規密度であるため，全て計算できる．
+ただし，$\L(\theta,q)$ は次のように変形できる：
 
-### 代理目標
+\begin{align*}
+    \L(\theta,q)&=-\KL\Paren{q(x_T|x_0),p(x_T)}\\
+    &\qquad-\sum_{t=2}^T\int_{\R^d}\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}q(x_t|x_0)\,dx_t\\
+    &\qquad+\int_{\R^d}\log p_\theta(x_0|x_1)q(x_1|x_0)\,dx_1\\
+    &=:\L_1(q)+\L_2(\theta,q)+\L_3(\theta,q).
+\end{align*}
 
-DDPM [@Ho+2020] では，実際の訓練は正確な変分推論を実行するのではなく，この $\L(x_0)$ を簡略化したもの
+この式は [VAE の変分下界](../Kernels/Deep4.qmd#sec-ELBO) から，KL 乖離度の項が $T-1$ 個増えた形になっている．
+
+この変分下界 $\L(\theta,q)$ の無限次元変数 $q$ の方は，$x$ からスタートするエンコーダー過程 [-@sec-DDPM-encoder] の確率核に固定してしまう．
+
+すると，第二項 $\L_2(\theta)$ に登場する密度は全て正規密度であるため，解析的に計算できる：
 $$
-L'=\norm{\ep-\ep_0(X_t,t)}^2,\qquad t\sim\rU([T]),x_t\sim q_0(X_t),
+\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}=\frac{\abs{\wt{\mu}_t(x_t,x_0)-\mu_\theta(x_t,t)}^2}{2\beta_t}.
 $$
-を用いた．[@Choi+2022] この議論をさらに進めている．
+第三項 $\L_3(\theta)$ は $q(x_1|x_0)\,dx_1=\rN_d(\sqrt{1-\beta_1}x_0,\beta_1I_d)$ からのサンプルにより Monte Carlo 近似できる．
 
-### 変分推論 (VDM) [@Kingma+2021] {#sec-VDM}
+### 代理目標 {#sec-DDPM-proxy-objective}
 
-VDM (Variational Diffusion Model) [@Kingma+2021] では正確に $\L(x_0)$ を最小化し，真の変分推論を実行することを試みる．
+DDPM [@Ho+2020] では，$\wt{\mu}_\theta(x_t,t)$ の代わりに，$\wt{\ep}_\theta(x_t,t)$ を予測するのであった（第 [-@sec-DDPM-implementation] 節）．
 
-エンコーダーの平均と分散
+この際，第三項は次の変更を受ける：
 $$
-q(x_t|x_0)=\rN_d\Paren{\wh{\al}_tx_0,\wh{\sigma}_t^2I_d}
+\KL\Paren{q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)}=\frac{\beta_t}{2(1-\al_t)(1-\beta_t)}\ABs{\wt{\ep}_\theta\Paren{\sqrt{\al_t}x_0+\sqrt{1-\al_t}\ep_t,t}-\ep_t}^2+\const
 $$
-に関して $\L(x_0)$ を最適化する．これは SNR (Signal-to-Noise Ratio)
+第二項も全く同じ表記になり，$t=1$ の場合に当たるから，総じて
 $$
-R(t)=\frac{\wh{\al}_t^2}{\wh{\sigma}_t^2}=:e^{-\gamma_\phi(t)}
+\L(\theta)=-\sum_{t=1}^T\frac{\beta_t}{2(1-\al_t)(1-\beta_t)}\ABs{\wt{\ep}_\theta\Paren{\sqrt{\al_t}x_0+\sqrt{1-\al_t}\ep_t,t}-\ep_t}^2+\const
 $$
-をモデリングすることに等しく，$\gamma_\phi$ のモデリングにニューラルネットワークを用いることを考える．
 
-[@Kingma+2021] はこのようにして正確な目的関数を定義し直し，さらにこれを推定する際に QMC によるより分散の小さい Monte Carlo 推定量を用いることを提案した．
+しかし，DDPM [@Ho+2020] では，正確な変分推論を実行するのではなく，この係数を全て $1$ にした
+$$
+\L'=\abs{\ep_\tau-\wt{\ep}_\theta(X_\tau,\tau)}^2,\qquad X_\tau=\sqrt{\al_\tau}X_0+\sqrt{1-\al_\tau}\ep_\tau,\tau\sim\rU([T]),X_0\sim p(x_0)\,dx_0,\ep_\tau\sim\rN_d(0,I_d),
+$$
+を代理目標として用いた．ただし，$p(x_0)\,dx_0$ はデータ分布である．
 
+これは純粋に，時刻 $t$ までに実際に印加されるノイズ $\ep_t$ とモデルが予測するノイズ $\wt{\ep}_\theta$ の二乗差を最小化することに等しい．
 
+[@Choi+2022] この代理目標の議論をさらに進めている．
+
+### 変分推論 (VDM) {#sec-VDM}
+
+VDM (Variational Diffusion Model) [@Kingma+2021] では正確に $\L(\theta)$ を最小化することで，DDPM では固定されていたノイズスケジュール $\wt{\beta}_t$ の真の変分推論を試みる．
+
+$$
+Q^{1:t}(x_0,dx_t)=\rN_d\Paren{\sqrt{\al_t}x_0,(1-\al_t)I_d}
+$$
+の変数 $\al_t$ をパラメータ変換した SNR (Signal-to-Noise Ratio)
+$$
+R(t)=\frac{\al_t}{1-\al_t}=:e^{-\gamma_\phi(t)}
+$$
+に注目し，$\gamma_\phi$ をニューラルネットワークでモデリングする．
+
+[@Kingma+2021] はこの $R(t)$ に関して正確な目的関数を定義し，さらにこれを推定する際に QMC によるより分散の小さい Monte Carlo 推定量を用いた．
 
 ## スコアベースの生成模型 (SGM) {#sec-SGM}
 
 ### はじめに
 
-スコアマッチングとはエネルギーベースモデルの文脈で生まれた手法であるが，そもそもスコア
+スコアマッチングはもともと，[エネルギーベースモデル (EBM)](EBM.qmd#sec-SM) の学習手法として [@Hyvarinen2005] により提案された．
+
+そもそも EBM も優秀な生成モデルとして知られている [@Du-Mordatch2019], [@Gao+2020] が，スコアマッチングによるスコアの学習はもっと直接的に生成モデルを定める：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+スコア（または Stein [@Liu+2016] / [@Hyvarinen2005] スコア）と呼ばれるベクトル場
 $$
 \nabla_x\log p(x)
 $$
-自体を学習することを生成モデリングの中心に据えることが SGM (Score-based Generative Model) [@Song-Ermon2019] で考えられた．エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては [@Salimans-Ho2021] も参照．
+自体を学習できれば，これが駆動する OU 過程を用いて $p(x)$ からサンプリングを行うことが出来る．
 
-しかしスコアを学習するにあたって最も致命的な点は，$\nabla_x\log p(x)$ の値は $p$ を一意的に定めないということである．特に，
+:::
+
+これが **SGM (Score-based Generative Model)** [@Song-Ermon2019] のアイデアであった．^[エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては [@Salimans-Ho2021] も参照．]
+
+このアイデアは既存の [DSM (Denoising Score Matching)](EBM.qmd#sec-DSM) の改良とも見れる．
+
+DSM はデータに印加するノイズ $\sigma>0$ が強いほど推定が安定するが，推定対象であるノイズが印加されたスコアは元のデータ分布から乖離してしまうというトレードオフがあった．これをアニーリングによって解決する方法とも見れる．
+
+### SGM の課題
+
+しかしこのスキームの課題は，$\nabla_x\log p(x)$ の値は $p$ を一意的に定めないということである．
+
+例えば，
 $$
 p=\pi p_0+(1-\pi)p_1,\qquad\pi\in(0,1)
 $$
 という関係があり，$p_0,p_1$ の台が互いに素であったとき，$\nabla_x\log p$ からは $\pi\in(0,1)$ を定めるための情報が完全に消えてしまう．
 
-![[データが青，学習されたスコアが緑．](SM1.qmd)](../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png)
+すなわち，データが下図のように部分多様体上にのみ台を持つ場合は，モデルが識別可能でない．
+
+![[スコアマッチングの例：データが青，学習されたスコア場が緑．](EBM1.qmd)](../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png)
+
+これにより間違ったスコアが学習され，多峰性を持ってしまった場合，OU 過程によるサンプリングが失敗する [@Song-Ermon2019]．
+
+従って，各ノイズレベル $\sigma$ に対応したスコア場を学習し，Langevin サンプラーをノイズが大きく分布が単純な領域からスタートさせ，徐々にデータ分布に近づけて収束を促す（アニーリング）．
+
+すると SGM は，最初の発想は全く違えど，最終的に得られるモデルは，DDPM と等価になる．
 
 ### デノイジングによる解決
 
-[@Song-Ermon2019], [@Song-Ermon2020], [@Song+2021ICLR] はデータにノイズを印加し，これを除去する方向に学習することで，スコアマッチングの問題点を克服することを考えた．
+SGM [@Song-Ermon2019], [@Song-Ermon2020] ではデータにさまざまな強度 $\sigma$ の Gauss ノイズを印加したもののスコア場を，スコアマッチングで学習することを考える．
 
-ノイズを印加するとは，Gauss 核との畳み込みにより分布を軟化していくことに相当し，アニーリングと同じ効果を持つ．その結果，多峰性が消失してスコアマッチングが正確になる．加えて MCMC によるサンプリングも容易になる．
+ノイズレベル $\sigma$ も入力に含めることで，単一のニューラルネットワーク $s_\theta(x,\sigma)$ で学習をする．このアーキテクチャを **NCSN (Noise Conditional Score Network)** [@Song-Ermon2019] または単に **スコアネットワーク** [@Song-Ermon2020] という．
 
-あとは，ノイズを失くしていく極限を取ると，限りなく正しくデータ分布を学ぶことができるようになっていく．
+ノイズを印加することは，Gauss 核との畳み込みにより分布を軟化していくことに相当し，アニーリングと同じ効果を持つ．
 
-### Noise Conditional Score Network (NCSN) [@Song+2021NeurIPS]
+その結果，$\sigma$ が十分大きい際は多峰性が消失してスコアマッチングが正確になる．加えて MCMC によるサンプリングも容易になる．
 
-この「データにノイズを印加して学びやすくし，徐々にノイズを除去していく」というアイデアは拡散模型のそれに他ならず，スコアマッチングと拡散模型が邂逅するのは時間の問題だったと言えるだろう．
+はじめ，OU 過程を十分に大きい $\sigma>0$ に対応するスコアで駆動させ，徐々に $\sigma\to0$ としていくことで，データ分布からサンプリングすることを目指す．^["Our sampling strategy is inspired by simulated annealing [@Kirkpartick+1983], [@Neal2001] which heuristically improves optimization for multimodal landscapes." [@Song-Ermon2019 p.2] より．]
 
-スコアのスケール $\sigma$ の Gauss ノイズによる軟化列を $s_\theta(x,\sigma)$ と表すと，[デノイジングスコアマッチング](EBM.qmd##sec-DSM) (DNS) の目的関数の軟化列を得る：
+### 目的関数
+
+<!-- この「データにノイズを印加して学びやすくし，徐々にノイズを除去していく」というアイデアは拡散模型のそれに他ならず，スコアマッチングと拡散模型が邂逅するのは時間の問題だったと言えるだろう． -->
+
+スコアのスケール $\sigma$ の Gauss ノイズにより軟化したデータのスコア場を $s_\theta(x,\sigma)$ と表し，[デノイジングスコアマッチング](EBM.qmd##sec-DSM) (DNS) の目的関数の列を考える：^[DNS も SSM も使用可能であるが，ここでは Langevin サンプラーのアニーリングのために，ノイズが印加されたベクトル場 $s_\theta(x,\sigma)$ の学習が必要であるため，DNS の選択が自然である [@Song-Ermon2019]．]
 $$
 \L(\theta;\sigma)=\frac{1}{2}\E\Square{\Norm{s_\theta(\wt{X},\sigma)+\frac{\wt{X}-X}{\sigma^2}}^2_2}.
 $$
-これを組み合わせた目的関数
+
+この DNS 目的関数の，ある等比数列 $\sigma_1>\cdots>\sigma_T>0$ に関する線型和
 $$
 \L(\theta;\sigma_{1:T})=\sum_{t=1}^T\lambda_t\L(\theta;\sigma_t),\qquad\lambda_t>0,
-$$
+$$ {#eq-SGM-objective}
 を最終的な目的関数とする．
+
+数列 $(\sigma_i)$ の設定の仕方，$\sigma_1$ をどこまで大きくすれば良いか，などは [@Song-Ermon2020] の理論解析を参照．ステップ数 $T$ は大きければ大きいほどよい．
 
 ### DDPM との対応
 
-以上，完全にスコアマッチングの観点から述べたが，NCSN は，ノイズスケジュールが異なるのみで本質的に DDPM [-@sec-DDPM] と同じ枠組みであるとみなせる [@Huang+2021]．
+この SGM の目的関数 ([-@eq-SGM-objective]) は，ノイズスケジュール $\lambda_t$ が異なるのみで DDPM [-@sec-DDPM] と同じ目的関数となっている [@Huang+2021]．
 
 実際，
 $$
-\L(\theta;\sigma_t^2)=\L_{\text{simple}}
+\L(\theta;\sigma_t^2)=\E\Square{\frac{\lambda_\tau}{\sigma_\tau^2}\abs{\ep_\tau-\wt{\ep}_\theta(X_\tau,\tau)}^2}
 $$
-が成り立つ．^[[@Murphy2023 p.867] 25.3.3 節も参照．]
+と表せるから，ハイパーパラメータ $\lambda_t$ を $\lambda_t=\sigma_t^2$ と取ることで，DDPM の代理目的関数 [-@sec-DDPM-proxy-objective] に一致する．
 
 ## 連続時間極限
 
 ### はじめに
 
-ここまで，タイムステップ $t$ の取り方の議論をしていなかった．これはサンプリングに用いている拡散過程を離散化しているわけだから，その数学を借りることで更なる知見が得られる [@Tzen-Raginsky2019], [@Song+2021ICLR]．
+DDPM [-@sec-DDPM] と SGM [-@sec-SGM] は，いずれも OU 過程とその時間反転の離散化として統一的に理解できる．
 
-加えて，データ分布をノイズ分布に還元するフローは，何も拡散過程だけが与えるわけではない．確定的なものも含め，ほとんどあらゆるダイナミクスを代わりに用いることができる．
+この連続時間極限に関する知見が，モデルのデザインに関して示唆を与えてくれる [@Tzen-Raginsky2019], [@Song+2021ICLR]．
 
-特に，[MCMC がベクトル場に関する決定論的なフローで効率化させられる](../Slides/ZigZagSampler.qmd)ように，SDE の代わりに ODE を使うことで拡散模型のサンプリングを効率化する事ができる．
+タイムステップ $t$ の取り方は適応的にできるし，^[ちょうど，[Neural ODE](NF1.qmd) がタイムステップの取り方を適応的にしてくれたように．] SDE ([-@eq-OU]) と等価な輸送を定める ODE を考え，サンプリングを加速することも考えられる．^[ちょうど，[MCMC がベクトル場に関する決定論的なフローで効率化させられる](../Slides/ZigZagSampler.qmd)ように．]
 
 ### 前向き拡散過程 {#sec-forward-diffusion}
 
-データ分布を正規分布に還元する際に DDPM [-@sec-DDPM] で用いた拡散過程は，パラメータ $\beta(t)$ を持った $0$ に回帰的な拡散過程である：
+データ分布を正規分布に還元する際に DDPM [-@sec-DDPM] で用いた拡散過程は，パラメータ $\beta(t)$ を持った $0$ に回帰的な OU 過程である [@Song+2021ICLR p.5]：
 $$
 dX_t=-\frac{\beta(t)}{2}X_tdt+\sqrt{\beta(t)}dB_t,\qquad\beta\paren{\frac{t}{T}}=T\beta_t.
-$$
+$$ {#eq-OU}
 
 このことは [@Song+2021ICLR] ですでに自覚されている．
 
@@ -277,9 +352,9 @@ $$
 $$
 dY_t=\Paren{f_t(Y_t)-\sigma_t^2\nabla_x\log q_t(Y_t)}\,dt+\sigma_t\,dB_{-t}
 $$
-が定める．Hyvärinen スコア関数が出てくるのである．^[Stein のスコア関数ともいう．]
+が定める．ここにスコア場 $\nabla_x\log q_t$ が出てくるのである．
 
-特に，DDPM では
+特に，OU 過程 ([-@eq-OU]) の時間反転は
 $$
 dY_t=\Paren{-\frac{\beta_t}{2}Y_t-\beta_t\nabla_{x}\log q_t(Y_t)}\,dt+\sqrt{\beta_t}\,dB_{-t}
 $$
@@ -291,13 +366,15 @@ dY_t=-\frac{\beta_t}{2}\Paren{Y_t+2s_\theta(Y_t,t)}\,dt+\sqrt{\beta_t}\,dB_{-t}
 $$
 でデータ分布からサンプリングすることができるのである．なお，拡散過程のサンプリングは難しい問題であり，最も直接的には Euler-Maruyama 離散化を通じれば良い．
 
-### 等価な分布フローを定める確定的ダイナミクス
+### 等価な輸送を定める確定的ダイナミクス
 
-代わりに ODE（[@Song+2021ICLR Sec D.3] が probability flow ODE と呼ぶ式）
+代わりに ODE
 $$
 \dd{x_t}{t}=f(x,t)-\frac{g(t)^2}{2}\nabla_x\log p_t(x)
 $$
 で定まる確定的ダイナミクス $\{x_t\}$ を用いても，同様にデータ分布は $\rN_d(0,I_d)$ に還元される．
+
+これを [@Song+2021ICLR Sec D.3] は probability flow ODE と呼ぶ．
 
 ### 後ろ向き ODE
 
@@ -313,7 +390,7 @@ $$
 $$
 dY_t=\Paren{f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)}-\frac{\beta_t}{2}s_\theta(y_t,t)dt+\sqrt{\beta_t}\,dB_t
 $$
-と，上記の確率的フロー ODE に Langevin 拡散の項を加えた形になっており，ODE によるアプローチはこの追加の Langevin 拡散項を消去することに等しい．
+と，上記の確率的フロー ODE に OU 過程の項を加えた形になっており，ODE によるアプローチはこの追加の OU 過程項を消去することに等しい．
 
 ## 応用
 
@@ -324,6 +401,8 @@ ODE を用いることで拡散模型のサンプリング速度が向上する�
 #### Denoising Diffusion Implicit Model (DDIM) [@JiamingSong+2021]
 
 モデリングに用いる拡散過程の Markov 性を崩すことで，DDPM [-@sec-DDPM] より 10 倍から 50 倍速いサンプリングを実現したもの．
+
+訓練に用いる目的関数は DDPM と変わらない．
 
 #### 逐次サンプリング問題としての解決
 

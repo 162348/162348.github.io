@@ -102,6 +102,12 @@ $Z_\theta$ の推定という追加のタスクには，典型的には MCMC が
 
 Contrastive Divergence [-@sec-CD] は漸近的に消えないバイアスを持つ [@Perpinan-Hinton2005] が，SM [-@sec-SM] と NCE [-@sec-NCE] は一致推定量である．
 
+#### CD
+
+CD [-@sec-CD] は最尤推定を SGD によって実行するために建てられた代理目標である．
+
+近似が入っているために消えないバイアスがある．
+
 #### スコアマッチング
 
 スコアマッチング（第 [-@sec-SM] 節）のアイデアは，データ分布の密度 $p(x)$ とモデル $p_\theta(x)$ とのスコア関数をマッチングさせることを狙う：
@@ -113,6 +119,10 @@ $$
 この考え方は EBM だけでなく，尤度の評価は困難でも対数尤度の評価は可能である文脈で普遍的に有効である．
 
 例えば [自己符号化器](../Kernels/Deep4.qmd#sec-AE) においても用いられるアイデアである [@Vincent2011], [@Swersku+2011]．
+
+#### NCE
+
+NCE [-@sec-NCE] は，表現学習や深層距離学習で用いられる [対照学習](../Kernels/Kernel.qmd#sec-deep-metric-learning) を，特にノイズと対照させることで最尤推定に応用したものである．
 
 ## 最尤推定 {#sec-ML}
 
@@ -254,9 +264,9 @@ $$ {#eq-SM-objective}
 
 加えて，$D_F(p,p_\theta)$ をここから $\theta$ に関して微分することが困難である．独立成分分析モデルを除いて，[@Koster-Hyvarinen2007], [@Koster+2009] などのニューラルネットワークモデルにも応用されたが，画像などの実データに直接適用することは困難であった．特に，$H_\theta$ の勾配と Laplacian を解析的に計算してから実装していた．
 
-### 正則化スコアマッチング (RSM) [@Kingma-LeCun2010]
+### 正則化スコアマッチング (RSM) [@Kingma-LeCun2010] {#sec-RSM}
 
-画像データなどの量子化されたデータの密度 $p(x)$ は可微分ではない上に，有限な台を持ってしまうため $s$ は well-defined ではない．
+画像データなどの量子化されたデータの密度 $p(x)$ は可微分ではない上に，有限な台を持ってしまうためスコア $s$ は well-defined ではない．
 
 このような量子化されたデータ $x$ に対して，Gauss ノイズを加えたもの
 $$
@@ -264,26 +274,28 @@ $$
 $$
 は連続なデータに変貌する（Gauss 核が軟化子として働く）．
 
-この $\ep$ だけ摂動されたデータの分布 $\wt{p}$ に対して，スコアマッチング目的関数は
+この $\ep$ だけ摂動されたデータの分布 $\wt{p}$ に対して，スコアマッチング目的関数 ([-@eq-SM-objective]) は
 \begin{align*}
     D_F(\wt{p},p_\theta)&=\E\Square{\frac{1}{2}\abs{\nabla H_\theta}^2-\Lap H_\theta+\frac{\sigma^2}{2}\norm{D^2H_\theta}^2_2}+O(\ep^2)\\
     &=D_F(p,p_\theta)+\frac{\sigma^2}{2}\E\SQuare{\norm{D^2H_\theta}_2^2}+O(\ep^2)
 \end{align*}
 と表せる [@Kingma-LeCun2010]．
 
-この目的関数は，Hessian $D^2H$ の非対角項を対角項で近似し，結局は元の目的関数に対して正則化項
+この $D_F$ は，Hessian $D^2H$ の非対角項を対角項で近似し，結局は元の目的関数に対して正則化項
 $$
 \lambda\Lap H_\theta,\qquad\lambda\approx\frac{\sigma^2}{2}
 $$
-を加えたものとして訓練をする．
+を加えたもので近似できる．
+
+これを目的関数の用いる方法が **正則化スコアマッチング** (RSM: Regularized Score Matching) [@Kingma-LeCun2010] である．
 
 さらに [@Kingma-LeCun2010] は，従来のように，解析的に微分が計算可能な $H_\theta$ を採用するのではなく，誤差逆伝播を２回行う Double Backpropagation [@Drucker-LeCun1992] によってこの目的関数の勾配 $\dd{D_F(p,p_\theta)}{\theta}$ を自動微分で計算する方法を提案した．
 
 ### Denoising スコアマッチング (DSM) [@Vincent2011] {#sec-DSM}
 
-RSM の場合と違い，次のような展開もできる：
+RSM の場合と違い，次のような表示もできる [@Vincent2011]：
 $$
-D_F(\wt{p},p_\theta)=\frac{1}{2}\E\Square{\Norm{s_\theta(\wt{X})-\frac{X-\wt{X}}{\sigma^2}}^2_2}.
+D_F(\wt{p},p_\theta)=\frac{1}{2}\E\Square{\Norm{s_\theta(\wt{X})-\frac{X-\wt{X}}{\sigma^2}}^2_2}+\const
 $$
 
 すなわち，ノイズ消去方向のベクトル $\frac{x-\wt{x}}{\sigma^2}$ に一致するようにモデルのスコア $s_\theta$ を学習することが考えられる．
@@ -299,15 +311,17 @@ SSM (Sliced Score Matching) [@Song+2019] ではスコアマッチング目的関
     D_{SF}(p,p_\theta)&=\E\Square{\frac{1}{2}\Paren{V^\top s(X)-V^\top s_\theta(X)}^2}\\
     &=\E\Square{\frac{1}{2}\sum_{i=1}^d\paren{\pp{H_\theta(X)}{x_i}V_i}^2+\sum_{i,j=1}^d\pp{^2H_\theta(X)}{x_i\partial x_j}V_iV_j}+\const
 \end{align*}
-を最小化する．ただし，$V$ はランダムな $\R^d$ 上のベクトルである．[@Song+2019] では $V\sim\rN_d(0,I_d)$ とすることで Monte Carlo 近似による追加の誤差を回避している．
+で Monte Carlo 近似する．ただし，$V$ はランダムな $\R^d$ 上のベクトルである．^[[@Song+2019] では $V\sim\rN_d(0,I_d)$ とすることで Monte Carlo 近似による追加の誤差を回避している．]
 
 やはり $D^2H_\theta$ が登場しているように思えるが，
 $$
 \sum_{i,j=1}^d\pp{^2H_\theta}{x_i\partial x_j}V_iV_j=\sum_{i=1}^d\pp{}{x_i}V_i\sum_{j=1}^d\pp{H_\theta}{x_j}V_j=\sum_{i=1}^d\pp{}{x_i}V_i(DH_\theta|V)
 $$
-の表示により，一度内積 $(DH_\theta|V)$ を計算してしまえば，以降，この項は $O(d)$ のオーダーで計算できる．
+の表示により，一度内積 $(DH_\theta|V)$ を計算してしまえば，以降，この項は自動微分を通じて $O(d)$ のオーダーで計算できる．
 
 なお，$V\sim\rN_d(0,I_d)$ と取った際の目的関数 $D_{SF}$ は，元の Fisher 乖離度による目的関数に対して，Hutchinson の跡推定量（[正規化流でも出てきた](NF.qmd#sec-Hutchinson)）により Jacobian $Ds_\theta$ を推定したものとも同一視できる．
+
+SSM の最大の美点は，ノイズが印加された分布 $\wt{p}$ を学習してしまう DSM と違って真の分布 $p$ を学習できることである．一方で，自動微分の分だけ，4倍ほど計算量が必要になる．
 
 ### SM 目的関数の理論
 
