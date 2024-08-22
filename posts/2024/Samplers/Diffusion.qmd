@@ -3,7 +3,7 @@ title: "拡散模型"
 subtitle: "深層生成モデル６"
 author: "司馬博文"
 date: 2/14/2024
-date-modified: 8/21/2024
+date-modified: 8/22/2024
 image: Files/DDPM_outputs.png
 categories: [Deep, Process, Sampling]
 bibliography: 
@@ -53,9 +53,11 @@ $$
 
 続いて，この逆過程 $p_\theta(x_t,x_{t-1})$ を VAE 様の方法で変分推論により学習しようというのである．
 
-この方法は，OU 過程をデータ分布に誘導するスコア場を，種々のノイズレベル $\sigma_t>0$ [スコアマッチング](EBM.qmd#sec-SM) により学習し，アニーリング Langevin サンプラーによりサンプリングをしていることに等価になる．
+この方法は，Langevin サンプラーをデータ分布に誘導するスコア場を，種々のノイズレベル $\sigma_t>0$ で [スコアマッチング](EBM.qmd#sec-SM) により学習し，アニーリングをした Langevin サンプラーによりサンプリングをしていることに等価になる．
 
-このスコアベースの生成モデルとしての見方については，次の第 [-@sec-SGM] 節で詳しく述べるが，この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める [@Huang+2021]．
+この SGM (Score-based Generative Model) としての見方（第 [-@sec-SGM] 節）からは，サンプリングに特化した [EBM](EBM.qmd) ともみなせる．
+
+この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める [@Song+2021ICLR], [@Huang+2021]．現状２つの定式化は完全に等価とみなされ，単に **拡散過程** と言った場合 DDPM と SGM の双方を指す．
 
 ### エンコーダーの設定 {#sec-DDPM-encoder}
 
@@ -141,7 +143,7 @@ $$
 $$
 としてしまう．
 
-$\beta_t$ の選択は Taylor 展開を通じた一次近似として正当化されるが，これにもニューラルネットワークを導入してより高次な近似をすることもできる [@Nichol-Dhariwal2021]．
+$\beta_t$ の選択は Taylor 展開を通じた一次近似として正当化されるが，これにもニューラルネットワークを導入してより高次な近似をし，精度を上げる方法が [@Nichol-Dhariwal2021] で議論されている（第 [-@sec-acceleration-sequential] 節）．
 
 加えて，$x_t,x_0$ で条件付けた $x_{t-1}$ の平均 $\wt{\mu}_t(x_t,x_0)$ は，
 $$
@@ -278,7 +280,7 @@ $$
 
 すると SGM は，最初の発想は全く違えど，最終的に得られるモデルは，DDPM と等価になる．
 
-### デノイジングによる解決
+### デノイジングによる解決 {#sec-score-network}
 
 SGM [@Song-Ermon2019], [@Song-Ermon2020] ではデータにさまざまな強度 $\sigma$ の Gauss ノイズを印加したもののスコア場を，スコアマッチングで学習することを考える．
 
@@ -317,6 +319,16 @@ $$
 $$
 と表せるから，ハイパーパラメータ $\lambda_t$ を $\lambda_t=\sigma_t^2$ と取ることで，DDPM の代理目的関数 [-@sec-DDPM-proxy-objective] に一致する．
 
+### 最尤推定
+
+近似が入っている DDPM の訓練目標と対応していることから判るように，スコアマッチングは正確な最尤推定を実行していない．
+
+かといって，正確な変分推論 [-@sec-VDM] を実行するのは高くつく．
+
+[@Song+2021NeurIPS] はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 ([-@eq-SGM-objective]) の重みづけ $(\lambda_t)$ を特定の値 **likelihood weighting** にとることで得られることを示している．
+
+![[@Song+2021NeurIPS p.5]](Files/Song+(2021).png)
+
 ## 連続時間極限
 
 ### はじめに
@@ -334,13 +346,13 @@ $$
 dX_t=-\frac{\beta(t)}{2}X_tdt+\sqrt{\beta(t)}dB_t,\qquad\beta\paren{\frac{t}{T}}=T\beta_t.
 $$ {#eq-OU}
 
-このことは [@Song+2021ICLR] ですでに自覚されている．
+これを [@Song+2021ICLR] では **分散保存過程** (variance-preserving process) と呼んでいる．
 
 一方で，SGM [-@sec-SGM] では
 $$
 dX_t=\sqrt{\dd{}{t}\sigma(t)^2}dB_t
 $$
-で定まる拡散過程を用いる．
+で定まる拡散過程を用いる．これを [@Song+2021ICLR] では **分散爆発過程** (variance-exploding process) と呼んでいる．
 
 ### 後ろ向き拡散
 
@@ -376,7 +388,7 @@ $$
 
 これを [@Song+2021ICLR Sec D.3] は probability flow ODE と呼ぶ．
 
-### 後ろ向き ODE
+### 後ろ向き ODE {#sec-probability-flow-ODE}
 
 この ODE を推定した
 $$
@@ -404,11 +416,15 @@ ODE を用いることで拡散模型のサンプリング速度が向上する�
 
 訓練に用いる目的関数は DDPM と変わらない．
 
-#### 逐次サンプリング問題としての解決
+#### 逐次サンプリング問題としての解決 {#sec-acceleration-sequential}
 
-デコーダーに用いるモデル ([-@eq-decoder-model]) の表現力を上げることで，ステップサイズを大きくしてもサンプリングの性能を悪化させないようにすることを試みる．
+デコーダーに用いるモデル ([-@eq-decoder-model]) の表現力を上げることで，ステップサイズを大きくしてもサンプリングの性能を悪化させないようにできる．
 
-例えば [@Gao+2021] は，ノイズ分布からデータ分布までのアニーリング列を，EBM の列として捉えてフィッティングをしている．同様のスキームで，[@Xiao+2021] は GAN を用いている．
+[@Nichol-Dhariwal2021] は $\Sigma_\theta(x_t,t)$ もニューラルネットワークで学習することで，サンプリングのステップサイズを大きくしてもサンプルの質を保つことができると報告している．
+
+[@Kingma+2021] も，ノイズスケジュールも学習しようとしている点で似ている．
+
+[@Gao+2021] は，ノイズ分布からデータ分布までのアニーリング列を，EBM の列として捉えてフィッティングをしている．同様のスキームで，[@Xiao+2021] は GAN を用いている．
 
 #### 蒸留
 
@@ -426,7 +442,9 @@ Latent Score-based Generative Model (LSGM) [@Vahdat+2021] では，VAE と拡散
 
 また，[@Pandey+2022] では，まず VAE による生成モデルと作成し，その精度が足りない最終的な出力を高画質にするステップにのみ拡散模型を用いるスキームを提案している．
 
+#### SDE から ODE へ (DEIS)
 
+DEIS (Diffusion Exponential Integrator Sampler) [@Zhang-Chen2023] では，付随する ODE [-@sec-probability-flow-ODE] を Euler 法ではなく指数積分法で解くことで，離散化誤差を低減しつつサンプリングを加速する．
 
 ### 拡散モデルの例
 

@@ -1,9 +1,9 @@
 ---
 title: "ニューラル常微分方程式"
 subtitle: "シミュレーションなしの拡散モデルとしての連続正規化流"
-author: "司馬 博文"
+author: "司馬博文"
 date: 2/14/2024
-date-modified: 8/20/2024
+date-modified: 8/22/2024
 categories: [Deep, Sampling]
 image: Files/linear/output.gif
 bibliography: 
@@ -45,7 +45,7 @@ $$
 $$ {#eq-ODE}
 を満たす曲線 $(x_t)$ を [**積分曲線**](https://ja.wikipedia.org/wiki/積分曲線) という．
 
-CNF (Continuous Normalizing Flow) では，$(x_t)$ はデータ分布とノイズ分布を結ぶダイナミクスとする．すなわち，フロー $(f_t)$ のうち $f_T$ によりノイズからのデータの生成を目指す．
+CNF (Continuous Normalizing Flow) では，$(x_t)$ はデータ分布とノイズ分布を結ぶダイナミクスとする．すなわち，フロー $(f_t)$ によりノイズからのデータの生成を目指す．
 
 この積分曲線をモデリングするために，ベクトル場 $F$ をニューラルネットによってモデリングするが，CNF では離散化誤差を入れずに，連続なままモデリングする方法を考える．
 
@@ -137,13 +137,133 @@ $$
 
 ![[@Grathwohl+2019 p.5]](Files/FFJORD.png)
 
-## フローマッチング [@Lipman+2023]
+## フローマッチング (FM)
 
 ### はじめに
 
-拡散模型が，スコアマッチングと見ることでさらに効率的な訓練が可能になったように，NODE を **フローマッチング** (Flow Matching) [@Lipman+2023] と見ることで，随伴感度法と ODE ソルバーを通じた連続な誤差逆伝播よりも，さらに効率的な訓練が可能になる．
+拡散模型をスコアマッチングと見ることでさらに効率的な訓練が可能になったように，NODE を **フローマッチング** (Flow Matching) [@Lipman+2023] と見ることができる．
 
-これは確率的補間 [@Albergo-Vanden-Eijnden2023] と rectified flow [@Liu+2023-Flow] と関連が深い．
+この方法ではベクトル場を直接ニューラルネットワークでモデリングする．
+
+これにより，随伴感度法と ODE ソルバーを通じた連続な誤差逆伝播よりも直接的な訓練目標 ([-@eq-CFM-objective]) を定め，さらに効率的な訓練が可能になる．
+
+[拡散過程](Diffusion.qmd) も，与えられた SDE と等価な輸送を行う ODE [@Song+2021ICLR], [@Maoutsa+2020] を通じてベクトル場のモデリングに議論を帰着でき，NODE を通じて尤度の評価も可能になる．しかし，フローマッチングの美点はそれにとどまらない．
+
+始点と終点がノイズ分布とデータ分布である限り，輸送は拡散過程に基づいたものである必要はない．フローマッチングでは，最適輸送経路に沿った輸送を行うベクトル場を直接学習することを考えることができる [@Lipman+2023]．
+
+この拡散模型の加速の問題を，CNF の訓練の加速として一般化して解いたのが [@Lipman+2023] の論文であった．実際，[Denoising Score Matching](EBM.qmd#sec-DSM) が使える拡散模型と違い，CNF にはスケーラブルな訓練手法が存在しなかった．
+
+FM は確率的補間 [@Albergo-Vanden-Eijnden2023] と rectified flow [@Liu+2023-Flow] と関連が深い．
+
+### フローマッチング (FM)
+
+Flow Matching [@Lipman+2023] のアイデアは，ノイズ分布とデータ分布を結ぶ輸送 $p_t:=(f_t)_*p_0$ を定めるベクトル場 $F(x_t,t)$ に関して，
+$$
+\ov{\L}(\theta):=\abs{F_\theta(X_\tau,\tau)-F(X_\tau,\tau)}^2,\qquad \tau\sim\rU([0,T]),X_\tau\sim p_t(x_\tau)
+$$
+を目的関数とするというものである．
+
+すなわち，ベクトル場ネットワーク $F_\theta$ を準備し，目的の $F$ に向かって最小二乗法を用いて訓練する．
+
+アイデアは大変シンプルであり，拡散模型とスコアマッチングのアナロジーに沿うものであるが，条件を満たす $F$ は複数ある上，データ分布 $p_T$ が不明であるために $F$ の解析的な表示も不明である．
+
+これは Monte Carlo 法により解決できる．
+
+### 条件付きフローマッチング (CFM)
+
+まずデータ分布 $p_T$ を，経験分布
+$$
+q(y)\,dy=\frac{1}{n}\sum_{i=1}^n\delta_{x_i}
+$$
+と Gauss 核の畳み込みで近似する：
+$$
+p_T(x)=\int_{\R^d} p_T(x|y)q(y)\,dy,\qquad p_T(-|y)=\rN_d(y,\sigma^2I_d).
+$$
+
+すると，各データ点 $y\in\{x_i\}_{i=1}^n$ に関して輸送 $(p_t(x|y)\,dx)_t$ を
+$$
+p_T(-|y)=\rN_d(y,\sigma^2I_d),\qquad p_0(-|y)=\rN(0,I_d),
+$$ {#eq-CPP}
+を満たすように学習すれば，全体としてノイズ分布をデータ分布に輸送する道 $(p_t)$ が得られる．
+
+これを，$p_T(-|y)$ を生成する **条件付きベクトル場** (Conditional Vector Field) $F_t(-|y)$ として学習し，最終的に次のように混合することで所望のベクトル場 $F_t$ を得る [@Lipman+2023 定理1]：
+$$
+F_t(x)=\int_{\R^d}F_t(x|y)\frac{p_t(x|y)q(y)}{p_t(x)}\,dy.
+$$
+
+このことに基づき，次の代理目標が得られる：
+$$
+\L(\theta):=\abs{F_\theta(X_\tau,\tau)-F_t(X_\tau|Y)}^2,\qquad \tau\sim\rU([0,T]),Y\sim q(y)\,dy,X_\tau\sim p_\tau(x|y)\,dx.
+$$ {#eq-CFM-objective}
+
+実は，単に代理目標となっているだけでなく，$\ov{\L}$ と $\L$ の $\theta$ に関する勾配は一致する [@Lipman+2023 定理2]．
+
+### 架橋の選択
+
+最後に，条件付き確率の輸送 ([-@eq-CPP]) を，どのようにパラメータ付けして学習するかを考える．
+
+式 ([-@eq-CPP]) の始点と終点が Gauss 分布であることを見れば，Gauss 空間内での輸送
+$$
+p_t(x|y)\,dx=\rN\Paren{\mu_t(y),\sigma_t(y)^2I_d},\qquad t\in[0,T],
+$$
+が候補に上がる．ただし，$\sigma_t$ は単調減少とし，
+$$
+(\mu_0(y),\mu_T(y))=(0,y),\qquad(\sigma_0(y),\sigma_T(y))=(1,\sigma_\min).
+$$
+
+$p_0(x|y)\,dx=\rN_d(0,I_d)$ をこのような分布に押し出す写像で最も簡単なものは
+$$
+\psi_t(x):=\sigma_t(y)x+\mu_t(y)
+$$
+である．したがって，フロー $(\psi_t)$ を定めるベクトル場
+$$
+F_t(x|y):=\frac{\sigma_t'(y)}{\sigma_t(y)}\Paren{x-\mu_t(y)}+\mu_t'(y)
+$$
+を目標として学習される．これが CFM (Conditional Flow Matching) [@Lipman+2023] である．
+
+::: {.callout-caution title="フローマッチングの例としての拡散模型" collapse="true" icon="false"}
+
+[拡散模型は２種の SDE でデータ分布をノイズ分布に還元しているとみれる](Diffusion.qmd#sec-forward-diffusion)．
+
+DDPM が対応する分散保存過程の逆は，輸送
+$$
+p_t(x|y)\,dx=\rN(y,\sigma^2_{T-t}I_d)
+$$
+を定める．これは
+$$
+\mu_t(y)=y,\qquad\sigma_t(y)=\sigma_{T-t},
+$$
+の場合に当たる．
+
+SGM が対応する分散爆発過程の逆は，輸送
+$$
+p_t(x|y)\,dx=\rN\Paren{\al_{T-t}y,(1-\al_{T-t}^2)I_d}
+$$
+を定める．これは
+$$
+\mu_t(y)=\al_{T-t}y,\qquad\sigma_t(y)=\sqrt{1-\al_{T-t}^2},
+$$
+の場合に当たる．
+
+この見地から，拡散模型も，フローマッチングによりより効率的に訓練することができる．
+
+:::
+
+::: {.callout-caution title="最適輸送になる場合" collapse="true" icon="false"}
+
+$\mu_t,\sigma_t$ を線型関数
+$$
+\mu_t(y)=ty,\qquad\sigma_t(y)=1-(1-\sigma_\min)t,
+$$
+に設定する．
+
+この場合に対応するフロー
+$$
+\psi_t(x)=\Paren{1-(1-\sigma_\min)t}x+ty
+$$
+は，最適輸送になっている [@McCann1997 p.159]．
+
+:::
 
 ### 確率的補間
 

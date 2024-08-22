@@ -3,7 +3,7 @@ title: "フローベース模型による条件付き生成"
 subtitle: "誘導からフローマッチングへ"
 author: "司馬 博文"
 date: 8/10/2024
-date-modified: 8/21/2024
+date-modified: 8/22/2024
 categories: [Deep, Sampling]
 image: Files/RFDiff.gif
 bibliography: 
@@ -12,7 +12,7 @@ bibliography:
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散模型は拡張性にも優れており，条件付けが容易である．現状は誘導付き拡散によってこれが実現されるが，連続的な条件付き生成のために，フローマッチングなる方法が提案された．
+abstract: 拡散模型は拡張性にも優れており，条件付けが容易である．現状は誘導付き拡散によってこれが実現されるが，連続的な条件付き生成のために，フローマッチングなる方法も提案された．
 listing: 
     -   id: diffusion-listing
         type: grid
@@ -32,61 +32,89 @@ listing:
 ::: {#diffusion-listing}
 :::
 
-## 誘導付き拡散模型
+## 誘導
 
 拡散模型の美点には，条件付けが可能で拡張性に優れているという点もある．
 
-実際，拡散模型の提案後直ちに，Conditional VAE [@Kingma+2014] などの従来手法を凌駕する条件付き生成が可能であることが理解された．
+実際，拡散模型の出現後，Conditional VAE [@Kingma+2014] などの従来手法を凌駕する条件付き生成が可能であることが直ちに理解された．
 
-$c$ がクラスラベルなどの離散変数である場合への「誘導」による拡張が初めに考えられた．
+$C$ がクラスラベルなどの離散変数である場合，「誘導」による条件付き生成が初めに考えられた．
 
 ### はじめに
 
-「誘導」ではまず，DDPM [@Ho+2020] でタイムステップ $t$ を positional encoding したようにしてデータに埋め込むことができる．$c$ が $x_t$ と同じ画像である場合は，[@Ho+2022] のように $x_t$ にそのまま連結することも考えられる．
+「誘導」ではまず，DDPM [@Ho+2020] でタイムステップ $t$ を positional encoding したようにして，プロンプト $c$ をデータに埋め込む．^[$c$ が $x_t$ と同じ画像である場合は，[@Ho+2022] のように $x_t$ にそのまま連結することも考えられる．]
 
-基本的には，データ $X$ とそのラベル $C$ に対して，結合分布 $(C,X)$ をモデリングする．
+そしてデータ $X$ とそのラベル $C$ に対して，条件付き分布 $\L[X|C]$ をモデリングする．
 
-目的関数は条件付き分布 $X|C$ の正確性を表すようにデザインされる．
+しかしこのアプローチの問題は，ラベル $C$ が不確実な場合などは，この情報を無視して普通の $X$ が生成されてしまいがちであることである．
 
-その結果，各ステップで少しずつ $x_t$ が $p(x_t|c)$ にそぐうように誘導されていく．
+そこで目的関数に，条件付き分布 $X|C$ の正確性を期すような追加のデザインをする．これが「誘導」である．
 
-### 分類器による誘導 (CG: Classifier Guidance) [@Dhariwal-Nichol2021]
+### 条件付きスコア場
 
-仮に分類器 $p_\phi(c|x)$ がすでに存在する場合，Bayes の定理
+条件付き分布 $p(x|c)$ を学習することを考える．
+
+このとき $p(x|c)$ のスコアは，Bayes の定理から次のように表せる：
 $$
-\log p(x|c)=\log p(c|x)+\log p(x)-\log p(c)
+\log p(x|c)=\log p(c|x)+\log p(x)-\log p(c),
 $$
 $$
-\therefore\qquad\nabla_x\log p(x|c)=\nabla_x\log p(x)+\nabla_x\log p(c|x)
+\therefore\qquad\nabla_x\log p(x|c)=\nabla_x\log p(x)+\nabla_x\log p(c|x).
+$$ {#eq-conditioned-score}
+
+すなわち，条件付き確率 $p(x|c)$ のスコア場は，条件なしのスコア場 $\nabla_x\log p(x)$ と，分類器のスコア場 $\nabla_x\log p(c|x)$ の重ね合わせになる．
+
+### 分類器による誘導 (CG) 
+
+式 ([-@eq-conditioned-score]) から，$\nabla_x\log p(x|c)$ が計算できる分類器 $p(c|x)$ を新たに訓練すれば，既存のモデル $\nabla_x\log p(x)$ から，サンプリング方法を変えるだけで条件付き生成ができる．
+
+これを **CG: Classifier Guidance** [@Dhariwal-Nichol2021] といい，サンプリング中に各ステップで少しずつ $x_t$ が $p(x_t|c)$ に近づくように「誘導」されていく．
+
+さらに，$c$ が無視されがちな場合も見越して，誘導スケール (guidance scale) という新たなハイパーパラメータ $\lambda\ge0$ を導入し，次のスコア
 $$
-を通じて，$\nabla_x\log p(x)$ だけでなく $\nabla_x\log p(c|x)$ も利用可能になる．
+\nabla_x\log p(x)+\lambda\nabla_x\log p(c|x).
+$$ {#eq-CG-score}
+からサンプリングすることも考えられる．
 
-すなわち，分類器 $p_\phi(c|x)$ を利用した誘導が可能になる．
+$\lambda>1$ としどんどん大きくしていくと，クラスラベル $c$ に「典型的な」サンプルが生成される傾向にある．
 
+### 分類器なしの誘導
 
-### Classifier-Free Diffusion Guidance [@Ho-Salimans2021]
+CG はいわばアドホックな方法であり，外部の分類器 $p(c|x)$ に頼らない方法を考えたい．
 
-すぐに分類器 $p_\phi(c|x)$ の使用から脱却することが考えられた．
+そのためには，式 ([-@eq-CG-score]) から $p(c|x)$ を消去して
+$$
+\lambda\nabla_x\log p(x|c)+(1-\lambda)\nabla_x\log p(x)
+$$ {#eq-CFG-score}
+とみて，$p(x|c),p(x)$ のいずれもデータから学ぶ．
 
-その場合は，$p(x|c),p(x)$ のいずれもデータから学べば良い．
+このアプローチを **Classifier-Free Diffusion Guidance** [@Ho-Salimans2021] という．
 
-これは乱暴な解決に聞こえるかもしれないが，
+その際は，新たなクラスラベル $\emptyset$ を導入して
 $$
 p(x)=p(x|\emptyset)
 $$
-とみなせば，簡単な拡張によって単一のニューラルネットワークで実現可能である．
+とみなすことで，$p(x|c),p(x)$ を同一の [スコアネットワーク](Diffusion.qmd#sec-score-network) でモデリングする．
 
-### Cascaded Generation [@Ho+2022] {#sec-CascadedGeneration}
+データセット内にランダムに1から2割の画像をクラスラベル $\emptyset$ と設定することで，これを実現する．
 
-条件付き生成の技術はそのままで，最終的なクオリティを向上させるためには，Cascading が使用可能である．
+この方法は，追加の分類器の訓練が必要ないだけでなく，サンプリングのクオリティも向上する [@Nichol+2022], [@Saharia+2022SIGGRAPH]．これは分類タスクで訓練されたスコア $\log p(c|x)$ はどう訓練してもスコアネットワークで学習したスコア ([-@eq-CFG-score]) に匹敵する「良い」勾配が得られないためである．
 
-これは， $p(x|c)$ のモデリングは，$x$ の解像度が低い状態で行い，この低解像度画像を次の条件付き拡散モデルの条件付け $c$ とするものである．
+### 高解像度画像生成への応用
+
+#### Cascaded Generation {#sec-CascadedGeneration}
+
+条件付き生成の技術はそのままで，最終的なクオリティを向上させるためには，Cascading [@Ho+2022] が使用可能である．
+
+これは，画像生成は $x$ の解像度が低い状態で行い，この低解像度画像を次の条件付き拡散モデルの条件付け $c$ として，条件付き生成を **高解像度化** (super-resolution) に用いるものである [@Saharia+2023]．
 
 この方法の美点は，条件付き生成器をたくさんスタックしたのちに，拡散模型間の段階でも Gauss ノイズや blur を印加することで，さらに最終的なクオリティが上げられるという [@Ho+2022]．これを **conditioning augmentation** と呼んでいる．
 
-Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] このアーキテクチャを用いている．
+この方法は最初から高解像度での生成を目指して大規模な単一の拡散模型を設計するよりも大きく計算コストを削減できる．
 
-### Self-Conditioning [@Chen+2023]
+Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] でこのアーキテクチャを用いている．
+
+#### Self-Conditioning [@Chen+2023]
 
 拡散モデルを自己再帰的に用い，自身の前回の出力を今回の入力として逐次的にサンプリングを繰り返すことで，サンプリングのクオリティをさらに向上する自己条件づけが [@Chen+2023] で提案された．
 
