@@ -283,7 +283,7 @@ window.Quarto = {
   <li><a href="#sec-DDPM-implementation" id="toc-sec-DDPM-implementation" class="nav-link" data-scroll-target="#sec-DDPM-implementation"><span class="header-section-number">1.4</span> DDPM の実装</a></li>
   <li><a href="#訓練" id="toc-訓練" class="nav-link" data-scroll-target="#訓練"><span class="header-section-number">1.5</span> 訓練</a></li>
   <li><a href="#sec-DDPM-proxy-objective" id="toc-sec-DDPM-proxy-objective" class="nav-link" data-scroll-target="#sec-DDPM-proxy-objective"><span class="header-section-number">1.6</span> 代理目標</a></li>
-  <li><a href="#sec-VDM" id="toc-sec-VDM" class="nav-link" data-scroll-target="#sec-VDM"><span class="header-section-number">1.7</span> 変分推論 (VDM)</a></li>
+  <li><a href="#sec-VDM" id="toc-sec-VDM" class="nav-link" data-scroll-target="#sec-VDM"><span class="header-section-number">1.7</span> 最尤推定</a></li>
   </ul></li>
   <li><a href="#sec-SGM" id="toc-sec-SGM" class="nav-link" data-scroll-target="#sec-SGM"><span class="header-section-number">2</span> スコアベースの生成模型 (SGM)</a>
   <ul class="collapse">
@@ -292,7 +292,7 @@ window.Quarto = {
   <li><a href="#sec-score-network" id="toc-sec-score-network" class="nav-link" data-scroll-target="#sec-score-network"><span class="header-section-number">2.3</span> デノイジングによる解決</a></li>
   <li><a href="#目的関数" id="toc-目的関数" class="nav-link" data-scroll-target="#目的関数"><span class="header-section-number">2.4</span> 目的関数</a></li>
   <li><a href="#ddpm-との対応" id="toc-ddpm-との対応" class="nav-link" data-scroll-target="#ddpm-との対応"><span class="header-section-number">2.5</span> DDPM との対応</a></li>
-  <li><a href="#最尤推定" id="toc-最尤推定" class="nav-link" data-scroll-target="#最尤推定"><span class="header-section-number">2.6</span> 最尤推定</a></li>
+  <li><a href="#sec-MLE-in-SGM" id="toc-sec-MLE-in-SGM" class="nav-link" data-scroll-target="#sec-MLE-in-SGM"><span class="header-section-number">2.6</span> 最尤推定</a></li>
   </ul></li>
   <li><a href="#連続時間極限" id="toc-連続時間極限" class="nav-link" data-scroll-target="#連続時間極限"><span class="header-section-number">3</span> 連続時間極限</a>
   <ul class="collapse">
@@ -327,7 +327,7 @@ window.Quarto = {
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724313306174" data-listing-date-modified-sort="1724079600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="344">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1724400575411" data-listing-date-modified-sort="1724252400000" data-listing-reading-time-sort="4" data-listing-word-count-sort="627">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -474,7 +474,8 @@ Q(x_0,-)=\int\cdots\int Q^1(x_0,dx_1)\cdots Q^T(x_{T-1},-)=\mathrm{N}_d(0,I_d)
 <p>続いて，この逆過程 <span class="math inline">\(p_\theta(x_t,x_{t-1})\)</span> を VAE 様の方法で変分推論により学習しようというのである．</p>
 <p>この方法は，Langevin サンプラーをデータ分布に誘導するスコア場を，種々のノイズレベル <span class="math inline">\(\sigma_t&gt;0\)</span> で <a href="../../../posts/2024/Samplers/EBM.html#sec-SM">スコアマッチング</a> により学習し，アニーリングをした Langevin サンプラーによりサンプリングをしていることに等価になる．</p>
 <p>この SGM (Score-based Generative Model) としての見方（第 <a href="#sec-SGM" class="quarto-xref">2</a> 節）からは，サンプリングに特化した <a href="../../../posts/2024/Samplers/EBM.html">EBM</a> ともみなせる．</p>
-<p>この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span>, <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．現状２つの定式化は完全に等価とみなされ，単に <strong>拡散過程</strong> と言った場合 DDPM と SGM の双方を指す．</p>
+<p>この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．また，違う SDE が定める異なる拡散課程を用いて，ノイズ分布をデータ分布に輸送しているともみれる <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span>．現状２つの定式化は完全に等価とみなされ，単に <strong>拡散模型</strong> と言った場合 DDPM と SGM の双方を指す．</p>
+<p>拡散模型は現在，連続時間ベースのフローベースモデルとして，<a href="../../../posts/2024/Samplers/NF1.html">連続時間正規化流 (CNF)</a> と同一の枠組みで捉えられる <span class="citation" data-cites="Albergo+2023">(<a href="#ref-Albergo+2023" role="doc-biblioref">Albergo et al., 2023</a>)</span>．</p>
 </section>
 <section id="sec-DDPM-encoder" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="sec-DDPM-encoder"><span class="header-section-number">1.2</span> エンコーダーの設定</h3>
@@ -602,17 +603,19 @@ x_t=\sqrt{\alpha_t}x_0+\sqrt{1-\alpha_t}\epsilon_t\quad\Leftrightarrow\quad x_0=
 \mathcal{L}'=\lvert\epsilon_\tau-\widetilde{\epsilon}_\theta(X_\tau,\tau)\rvert^2,\qquad X_\tau=\sqrt{\alpha_\tau}X_0+\sqrt{1-\alpha_\tau}\epsilon_\tau,\tau\sim\mathrm{U}([T]),X_0\sim p(x_0)\,dx_0,\epsilon_\tau\sim\mathrm{N}_d(0,I_d),
 \]</span> を代理目標として用いた．ただし，<span class="math inline">\(p(x_0)\,dx_0\)</span> はデータ分布である．</p>
 <p>これは純粋に，時刻 <span class="math inline">\(t\)</span> までに実際に印加されるノイズ <span class="math inline">\(\epsilon_t\)</span> とモデルが予測するノイズ <span class="math inline">\(\widetilde{\epsilon}_\theta\)</span> の二乗差を最小化することに等しい．</p>
-<p><span class="citation" data-cites="Choi+2022">(<a href="#ref-Choi+2022" role="doc-biblioref">Choi et al., 2022</a>)</span> この代理目標の議論をさらに進めている．</p>
+<p>この目的関数の変更は，<span class="math inline">\(t\)</span> が小さい場合の誤差を小さく評価し，<span class="math inline">\(t\)</span> が大きい場合の誤差を大きく評価するため，大きい <span class="math inline">\(t\)</span> でのデノイジングというより難しいタスクを強調して学習する効果を持つという <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>．<span class="citation" data-cites="Choi+2022">(<a href="#ref-Choi+2022" role="doc-biblioref">Choi et al., 2022</a>)</span> この代理目標の議論をさらに進めている．</p>
 </section>
 <section id="sec-VDM" class="level3" data-number="1.7">
-<h3 data-number="1.7" class="anchored" data-anchor-id="sec-VDM"><span class="header-section-number">1.7</span> 変分推論 (VDM)</h3>
-<p>VDM (Variational Diffusion Model) <span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">Kingma et al., 2021</a>)</span> では正確に <span class="math inline">\(\mathcal{L}(\theta)\)</span> を最小化することで，DDPM では固定されていたノイズスケジュール <span class="math inline">\(\widetilde{\beta}_t\)</span> の真の変分推論を試みる．</p>
+<h3 data-number="1.7" class="anchored" data-anchor-id="sec-VDM"><span class="header-section-number">1.7</span> 最尤推定</h3>
+<p>VDM (Variational Diffusion Model) <span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">Kingma et al., 2021</a>)</span> では正確に <span class="math inline">\(\mathcal{L}(\theta)\)</span> を最小化することで最尤推定を実行する．</p>
+<p>この方法では DDPM では固定されていたノイズスケジュール <span class="math inline">\(\widetilde{\beta}_t\)</span> の真の変分推論が実行できる．</p>
 <p><span class="math display">\[
 Q^{1:t}(x_0,dx_t)=\mathrm{N}_d\biggr(\sqrt{\alpha_t}x_0,(1-\alpha_t)I_d\biggl)
 \]</span> の変数 <span class="math inline">\(\alpha_t\)</span> をパラメータ変換した SNR (Signal-to-Noise Ratio) <span class="math display">\[
 R(t)=\frac{\alpha_t}{1-\alpha_t}=:e^{-\gamma_\phi(t)}
 \]</span> に注目し，<span class="math inline">\(\gamma_\phi\)</span> をニューラルネットワークでモデリングする．</p>
-<p><span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">Kingma et al., 2021</a>)</span> はこの <span class="math inline">\(R(t)\)</span> に関して正確な目的関数を定義し，さらにこれを推定する際に QMC によるより分散の小さい Monte Carlo 推定量を用いた．</p>
+<p>この <span class="math inline">\(R(t)\)</span> を用いれば，正確な目的関数 <span class="math inline">\(\mathcal{L}(\theta)\)</span> はより簡単な表示を持つことを発見した <span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">Kingma et al., 2021</a>)</span> は，さらにこれを訓練する際に QMC によるより分散の小さい Monte Carlo 推定量を用いることで，DDPM と同じくらい効率的に最尤推定が実行できることを示した．</p>
+<p><span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">Kingma et al., 2021</a>)</span>, <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span> は無限層の VAE という DDPM の観点からの貢献であるが，SDE の観点からの最尤推定法を <span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021</a>)</span>, <span class="citation" data-cites="Vahdat+2021">(<a href="#ref-Vahdat+2021" role="doc-biblioref">Vahdat et al., 2021</a>)</span> が提案している（第 <a href="#sec-MLE-in-SGM" class="quarto-xref">2.6</a> 節）．</p>
 </section>
 </section>
 <section id="sec-SGM" class="level2" data-number="2">
@@ -675,16 +678,16 @@ p=\pi p_0+(1-\pi)p_1,\qquad\pi\in(0,1)
 </section>
 <section id="ddpm-との対応" class="level3" data-number="2.5">
 <h3 data-number="2.5" class="anchored" data-anchor-id="ddpm-との対応"><span class="header-section-number">2.5</span> DDPM との対応</h3>
-<p>この SGM の目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) は，ノイズスケジュール <span class="math inline">\(\lambda_t\)</span> が異なるのみで DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> と同じ目的関数となっている <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．</p>
+<p>この SGM の目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) は，ノイズスケジュール <span class="math inline">\(\lambda_t\)</span> が異なるのみで DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> と同じ目的関数となっている <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>, <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．</p>
 <p>実際， <span class="math display">\[
 \mathcal{L}(\theta;\sigma_t^2)=\operatorname{E}\left[\frac{\lambda_\tau}{\sigma_\tau^2}\lvert\epsilon_\tau-\widetilde{\epsilon}_\theta(X_\tau,\tau)\rvert^2\right]
 \]</span> と表せるから，ハイパーパラメータ <span class="math inline">\(\lambda_t\)</span> を <span class="math inline">\(\lambda_t=\sigma_t^2\)</span> と取ることで，DDPM の代理目的関数 <a href="#sec-DDPM-proxy-objective" class="quarto-xref">1.6</a> に一致する．</p>
 </section>
-<section id="最尤推定" class="level3" data-number="2.6">
-<h3 data-number="2.6" class="anchored" data-anchor-id="最尤推定"><span class="header-section-number">2.6</span> 最尤推定</h3>
+<section id="sec-MLE-in-SGM" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="sec-MLE-in-SGM"><span class="header-section-number">2.6</span> 最尤推定</h3>
 <p>近似が入っている DDPM の訓練目標と対応していることから判るように，スコアマッチングは正確な最尤推定を実行していない．</p>
 <p>かといって，正確な変分推論 <a href="#sec-VDM" class="quarto-xref">1.7</a> を実行するのは高くつく．</p>
-<p><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021</a>)</span> はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) の重みづけ <span class="math inline">\((\lambda_t)\)</span> を特定の値 <strong>likelihood weighting</strong> にとることで得られることを示している．</p>
+<p><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021</a>)</span> はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) の重みづけ <span class="math inline">\((\lambda_t)\)</span> を特定の値 <strong>likelihood weighting</strong> にとることで得られることを示している．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="Files/Song+(2021).png" class="img-fluid figure-img"></p>
@@ -699,7 +702,7 @@ p=\pi p_0+(1-\pi)p_1,\qquad\pi\in(0,1)
 <h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">3.1</span> はじめに</h3>
 <p>DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> と SGM <a href="#sec-SGM" class="quarto-xref">2</a> は，いずれも OU 過程とその時間反転の離散化として統一的に理解できる．</p>
 <p>この連続時間極限に関する知見が，モデルのデザインに関して示唆を与えてくれる <span class="citation" data-cites="Tzen-Raginsky2019">(<a href="#ref-Tzen-Raginsky2019" role="doc-biblioref">Tzen and Raginsky, 2019</a>)</span>, <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span>．</p>
-<p>タイムステップ <span class="math inline">\(t\)</span> の取り方は適応的にできるし，<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> SDE (<a href="#eq-OU" class="quarto-xref">4</a>) と等価な輸送を定める ODE を考え，サンプリングを加速することも考えられる．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>タイムステップ <span class="math inline">\(t\)</span> の取り方は適応的にできるし，<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> SDE (<a href="#eq-OU" class="quarto-xref">4</a>) と等価な輸送を定める ODE を考え，サンプリングを加速することも考えられる．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
 </section>
 <section id="sec-forward-diffusion" class="level3" data-number="3.2">
 <h3 data-number="3.2" class="anchored" data-anchor-id="sec-forward-diffusion"><span class="header-section-number">3.2</span> 前向き拡散過程</h3>
@@ -748,8 +751,8 @@ dY_t=\biggr(f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)\biggl)-\frac{\beta_t}{2}s_\th
 <section id="sec-acceleration" class="level3" data-number="4.1">
 <h3 data-number="4.1" class="anchored" data-anchor-id="sec-acceleration"><span class="header-section-number">4.1</span> サンプリング加速法</h3>
 <p>ODE を用いることで拡散模型のサンプリング速度が向上する．<span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span> も参照．</p>
-<section id="denoising-diffusion-implicit-model-ddim-jiamingsong2021" class="level4" data-number="4.1.1">
-<h4 data-number="4.1.1" class="anchored" data-anchor-id="denoising-diffusion-implicit-model-ddim-jiamingsong2021"><span class="header-section-number">4.1.1</span> Denoising Diffusion Implicit Model (DDIM) <span class="citation" data-cites="JiamingSong+2021">(<a href="#ref-JiamingSong+2021" role="doc-biblioref">J. Song et al., 2021</a>)</span></h4>
+<section id="sec-DDIM" class="level4" data-number="4.1.1">
+<h4 data-number="4.1.1" class="anchored" data-anchor-id="sec-DDIM"><span class="header-section-number">4.1.1</span> Denoising Diffusion Implicit Model (DDIM) <span class="citation" data-cites="JiamingSong+2021">(<a href="#ref-JiamingSong+2021" role="doc-biblioref">J. Song et al., 2021</a>)</span></h4>
 <p>モデリングに用いる拡散過程の Markov 性を崩すことで，DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> より 10 倍から 50 倍速いサンプリングを実現したもの．</p>
 <p>訓練に用いる目的関数は DDPM と変わらない．</p>
 </section>
@@ -822,12 +825,15 @@ dY_t=\biggr(f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)\biggl)-\frac{\beta_t}{2}s_\th
 <p><a href="https://github.com/diff-usion/Awesome-Diffusion-Models"><code>Awesome-Diffusion-Models</code></a>，<a href="https://scorebasedgenerativemodeling.github.io/">What’s the score?</a>．</p>
 <p>良いサーベイには次がある：<span class="citation" data-cites="Luo2022">(<a href="#ref-Luo2022" role="doc-biblioref">Luo, 2022</a>)</span>，<span class="citation" data-cites="McAllester2023">(<a href="#ref-McAllester2023" role="doc-biblioref">McAllester, 2023</a>)</span>．</p>
 <p>古くからあり，すでに出版されているものには，<span class="citation" data-cites="Yang+2023">(<a href="#ref-Yang+2023" role="doc-biblioref">Yang et al., 2023</a>)</span>, <span class="citation" data-cites="Cao+2024">(<a href="#ref-Cao+2024" role="doc-biblioref">Cao et al., 2024</a>)</span>．CVPR のチュートリアルが <span class="citation" data-cites="Kreis+2022">(<a href="#ref-Kreis+2022" role="doc-biblioref">Kreis et al., 2022</a>)</span>, <span class="citation" data-cites="Song+2023">(<a href="#ref-Song+2023" role="doc-biblioref">J. Song et al., 2023</a>)</span>．</p>
-<p>拡散モデルのサンプリングを加速する手法に関するサーベイは <span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span>, <span class="citation" data-cites="Croitoru+2023">(<a href="#ref-Croitoru+2023" role="doc-biblioref">Croitoru et al., 2023</a>)</span> など．</p>
+<p>拡散モデルのサンプリングを加速する手法に関するものは <span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span>, <span class="citation" data-cites="Croitoru+2023">(<a href="#ref-Croitoru+2023" role="doc-biblioref">Croitoru et al., 2023</a>)</span> など．</p>
 
 
 
 
 </div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Albergo+2023" class="csl-entry" role="listitem">
+Albergo, M. S., Boffi, N. M., and Vanden-Eijnden, E. (2023). <a href="https://arxiv.org/abs/2303.08797"><span class="nocase">Stochastic Interpolants: A Unifying Framework for Flows and Diffusions</span></a>.
+</div>
 <div id="ref-Anderson1982" class="csl-entry" role="listitem">
 Anderson, B. D. O. (1982). <a href="https://doi.org/10.1016/0304-4149(82)90051-5">Reverse-time diffusion equation models</a>. <em>Stochastic Processes and Their Applications</em>, <em>12</em>(3), 313–326.
 </div>
@@ -964,7 +970,7 @@ Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., and Poole, B.
 Tzen, B., and Raginsky, M. (2019). <a href="https://arxiv.org/abs/1905.09883">Neural stochastic differential equations: Deep latent gaussian models in the diffusion limit</a>.
 </div>
 <div id="ref-Vahdat+2021" class="csl-entry" role="listitem">
-Vahdat, A., Kreis, K., and Kautz, J. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/5dca4c6b9e244d24a30b4c45601d9720-Paper.pdf">Score-based generative modeling in latent space</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 11287–11302. Curran Associates, Inc.
+Vahdat, A., Kreis, K., and Kautz, J. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/5dca4c6b9e244d24a30b4c45601d9720-Paper.pdf"><span class="nocase">Score-based Generative Modeling in Latent Space</span></a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 11287–11302. Curran Associates, Inc.
 </div>
 <div id="ref-Xiao+2021" class="csl-entry" role="listitem">
 Xiao, Z., Kreis, K., and Vahdat, A. (2022). <a href="https://openreview.net/forum?id=JprM0p-q0Co">Tackling the generative learning trilemma with denoising diffusion <span>GAN</span>s</a>. In <em>International conference on learning representations</em>.
@@ -981,8 +987,9 @@ Zhang, Q., and Chen, Y. (2023). <a href="https://openreview.net/forum?id=Loek7hf
 <li id="fn1"><p>エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては <span class="citation" data-cites="Salimans-Ho2021">(<a href="#ref-Salimans-Ho2021" role="doc-biblioref">Salimans and Ho, 2021</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn2"><p>“Our sampling strategy is inspired by simulated annealing <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span>, <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> which heuristically improves optimization for multimodal landscapes.” <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019, p. 2</a>)</span> より．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn3"><p>DNS も SSM も使用可能であるが，ここでは Langevin サンプラーのアニーリングのために，ノイズが印加されたベクトル場 <span class="math inline">\(s_\theta(x,\sigma)\)</span> の学習が必要であるため，DNS の選択が自然である <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span>．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p>ちょうど，<a href="../../../posts/2024/Samplers/NF1.html">Neural ODE</a> がタイムステップの取り方を適応的にしてくれたように．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p>ちょうど，<a href="../../../posts/2024/Slides/ZigZagSampler.html">MCMC がベクトル場に関する決定論的なフローで効率化させられる</a>ように．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>これが可能であることは <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020, p. 8</a>)</span> でも触れられている．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>ちょうど，<a href="../../../posts/2024/Samplers/NF1.html">Neural ODE</a> がタイムステップの取り方を適応的にしてくれたように．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>ちょうど，<a href="../../../posts/2024/Slides/ZigZagSampler.html">MCMC がベクトル場に関する決定論的なフローで効率化させられる</a>ように．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

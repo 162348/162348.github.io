@@ -57,7 +57,9 @@ $$
 
 この SGM (Score-based Generative Model) としての見方（第 [-@sec-SGM] 節）からは，サンプリングに特化した [EBM](EBM.qmd) ともみなせる．
 
-この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める [@Song+2021ICLR], [@Huang+2021]．現状２つの定式化は完全に等価とみなされ，単に **拡散過程** と言った場合 DDPM と SGM の双方を指す．
+この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める [@Huang+2021]．また，違う SDE が定める異なる拡散課程を用いて，ノイズ分布をデータ分布に輸送しているともみれる [@Song+2021ICLR]．現状２つの定式化は完全に等価とみなされ，単に **拡散模型** と言った場合 DDPM と SGM の双方を指す．
+
+拡散模型は現在，連続時間ベースのフローベースモデルとして，[連続時間正規化流 (CNF)](NF1.qmd) と同一の枠組みで捉えられる [@Albergo+2023]．
 
 ### エンコーダーの設定 {#sec-DDPM-encoder}
 
@@ -219,11 +221,13 @@ $$
 
 これは純粋に，時刻 $t$ までに実際に印加されるノイズ $\ep_t$ とモデルが予測するノイズ $\wt{\ep}_\theta$ の二乗差を最小化することに等しい．
 
-[@Choi+2022] この代理目標の議論をさらに進めている．
+この目的関数の変更は，$t$ が小さい場合の誤差を小さく評価し，$t$ が大きい場合の誤差を大きく評価するため，大きい $t$ でのデノイジングというより難しいタスクを強調して学習する効果を持つという [@Ho+2020]．[@Choi+2022] この代理目標の議論をさらに進めている．
 
-### 変分推論 (VDM) {#sec-VDM}
+### 最尤推定 {#sec-VDM}
 
-VDM (Variational Diffusion Model) [@Kingma+2021] では正確に $\L(\theta)$ を最小化することで，DDPM では固定されていたノイズスケジュール $\wt{\beta}_t$ の真の変分推論を試みる．
+VDM (Variational Diffusion Model) [@Kingma+2021] では正確に $\L(\theta)$ を最小化することで最尤推定を実行する．
+
+この方法では DDPM では固定されていたノイズスケジュール $\wt{\beta}_t$ の真の変分推論が実行できる．
 
 $$
 Q^{1:t}(x_0,dx_t)=\rN_d\Paren{\sqrt{\al_t}x_0,(1-\al_t)I_d}
@@ -234,7 +238,9 @@ R(t)=\frac{\al_t}{1-\al_t}=:e^{-\gamma_\phi(t)}
 $$
 に注目し，$\gamma_\phi$ をニューラルネットワークでモデリングする．
 
-[@Kingma+2021] はこの $R(t)$ に関して正確な目的関数を定義し，さらにこれを推定する際に QMC によるより分散の小さい Monte Carlo 推定量を用いた．
+この $R(t)$ を用いれば，正確な目的関数 $\L(\theta)$ はより簡単な表示を持つことを発見した [@Kingma+2021] は，さらにこれを訓練する際に QMC によるより分散の小さい Monte Carlo 推定量を用いることで，DDPM と同じくらい効率的に最尤推定が実行できることを示した．
+
+[@Kingma+2021], [@Huang+2021] は無限層の VAE という DDPM の観点からの貢献であるが，SDE の観点からの最尤推定法を [@Song+2021NeurIPS], [@Vahdat+2021] が提案している（第 [-@sec-MLE-in-SGM] 節）．
 
 ## スコアベースの生成模型 (SGM) {#sec-SGM}
 
@@ -311,7 +317,7 @@ $$ {#eq-SGM-objective}
 
 ### DDPM との対応
 
-この SGM の目的関数 ([-@eq-SGM-objective]) は，ノイズスケジュール $\lambda_t$ が異なるのみで DDPM [-@sec-DDPM] と同じ目的関数となっている [@Huang+2021]．
+この SGM の目的関数 ([-@eq-SGM-objective]) は，ノイズスケジュール $\lambda_t$ が異なるのみで DDPM [-@sec-DDPM] と同じ目的関数となっている [@Ho+2020], [@Huang+2021]．
 
 実際，
 $$
@@ -319,13 +325,13 @@ $$
 $$
 と表せるから，ハイパーパラメータ $\lambda_t$ を $\lambda_t=\sigma_t^2$ と取ることで，DDPM の代理目的関数 [-@sec-DDPM-proxy-objective] に一致する．
 
-### 最尤推定
+### 最尤推定 {#sec-MLE-in-SGM}
 
 近似が入っている DDPM の訓練目標と対応していることから判るように，スコアマッチングは正確な最尤推定を実行していない．
 
 かといって，正確な変分推論 [-@sec-VDM] を実行するのは高くつく．
 
-[@Song+2021NeurIPS] はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 ([-@eq-SGM-objective]) の重みづけ $(\lambda_t)$ を特定の値 **likelihood weighting** にとることで得られることを示している．
+[@Song+2021NeurIPS] はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 ([-@eq-SGM-objective]) の重みづけ $(\lambda_t)$ を特定の値 **likelihood weighting** にとることで得られることを示している．^[これが可能であることは [@Ho+2020 p.8] でも触れられている．]
 
 ![[@Song+2021NeurIPS p.5]](Files/Song+(2021).png)
 
@@ -410,7 +416,7 @@ $$
 
 ODE を用いることで拡散模型のサンプリング速度が向上する．[@Nichol-Dhariwal2021] も参照．
 
-#### Denoising Diffusion Implicit Model (DDIM) [@JiamingSong+2021]
+#### Denoising Diffusion Implicit Model (DDIM) [@JiamingSong+2021] {#sec-DDIM}
 
 モデリングに用いる拡散過程の Markov 性を崩すことで，DDPM [-@sec-DDPM] より 10 倍から 50 倍速いサンプリングを実現したもの．
 
@@ -498,4 +504,4 @@ MaskGIT (Masked Generative Image Transformer) [@Chang+2022] はこの枠組み�
 
 古くからあり，すでに出版されているものには，[@Yang+2023], [@Cao+2024]．CVPR のチュートリアルが [@Kreis+2022], [@Song+2023]．
 
-拡散モデルのサンプリングを加速する手法に関するサーベイは [@Nichol-Dhariwal2021], [@Croitoru+2023] など．
+拡散モデルのサンプリングを加速する手法に関するものは [@Nichol-Dhariwal2021], [@Croitoru+2023] など．
