@@ -3,7 +3,7 @@ title: "拡散模型"
 subtitle: "深層生成モデル６"
 author: "司馬博文"
 date: 2/14/2024
-date-modified: 8/22/2024
+date-modified: 8/23/2024
 image: Files/DDPM_outputs.png
 categories: [Deep, Process, Sampling]
 bibliography: 
@@ -221,7 +221,9 @@ $$
 
 これは純粋に，時刻 $t$ までに実際に印加されるノイズ $\ep_t$ とモデルが予測するノイズ $\wt{\ep}_\theta$ の二乗差を最小化することに等しい．
 
-この目的関数の変更は，$t$ が小さい場合の誤差を小さく評価し，$t$ が大きい場合の誤差を大きく評価するため，大きい $t$ でのデノイジングというより難しいタスクを強調して学習する効果を持つという [@Ho+2020]．[@Choi+2022] この代理目標の議論をさらに進めている．
+この目的関数の変更は，$t$ が小さい場合の誤差を小さく評価し，$t$ が大きい場合の誤差を大きく評価するため，大きい $t$ でのデノイジングというより難しいタスクを強調して学習する効果を持つという [@Ho+2020]．
+
+[@Choi+2022] この代理目標の議論をさらに進めている．またこのような代理目標は，データ拡張の下では真の ELBO と一致する [@Kingma-Gao2023] ため，全く無根拠な変更というわけではない．
 
 ### 最尤推定 {#sec-VDM}
 
@@ -418,9 +420,33 @@ ODE を用いることで拡散模型のサンプリング速度が向上する�
 
 #### Denoising Diffusion Implicit Model (DDIM) [@JiamingSong+2021] {#sec-DDIM}
 
-モデリングに用いる拡散過程の Markov 性を崩すことで，DDPM [-@sec-DDPM] より 10 倍から 50 倍速いサンプリングを実現したもの．
+DDIM [@JiamingSong+2021] は，スタート地点 $x_0$ に条件付けられた確率核
+$$
+q_\sigma(x_{t-1}|x_t,x_0)\,dx_{t-1}=\rN\Paren{\sqrt{\al_{t-1}}x_0+\sqrt{1-\al_{t-1}-\sigma_t^2}\frac{x_t-\sqrt{\al_t}x_0}{\sqrt{1-\al_t}},\sigma_t^2I_d}
+$$ {#eq-DDIM}
+を考える．^[[@JiamingSong+2021] 内では $q_\sigma(x_t|x_{t-1},x_0)$ の形を与えていないが，Bayes の定理を通じてわかる：$$q_\sigma(x_t|x_{t-1},x_0)=\frac{q_\sigma(x_{t-1}|x_t,x_0)q_\sigma(x_t|x_0)}{q_\sigma(x_{t-1}|x_0)}.$$] これを $x_0$ に関して積分すると元の確率核 $q_\sigma(x_{t-1}|x_t)$ を得る．
 
-訓練に用いる目的関数は DDPM と変わらない．
+$\sigma_t$ は任意としており，
+$$
+\sigma_t=\sqrt{\frac{1-\al_{t-1}}{1-\al_t}}\sqrt{1-\frac{\al_t}{\al_{t-1}}}
+$$
+と取った場合，$q_\sigma(x_{t-1}|x_t,x_0)$ は $x_0$ にもはや依らず，DDPM の設定を回復する．
+
+$q_\sigma(x_{t-1}|x_t,x_0)$ の時間反転は次のように与えられる：
+$$
+p_\theta(x_{t-1}|x_t)\,dx_{t-1}=\rN\Paren{\sqrt{\al_{t-1}}\wh{x}_0+\sqrt{1-\al_{t-1}-\sigma_t^2}\frac{x_t-\sqrt{\al_t}\wh{x}_0}{\sqrt{1-\al_t}},\sigma_t^2I_d}.
+$$
+
+ただし，$x_0$ は事前にはわからないから，これをニューラルネットワークによりモデリングするとする：
+$$
+\wh{x}_0=\frac{x_t-\sqrt{1-\al_t}\ep_\theta(x_t,t)}{\sqrt{\al_t}}.
+$$
+
+すると，この際の目的関数は DDPM と全く変わらない．すなわち，既存の DDPM の訓練は特別な $\sigma_t$ に関する DDIM ([-@eq-DDIM]) の訓練とみなせるのである．
+
+$\sigma_t$ が自由となると，$\sigma_t\equiv0$ と取っても良いはずである．この場合，サンプリングの過程は確定的になる．
+
+総じて，すでに訓練された DDPM の $\ep_\theta(x_t,t)$ があれば，この $\sigma_t\equiv0$ の場合のサンプリング過程を採用すれば，DDPM [-@sec-DDPM] より 10 倍から 50 倍速いサンプリングが実現できる．
 
 #### 逐次サンプリング問題としての解決 {#sec-acceleration-sequential}
 
@@ -456,7 +482,7 @@ DEIS (Diffusion Exponential Integrator Sampler) [@Zhang-Chen2023] では，付�
 
 #### ADM [@Dhariwal-Nichol2021]
 
-ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] は ImageNet データの判別において当時の最先端であった BigGAN [@Brock+2019] の性能を凌駕した．
+ADM (Ablated Diffusion Model) [@Dhariwal-Nichol2021] と [分類器による誘導](NF3.qmd#sec-CG) は ImageNet データの判別において当時の最先端であった BigGAN [@Brock+2019] の性能を凌駕した．
 
 そのアーキテクチャには [U-Net](../Kernels/Deep.qmd#sec-U-net) [@Ronneberger+2015] が用いられた．
 

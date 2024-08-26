@@ -1,9 +1,9 @@
 ---
 title: "雑音除去拡散過程"
-subtitle: "Denoising Diffusion によるサンプリング"
+subtitle: "Denoising Diffusion から Denoising Schrödinger Bridge へ"
 author: "司馬 博文"
 date: 8/3/2024
-date-modified: 8/5/2024
+date-modified: 8/26/2024
 categories: [Process, Sampling]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -11,36 +11,91 @@ bibliography:
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．
+abstract: 拡散モデルから始まるフロー学習手法は，画像と動画に関して 2024 年時点で最良の性能を誇る．本稿では，これを統計アルゴリズムとして用いるための方法を考える．生成モデリングを２つの密度の補間問題と捉えると，Denoising Diffusion モデルは良いモデルとは言えない．ここでは Schrödinger 橋を用いた，より正確な推定法を考える．
 listing: 
     -   id: diffusion-listing
         type: grid
         sort: false
         contents:
-            - "Diffusion.qmd"
             - "DD2.qmd"
-            - "DiscreteDiffusion.qmd"
+            - "NF1.qmd"
+            - "Diffusion.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-### 関連ページ {.unnumbered .unlisted}
+
+## はじめに
+
+### 輸送問題としての生成モデリング
+
+生成モデリングは畢竟，２つの分布 $P_0,P_1\in\cP(\R^d)$ を結ぶ写像
+$$
+\phi_*P_0=P_1
+$$
+を，フロー $(\phi_t),\phi_1=\phi$ によって学習することに帰着する．
 
 ::: {#diffusion-listing}
 :::
 
-<!-- ::: {layout-ncol=2 layout-valign="bottom"}
+### ベクトル場を学習する方法
 
-[![拡散模型（深層生成モデル６）](../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png)](Diffusion.qmd)
+このようなフロー $(\phi_t)$ を定めるベクトル場 $F_t$
+$$
+\pp{\phi_t(x)}{t}=F_t(\phi_t(x))
+$$
+は，$P_0,P_1$ を補間する確率密度
+$$
+P_t:=(\phi_t)_*P_0
+$$
+に対して，[連続方程式](https://ja.wikipedia.org/wiki/連続の方程式) というPDE
+$$
+\pp{p_t}{t}+\div(F_tp_t)=0.
+$$
+を満たす必要がある．
 
-[![雑音除去拡散サンプラー](Files/unnormalized_target.svg)](DD2.qmd)
+この PDE から適切なベクトル場 $F_t$ を特定し，これを目的にベクトル場 $F_\theta(x_t,t)$ を学習してサンプリングに活かすことが，[FM (Flow Matching)](NF1.qmd#sec-FM) により可能になる．
 
-::: -->
+### 歴史：拡散モデル
+
+決定論的なフロー $(\phi_t)$ による $P_0$ の $P_1$ への変換は，元々は [拡散モデル](Diffusion.qmd) によって考えられていた．
+
+この方法では $P_0$ に収束するエルゴード性を持つ OU 過程を用いて $P_1$ の $P_0$ への変換を学習し，この時間反転を学習することでノイズ分布 $P_0$ からのサンプルから，データ分布 $P_1$ からのサンプルを生成をする．
+
+DDPM [@Ho+2020] は確率モデルとしてこの枠組みを定式化し最尤推定を目指した．SGM [@Song+2019] は直接データ分布のスコア $\nabla_x\log p_t(x)$ をスコアマッチングにより学習することを提案した．
+
+このモデルにはノイズスケジュールなどの不要なパラメータや調節可能なハイパーパラメータが多く，等価な分布変換を定める ODE が存在する [@Song+2021ICLR] ことが自覚されると，ODE とベクトル場による方法が志向された．これで Flow Matching [@Lipman+2023] に至る．
+
+### Schrödinger 橋
+
+分布 $P_1$ から開始する OU 過程は，エルゴード性をもてど，有限時間内で $P_0$ との誤差が消えるわけではない．実際，拡散モデルの時間極限 $T>0$ はなるべく大きく取ることが推奨されている [@Song-Ermon2020]．
+
+一方で，正確に２つの分布を繋ぐダイナミクスの１つを，Schrödinger 橋が与え，これをスコアマッチングによって学習することが [@Heng+2022] によって考えられた．
 
 
-## 雑音除去拡散 {#sec-DDPS}
+
+### サンプリングへの応用
+
+本稿では，最初に提案された拡散模型である [DDPM](Diffusion.qmd#sec-DDPM) から始まり，生成モデリングと密度推定に使える手法を考える．
+
+一方で [次稿](DD2.qmd) では，正規化定数が不明な分布
+$$
+\pi(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
+$$
+に対しても使える汎用サンプラー DDS (Denoising Diffusion Sampler) [@Vargas-Grathwohl-Doucet2023] とその Schrödinger 橋による改良を扱う：
+
+| 名称 | 正規化定数の不明な分布に使えるか？ | IPF が必要か？ |
+|:----:|:----:|:---:|
+| [DDPM](#sec-DDPM) （第 [-@sec-DDPM] 節） | [{{< fa xmark >}}]{.color-blue} | [{{< fa xmark >}}]{.color-blue} |
+| [DSBPM](#sec-DSBPM) （第 [-@sec-DSBPM] 節） | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
+| [DDS](DD2.qmd#sec-DDGS)（[次稿](DD2.qmd)） | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
+| [DSBS](DD2.qmd#sec-DSB-GS) （[次稿](DD2.qmd)） | [{{< fa check >}}]{.color-red} | [{{< fa check >}}]{.color-red} |
+
+: 前半 DD は Denoising Diffusion, DSB は Denoising Schrödinger Bridge．後半 PM は Probabilistic Model，S は Sampler の頭文字． {.hover .responsive-sm tbl-colwidths="[20,15,15]"}
+
+## 雑音除去拡散 (DDPM) {#sec-DDPM}
 
 潜在空間 $\cX$ 上の事前分布 $\mu$ と，尤度が確率核 $\cX\to\cY$
 $$
@@ -112,7 +167,7 @@ $$
 
 $g_t(y|x_t)$ の項も近似可能である．[@Chung+2023] では条件付き誘導が，[@Song+2023] では Monte Carlo 法が用いられている．
 
-## Schrödinger 橋による事後分布サンプリング (DSB-PS) {#sec-DSB-PS}
+## Schrödinger 橋による事後分布サンプリング (DSB-PS) {#sec-DSBPM}
 
 ### はじめに
 
