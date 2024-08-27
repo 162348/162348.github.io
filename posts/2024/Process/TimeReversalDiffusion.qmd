@@ -1,16 +1,18 @@
 ---
 title: "拡散過程の時間反転"
-author: "司馬 博文"
+subtitle: "デノイジングスコアマッチングを応用として"
+author: "司馬博文"
 date: 8/26/2024
-date-modified: 8/26/2024
+date-modified: 8/27/2024
 categories: [Process]
+image: Images/DSM.svg
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散過程の時間反転を考えると，Hyvärinen スコアがドリフト項に現れる．
+abstract: 拡散過程の時間反転を考えると，Hyvärinen スコアがドリフト項に現れる．デノイジングスコアマッチングの目的関数は，これを利用してデータ分布のスコアが推定されるように設計されている．
 listing: 
     -   id: lst-listing
         type: grid
@@ -25,12 +27,143 @@ listing:
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-### 関連ページ {.unnumbered .unlisted}
+## 命題
+
+::: {.callout-tip title="[命題 @Haussmann-Pardoux1986]" icon="false"}
+
+Brown 運動 $\{B_t\}\subset\L(\Om;\R^d)$ と可測関数 $b:[0,1]\times\R^d\to\R^d,\sigma:[0,1]\times\R^d\to M_d(\R)$ に関して，
+$$
+dX_t=b_t(X_t)\,dt+\sigma_t(X_t)\,dB_t,\qquad t\in[0,1],
+$$
+を Markov 過程とする．さらに次の３条件を仮定する：
+
+* $b_t,\sigma_t$ は $\R^d$ 上局所 Lipschitz 連続で，線型増大条件を満たす：
+    $$
+    \abs{b_t(x)}+\abs{\sigma_t(x)}\le K(1+\abs{x}),\qquad x\in\R^d,K>0.
+    $$
+* $X_0$ は密度 $p_0$ をもち，ある $\lambda<0$ について次を満たす：
+    $$
+    p_0\in L^2((1+\abs{x}^2)^\lambda\,dx).
+    $$
+* $a:=\sigma\sigma^\top$ は一様に正定値である
+    $$
+    a_t(x)\ge\al I_d
+    $$
+    であるか，$\al^{ij}_{x_ix_j}\in L^\infty((0,1)\times\R^d)$ である．
+
+このとき，時間反転 $\ov{X}_t:=X_{1-t}$ の分布は次の SDE の解である：
+$$
+d\ov{X}_t=\ov{b}_t(\ov{X}_t)\,dt+\ov{\sigma}_t(\ov{X}_t)\,d\ov{B}_t,\qquad t\in[0,1].
+$$
+ただし，$(B_t)$ も Brown 運動で，
+$$
+\ov{b}^i_t(x)=-b_{1-t}^i(x)+\sum_{j=1}^d\frac{\Paren{a^{ij}_{1-t}(x)p_{1-t}(x)}_{x_j}}{p_{1-t}(x)},
+$$
+$$
+\ov{a}^{ij}_t(x)=a^{ij}_{1-t}(x),\qquad\ov{\sigma}^{ij}_t(x)=\sigma^{ij}_{1-t}(x).
+$$
+
+:::
+
+::: {.callout-tip title="系" icon="false"}
+
+前の命題の３条件を満たす，ドリフト係数 $\sigma$ が $x\in\R^d$ に依らない SDE
+$$
+dX_t=b_t(X_t)\,dt+\sigma_t\,dB_t,\qquad t\in[0,1],
+$$
+を考える．この $(X)_{t\in[0,1]}$ の時間反転は，$a_t:=\sigma_t\sigma^\top_t$ に関して
+$$
+d\ov{X}_t=\Paren{-b_{1-t}(\ov{X}_t)+a_{1-t}\nabla_x\log p_{1-t}(\ov{X}_t)}\,dt+\sigma_{1-t}\,d\ov{B}_t,\qquad\ov{X}_0=X_1,
+$$
+と分布同等になる．
+
+:::
+
+## スコアマッチングへの応用
+
+### はじめに
+
+[Denoising Score Matching](../Samplers/EBM.qmd#sec-DSM) [@Vincent2011] を初めとして，[Generalized Flow Matching](../Samplers/NF3.qmd#sec-GFM) [@Isobe+2024] や Functional Flow Matching [@Kerrigan+2024] は，次のような目的関数を持っている：
+$$
+\L(\theta)=\E\SQuare{\ABs{s_\theta(\wt{X})-\frac{X-\wt{X}}{\sigma^2}}^2},\qquad X\sim p_0,\wt{X}\sim p_0*\rN(0,\sigma^2I_d).
+$$ {#eq-DSM-loss}
+
+これはデータ $X\sim p_0$ と，それに独立な Gauss ノイズを印加したもの $\wt{X}$ との差分を目標としてスコアネットワーク $s_\theta$ を学習している．
+
+### デノイジング過程としての見方
+
+データにノイズを印加する過程は，$b_t=0,\sigma_t=I_d$ とした SDE
+$$
+dX_t=dB_t,\qquad t\in[0,1],X_0\sim p_0,
+$$
+で $t=0$ から $t=\sigma^2$ まで輸送することにあたる：
+$$
+X_\sigma^2=X_0+(B_{\sigma^2}-B_0)\deq\wt{X}.
+$$
+この時間反転は
+$$
+d\ov{X}_t=\nabla_x\log p_{1-t}(\ov{X}_t)\,dt+d\ov{B}_t,\qquad\ov{X}_0=X_1,
+$$
+と分布同等になる．
+
+この時間反転過程 $(\ov{X}_t)$ は $\ov{X}_{1-\sigma^2}=\wt{X}$ を $\ov{X}_1=X$ まで運ぶが，この際に $\sigma\ll1$ ならば次の関係を示唆する：
+\begin{align*}
+    X&\deq\wt{X}+\int^1_{1-\sigma^2}\nabla_x\log p_{1-t}(\ov{X}_t)\,dt+\ep\\
+    &\approx\wt{X}+\sigma^2\nabla_x\log p_0(X)+\ep,\qquad\ep\sim\rN(0,\sigma^2I_d).
+\end{align*}
+$\sigma\to0$ の極限で次の等号が成り立つ：
+$$
+\lim_{\sigma\to0}\frac{X-\wt{X}}{\sigma^2}\deq\nabla_x\log p_0(X).
+$$
+
+### Tweedie の式
+
+実は同様の式は，$\sigma\to0$ の極限で漸近的にではなく正の $\sigma^2>0$ に関しても，次の意味で成り立つ：
+
+::: {.callout-tip title="命題" icon="false"}
+
+$X\sim p_0,\wt{X}\sim p_0*\rN(0,\sigma^2I_d)=:\wt{p}_0$ とする．このとき，次が成り立つ：
+$$
+\E[X|\wt{X}=\wt{x}]=\wt{x}+\sigma^2\nabla_{\wt{x}}\log \wt{p}_0(\wt{x}).
+$$
+
+:::
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+一般に，$\phi_\sigma$ を $\rN_d(0,\sigma^2I_d)$ の密度関数とすると，
+$$
+\E[X|\wt{X}=\wt{x}]=\int_{\R^d}xp_0(x)\phi_\sigma(\wt{x}-x)\,dx
+$$
+より，
+$$
+\E[X|\wt{X}=\wt{x}]-\wt{x}=\int_{\R^d}(x-\wt{x})p_0(x)\phi_\sigma(\wt{x}-x)\,dx.
+$$
+
+一方で，
+\begin{align*}
+    &\qquad\nabla_{\wt{x}}\log\paren{\int_{\R^d}p_0(x)\phi_\sigma(\wt{x}-x)\,dx}\\
+    &=\frac{\int_{\R^d}p_0(x)\nabla_{\wt{x}}\phi_\sigma(\wt{x}-x)\,dx}{\int_{\R^d}p_0(x)\phi_\sigma(\wt{x}-x)\,dx}\\
+    &=\int_{\R^d}p_0(x)\phi_\sigma(\wt{x}-x)\frac{x-\wt{x}}{\sigma^2}\,dx\\
+    &=\frac{\E[X|\wt{X}=\wt{x}]-\wt{x}}{\sigma^2}.
+\end{align*}
+
+:::
+
+すなわち，$\wt{X}$ から $X$ を不偏推定しようとすることで，スコア $\nabla_{\wt{x}}\log\wt{p}(\wt{x})$ を学習することができるのである．
+
+ただし，学習されるスコアは，データ分布 $p_0$ のものではなく，ノイズ分布 $\wt{p}_0$ のものであることに注意．
+
+これが，デノイジングスコアマッチングの目的関数 ([-@eq-DSM-loss]) の背後にある動機付けである．
+
+## 関連ページ {.unnumbered .unlisted}
 
 ::: {#lst-listing}
 :::
 
-### 応用
+## 文献紹介 {.appendix}
 
-[Denoising Score Matching](../Samplers/EBM.qmd#sec-DSM) [@Vincent2011] を初めとして，[Generalized Flow Matching](../Samplers/NF3.qmd#sec-GFM) [@Isobe+2024] や Functional Flow Matching [@Kerrigan+2024] は，次のような目的関数を持っている：
+[@Anderson1982] では Fokker-Planck 方程式の解に対する条件の言葉で時間反転命題を与えている．また，時間反転も，元の Brown 運動 $B_t$ と独立な Brown 運動 $\ov{B}_t$ に関する SDE ではなく，その時間反転 $\wt{B}_t:=B_{1-t}$ に関する SDE で与えている．
 
+[Aleandre Thiéry のブログ記事](https://alexxthiery.github.io/posts/reverse_and_tweedie/reverse_and_tweedie.html#ref-efron2011tweedie) も参照．
+
+Tweedie の式は [@Robbins1956] によって命名されている．[@Efron2011] では選択バイアスが存在する状況における経験ベイズ法に応用している．
