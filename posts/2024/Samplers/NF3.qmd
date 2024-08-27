@@ -1,10 +1,10 @@
 ---
 title: "フローベース模型による条件付き生成"
 subtitle: "誘導からフローマッチングへ"
-author: "司馬 博文"
+author: "司馬博文"
 date: 8/10/2024
-date-modified: 8/22/2024
-categories: [Deep, Sampling]
+date-modified: 8/27/2024
+categories: [Deep, Sampling, P(X)]
 image: Files/RFDiff.gif
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -98,6 +98,8 @@ $$
 
 データセット内にランダムに1から2割の画像をクラスラベル $\emptyset$ と設定することで，これを実現する．
 
+同様の方法を，スコアマッチングではなくフローマッチングを行うことを [@Dao+2023], [@Zheng+2023GuidedFlow] が提案している．
+
 この方法は，追加の分類器の訓練が必要ないだけでなく，サンプリングのクオリティも向上する [@Nichol+2022], [@Saharia+2022SIGGRAPH]．これは分類タスクで訓練されたスコア $\log p(c|x)$ はどう訓練してもスコアネットワークで学習したスコア ([-@eq-CFG-score]) に匹敵する「良い」勾配が得られないためである．
 
 ### 高解像度画像生成への応用
@@ -122,24 +124,279 @@ Google も [Imagen](https://imagen.research.google/) [@Saharia+2022] でこの�
 
 ![RFdiffusion generating a novel protein that binds to the insulin receptor. Taken from [Baker Lab HP](https://www.bakerlab.org/2023/07/11/diffusion-model-for-protein-design/)](Files/RFDiff.gif)
 
-## フローマッチングによる連続な条件付け
+## フローマッチングによる連続な条件付け {#sec-2}
 
-### はじめに
+### 連続な条件付き生成 {#sec-CCG}
 
 連続な変数に対する条件付き確率からの生成は CcGAN [@Ding+2021] などでも試みられていた．
 
 AlphaFold 3 [@Abramson+2024] や RoseTTAFold Diffusion [@Watson+2023], [@Krishna+2024] など，たんぱく質構造生成模型において拡散モデルが用いられている理由も，高精度な条件付き生成が可能であることが大きいという．
 
-### 条件付きフローマッチング
+このことに加えて連続な変数に対する条件付けを可能にすることは，拡散モデルの拡張性をさらに高めることになる．
 
-２つの確率分布 $P_0,P_1\in\cP(\R^d)$ を結ぶ変換 $\phi_1:\R^d\to\R^d$ を学習することを考える．
+そもそも拡散モデルは [連続時間正規化流](NF1.qmd#sec-FM) (CNF) と合流し，フローマッチング（第 [-@sec-FM] 節）によりノイズ分布 $P_0$ をデータ分布 $P_1$ に変換する曲線 $\{P_t\}_{t\in[0,1]}\subset\cP(\R^d)$ を直接学習するように発展した．
+
+この方法では，新たな条件付け変数 $c\in[0,1]^k$ に対して，連続写像
+$$
+P_{t,c}:[0,1]\times[0,1]^k\to\cP(\R^d)
+$$
+を学習するようにフローマッチングを拡張できれば，連続な条件付き生成が可能になることになる．
+
+これを行列値ベクトル場の理論を通じて達成するのが **拡張フローマッチング** (EFM: Extended Flow Matching) [@Isobe+2024] である．
+
+このようなフローマッチングの拡張は [@Chen-Lipman2024] でも考えられている．
+
+### フローマッチング (FM) {#sec-FM}
+
+２つの確率分布 $P_0,P_1\in\cP(\R^d)$ を結ぶ曲線を
+$$
+(P_t)=((\phi_t)_*P_0)_{t\in[0,1]}\in\cP(\R^d)^{[0,1]}
+$$
+の形で学習することを考える．
+
+そのための１つのアプローチとして，[連続方程式](https://ja.wikipedia.org/wiki/連続の方程式) というPDE
+$$
+\pp{p_t}{t}+\div(F_tp_t)=0.
+$$ {#eq-CE}
+を満たすベクトル場 $F_t$ を学習し，これが定めるフローを $(\phi_t)$ とすることがある：
+
+$$
+\pp{\phi_t(x)}{t}=F_t(\phi_t(x)).
+$$
+
+このような $F_t$ が１つ既知であり，$p_t$ から自由にサンプリングできる場合は，
+$$
+\L_{\mathrm{FM}}(\theta)=\E\SQuare{\ABs{F_\theta(X_T,T)-F_T(X_T)}^2},\qquad T\sim\rU([0,1]),X_T\sim p_T,
+$$ {#eq-FM-objective}
+の最小化によってベクトル場 $F_t$ が学習できる．これを **フローマッチング** (FM: Flow Matching) の目的関数という．
+
+### 条件付きフローマッチング (CFM)
+
+仮に $p_t$ が
+$$
+p_t(x)=\int_\Om p_t(x|c)q(c)\,dc,\qquad\Om\subset\R^k,
+$$
+という $p_{t,c}(x):=p_t(x|c)$ の $q$-混合としての展開を通じて得られているとする．
+
+この場合，$(p_{t,c})$ を生成するベクトル場 $F_t(x|c)$ が特定できれば，
+$$
+F_t(x):=\E\Square{\frac{F_t(x|U)p_t(x|U)}{p_t(x)}}
+$$ {#eq-marginal-VF}
+が $(p_t)$ を生成する [定理1 @Lipman+2023], [定理3.1 @Tong+2024]．
+
+従って，$F_t$ を学習するには FM 目的関数 ([-@eq-FM-objective]) の代わりに
+$$
+\L_{\mathrm{CFM}}(\theta)=\E\SQuare{\ABs{F_\theta(X_T,T)-F_T(X|C)}^2},\qquad C\sim q,
+$$ {#eq-CFM-objective}
+の最小化によっても $F_t(x|c)$ が学習できる．これを **条件付きフローマッチング** (CFM: Conditional Flow Matching) の目的関数という．
+
+::: {.callout-caution title="$P_0$ が Gauss 分布である場合 [@Lipman+2023]" icon="false" collapse="true"}
+
+$P_0=\rN_d(0,I_d)$ をノイズ分布，$P_1$ を一般のデータ分布とする．
+
+ただし，誤差を許して，$P_1*\rN_d(0,\sigma^2I_d)$ を改めて真のデータ分布とする．
+
+このように定式化することで，各データ点 $c\in\{x_i\}_{i=1}^n$ で条件づければ，
+$$
+P_{0,c}:=P_0(-|c)=\rN_d(0,I_d),\qquad P_{1,c}:=P_1(-|c)=\rN_d(0,\sigma^2I_d),
+$$
+の間を結ぶ曲線 $(P_{t,c})_{t\in[0,1],c\in\{x_i\}_{i=1}^n}$ を学習する問題となる．
+
+実は $P_{0,c},P_{1,c}$ が Gauss 分布であることにより，この問題はすでに [@McCann1997 p.159] によって解かれており，最適輸送は
+$$
+P_{t,c}=\rN_d\Paren{tc,(t\sigma-t+1)^2I_d},\qquad F_t(x|c)=\frac{c-(1-\sigma)x}{1-(1-\sigma)t},
+$$
+によって与えられる．
+
+:::
+
+しかし，各 $(P_{t,c})_{t\in[0,1]}$ が最適輸送になっていても，式 ([-@eq-marginal-VF]) で定まる $(P_t)_{t\in[0,1]}$ が最適輸送になるとは限らない．
+
+### 最適輸送 CFM (OT-CFM)
+
+ここで形式的に，条件付ける変数 $c$ は [カップリング](../Probability/Coupling.qmd) $\pi\in C(P_0,P_1)$ に従う $C\sim\pi$ とする：
+$$
+C(P_0,P_1):=\Brace{\pi\in\cP(\R^d\times\R^d)\:\middle|\:\begin{array}{l}(\pr_1)_*\pi=P_0,\\(\pr_2)_*\pi=P_1\end{array}}.
+$$
+
+::: {.callout-caution title="$P_0$ も一般の分布である場合 [I-CFM @Tong+2024]" icon="false" collapse="true"}
+
+$Q_0,Q_1$ は未知のデータ分布で，
+$$
+P_1=Q_1*\rN_d(0,\sigma^2I_d),\qquad P_0=Q_0*\rN_d(0,\sigma^2I_d),
+$$
+の間を架橋したいとする．このとき，
+$$
+\pi:=Q_0\otimes Q_1
+$$
+と定めると，
+$$
+P_{t,c}=\rN_d\Paren{tc_1+(1-t)c_0,\sigma^2I_d},\qquad F_t(x|c)=c_1-c_0,
+$$
+が $P_0,P_1$ の間の輸送を定める [命題3.3 @Tong+2024]．
+
+加えて，$\sigma\to0$ の極限において，学習される輸送 $(P_t)$ は $Q_0,Q_1$ の間の輸送になる．
+
+これは [@Lipman+2023] の例の，$P_0,P_1$ を対称に扱った拡張と見れる．
+
+また，$P_{t,c}$ が $\sigma\to0$ とした Delta 測度である場合が Rectified Flow [@Liu+2023-Flow] に当たる．
+
+この方法を拡張し，例えば平均を線型関数 $m(t)=tc_1+(1-t)c_0$ の代わりに
+$$
+m(t)=\cos\paren{\frac{\pi t}{2}}c_0+\sin\paren{\frac{\pi t}{2}}c_1
+$$
+とした場合が Stochastic Interpolant [@Albergo-Vanden-Eijnden2023] に当たる．
+
+:::
+
+その中でも特に，$\pi$ を 2-Wasserstein 距離に関する最適輸送計画
+$$
+\pi:=\argmin_{\pi\in C(P_0,P_1)}\E[\abs{X-Y}^2]
+$$
+であるとする．
+
+このとき，
+$$
+P_{t,c}=\rN_d\Paren{tc_1+(1-t)c_0,\sigma^2I_d},\qquad F_t(x|c)=c_1-c_0,
+$$
+を $C\sim\pi$ に関して周辺化した輸送 $(P_t)\in\cP(\R^d)^{[0,1]}$ は，$\sigma\to0$ の極限で（動的な）最適輸送になる [命題3.4 @Tong+2024]．
+
+::: {.callout-caution title="Schrödinger Bridge のシミュレーション [SB-CFM @Tong+2024]" icon="false" collapse="true"}
+
+$$
+\pi_{2\sigma^2}:=\argmin_{\pi\in C(P_0,P_1)}\Paren{\E[\abs{X-Y}^2]+2\sigma^2H(\pi)}
+$$
+を，エントロピー正則化項 $2\sigma^2$ を持ったエントロピー最適輸送計画とする．
+
+このとき，各点を結んだ Broanian bridge
+$$
+P_{t,c}:=\rN\Paren{tc_1+(1-t)c_0,t(1-t)\sigma^2I_d},
+$$
+$$
+F_t(x|c):=\frac{1-2t}{2t(1-t)}\Paren{x-(tc_1+(1-t)c_0)}+(c_1-c_0),
+$$
+の周辺化 $(P_t)\in\cP(\R^d)^{[0,1]}$ は，標準 Brown 運動を $\sigma$ だけスケールした分布 $W$ に対する Schrödinger bridge
+$$
+\pi^*:=\argmin_{\substack{\mu_0=P_0\\\mu_1=P_1}}\KL(\mu,W)
+$$
+と分布同等になる [定理3.5 @Tong+2024]．
+
+$\sigma\to0$ の極限が OT-CFM であり，$\sigma\to\infty$ の極限が I-CFM である．
+
+:::
+
+訓練時は，CFM の目的関数 ([-@eq-CFM-objective]) を計算するために $(X_0,X_1)\sim\pi$ というサンプリングが必要になる．データサイズが大きい場合には，これにミニバッチ最適輸送 [@Fatras+2021] を用いることができる．
+
+このように，２つの分布 $P_0,P_1$ を単に独立カップリングと見るのではなく，依存関係があった場合にはそれも考慮してなるべくダイナミクスが直線になるように誘導する方法 Multisample Flow Matching として [@Pooladian+2023] も考えている．
+
+### $\cP(\R^d)^{[0,1]}$ 上の最適化としての見方 {#sec-OT-CFM-in-GFM-perspective}
+
+実は OT-CFM は，２つの確率密度 $p_0,p_1$ を結ぶ曲線 $(p_t)\in\cP(\R^d)^{[0,1]}$ の中で，**Dirichlet エネルギー**
+$$
+D(p):=\inf_{(p,F)}\frac{1}{2}\int_{[0,1]\times\R^d}\abs{F_t(x)}^2p_t(x)\,dxdt
+$$
+を最小化する曲線 $(p_t)$ を学習していると見れる [@Isobe+2024]．ただし，$(p,F)$ は連続方程式 ([-@eq-CE]) を満たす密度とベクトル場の組とした．
+
+条件付きフローマッチングでは，このような曲線 $(p_t)$ を次の方法で構成していた．
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+1. ある決定論的なダイナミクス $\psi_c:[0,1]\to\R^d$ を定める．^[すべての $(P_{t,c})_{t\in[0,1]}$ は $\sigma\to0$ の極限で決定論的なダイナミクスを定めていた．これを $\psi_c(t)$ と表すこととする．]
+2. $Q\in\cP(C^1([0,1];\R^d))$ を確率測度とする．
+3. $\psi,Q$ から，
+    $$
+    P^Q:=\E_{\psi\sim Q}[\delta_\psi]
+    $$
+    によって確率測度の曲線 $(P^Q_t)\in\cP(\R^d)^{[0,1]}$ を定める．
+
+:::
+
+実は Dirichlet 汎函数 $D:\cP(\R^d)^{[0,1]}\to\R_+$ が凸であるために，このように構成される $(p_t)$ の中での最適解は，$Q\in\cP(C^1([0,1];\R^d))$ の全体で探す必要はなく，線型なダイナミクス
+$$
+\psi_c(t)=tc_1+(1-t)c_0,\qquad c=(c_0,c_1)\in\R^d\times\R^d,
+$$
+の重ね合わせの形でのみ探せば良い [@Brenier2003]．
+
+従って，$(X_0,X_1)$ の分布の全体 $C(P_0,P_1)$ のみについてパラメータづけをして探せば良い．さらにこの場合，
+$$
+F_t(x|c)=\pp{\psi_c(t)}{t}=c_1-c_0
+$$
+であるから，$D(P)=2W_2(P_0,P_1)^2$ の最小化は $P_0,P_1$ の 2-Wasserstein 最適な輸送計画 $\pi^*$ の探索に等価になる．
+
+これが OT-CFM の $\cP(\R^d)^{[0,1]}$ 上の最適化としての解釈である．同時に，条件付きフローマッチングの目的関数 ([-@eq-CFM-objective]) の他に，[DSM](EBM.qmd#sec-DSM) 様の目的関数
+$$
+\E\SQuare{\ABs{F_T(\psi(T))-\partial_t\psi_C(T)}^2},\qquad T\sim\rU([0,1]),C\sim\pi^*,
+$$
+の最小化点としてもベクトル場 $F_t$ が学習できる．
+
+### 拡張フローマッチング (GFM) {#sec-GFM}
+
+前節での観察は次のように要約できる：
+
+::: {.callout-important appearance="simple" icon="false" title="OT-CFM の Dirichlet 汎函数最小化としての特徴付け"}
+
+OT-CFM は，条件付きフローマッチングに対して，Dirichlet エネルギーの言葉で帰納バイアスを導入することで，最適輸送を学習するための方法論である．
+
+:::
+
+こう考えると，Dirichlet エネルギーの言葉で他の帰納バイアスを導入することが考えられる．
+
+ここで条件付けの議論（第 [-@sec-CCG] 節）に戻ってくる．最適輸送のための $c=(c_0,c_1)\in\R^{2d}$ に限らず，一般の $c\in\R^k$ に対して連続に条件付けされるように拡張したい．
+
+これは，$(F_t),(p_t)$ の添字を $t\in[0,1]$ から $\xi\in[0,1]\times\R^k$ に拡張することで達成される．
+
+これは新たな $(F_\xi),(p_\xi)$ を $M_{dk}(\R)$-値の行列値ベクトル場 $(F_t)$ とベクトル値密度 $(p_t)$ と見ることに等価である．すると，**一般化連続方程式** [@Brenier2003], [@Lavenant2019]
+$$
+\nabla_\xi p_\xi(x)+\div_x(p_\xi u_\xi)=0
+$$
+の理論を用いれば，全く同様の枠組みで可能になる [命題1 @Isobe+2024]．
+
+これが **拡張フローマッチング** (EFM: Extended Flow Matching) [@Isobe+2024] である．
+
+### GFM の無限次元最適化
+
+ただし，拡張 Dirichlet エネルギー [@Lavenant2019]
+$$
+D(P):=\inf_{(p,F)}\frac{1}{2}\int_{[0,1]\times\R^k\times\R^d}\abs{F_\xi(x)}^2p_\xi(x)\,dxd\xi
+$$
+の第 [-@sec-OT-CFM-in-GFM-perspective] 節の形での最小化点は，もはや線型なダイナミクスの重ね合わせとは限らない．
+
+すると無限次元最適化になってしまうため，適切な [RKHS](../../2023/KernelMethods/KernelMethods4Mathematicians.qmd) $\F\subset\Map([0,1]\times\R^k;\R^d)$ 内で探すことが必要である：
+$$
+\psi=\phi_{x_{\partial\Xi}}\in\argmin_{f\in\F}\sum_{\xi\in\partial\Xi}\abs{f(\xi)-x_\xi}^2.
+$$
+ただし，$\partial\Xi\fsub[0,1]\times\R^k$ は境界条件が与えられる点の有限集合で，$x_\xi\in\R^d$ はその点での値である．
+
+$(\R^d)^{\abs{\partial\Xi}}$ 上での結合分布 $\pi$ が与えられたならば，
+$$
+\inf_{Q\in\cP(C^1([0,1]\times\R^k;\R^d))}D(P^Q)\le\inf_\pi\int_{(\R^d)^{\abs{\partial\Xi}}}\abs{\nabla_\xi\phi_{x_{\partial\Xi}}}^2\pi(dx_\xi)
+$$
+という評価が得られるが，この右辺は最適輸送の形になっており，最小値が適切な周辺分布とコスト関数
+$$
+c(x_{\partial\Xi}):=\int_{[0,1]\times\R^k}\abs{\nabla_\xi\phi_{x_{\partial\Xi}}(\xi)}^2\,d\xi
+$$
+が定める輸送計画問題になっている．
+
+この解 $\pi^*$ をミニバッチ最適輸送で解きながら，目的関数
+$$
+\E\SQuare{\ABs{F_T(\psi(T))-\nabla_\xi\phi_{x_{\partial\Xi}}}^2},\qquad T\sim\rU([0,1]),x_{\partial\Xi}\sim\pi^*,
+$$
+の最小化点としてベクトル場 $F_t$ を学習することができる [定理4 @Isobe+2024]．
+
+これを [@Isobe+2024] は MMOT-EFM と呼んでいる．
 
 ## 文献紹介 {.appendix}
 
-メンダコ氏によるブログ記事 [AlphaFold の進化史](https://horomary.hatenablog.com/entry/2024/06/30/211033) は AlphaFold3 が丁寧に解説されている．当該ブログは丁寧に書かれており，大変おすすめできる．
+本記事の後半第 [-@sec-2] 節は，[@Tong+2024], [@Isobe+2024] の解説である．
+
+前半の内容に関して，メンダコ氏によるブログ記事 [AlphaFold の進化史](https://horomary.hatenablog.com/entry/2024/06/30/211033) は AlphaFold3 が丁寧に解説されている．
+
+当該ブログは丁寧に書かれており，大変おすすめできる．
 
 > Alphafold3とは長大な条件付けネットワークを備えた全原子拡散生成モデルであると前述したとおり、Alphafold3では必須入力としてタンパク質配列を、任意入力として核酸配列、SMILES形式で表現された低分子リガンド、金属イオンなどを長大な条件付けネットワークに入力することで、拡散モデルへの条件付けベクトルを作成します。
 
 > DeepLearningで大規模分子の構造分布を予測するなんて数年前には考えられませんでしたが、拡散モデルによってすでに現実になりつつあります。一例として Distributional GraphormerというMicrosoft Researchの研究 [@Zheng+2024] を紹介します。
 
 続きはぜひ，[メンダコ氏のブログ](https://horomary.hatenablog.com/entry/2024/06/30/211033#AlphaFold3-2024)でお読みください．
+
+[@Dao+2023] のプロジェクトページは [こちら](https://vinairesearch.github.io/LFM/)．
