@@ -1,9 +1,9 @@
 ---
 title: "拡散過程の時間反転"
-subtitle: "デノイジングスコアマッチングを応用として"
+subtitle: "デノイジングスコアマッチングと確率的局所化を応用として"
 author: "司馬博文"
 date: 8/26/2024
-date-modified: 8/27/2024
+date-modified: 8/28/2024
 categories: [Process]
 image: Images/DSM.svg
 bibliography: 
@@ -12,7 +12,7 @@ bibliography:
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: 拡散過程の時間反転を考えると，Hyvärinen スコアがドリフト項に現れる．デノイジングスコアマッチングの目的関数は，これを利用してデータ分布のスコアが推定されるように設計されている．
+abstract: 拡散過程の時間反転を考えると，Hyvärinen スコアがドリフト項に現れる．デノイジングスコアマッチングの目的関数は，これを利用してデータ分布のスコアが推定されるように設計されている．Tweedie の式がこれを正当化するが，この式を用いたサンプリング手法には確率的局所化というものもある．
 listing: 
     -   id: lst-listing
         type: grid
@@ -79,6 +79,16 @@ $$
 
 :::
 
+SGM [@Song-Ermon2019], [@Song+2021ICLR] は，
+$$
+b_t(x)=-x,\qquad\sigma_t=\sqrt{2},
+$$ {#eq-OU}
+と設定し，$(X_t)$ を OU 過程とした．これは $\rN_d(0,I_d)$ に全変動距離・Wasserstein 距離・$\chi^2$-距離で[指数収束する](Langevin.qmd)．
+
+従って，この時間反転を $\rN_d(0,I_d)$ からスタートさせることで，データ分布 $p_0$ からのサンプリングが可能になる．
+
+しかしこのアイデアを実行するためには，スコア $\nabla_x\log p_{1-t}(X_t)$ の項を何らかの方法で推定する方法が必要である．
+
 ## スコアマッチングへの応用
 
 ### はじめに
@@ -116,7 +126,7 @@ $$
 \lim_{\sigma\to0}\frac{X-\wt{X}}{\sigma^2}\deq\nabla_x\log p_0(X).
 $$
 
-### Tweedie の式
+### Tweedie の式 {#sec-Tweedie-formula}
 
 実は同様の式は，$\sigma\to0$ の極限で漸近的にではなく正の $\sigma^2>0$ に関しても，次の意味で成り立つ：
 
@@ -154,6 +164,23 @@ $$
 ただし，学習されるスコアは，データ分布 $p_0$ のものではなく，ノイズ分布 $\wt{p}_0$ のものであることに注意．
 
 これが，デノイジングスコアマッチングの目的関数 ([-@eq-DSM-loss]) の背後にある動機付けである．
+
+## 確率的局所化
+
+### OU 過程による SGM
+
+OU 過程の例 ([-@eq-OU]) に戻ろう．OU 過程
+$$
+dX_t=-X_t\,dt+\sqrt{2}\,dB_t
+$$
+は
+$$
+X_t|X_0=x_0\deq e^{-t}x_0+\sqrt{1-e^{-2t}}\ep,\qquad\ep\sim\rN_d(0,I_d)
+$$
+という条件付き構造を持っているため，Tweedie の式 [-@sec-Tweedie-formula] から，
+$$
+\nabla_x\log p_t(x_0)=\frac{\E[e^{-t}x_0]}{}
+$$
 
 ## 関連ページ {.unnumbered .unlisted}
 
