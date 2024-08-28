@@ -1,6 +1,6 @@
 ---
 title: "拡散過程の時間反転"
-subtitle: "デノイジングスコアマッチングと確率的局所化を応用として"
+subtitle: "雑音除去拡散モデルから確率的局所化まで"
 author: "司馬博文"
 date: 8/26/2024
 date-modified: 8/28/2024
@@ -18,9 +18,9 @@ listing:
         type: grid
         sort: false
         contents:
-            - "../Samplers/EBM.qmd"
-            - "../Samplers/Diffusion.qmd"
-            - "../Samplers/DD1.qmd"
+            - "Diffusion.qmd"
+            - "SB1.qmd"
+            - "EBM.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -83,7 +83,7 @@ SGM [@Song-Ermon2019], [@Song+2021ICLR] は，
 $$
 b_t(x)=-x,\qquad\sigma_t=\sqrt{2},
 $$ {#eq-OU}
-と設定し，$(X_t)$ を OU 過程とした．これは $\rN_d(0,I_d)$ に全変動距離・Wasserstein 距離・$\chi^2$-距離で[指数収束する](Langevin.qmd)．
+と設定し，$(X_t)$ を OU 過程とした．これは $\rN_d(0,I_d)$ に全変動距離・Wasserstein 距離・$\chi^2$-距離で[指数収束する](../Process/Langevin.qmd)．
 
 従って，この時間反転を $\rN_d(0,I_d)$ からスタートさせることで，データ分布 $p_0$ からのサンプリングが可能になる．
 
@@ -173,14 +173,78 @@ OU 過程の例 ([-@eq-OU]) に戻ろう．OU 過程
 $$
 dX_t=-X_t\,dt+\sqrt{2}\,dB_t
 $$
-は
+の時間反転は次と分布同等である：
 $$
-X_t|X_0=x_0\deq e^{-t}x_0+\sqrt{1-e^{-2t}}\ep,\qquad\ep\sim\rN_d(0,I_d)
+d\ov{X}_t=\Paren{\ov{X}_t+2\nabla_x\log p_{1-t}(\ov{X}_t)}\,dt+\sqrt{2}\,d\ov{B}_t,\qquad\ov{X}_0=X_1.
+$$ {#eq-OU-reverse}
+
+OU 過程 $(X_t)$ は
 $$
-という条件付き構造を持っているため，Tweedie の式 [-@sec-Tweedie-formula] から，
+X_t\deq e^{-t}X_0+\sqrt{1-e^{-2t}}\ep,\qquad X_0\sim p_0,\ep\sim\rN_d(0,I_d)
 $$
-\nabla_x\log p_t(x_0)=\frac{\E[e^{-t}x_0]}{}
+という遷移半群を持っているため，$\L[X_t]=\L[e^{-t}X_0]*\rN_d(0,1-e^{-2t})$ であることから，Tweedie の式 [-@sec-Tweedie-formula] より
 $$
+\nabla_x\log p_t(x_t)=\frac{\E[e^{-t}X_0|X_t=x_t]-x_t}{1-e^{-2t}}
+$$
+を得る．従ってこのスコアを式 ([-@eq-OU-reverse]) に代入し，
+$$
+m_t(x_t):=\E[X_0|tX_0+\sqrt{t}\ep=x_t],\qquad X_0\sim p_0,\ep\sim\rN_d(0,I_d),
+$$
+とおき，
+$$
+\tau(t)=\frac{1}{e^{2t}-1}
+$$
+の変数変換を施すと OU 過程の時間反転 ([-@eq-OU-reverse]) は次のように書き直せる：
+$$
+d\ov{Y}_\tau=\Paren{-\frac{1+\tau}{\tau(1+\tau)}\ov{Y}_\tau+\frac{1}{\sqrt{\tau(1+\tau)}}m_\tau\paren{\sqrt{\tau(1+\tau)}\ov{Y}_\tau}}\,d\tau+\frac{1}{\sqrt{\tau(1+\tau)}}\,d\ov{B}_\tau.
+$$ {#eq-OU-reverse-2}
+
+これが [denoising diffusion](../Samplers/SB1.qmd) である．
+
+### もう一つのサンプリング法
+
+**確率的局所化** (stochastic localization) は初め，[@Eldan2013] が高次元空間内の等方的な凸体上での等周不等式を示すために構成した半マルチンゲールが基になっている．
+
+確率的局所化においては，$p_0$ からのあるサンプル $x_0$ に対して，その **観測過程** $(Y_t)$ と呼ばれる $x_0$ のノイズ付きの観測を考える．ただし，$Y_t$ は時間が進むごとに $x_0$ に関する情報量が増えるとする．^[例えば，$x_*,Y_{t_2},Y_{t_1}$ が長さ３の Markov 連鎖をなす，などの意味で．]
+
+例えば
+$$
+Y_t=tx_0+B_t,\qquad t\in\R_+,
+$$
+という場合である．$B_t$ というノイズは印加されているが，$x_0$ というメッセージの内容がどんどん大きくなるため，Signal-to-noise 比は増大していく．
+
+この場合については，$p_0$ が有限な二次の積率を持つならば，
+$$
+dY_\tau=m_\tau(Y_\tau)\,d\tau+dB'_\tau
+$$
+という SDE の解と分布同等である [@Liptser-Shiryaev2001-Statistics]．
+
+これは式 ([-@eq-OU-reverse-2]) で与えた OU 過程の時間反転 $(\ov{Y}_\tau)$ に関して，$Y_\tau=\sqrt{\tau(1+\tau)}\ov{Y}_\tau$ の関係を持つ．
+
+### 確率的局所化
+
+実は $(Y_t)$ は，
+$$
+\mu_t:=\L[X_0|Y_t]
+$$
+として定まる $\P(\R^d)$-値の確率過程 $\{\mu_t\}\subset\L(\Om;\cP(\R^d))$ について，次の性質を持つ：
+$$
+\mu_0=\L[X_0]=p_0\,d\ell_d,\qquad\mu_t\Rightarrow\delta_{x_0}\qquad t\to\infty,
+$$
+
+実は上述のサンプリング法は，このような $p_0\,d\ell_d$ から $\delta_{X_0}\;(X_0\sim p_0)$ への確率過程が与えられるごとに構成できる．
+
+実際，最も簡単には，重心
+$$
+M_t:=\int_{\R^d}x\,\mu_t(dx)
+$$
+を計算すれば，$M_t$ は $t\to\infty$ の極限で $\L[X_0]$ に収束する．
+
+これが **確率的局所化** である．
+
+確率的局所化に基づいたサンプラーは [@Alaoui+2022] により [Sherrington-Kirkpatrick 模型](../Nature/StatisticalMechanics1.qmd#sec-SK-model) の Gibbs 分布からのサンプリングに適用され，[@Montanari-Wu2024] でさらにベイズ統計への応用のために拡張されている．
+
+また，最良の雑音除去拡散モデルの収束証明は確率的局所化に基づいた証明によって与えられている [@Benton+2024]．
 
 ## 関連ページ {.unnumbered .unlisted}
 
@@ -191,6 +255,8 @@ $$
 
 [@Anderson1982] では Fokker-Planck 方程式の解に対する条件の言葉で時間反転命題を与えている．また，時間反転も，元の Brown 運動 $B_t$ と独立な Brown 運動 $\ov{B}_t$ に関する SDE ではなく，その時間反転 $\wt{B}_t:=B_{1-t}$ に関する SDE で与えている．
 
-[Aleandre Thiéry のブログ記事](https://alexxthiery.github.io/posts/reverse_and_tweedie/reverse_and_tweedie.html#ref-efron2011tweedie) も参照．
+[Aleandre Thiéry のブログ記事](https://alexxthiery.github.io/posts/reverse_and_tweedie/reverse_and_tweedie.html#ref-efron2011tweedie) や [鈴木大慈氏のスライド](https://drive.google.com/file/d/1ipWPVNBpFy5GlQqXtSbbhB0gAJUld-yd/view)，[Montanari の講義資料](https://metaphor.ethz.ch/x/2024/fs/401-4634-24L/) も参照．
 
 Tweedie の式は [@Robbins1956] によって命名されている．[@Efron2011] では選択バイアスが存在する状況における経験ベイズ法に応用している．
+
+確率的局所化については [@Montanari2023] を参考にした．
