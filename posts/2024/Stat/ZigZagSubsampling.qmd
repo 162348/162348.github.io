@@ -3,8 +3,8 @@ title: "Zig-Zag サンプラーのサブサンプリングによるスケーラ�
 subtitle: "大規模モデル・大規模データに対する MCMC を目指して"
 author: "司馬博文"
 date: 7/18/2024
-date-modified: 7/23/2024
-categories: [MCMC, Computation, Julia]
+date-modified: 8/29/2024
+categories: [MCMC, Computation, Julia, Sampling]
 image: MeanOfGaussian.svg
 bibliography:
     - ../../../assets/mathematics.bib
@@ -16,23 +16,22 @@ code-fold: false
 execute:
     cache: true
 shift-heading-level-by: -1
+listing: 
+    -   id: lst-listing
+        type: grid
+        sort: false
+        contents:
+            - "../Process/ZigZag.qmd"
+            - "Logistic.qmd"
+            - "Logistic2.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-```{=html}
-<div class="article-card-container">
-    <div class="article-card">
-        <a href="https://162348.github.io/posts/2024/Process/ZigZag.html" target="_blank">
-            <img src="https://162348.github.io/posts/2024/Process/ZigZag2D_Gaussian.svg" alt="Article Image" class="article-image">
-            <div class="article-content">
-                <h3 class="article-title">Zig-Zag 過程によるサンプリング</h3>
-                <p class="article-description">ジャンプと確定的な動きによる新たな MCMC 手法</p>
-            </div>
-        </a>
-    </div>
-</div>
-```
+::: {#lst-listing}
+:::
 
 <!-- ## Subsampling Technology -->
 
@@ -373,7 +372,7 @@ using Plots
 T = 3000.0
 epoch_list = [10.0, 100.0, 1000.0, 10000.0]
 dt = 0.01
-N = 10
+N = 11
 
 MSE_ZZ1, acc = experiment(epoch_list, T, dt, N, ∇U1, x0, θ0, y1, ZZ; ab=ab_ZZ_n1)
 p = plot(#epoch_list, MSE_ZZ1,
@@ -381,7 +380,7 @@ p = plot(#epoch_list, MSE_ZZ1,
     yscale=:log10,
     xlabel="epochs",
     ylabel="MSE"
-    # ,background_color = "#F0F1EB"
+    ,background_color = "#F0F1EB"
     )
 scatter!(p, epoch_list, MSE_ZZ1,
     marker=:circle,
@@ -553,7 +552,7 @@ display(q)
 ```{julia}
 #| output: false
 #| echo: false
-# savefig(q, "MeanOfGaussian_Erronous.svg")
+savefig(q, "MeanOfGaussian_Erronous.svg")
 ```
 
 一見すると ZZ-CV が負けているように見える．しかし，点線で描いているのは，横軸が epoch であることを正しく考慮していない間違ったプロットであるためである．
@@ -593,10 +592,99 @@ display(p)
 ```{julia}
 #| output: false
 #| echo: false
-# savefig(p, "MeanOfGaussian.svg")
+savefig(p, "MeanOfGaussian.svg")
 ```
 
 これは換言すれば横軸が「ズルい」ということでもあるが，同時に $n\to\infty$ の極限では，圧倒的に ZZ-CV が効率的になるということでもある．^[ただし，例えば今回も計算時間で言えば長くなっていることに注意．]
+
+### MALA との比較
+
+```{julia}
+#| code-fold: true
+#| code-summary: MALA のセットアップ
+#| output: false
+using AdvancedHMC, AdvancedMH, ForwardDiff
+using LogDensityProblems
+using LogDensityProblemsAD
+using StructArrays
+using LinearAlgebra
+
+struct LogTargetDensity
+    y::Vector{Float64}
+end
+
+function U(i, x, y)
+    x[1] * x[1] / (2 * ρ * ρ) + length(y) * (x[1] - y[i]) * (x[1] - y[i]) / (2 * σ * σ)  # 自動微分のために x は長さ1のベクトルと扱う必要がある
+end
+
+function U(x, y)
+    vec = [U(i, x, y) for i in 1:length(y)]
+    return mean(vec)
+end
+
+LogDensityProblems.logdensity(p::LogTargetDensity, x) = U(x, p.y)
+LogDensityProblems.dimension(p::LogTargetDensity) = 1
+LogDensityProblems.capabilities(::Type{LogTargetDensity}) = LogDensityProblems.LogDensityOrder{0}()
+
+model_with_ad = LogDensityProblemsAD.ADgradient(Val(:ForwardDiff), LogTargetDensity(y1))
+
+# σ² = 0.1 # ほぼ横ばい
+# σ² = 0.5 # １回小さいエポック10で効率勝った＋全く横ばいになった
+σ² = 0.2  # すごく良い感じ
+spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
+```
+
+```{julia}
+#| code-fold: true
+#| output: false
+#| code-summary: 実験の実行
+function experiment_MALA(epoch_list, N, y)
+    SE_sum = zero(epoch_list)
+    for _ in 1:N
+        chain = sample(model_with_ad, spl, Int64(epoch_list[end]); initial_params=[x0], chain_type=StructArray, param_names=["x"], stats=true)
+        traj_MALA = Vector{Float64}(chain.x)
+        SE_list = []
+        for T in epoch_list
+            SE = SquaredError(traj_MALA[1:T], y)
+            push!(SE_list, SE)
+        end
+        SE_sum += SE_list
+    end
+    return SE_sum ./ N
+end
+
+MSE_MALA = experiment_MALA(Vector{Int64}(epoch_list), N, y1)
+```
+```{julia}
+#| code-fold: true
+#| code-summary: 結果のプロット
+scatter!(p, epoch_list, MSE_MALA,
+    marker=:circle,
+    markersize=5,
+    markeralpha=0.6,
+    color="blue",
+    label=nothing
+    )
+
+df = DataFrame(X = log10.(epoch_list), Y = log10.(MSE_MALA))
+model = lm(@formula(Y ~ X), df)
+X_pred = range(minimum(df.X), maximum(df.X), length=100)
+Y_pred = predict(model, DataFrame(X = X_pred))
+plot!(p, 10 .^ X_pred, 10 .^ Y_pred,
+    line=:solid,
+    linewidth=2,
+    color="blue",
+    label="MALA"
+    )
+
+display(p)
+```
+
+```{julia}
+#| output: false
+#| echo: false
+savefig(p, "MeanOfGaussian_addedMALA.svg")
+```
 
 ### 非一様な部分サンプリング
 
