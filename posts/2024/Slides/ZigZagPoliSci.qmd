@@ -58,11 +58,13 @@ citation:
 license: "CC BY"
 ---
 
-## The Zig-Zag Sampler
+## The Zig-Zag Sampler {#sec-Zig-Zag}
 
 A continuous-time variant of MCMC algorithms
 
 ![Trajectory for Zig-Zag Sampler. Please attribute Hirofumi Shiba. <i class="fa-brands fa-creative-commons"></i> <i class="fa-brands fa-creative-commons-by"></i>](zigzag_fps14.gif)
+
+{{< include ../../../assets/_preamble.qmd >}}
 
 ### Keywords: PDMP (1/2)
 
@@ -72,6 +74,14 @@ A continuous-time variant of MCMC algorithms
 2. [Continuous-time]{.color-unite}, instead of discrete-time processes
 
 {{< fa arrow-right >}} Plays a [complementary role]{.color-unite} to SDEs / Diffusions
+
+| Property | PDMP | SDE |
+|:------:|:------:|:------:|
+| Exactly simulatable? | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
+| Subject to discretization errors? | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
+| Driving noise | Poisson | Gauss |
+
+: {.hover .responsive-sm tbl-colwidths="[60,20,20]"}
 
 ::: {.callout-note appearance="simple" title="History of PDMP Applications"}
 
@@ -96,17 +106,472 @@ The new algorithm 'Zig-Zag Sampler' is based on comtinuous-time process called [
 
 :::
 
-1. Reminder: Standard MCMC
-    a. Metropolis-Hastings
-    b. Metropolis Adjusted Langevin Algorithm (MALA)
-2. Comparison: Zig-Zag vs. MALA
-3. 
+::: {.callout-tip appearance="simple" icon="false" title="What We'll Learn in the Rest of this Chapter"}
 
-### Reminder: Standard MCMC (1/2)
+We will review 3 instances of the standard (discrete-time) MCMC algorithm: [MH]{.color-unite}, [Lifted MH]{.color-unite}, and [MALA]{.color-unite}.
+
+1. Review: [MH]{.color-unite} (Metropolis-Hastings) algorithm
+2. Review: [Lifted MH]{.color-unite}, A method bridging [MH]{.color-unite} and Zig-Zag
+3. Comparison: [MH]{.color-unite} vs. [Lifted MH]{.color-unite} vs. Zig-Zag
+4. Review: [MALA]{.color-unite} (Metropolis Adjusted Langevin Algorithm)
+5. Comparison: Zig-Zag vs. [MALA]{.color-unite}
+
+:::
+
+### Review: Metropolis-Hastings (1/2)
+
+::: {.callout-tip appearance="simple" icon="false" title="[@Metropolis+1953]-[@Hastings1970]"}
+
+Input: Target distribution $p$, (symmetric) proposal distribution $q$
+
+1. Draw a $X_t\sim q(-|X_{t-1})$
+2. Compute
+  $$
+  \alpha(X_{t-1}, X_t) = \frac{p(X_t)}{p(X_{t-1})}
+  $$
+3. Draw a uniform random number $U\sim\rU([0,1])$.
+4. If $\al(X_{t-1},X_t)\le U$, then $X_t\gets X_{t-1}$. Do nothing otherwise.
+5. Return to Step 1.
+
+:::
+
+::: aside
+
+MH algorithm works even without $p$'s normalizing constant. Hence, its ubiquity.
+
+:::
+
+### Review: Metropolis-Hastings (2/2)
+
+::: {.small-letter}
+
+Alternative View: MH is a generic procedure to turn a [simple $q$-Markov chain]{.color-unite} into a [Markov chain converging to $p$]{.color-unite}.
+
+:::
+
+::: {.callout-tip appearance="simple" icon="false" title="The Choise of Proposal $q$"}
+
+* [Random Walk Metropolis]{.underline} [@Metropolis+1953]: Uniform / Gaussian
+  $$
+  q(y|x) = q(y-x) \in\left\{ \dd{\rU([0,1])}{\lambda}(y-x),\dd{\rN(0,\Sigma)}{\lambda}(y-x)\right\}
+  $$
+* [Hybrid / Hamiltonian Monte Carlo]{.underline} [@Duane+1987]: Hamiltonian dynamics
+  $$
+  q(y|x) = x + \ep \rho,\qquad\ep>0,\;\rho\;\text{: momentum defined via Hamiltonian}
+  $$
+* [Metropolis-adjusted Langevin algorithm]{.underline} (MALA) [@Besag1994]: Langevin diffusion
+  $$
+  q(-|X_t):=\text{ the transition probability of } X_t \text{ where } dX_t=\nabla\log p(X_t)\,dt+\sqrt{2\beta^{-1}}dB_t.
+  $$
+
+:::
+
+<!-- ![](Files/arrow-right.svg){.absolute right=-250 top=0 width="1000" height="100" style="transform: rotate(90deg);" .color-unite} -->
+
+### Lifting (1/2)
+
+::: {.small-letter}
+
+[Lifting]{.color-unite}: A method to make MH's dynamics [irreversible]{.color-unite}
+
+How?: By adding an auxiliary variable $\sigma\in\{\pm1\}$, called [momentum]{.color-unite}
+
+:::
+
+::: {.callout-tip appearance="simple" icon="false" title="Lifted MH [@Turitsyn+2011]"}
+
+Input: Target $p$, [two]{.color-unite} proposals $q^{(+1)},q^{(-1)}$, and [momentum]{.color-unite} $\sigma\in\{\pm1\}$
+
+1. Draw $X_t$ from $q^{(\sigma)}$
+2. Do a MH step
+3. If accepted, go back to Step 1.
+4. If rejected, [flip the momentum]{.color-unite} and go back to Step 1.
+
+:::
+
+### Lifting (2/2)
+
+Reversible dynamic of MH has '[irreversified]{.color-unite .artificial-align}'
+
+::: {layout-ncol=3}
+
+![MH](Files/MH_traj.svg)
+
+![[Lifted MH]{.color-unite}](Files/LMH_traj.svg)
+
+::: {#third-column}
+
+::: {.callout-caution appearance="simple" title="Caution"}
+
+**Scale is different** in the vertical axis!
+
+:::
+
+::: small-letter
+
+[Lifted MH]{.color-unite} tends to explore the edges of the target distribution.
+
+:::
+
+:::
+
+:::
+
+::: aside
+
+*Irreversibility actually improves the efficiency of MCMC, as we observe in two slides later.
+
+:::
+
+### Comparison: MH vs. LMH vs. Zig-Zag (1/2)
+
+::: {layout-ncol=3}
+![MH](Files/MH_traj.svg)
+
+![Lifted MH](Files/LMH_traj.svg)
+
+![Zig-Zag](Files/zigzag_traj.svg)
+:::
+
+Zig-Zag corresponds to the [limiting case of lifted MH]{.color-unite} as the step size of proposal $q$ goes to zero, as we'll learn later.
+
+{{< fa arrow-right >}} Zig-Zag has a maximum [irreversibility]{.color-unite}.
+
+### Comparison: MH vs. LMH vs. Zig-Zag (2/2)
+
+[Irreversibility]{.color-unite} actually improves the efficiency of MCMC.
+
+Faster decay of **autocorrelation** $\rho_t\approx\Corr[X_0,X_t]$ implies
+
+1. faster mixing of MCMC
+2. lower variance of Monte Carlo estimates
+
+::: {layout-ncol=3}
+![](Files/MH_auto.svg)
+
+![](Files/LMH_auto.svg)
+
+![](Files/zigzag_auto.svg)
+
+![MH](Files/MH_traj.svg)
+
+![Lifted MH](Files/LMH_traj.svg)
+
+![Zig-Zag](Files/zigzag_traj.svg)
+
+:::
+
+### Review: MALA
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+**Langevin diffusion**: A diffusion process defined by the following SDE:
+
+$$
+dX_t=\nabla\log p(X_t)\,dt+\sqrt{2\beta^{-1}}dB_t.
+$$
+
+**Langevin diffusion** itself converges to the target distribution $p$ in the sense that ^[under fairly general conditions on $p$.]
+$$
+\norm{p_t-p}_{L^1}\to0,\qquad t\to\infty.
+$$
+
+:::
+
+Two MCMC algorithms derived from **Langevin diffusion**:
+
+::: small-letter
+
+[ULA (Unadjusted Langevin Algorithm)]{.underline}<br>
+$\quad$ Use the discretization of $(X_t)$. [Discretization errors accumulate]{.color-unite}.
+
+[MALA (Metropolis Adjusted Langevin Algorithm)]{.underline}<br>
+$\quad$ Use ULA as a proposal in MH, erasing the errors by MH steps.
+
+:::
+
+### Comparison: Zig-Zag vs. MALA (1/3)
+
+How fast do they go back to high-probability regions? ^[The target here is the standard Cauchy distribution $\rC(0,1)$, equivalent to $\rt(1)$ distribution. Its heavy tails hinder the convergence of MCMC.]
+
+::: {layout-ncol=2 style="margin: 0px; !important"}
+![Zig-Zag](../Process/ZigZag_1D.svg)
+
+![MALA](../Process/MALA_1D.svg)
+:::
+
+[Irreversibility]{.color-unite} of Zig-Zag accelerates its convergence.
+
+### Comparison: Zig-Zag vs. MALA (2/3)
+
+::: {layout="[40,60]" layout-valign="center"}
+
+::: {#first-column}
+
+![MALA trajectory](../Process/MALA_1D.svg)
+
+:::
+
+::: {#second-column}
+
+::: {.callout-caution appearance="simple" title="Caution: Fake Continuity"}
+
+The left plot looks continuous, but **it actually is not**.
+
+:::
+
+:::
+
+:::
+
+MH, including MALA, is actually a [discrete-time process]{.underline}.
+
+The plot is obtained by [connecting the points]{.underline} by line segments.
+
+### Comparison: Zig-Zag vs. MALA (3/3)
+
+::: {layout="[30,70]" layout-valign="center" style="margin: 0px; !important"}
+
+::: {#first-column}
+
+![MALA trajectory $(X_n)$](../Process/MALA_1D.svg)
+
+:::
+
+::: {#second-column}
+
+$$
+\int_{\R^d} f(x)p(x)\,dx\approx\frac{1}{N}\sum_{n=1}^Nf(X_n)
+$$
+
+:::
+
+:::
+
+::: {layout="[30,70]" layout-valign="top"}
+
+::: {#first-column}
+
+![Zig-Zag trajectory $(X_t)$](../Process/ZigZag_1D.svg)
+
+:::
+
+::: {#second-column}
+
+$$
+\int_{\R^d} f(x)p(x)\,dx\approx\int^T_0f(X_t)\,dt
+$$
+
+:::
+
+:::
+
+### Recap of Chapter [-@sec-Zig-Zag]
+
+* Zig-Zag Sampler's trajectory is a [PDMP]{.underline}
+* Therefore, it has a [irreversible]{.color-unite} dynamic
+* Leadning to faster convergence of Zig-Zag in comparisons against [MH]{.color-unite}, [Lifted MH]{.color-unite}, and especially [MALA]{.color-unite}.
+
+::: {layout-ncol=3}
+![](Files/MH_auto.svg)
+
+![](Files/LMH_auto.svg)
+
+![](Files/zigzag_auto.svg)
+
+![MH](Files/MH_traj.svg)
+
+![Lifted MH](Files/LMH_traj.svg)
+
+![Zig-Zag](Files/zigzag_traj.svg)
+
+:::
+
+## The Algorithm {#sec-Algorithm}
+
+Fast and exact simulation of continuous trajectory.
+
+### Review: MH vs. LMH vs. Zig-Zag (1/2)
+
+As we've learned before, Zig-Zag corresponds to the [limiting case of lifted MH]{.color-unite} as the step size of proposal $q$ goes to zero.
+
+::: {layout-ncol=3}
+![MH](Files/MH_traj.svg)
+
+![Lifted MH](Files/LMH_traj.svg)
+
+![Zig-Zag](Files/zigzag_traj.svg)
+:::
+
+### Review: MH vs. LMH vs. Zig-Zag (2/2)
+
+'[Limiting case of lifted MH]{.color-unite}' means that we only simulate [**where we should flip the momentum**]{.underline} $\sigma\in\{\pm1\}$ in Lifted MH.
+
+::: {layout-ncol=3}
+![MH](Files/MH_traj.svg)
+
+![Lifted MH](Files/LMH_traj.svg)
+
+![Zig-Zag](Files/zigzag_traj.svg)
+:::
+
+### Algorithm (1/2)
+
+'[Limiting case of lifted MH]{.color-unite}' means that we only simulate [**where we should flip the momentum**]{.underline} $\sigma\in\{\pm1\}$ in Lifted MH.
+
+::: {.callout-tip appearance="simple" icon="false" title="[1d ^[Multidimensional extension is straightforward.] Zig Zag sampler @Bierkens+2019]"}
+
+**Input**: Gradient $\nabla\log p$ of log target density $p$
+
+For $n\in\{1,2,\cdots,N\}$:
+
+1. Simulate an first arrival time $T_n$ of a [Poisson point process]{.color-unite} (described in the next slide)
+2. Linearly interpolate until time $T_n$:
+    $$
+    X_t = X_{T_{n-1}} + \sigma(t-T_{n-1}),\qquad t\in[T_{n-1},T_n].
+    $$
+3. Go back to Step 1 with the momentum $\sigma\in\{\pm1\}$ flipped
+
+:::
+
+### Algorithm (2/2)
+
+::: {.callout-tip title="[Fundamental Property of Zig-Zag Sampler (1d) @Bierkens+2019]" icon="false"}
+
+Let $U(x):=-\log p(x)$. Simluating a [Poisson point process]{.color-unite} with a rate function
+$$
+\lambda(x,\sigma):=\Paren{\sigma U'(x)}_++\;\gamma(x)
+$$
+ensures the Zig-Zag sampler converges to the target $p$, where $\gamma$ is an arbitrary non-negative function.
+
+:::
+
+Its ergodicity is ensured as long as there exists $c,C>0$ such that
+$$
+p(x)\le C\abs{x}^c.
+$$
+
+### Core of the Algorithm
+
+Given a rate function
+$$
+\lambda(x,\sigma):=\Paren{\sigma U'(x)}_++\;\gamma(x)
+$$
+how to simulate a corresponding [Poisson point process]{.color-unite}?
+
+::: {.callout-tip appearance="simple" icon="false" title="What We'll Learn in the Rest of this Chapter"}
+
+1. Algorithmic core: How to simulate a [Poisson Point Process]{.color-unite}?<br>
+  {{< fa arrow-right >}} Core technique: [Poisson Thinning]{.color-blue}
+2. Example: Recovery of Gaussian means from noisy observations
+3. Comparison: Zig-Zag vs. MALA
+
+**Take Away: Zig-Zag sampling reduces to [Poisson Thinning]{.color-blue}**.
+
+:::
+
+### Simulating [Poisson Point Process]{.color-unite} (1/3)
+
+::: {.callout-tip title="What is a [Poisson Point Process]{.color-unite} with rate $\lambda$?" icon="false"}
+
+The number of points in $[0,t]$ follows a Poisson distribution with mean $\int^t_0\lambda(x_s,\sigma_s)\,ds$:
+$$
+N([0,t])\sim\Pois\paren{\int^t_0\lambda(x_s,\sigma_s)\,ds}.
+$$
+We want to know when the first point $T_1$ falls on $\cointerval{0,\infty}$.
+
+:::
+
+The Poisson Process is a special case of [Poisson Point Process]{.color-unite} when
+$$
+\lambda(x,\sigma)=\text{constant}.
+$$
+
+### Simulating [Poisson Point Process]{.color-unite} (2/3)
+
+::: {.callout-tip title="Proposition (Simulation of Poisson Point Process)" icon="false"}
+
+The first arrival time $T_1$ of a [Poisson Point Process]{.color-unite} with rate $\lambda$ can be simulated by
+$$
+T_1\deq F^{-1}(E),\qquad E\sim\Exp(1),F(t):=\int^t_0\lambda(x_s,\sigma_s)\,ds,
+$$
+where $\Exp(1)$ denotes the exponential distribution with parameter $1$.
+
+:::
+
+Reminder: Poisson Process with $\lambda\equiv c\in\R$ can be simulated as
+$$
+T_1\sim\Exp(c).
+$$
+In addition, $T_{n}-T_{n-1}\sim\Exp(c)$ for all $n\in\{2,3,\cdots\}$.
+
+### Simulating [Poisson Point Process]{.color-unite} (3/3)
+
+::: {.callout-tip title="Proposition (Simulation of Poisson Point Process)" icon="false"}
+
+The first arrival time $T_1$ of a [Poisson Point Process]{.color-unite} with rate $\lambda$ can be simulated by
+$$
+T_1\deq F^{-1}(E),\qquad E\sim\Exp(1),F(t):=\int^t_0\lambda(x_s,\sigma_s)\,ds,
+$$
+where $\Exp(1)$ denotes the exponential distribution with parameter $1$.
+
+:::
+
+Since $\qquad\displaystyle\lambda(x,\sigma):=\Paren{\sigma U'(x)}_++\;\gamma(x),$
+
+$F$ can be quite complicated. Inverting $F$ will be even more difficult.
+
+<!-- 
+1d: $x\in\R,\sigma\in\{\pm1\}$
+$$
+\lambda(x,\sigma):=\Paren{\sigma U'(x)}_++\;\gamma(x)
+$$
+
+Multidimensional: $x\in\R^d,\sigma\in\{\pm1\}^d$
+$$
+\lambda_i(x,\sigma):=\Paren{\sigma\cdot \nabla U_i(x)}_++\;\gamma_i(x,\sigma_{-i})
+$$ -->
+
+### [Poisson Thinning]{.color-blue} (1/2)
+
+::: {.callout-tip title="[@Lewis-Shedler1979]" icon="false"}
+
+The first arrival time $T_1$ of a [Poisson Point Process]{.color-unite} with rate $\lambda$ can be simulated by the following acceptance-rejection procedure:
+
+1. Find a bound $M$ that satisfies
+$$
+m(t):=\int^t_0\lambda(x_s,\sigma_s)\,ds\le M(t).
+$$
+2. Simulate a point $T$ from the [Poisson Point Process]{.color-unite} with rate $M$.
+3. Accept $T$ with probability $\frac{m(T)}{M(T)}$.
+
+:::
+
+### [Poisson Thinning]{.color-blue} (2/2)
+
+In order to simulate a Poisson Point Process with rate
+$$
+\lambda(x,\sigma):=\Paren{\sigma U'(x)}_++\;\gamma(x),
+$$
+
+::: {.callout-tip title="Core Problem to Start Zig-Zag Sampling" icon="false"}
+
+Find a bound $M$ that satisfies
+$$
+m(t):=\int^t_0\lambda(x_s,\sigma_s)\,ds\le M(t).
+$$
+for all possible trajectories $\{(x_s,\sigma_s)\}_{s\in[0,t]}$.
+
+:::
+
+### Recap of Chapter [-@sec-Algorithm]
+
+1. Continuous-time MCMC, based on [PDMP]{.underline}, has entirely different algorithm and strategy.
+2. The Core of Zig-Zag Sampler is [Poisson Thinning]{.color-blue}.
 
 ## Application: Logistic Regression
 
-
+Scalability and state-of-the-art performance on high-dimensional models, with the example of logistic models.
 
 ## References {.unnumbered .unlisted}
 
@@ -116,7 +581,7 @@ The new algorithm 'Zig-Zag Sampler' is based on comtinuous-time process called [
 
 ::: {#first-column}
 
-![Slides and codes are available here](Files/QR_804546.svg)
+![Slides and codes are available here](Files/QR_ZigZagPoliSci.svg)
 
 :::
 

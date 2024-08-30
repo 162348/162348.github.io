@@ -42,7 +42,7 @@ end
 
 model_with_ad = LogTargetDensity(y1)
 
-σ² = 0.05
+σ² = 0.1
 spl = MALA(x -> MvNormal((σ² / 2) .* x, σ² * I))
 
 chain = sample(model_with_ad, spl, 10000; initial_params=[x0], chain_type=StructArray, param_names=["x"], stats=true)
