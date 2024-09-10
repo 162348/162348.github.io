@@ -9,11 +9,11 @@ author:
       - name: "the University of Tokyo"
         url: https://esrp.rcast.u-tokyo.ac.jp/experts/hirofumi-shiba/?lang=en
 date: "9/10/2024"
-categories: [Slide, MCMC, Julia, Survey]
+categories: [Slide, MCMC]
 image: zigzag_fps14_WhiteBackground.gif
 toc-title: "Table of Contents"
 format:
-  # html: default
+  html: default
   revealjs:
     output-file: ZigZagPoliSci_Slides.html
     slide-number: true
@@ -57,6 +57,10 @@ citation:
   type: speech
   container-title: University of Seoul, Gwanak (관악) campus, South Korea
 license: "CC BY"
+format-links:
+  - text: pdf
+    href: Files/ZigZagPoliSci.pdf
+    icon: file-pdf
 ---
 
 ## The Zig-Zag Sampler: What Is It? {#sec-Zig-Zag}
@@ -796,6 +800,21 @@ $$
 
 :::
 
+### Good News!
+
+Case-by-case construction of an [upper bound $M$]{.color-blue} is too complicated / demanding.
+
+Therefore, we are trying to [automate]{.color-unite} the whole procedure.
+
+::: {.callout-tip appearance="simple" icon="false" title="Automatic Zig-Zag"}
+
+1. Automatic Zig-Zag [@Corbella2022]
+2. Concave-Convex PDMP [@Sutton-Fearnhead2023]
+3. NuZZ (numerical Zig-Zag) [@Pagani+2023]
+
+:::
+
+
 ## References {.unnumbered .unlisted}
 
 ::: {layout="[40,60]" layout-valign="top"}
@@ -815,9 +834,112 @@ $$
 
 :::
 
-## Appendix: Application to Imbalanced Logistic Regression {.unnumbered .unlisted visibility="uncounted"}
+## Appendix: Scalability by Subsampling {.unnumbered .unlisted visibility="uncounted"}
 
-Scalability and state-of-the-art performance on high-dimensional models, with the example of logistic models.
+Construction of [ZZ-CV]{.color-unite} ([Zig-Zag with Control Variates]{.color-unite}).
+
+### Review: 1d Gaussian Mean Reconstruction
+
+$U'$ has an alternative form:
+
+\begin{align*}
+  U'(x)&=\frac{x}{\rho^2}+\frac{1}{\sigma^2}\sum_{i=1}^n(x-y_i)=:\frac{1}{n}\sum_{i=1}^nU'_i(x),
+\end{align*}
+where
+$$
+U'_i(x)=\frac{x}{\rho^2}+\frac{n}{\sigma^2}(x-y_i).
+$$
+
+{{< fa arrow-right >}} We only need one sample $y_i$ to evaluate $U'_i$.
+
+### Randomized Rate Function
+
+::: small-letter
+
+Instead of
+$$
+\lambda_{\textcolor{#78C2AD}{\text{ZZ}}}(x,\sigma)=\Paren{\sigma U'(x)}_+
+$$
+we use
+$$
+\lambda_{\textcolor{#E95420}{\text{ZZ-CV}}}(x,\sigma)=\Paren{\sigma U'_I(x)}_+,\qquad I\sim\rU([n]).
+$$
+Then, the latter is an unbiased estimator of the former:
+$$
+\E_{I\sim\rU([n])}\SQuare{\lambda_{\textcolor{#E95420}{\text{ZZ-CV}}}(x,\sigma)}=\lambda_{\textcolor{#78C2AD}{\text{ZZ}}}(x,\sigma).
+$$
+
+:::
+
+### Last Step: [Poisson Thinning]{.color-blue}
+
+Find an [invertible upper bound $M$]{.color-blue} that satisfies
+$$
+\int^t_0\lambda_{\textcolor{#E95420}{\text{ZZ-CV}}}(x_s,\sigma_s)\,ds=:m_I(t)\le\textcolor{#0096FF}{M}(t),\qquad I\sim\rU([n]).
+$$
+It is harder to bound $\lambda_{\textcolor{#E95420}{\text{ZZ-CV}}}$, since it is now an estimator (random function).
+
+### [Upper Bound $M$]{.color-blue} with [Control Variates]{.color-unite}
+
+::: {layout="[53,50]" layout-valign="center" style="margin: 0px; !important"}
+
+::: {#first-column}
+
+::: {.callout-tip appearance="simple" icon="false" title="Preprocessing (once and for all)"}
+
+1. Find
+  $$
+  x_*:=\argmin_{x\in\R}U(x)
+  $$
+2. Compute
+  $$
+  U'(x_*)=\frac{x_*}{\rho^2}+\frac{1}{\sigma^2}\sum_{i=1}^n(x_*-y_i).
+  $$
+
+:::
+
+:::
+
+::: {#second-column}
+
+Then, with a re-parameterization of $m_i$,
+$$
+m_i(t)\le M(t):=a+bt,
+$$
+
+
+
+:::
+
+:::
+
+where
+$$
+a=(\sigma U'(x_*))_++\norm{U'}_\Lip\norm{x-x_*}_p,\qquad b:=\norm{U'}_\Lip.
+$$
+And $m_i$ is redefined as
+$$
+m_i(t)=U'(x_*)+U'_i(x)-U'_i(x_*).
+$$
+
+### Subsampling with Control Variates
+
+Zig-Zag sampler with the random rate function
+$$
+\lambda_{\textcolor{#E95420}{\text{ZZ-CV}}}(x,\sigma)=\Paren{\sigma U'_I(x)}_+,\qquad I\sim\rU([n]).
+$$
+and the upper bound
+$$
+M(t)=a+bt
+$$
+is called [Zig-Zag with Control Variates]{.color-unite} [@Bierkens+2019].
+
+### [Zig-Zag with Control Variates]{.color-unite}
+
+1. has $O(1)$ efficiency as the sample size $n$ grows.^[As long as the preprocessing step is properly done.]
+2. is exact (no bias).
+
+![](Files/MeanOfGaussian_addedMALA.svg){fig-align="center"}
 
 ### Scalability (1/3) {visibility="uncounted"}
 
@@ -825,7 +947,7 @@ There are currently two main approaches to scaling up MCMC for large data.
 
 1. [Devide-and-conquer]{.underline}
 
-    Devide the data into smaller chunks and run MCMC on each chunk.
+    Devide the data into smaller **chunks** and run MCMC on each **chunk**.
 
 2. [Subsampling]{.underline}
 
@@ -854,3 +976,7 @@ Use a subsampling estimate of the likelihood, which does not require the entire 
 | [{{< fa xmark >}}]{.color-blue} | Stochastic Gradient PDMP | [[@Fearnhead+2024]]{.footnote-letter} |
 
 : {.hover .responsive-sm tbl-colwidths="[20,50,35]"}
+
+<!-- ## Appendix: Application to Imbalanced Logistic Regression {.unnumbered .unlisted visibility="uncounted"}
+
+Scalability and state-of-the-art performance on high-dimensional models, with the example of logistic models. -->
