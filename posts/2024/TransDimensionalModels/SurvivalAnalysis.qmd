@@ -22,7 +22,7 @@ image: Images/Polyhazard.png
 
 ### はじめに
 
-[**医療技術評価**](https://ja.wikipedia.org/wiki/医療技術評価) (HTA: Health Technology Assessment) とは，新たな医療技術を臨床試験で評価し，リスクやコストを勘案して新技術の既存法との効果や安全性を評価・比較する決定理論的な枠組みである．
+[医療経済学](https://ja.wikipedia.org/wiki/医療経済学) などにおいて，[**医療技術評価**](https://ja.wikipedia.org/wiki/医療技術評価) (HTA: Health Technology Assessment) では，新たな医療技術を臨床試験で評価し，リスクやコストを勘案して新技術の既存法との効果や安全性を評価・比較する決定理論的な枠組みである．
 
 この枠組みでは，例えば次のような平均の計算が必要になる：
 $$
@@ -102,12 +102,12 @@ $$
 
 ![[@Hardcastle+2024 p.5] より．](Images/Polyhazard.png)
 
-#### モデル詳細
+#### モデル詳細 {#sec-polyhazard-model}
 
 位置母数 $\mu_k\;(k\in[K])$ には更なる階層構造
 $$
 \log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j}
-$$
+$$ {#eq-mu}
 を考える．ただし，$\gamma_{k,j}\in2$ は共変量 $x_j$ が $k\in[K]$ 番目の部分モデルに参加するかどうかを決める指示変数とする．
 
 以降，$\theta_k=(\nu_k,\mu_k)$ も併せて，$(K,\gamma,\theta)$ を本モデルのパラメータとする．
@@ -120,7 +120,54 @@ polyhazard モデルでは各 $h_k$ の前に係数がついていない点に�
 
 このようなモデルを **競合リスクモデル** (competing risk model) ともいう．
 
+例えば，心臓の移植後のハザード曲線はバスタブ曲線の形を持ち，少なくとも２つの別々の競合するリスク要因が存在することが窺える [@Demiris+2015]．
+
+#### 競合リスクモデリング
+
+しかし，リスク因子はほとんどの場合観測できず，潜在変数となる．$K$ の数も不確実である．
+
+このような識別不可能なモデルは，階層モデルとしてベイズ推論を実行することが向いていると言えるかも知れない．
+
 さらに発展的なモデルにはマルチステートモデルもある [@齋藤-室谷2023], [@齋藤-室谷2024]．
+
+### Polyhazard モデルのベイズ推論
+
+第 [-@sec-polyhazard-model] 節で述べたモデルの推定は HTA で多く試みられている．
+
+#### 部分的な階層モデル
+
+[@Demiris+2015] は $K\in\{1,2,3,4\}$ の poly-Weibull モデルを推定し，その適合具合を比較した．
+
+[@Benaglia+2015] では $K=2$ に限ったが，bi-Weibull モデルと bi-Gompertz モデルを推定し，視覚化手法によりモデルの適合具合を比較した．
+
+このように個別のモデルを推定してベストのものを選び出す方法は，モデルの仮定を緩和して多くの変数を動かすようにすればするほど難しくなっていく．
+
+例えば分布族も種々のものを考え，$K\in\{1,2,3,4\}$ のいずれも考えるとなると，推定すべき個別のモデルは乗法的に増加していく．
+
+そこで [@Negrin+2017] は，モデルを「比較」して「選択」するよりもむしろ，ベイズモデル平均 (BMA: Bayesian Model Averaging) を用いることでモデルの不確実性を考慮しつつ最終的なモデルを得ることを提案した．
+
+しかし，そのモデルは $K=2$ の Weibull 分布族にのみ限っていた．
+
+#### ベイズ階層モデル
+
+[@Hardcastle+2024] では完全なベイズ階層モデルの推定を試みている．
+
+$\theta_k=(\nu_k,\mu_k)\;(k\in[K])$ に関しては，
+$$
+\log(\nu_k)=\al_k\sim\rN(0,\sigma_\al^2)
+$$
+$$
+\log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j}\tag{2}
+$$
+$$
+\beta_{k,0}\sim\rN(0,\sigma_{\beta_0}^2)
+$$
+とし，$\sigma_\alpha^2=2,\sigma_{\beta_0}^2=5$ は固定してしまう．加えて，
+$$
+\beta_{k,j}\sim(1-\om)\delta_0+\om\operatorname{N}(0,\sigma_\beta^2)
+$$
+と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
+
 
 ## 文献紹介 {.appendix}
 
