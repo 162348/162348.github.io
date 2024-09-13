@@ -14,11 +14,21 @@ abstract-title: 概要
 abstract: |
     医療技術評価における生存解析では，打ち切りデータを最もよく外挿できるハザードモデルが探索される．これを polyhazard model で実行するためのベイズ階層モデルとモデル平均法を紹介する．
 image: Images/Polyhazard.png
+listing: 
+    -   id: lst-zigzag
+        type: grid
+        sort: false
+        contents:
+            - "../Process/ZigZag.qmd"
+            - "../Stat/ZigZagSubsampling.qmd"
+            - "../Process/PureJump.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## 生存時間解析の概要
+## 生存時間と競合リスクの解析
 
 ### はじめに
 
@@ -150,7 +160,7 @@ polyhazard モデルでは各 $h_k$ の前に係数がついていない点に�
 
 #### ベイズ階層モデル
 
-[@Hardcastle+2024] では完全なベイズ階層モデルの推定を試みている．
+[@Hardcastle+2024] では完全なベイズ階層モデルの推定を試みている．ここではそのモデルの詳細を紹介する．
 
 $\theta_k=(\nu_k,\mu_k)\;(k\in[K])$ に関しては，
 $$
@@ -168,6 +178,75 @@ $$
 $$
 と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
 
+ここで $\phi=(\om,\sigma_\beta)$ がハイパーパラメータとして残っている．これには
+$$
+\om\sim\Beta(a,b)
+$$
+$$
+\sigma_\beta\sim\operatorname{HalfCauchy}(0,1)
+$$
+という事前分布をおく．
+
+前者はモデルのサイズについて Beta-二項分布を仮定することに等価である [3.1 節 @Ley-Steel2009]．後者は [@Gelman2006], [@Polson-Scott2012] の推奨の通りである．
+
+#### $\mathcal{P}(E)$ 上の事前分布 {#sec-prior-of-PX}
+
+実はまだパラメータが残っている．$h_k$ の関数形をどうするかである．
+
+ここでは，Weibull 分布 $\rW(\nu,\mu)$ と対数ロジスティック分布 $\rLL(\nu,\mu)$ の２つ
+$$
+D=\{\rW(\nu,\mu),\rLL(\nu,\mu)\}
+$$
+から，一様に
+$$
+K\sim\Pois_{>0}(\xi)
+$$
+個選ぶこととする．ただし，[@Hardcastle+2024] では $\xi=2$ とする．この根拠は
+$$
+\P[K>4]\approx0.061
+$$
+であることとしている．
+
+## PDMP によるサンプリング
+
+[@Hardcastle+2024] では完全なベイズ polyhazard モデルに対するサンプラーを構成している．ここではこれを紹介する．
+
+### ２つの問題
+
+#### Trans-dimensionality
+
+ラベル $k\in[K]$ が変わる毎に共変量の数が違い，従って $\beta_k$ の次元は違う．
+
+従って MCMC は，次元の異なる空間の間を往復する必要がある．
+
+#### 尤度の変化
+
+加えて $h_k$ の関数形も途中で変わる（第 [-@sec-prior-of-PX] 節）．
+
+これに伴い，サンプリングするべき尤度の形も変わってしまう．
+
+#### 識別不可能性
+
+このモデルは潜在的な $K$ 個のリスクを仮定しており，当然識別不可能である．
+
+そしてこの $K$ 個のリスクは互いに対称な役割を果たしているため，事後分布は $K!$ 個の峰を持つ対称性を持ってしまう．
+
+このことは MCMC の収束を遅くする上に，最終的に得られる推定量を変に平均化してしまう恐れがある．
+
+#### 従来法
+
+従来の Gibbs サンプラーによる方法も，No-U-Turn sampler による方法も，trans-dimensionality と尤度の変化に簡単には対処できない．
+
+### $\theta$ の Zig-Zag サンプリング
+
+$(K,D,\gamma,\phi)$ を固定した下での $\theta\in\R^{2K+\abs{\gamma}_1}$ のサンプリングには，多峰性分布につよい Zig-Zag サンプラーを用いる．
+
+#### Zig-Zag サンプラーについて {.unnumbered .unlisted}
+
+::: {#lst-zigzag}
+:::
+
+モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] を，Concave-Convex PDMP [@Sutton-Fearnhead2023] で修正して用いる．
 
 ## 文献紹介 {.appendix}
 

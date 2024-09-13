@@ -8,12 +8,24 @@ categories: [Process, Sampling, Julia, MCMC]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: Zig-Zag サンプラー定義とエルゴード性を解説する．続いて，Zig-Zag サンプラーは非対称なダイナミクスを持つために，従来の MCMC よりも速い収束が期待されることを，MALA との比較でみる．最後に，Zig-Zag サンプラーの実装に用いたパッケージとその利用方法を示す．
 code-fold: false
 execute:
     cache: true
+listing: 
+    -   id: lst-pdmp
+        contents:
+            - "../Process/PureJump.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-zigzag
+        contents:
+            - "../Stat/ZigZagSubsampling.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -30,19 +42,8 @@ execute:
 
 PDMP の一般論については次の記事も参照：
 
-```{=html}
-<div class="article-card-container">
-    <div class="article-card">
-        <a href="https://162348.github.io/posts/2024/Process/PureJump.html" target="_blank">
-            <img src="https://162348.github.io/posts/2024/Process/PureJump.png" alt="Article Image" class="article-image">
-            <div class="article-content">
-                <h3 class="article-title">純粋跳躍過程の生成作用素と区分的確定的 Markov 過程</h3>
-                <p class="article-description">ジャンプと確定的な動きによる新たな MCMC 手法</p>
-            </div>
-        </a>
-    </div>
-</div>
-```
+::: {#lst-pdmp}
+:::
 
 ただし Zig-Zag 過程は，[@Goldstein1951] で電信方程式と関連して，同様の過程が扱われた歴史もある．
 
@@ -58,6 +59,8 @@ $$
 $$
 
 ### アルゴリズム {#sec-algorithm}
+
+#### 全体像
 
 Zig-Zag 過程 $Z$ は次のようにしてシミュレーションできる：
 
@@ -110,7 +113,7 @@ $$
 
 ::: {.callout-note title="証明（２つの定義の等価性）" icon="false" collapse="true"}
 
-Zig-Zag 過程に対する２つの定義を与えたが，これら２つが同分布の過程を定めることは証明が必要である．
+Zig-Zag 過程に対する２つの定義を与えた．これら２つが同分布の過程を定めることは [@Corbella+2022], [@Hardcastle+2024] などさまざまなところで触れられているが，証明が必要である．
 
 まず，$\min_{i\in[d]}T_i$ が，強度関数 $M$ が定める到着時刻に同分布であることを示す．
 
@@ -174,14 +177,18 @@ $$
 
 #### 到着時刻 $T_i$ のシミュレーション方法
 
+Zig-Zag 過程のシミュレーションは，ほとんど強度
+
 $$
 M_i(t):=\int^t_0m_i(s)\,ds
 $$
-と定めると，指数分布確率変数 $E_i\iidsim\Exp(1)$ について
+を持つ非一様 Poisson 点過程のシミュレーションに帰着される．
+
+実はこれは，指数分布確率変数 $E_i\iidsim\Exp(1)$ について
 $$
 T_i\deq M_i^{-1}(E_i)
 $$
-が成り立つ．
+と求まる．
 
 仮にこの逆関数 $M_i^{-1}$ が得られない場合でも，[剪定](PureJump.qmd#sec-simulation) [@Lewis-Shedler1979] によって $T_i$ は正確なシミュレーションが可能である．
 
@@ -266,22 +273,16 @@ $$
 
 
 
-## Subsampling Technology
+### Subsampling Technology
 
-```{=html}
-<div class="article-card-container">
-    <div class="article-card">
-        <a href="https://162348.github.io/posts/2024/Stat/ZigZagSubsampling.html" target="_blank">
-            <img src="https://162348.github.io/posts/2024/Process/MeanOfGaussian.svg" alt="Article Image" class="article-image">
-            <div class="article-content">
-                <h3 class="article-title">Zig-Zag サンプラーのサブサンプリングによるスケーラビリティ</h3>
-                <p class="article-description">大規模モデル・大規模データに対する MCMC を目指して</p>
-            </div>
-        </a>
-    </div>
-</div>
-```
+Zig-Zag 過程はレート関数 $\lambda$ の設計に大きな自由度があった（第 [-@sec-refresh-rate] 節）．
 
+これにより，Zig-Zag 過程ではバイアスを導入しない subsampling が可能であり，これを通じて **データサイズに依らない一定効率での事後分布サンプリングが可能になる** という super-efficiency [@Bierkens+2019] と呼ばれる性質を持つ．
+
+この性質が実用上は最も重要である．詳しくは，次の記事を参照：
+
+::: {#lst-zigzag}
+:::
 
 ## シミュレーション
 
@@ -697,7 +698,7 @@ idot(A, j, x) = dot((@view A[:, j]), x)
 plot_2dtraj(traj, title="2D ZigZag Sampler (Gaussian Distribution)"; label="ZigZag_2D")
 ```
 
-## Zig-Zag サンプラーの実装
+## Zig-Zag サンプラーの実装 {.appendix}
 
 `ZigZagBoomerang` の実装を紹介する．
 
@@ -717,13 +718,13 @@ Julia の MCMC パッケージ一般については次の稿を参照：
 </div>
 ```
 
-### ZigZag サンプラーを提供しているパッケージ一覧
+### ZigZag サンプラーを提供しているパッケージ一覧 {.appendix}
 
-#### `R`パッケージ
+#### `R`パッケージ {.appendix}
 
 [Joris Bierkens](https://diamhomes.ewi.tudelft.nl/~jorisbierkens/pdmps.html) ら開発の R パッケージ `RZigZag` ([GitHub](https://github.com/jbierkens/RZigZag) / [CRAN](https://cran.r-project.org/web/packages/RZigZag/index.html)) が最も手軽に実行できる．
 
-#### `Julia`パッケージ
+#### `Julia`パッケージ {.appendix}
 
 一方で，[@Bierkens+2023] では Julia によるパッケージ `ZigZagBoomerang`（[GitHub](https://github.com/mschauer/ZigZagBoomerang.jl) / [ANN](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287) / [docs](https://mschauer.github.io/ZigZagBoomerang.jl/v0.1/)） も提供している．名前によらず，2022.1 月リリースの `v.0.11` 以降は BPS もサポートしている．
 
@@ -732,7 +733,7 @@ using Pkg
 Pkg.add("ZigZagBoomerang")
 ```
 
-### `ZigZag`オブジェクト
+### `ZigZag`オブジェクト {.appendix}
 
 ::: {.callout-important appearance="simple" icon="false"}
 
@@ -781,8 +782,4 @@ end
 ```
 
 :::
-
-### 離散化
-
-
 
