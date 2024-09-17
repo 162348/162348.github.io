@@ -1,0 +1,118 @@
+---
+title: "R（４）メタプログラミング"
+subtitle: "Expression について"
+author: "司馬 博文"
+date: 5/7/2021
+date-modified: 6/5/2024
+image: Files/R.png
+categories: [Computation, R]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: R は統計計算のための言語です．
+format:
+  html:
+    code-fold: false
+listing: 
+  -   id: lst-R
+      type: grid
+      sort: false
+      contents:
+          - R0.qmd
+          - R1.qmd
+          - R2.qmd
+          - R3.qmd
+          - R5.qmd
+          - YUIMA.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+---
+
+::: {#lst-R}
+:::
+
+## Expression とは
+
+### Language Object
+
+オブジェクト志向言語ではコード自体もオブジェクトであり，R では `call`, `expression`, `name` の３つのモードから構成される．^[[R Language Definition](https://stat.ethz.ch/R-manual/R-devel/doc/manual/R-lang.html#Language-objects-1)]
+
+１つのクラスからなるわけではなく，`call`, `symbol`, `constant`, `pairlist` の４つの型からなる．^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+#### `pairlist`
+
+R の内部で用いられるデータ型であり，Lisp の `dotted-pair list`に似ている．
+
+`pairlist`オブジェクトは３つの slot をもち，`CAR`, `CDR`, `TAG`と呼ばれる．
+* `CAR`と`CDR`は IBM の 60 年代のコンピュータの`address`,`decrement`レジスタに由来し，リストの head と tail を指す．
+* `TAG`は文字列オブジェクトである．
+
+`pairlist`の R 内での機能は`list`と全く同じで，indexing syntax `[[]]`も同一である．
+
+### コンストラクタ
+
+次のような操作ができる^[[@Wickham2019] [第18章](https://adv-r.hadley.nz/expressions.html)]
+
+`rlang::expr` がコンストラクタである：
+
+```{r}
+z <- rlang::expr(y <- x*10)
+z
+```
+
+```{r}
+str(z)
+```
+
+| typeof | class | mode |
+|:-----:|:-----:|:-----:|
+| `language` | `<-` | `call` |
+
+: {.hover .striped .responsive-sm tbl-colwidths="[10,10,10]"}
+
+### 評価
+
+`expression` オブジェクトは `base::eval()` で評価できる：
+
+```{r}
+x <- 4
+eval(z)
+y
+```
+
+### 参照方法
+
+`expression` には list のようにアクセス可能である：^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+```{r}
+library(rlang)
+f <- expr(f(x = 1, y = 2))
+
+f$z <- 3
+f
+```
+
+```{r}
+f[[2]] <- NULL
+f
+```
+
+## メタプログラミング
+
+### `enexpr` 関数
+
+```{r}
+capture_it <- function(x) {
+  expr(x)
+}
+capture_it(a + b + c)
+```
+
+```{r}
+capture_it <- function(x) {
+  enexpr(x)
+}
+capture_it(a + b + c)
+```

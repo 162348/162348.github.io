@@ -1,0 +1,241 @@
+---
+title: "R（５）統計処理"
+author: "司馬 博文"
+date: 5/7/2021
+date-modified: 6/7/2024
+image: Files/R.png
+categories: [Computation, R]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: R は統計計算のための言語です．
+format:
+  html:
+    code-fold: false
+listing: 
+  -   id: lst-R
+      type: grid
+      sort: false
+      contents:
+          - R0.qmd
+          - R1.qmd
+          - R2.qmd
+          - R3.qmd
+          - R4.qmd
+          - YUIMA.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+---
+
+::: {#lst-R}
+:::
+
+## 統計処理
+
+### Stats
+
+* `runif(n [,min=0, max=1])`：区間上の一様分布
+    * `dunif`：density
+    * `punif`：distribution function
+    * `qunif`：quantile function
+* ``rnorm(n [, mean=0, sd=1])`：正規分布
+    * `dnorm`
+    * `pnorm`
+    * `qnorm`
+* `sample(x, size [,replace=FALSE, prob=NULL])`：ベクトル`x`の中から`size`個をランダム抽出
+    * 元々が非復元抽出なので，`size=length(x)`とすると置換．`replace=TRUE`とすると復元抽出．
+    * `prob`に vector を引かせると，`x`の要素にでやすさの重みがつく．
+
+### 時系列分析
+* {ts.plot()}
+
+### Graphics
+
+* `hist(x, …)`
+    * `breaks=“Starges”`：bin の数を Starges の公式で定めているところを，scaler `n`で指定できる．
+    * `col=“NULL”`：bars を fill する色．`lightgreen`などにできる．
+    * `main`, `xlab`, `ylab`：`title()`で get する attribution
+    * `right=“TRUE”`：デフォルトでは bin は right-closed である．
+* `plot(x[, y, …])`
+    * `x`が適切な構造を持つなら{y}はいらない．
+    * array を渡すと，タイル図になる．
+    * df を渡すと，散布図になる．
+* `image(x)`
+
+### grDevices
+
+* `hcl.colors(n)`：`n`色の pallete を作成する．
+
+### Datasets
+`data()`で一覧を見れる
+
+* `co2`
+    * Mauna Loa の CO2 concentration
+* `volcano`
+    * Aukland’s Maunga Whau の topographic data
+    * 10m×10m 範囲
+* `Titanic`
+    * 4-dimentional array
+* `airquality`
+    * New York Airquality Measurement
+    * ６変数についての data frame
+* `jpdata`
+    * 統計局からの県別データで utf8 なので`read.csv(file=“”, fileEncoding=“utf8”)`が安全．
+    * `jpdata1.csv`：対象データ
+    * `jpdata2.csv`：対象データの内容
+    * `jpdata3.csv`：圏別と地域の対応関係
+* `tokyo_weather`
+    * 気象庁からのデータ．
+* `tokyo_covid19`
+    * 東京の stopcovid19.metro.tokyo.lg.jp のデータ項目．
+
+### `formula`クラス
+a symbolic description of the model to be fitted
+
+#### 構成
+
+```r
+y ~ x1 + x2 + ...
+```
+
+| | |
+|:---:|:---:|
+| `class` | `formula` |
+| `typeof` | `language` |
+| `mode` | `call` |
+
+: {.active .hover .bordered .responsive-sm}
+
+::: {.callout-caution title="例" collapse="true"}
+```{r}
+formula <- y ~ x1 + x2 + x3
+```
+
+```{r}
+typeof(formula)
+```
+
+```{r}
+class(formula)
+```
+
+```{r}
+class(formula)
+```
+
+```{r}
+str(formula)
+```
+:::
+
+
+#### メソッド
+* `summary(object, ...)`
+
+#### 線型モデルのフィッチxイング
+```r
+lm(formula, data, subset, weights, na.action, method = "qr", model = TRUE, x = FALSE, y = FALSE, qr = TRUE, singular.ok = TRUE, contrasts = NULL, offset, ...)
+```
+* `formula`：`vector ~ vector`の形の
+* 最小二乗法を使って，formula `y~x`を関係式 $y = a + bx$ の $a,b$ の値を定める．
+    * 推定値は `$coefficients` に格納される．
+
+## データの扱い
+
+R：５．データI/Oと整形
+indexing / filteringによる整形と書き出し
+NAが入っているデータフレームを扱うときは，状況依存の振る舞いをするので文法に注意する．
+
+Logical Expressionの復習
+ベクトルをrecycleにより各成分ごとに評価して，logical vectorを返す2値関数である．
+
+* ==, !=, >=, <=：T==1はTが返る．
+* is.null(), is.na(), is.nan(), is.finite(), is.infinite(), 
+* identical(1,1.0)：Tである，1もdouble型（倍精度浮動小数点）で表現されるので．
+    * ベクトルとしての同一性はall(x==y)などで表現できる．
+* all.equal()
+* &,|：論理積・和
+* &&, ||：条件式の論理積・和
+* xor()：排他的論理和
+* %in%：matchの二項関係版interface．
+    * "%in%" <- function(x, table) match(x, table, nomatch = 0) > 0が現状の定義
+
+関数型インターフェース
+* match(x, table)
+    * x %in% tableと使える．
+    * x：vector
+    * table：vector
+    * 返り値：logical vector
+
+filtering：Logical Vectorを介してデータを選び出す技法
+
+基本：v[ vを含むexpr ]
+
+インデックス番号の取得
+* which(expr with x)：logical vector xからTUREのindex numberの列を抽出する
+    * 帰ってきたベクトルで元のdfをindexingできる
+* which.min(x)などもある
+
+* x[index]：logical vectorでindexingするとTRUEのみを選び出す．
+    * x[cond]：x>3は評価するとlogical vectorである．
+    * x[which(cond)]：numeric vectorでindexしている点だけ違う．
+    - x[which(cond),]：行全体を見たい場合．これからwhichを抜かすとNAなので参照不可能．
+* df$Ozone>10：でも参照できる．
+    * データフレームの各列はベクトルなリストなので，$はベクトルが返る
+* -：省く
+    * -WindでWindの列を除く．Windの列についてだけ全てFalseのベクトルを返しているのか？
+
+条件式評価の関数型インターフェース
+* with(data, expr, …)
+    * exprはlogical expression to evaluateをベタがき
+* ifelse(b,u,v)
+    * b：logical expression．
+    * u：bの第i要素がTの場合，uiが代入される．
+    * v：bの第i要素がFの場合，viが代入される．
+    * 出来上がったuとvの折衷ベクトルが返る．
+
+データの取り出し
+
+次のレベルのインターフェース
+* subset(x, subset, select, drop=FALSE)：切り出して使う．
+    * x：vectors, matrices, data frames
+    * subset：行に関する条件式で，Ozone>=50など．
+    * select：列に関する条件式で，data frameのcolumnを選び出す手法を指示するvector．c(Wind,Day)など．
+    * drop：結果が１次元情報になった時，データ型をvectorにするかどうか．データフレームの構造を落とさないためにはFALSEを指定しなければならない．
+    * 特にlogical vectorとの違いは，NAを残さないこと．
+* split(x, f, drop=FALSE, …)
+* merge(x, y, …)
+
+* cbind()でdata frameをくっつける．
+
+部分代入
+
+* x[expr with x] <- 0：条件式を満たす部分のみ0にする．
+
+データ整形
+
+データを適切にいくつかに区分し，それぞれに統計量をあてがう．
+* aggregate(formula, data, FUN, ...)
+    * formula：y ~ xなど，xに従ってyを分類する．xは月など．yは.とするとdataを走る．
+    * FUN：meanなどの統計関数．
+    * data：dfまたはlist．
+
+種々の適切な変換関数からなるgeneric function
+* transform(`_data`, ...)
+    * _data：The object to be transformed
+
+
+入出力
+utils package
+
+* write.csv(x, file=“”)
+
+read関数は基本的にread.tableが全ての機能を持っており，そのほかは特殊化．
+必ずdata.frameを返す．
+* read.table(file=“”,header=FALSE, …)
+    * 変数名をつけるheaderがfileの一行目に存在しないデータを読み込むための関数
+* read.csv(file=“”, fileEncoding=“utf8”)
+    * Comma Separated Valueを読み込むためにdefaults値をあらかじめ設定してあるread.table()
+    * row.names=1：numeric nを引くと，n行目を列の名前とみなす．
