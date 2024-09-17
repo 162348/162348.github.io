@@ -2,7 +2,7 @@
 title: "YUIMA 入門"
 author: "司馬 博文"
 date: 5/17/2024
-date-modified: 6/16/2024
+date-modified: 9/17/2024
 categories: [Stan, R, YUIMA, Process]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -10,38 +10,37 @@ bibliography:
     - YUIMA.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: R パッケージ`yuima`は，従来の i.i.d. 仮定の下での統計推測から，一般の確率過程の統計推測への橋渡しをすべく，広範な確率微分方程式のシミュレーションと統計推測を可能とするパッケージです．その機能の全貌と，基本的な使い方を紹介します．
+abstract: R パッケージ `yuima` は確率過程のモデリングとその統計推測を可能にするフレームワークです．従来の i.i.d. 仮定の下での統計推測から，一般の確率過程の統計推測への橋渡しを目標としています．鋭意開発中のパッケージですが，すでに広範なクラスの確率微分方程式のシミュレーションが可能です．その機能の全貌と，基本的な使い方を紹介します．
 execute:
   cache: true
+code-fold: false
+code-overflow: wrap
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## [YUIMA](https://r-forge.r-project.org/projects/yuima/)とは？
+## はじめに：[YUIMA](https://r-forge.r-project.org/projects/yuima/)とは？
 
-R パッケージ`yuima`は，Lévy 過程または分数 Brown 運動が駆動する確率微分方程式が定める過程という，極めて一般的なクラスの確率過程を扱う基盤パッケージである．
+R パッケージ `yuima` は，Lévy 過程または分数 Brown 運動が駆動する確率微分方程式が定める過程という，極めて一般的なクラスの確率過程を扱うための基盤パッケージである．概観には [@Brouste+2014] が良い．
 
 加えて，シミュレーションと推論のためのメソッドが提供されている．
 
-R で通常の統計推測に用いられる`formula`オブジェクトのように，直感的な記法でモデル（`yuima.model`オブジェクト）を定義できる．
+R で通常の統計推測に用いられる [`formula` オブジェクト](R5.qmd) のように，直感的な記法でモデル（`yuima.model`オブジェクト）を定義できる．
 
 `yuima.model`オブジェクトに対して`toLatex()`関数を適用すると，モデルを LaTeX 記法で記述した文字列に変換することもできる．^[[@Brouste+2014] 第７節も参照．]
 
-このように YUIMA は，確率微分方程式の更なる研究や，より複雑なモデルや推測手続きのための基盤インフラとなることを目指している．^[[@Brouste+2014] 概要より．]
-
-::: {.callout-tip title="リンク集" icon="false" collapse="true"}
+::: {.callout-tip title="リンク集" icon="false" appearance="simple"}
 
 * [R-Forge](https://r-forge.r-project.org/projects/yuima/)^[R-Forge とは，SourceForge に似た，R 言語のパッケージ開発者向けの協力的な開発環境を提供するプラットフォーム．]
 * [Stable version on CRAN](https://cran.r-project.org/package=yuima).
 * [GitHub](https://github.com/yuimaproject/yuima)
 * [yuimaGUI package](https://cran.r-project.org/web/packages/yuimaGUI/index.html)
 * [rdrr.io ページ](https://rdrr.io/rforge/yuima/)^[rdrr は CRAN や GitHub だけでなく，Bioconductor や R-Forge も含めて検索可能にしているサイト．]
-* [論文](https://www.jstatsoft.org/article/view/v057i04) [@Brouste+2014]
-  * パッケージ開発者らによるオープンアクセス論文．
+* [論文](https://www.jstatsoft.org/article/view/v057i04) [@Brouste+2014]：パッケージ開発者らによるオープンアクセス論文．
 
 :::
 
-::: {.callout-tip title="インストール" icon="false" collapse="true"}
+::: {.callout-tip title="インストール" icon="false" appearance="simple"}
 
 ```r
 install.packages("yuima", repos="http://R-Forge.R-project.org")
@@ -50,7 +49,7 @@ install.packages("yuima", repos="http://R-Forge.R-project.org")
 ```{r}
 #| output: false
 #| code-fold: false
-library(yuima)  # ライブラリの読み込み
+library(yuima)
 ```
 
 ```r
@@ -59,114 +58,123 @@ library(yuima)  # ライブラリの読み込み
 
 :::
 
-## YUIMAの構造とモデル定義
+## YUIMA の構造と `setModel()`
 
 ### クラス構造
 
-各クラスの含まれる属性・スロット（上段）と，そのクラスのオブジェクトに使えるメソッド（下段），そして継承関係は以下の通りである．`yuima`クラスは，複数の構成要素（モデル，データ，手法）の集約になっている．^[ただし，`marmaid`の記法としてクラス名に`.`を許さないので，`yuima.model`の代わりに図中では`yuima_model`と記述している．]
+各クラスのが持つスロット（上段）とメソッド（下段），そして継承関係は以下の通りである．
 
-```{mermaid}
-classDiagram
-  yuima o-- yuima_model
-  yuima o-- yuima_sampling
-  yuima o-- yuima_data
-  yuima_model o-- model_parameter
-  class yuima{
-    yuima.model::model
-    yuima.sampling::sampling
-    yuima.data::data
-    -yuima.characteristic::characteristic 
-    -yuima.functional::functional
-    initialize()
-    show()
-    plot()
-    simulate()
-  }
-  class yuima_model{
-    expr::drift
-    expr::diffusion
-    num::hurst
-    chr::time.variable
-    chr::state.variable
-    chr::solve.variable
-    -model.parameter::parameter
-    simulate()
-  }
-  class yuima_sampling{
-    num::Initial
-    num::Terminal
-    num::n
-    -num::delta
-    -list[num]::grid
-  }
-  class yuima_data{
-    original.data
-    zoo.data
-  }
-  class model_parameter{
-    list[chr]::all
-    chr::common
-    chr::diffusion
-    chr::drift
-    chr::jump
-    chr::measure
-  }
+```{dot}
+#| fig-cap: "クラス構造．+ は public, - は private．"
+digraph ClassDiagram {
+    // クラスのスタイル設定
+    node [shape=record, fontname=Helvetica, fontsize=10];
+    
+    // クラス定義
+    yuima [label="{yuima|+model: yuima.model\l+sampling: yuima.sampling\l+data: yuima.data\l- characteristic: yuima.characteristic\l- functional: yuima.functional\l|+initialize()\l+show()\l+plot()\l+simulate()\l}"];
+    
+    yuima_model [label="{yuima.model|+drift: expr\l+diffusion: expr\l+hurst: num\l+time_variable: chr\l+state_variable: chr\l+solve_variable: chr\l- parameter: model_parameter\l|+simulate()\l}"];
+    
+    yuima_sampling [label="{yuima.sampling|+Initial: num\l+Terminal: num\l+n: num\l- delta: num\l- grid: list[num]\l|}"];
+    
+    model_parameter [label="{model_parameter|+all: list[chr]\l+common: chr\l+diffusion: chr\l+drift: chr\l+jump: chr\l+measure: chr\l|}"];
+    
+    // 関係の定義
+    yuima -> yuima_model [arrowhead=onormal];
+    yuima -> yuima_sampling [arrowhead=onormal];
+    yuima_model -> model_parameter [arrowhead=onormal];
+}
 ```
 
-```{mermaid}
-classDiagram
-  yuima o-- yuima_characteristic
-  yuima o-- yuima_functional
-  class yuima{
-    yuima.model::model
-    yuima.sampling::sampling
-    yuima.data::data
-    yuima.characteristic::characteristic 
-    yuima.functional::functional
-    initialize()
-    show()
-    simulate()
-  }
-  class yuima_characteristic{
-    int::equation.number
-    num::time.scale
-  }
-  class yuima_functional{
-    F
-    list::f
-    num::xinit
-    num::e
-  }
+`yuima`クラスは５つのスロット `yuima.model`, `yuima.sampling`, `yuima.data`, `yuima.characteristic`, `yuima.functional` を持ち，それぞれが別のクラスとして実装されている．
+
+`model.parameter` クラスは後述の `setModel()` コンストラクタにより自動で作成され，ユーザーは変更できない．
+
+::: {.callout-important title="クラス構造の全貌" collapse="true" icon="false"}
+
+実際には，`yuima.model` と `yuima.sampling` だけでなく，`yuima` クラスは５つの構成要素を持つ．
+
+```{dot}
+#| fig-cap: "クラス構造．+ は public, - は private．"
+digraph ClassDiagram {
+    // クラスのスタイル設定
+    node [shape=record, fontname=Helvetica, fontsize=10];
+    
+    // クラス定義
+    yuima [label="{yuima|+model: yuima.model\l+sampling: yuima.sampling\l+data: yuima.data\l- characteristic: yuima.characteristic\l- functional: yuima.functional\l|+initialize()\l+show()\l+plot()\l+simulate()\l}"];
+    
+    yuima_model [label="{yuima.model|+drift: expr\l+diffusion: expr\l+hurst: num\l+time_variable: chr\l+state_variable: chr\l+solve_variable: chr\l- parameter: model_parameter\l|+simulate()\l}"];
+    
+    yuima_sampling [label="{yuima.sampling|+Initial: num\l+Terminal: num\l+n: num\l- delta: num\l- grid: list[num]\l|}"];
+    
+    yuima_data [label="{yuima.data|+original_data\l+zoo_data\l|}"];
+    
+    model_parameter [label="{model_parameter|+all: list[chr]\l+common: chr\l+diffusion: chr\l+drift: chr\l+jump: chr\l+measure: chr\l|}"];
+    
+    yuima_characteristic [label="{yuima.characteristic|+equation_number: int\l+time_scale: num\l|}"];
+    
+    yuima_functional [label="{yuima.functional|+F\l+f: list\l+xinit: num\l+e: num\l|}"];
+    
+    // 関係の定義
+    yuima -> yuima_model [arrowhead=onormal];
+    yuima -> yuima_sampling [arrowhead=onormal];
+    yuima -> yuima_data [arrowhead=onormal];
+    yuima -> yuima_characteristic [arrowhead=onormal];
+    yuima -> yuima_functional [arrowhead=onormal];
+    
+    yuima_model -> model_parameter [arrowhead=onormal];
+}
 ```
 
-### `setModel()`コンストラクタ
-
-[`yuima.model.R`](https://github.com/yuimaproject/yuima/blob/1bbd1291b58d07fed096a2237db7b233081d51f7/R/yuima.model.R#L118)において次の定義を持つ，`yuima.model`オブジェクトのコンストラクタである．
+それぞれのクラスについての詳細は
 
 ```r
-setModel <- function(drift=NULL,
-                     diffusion=NULL,
-                     hurst=0.5,
-                     jump.coeff=NULL,
-                     measure=list(),
-                     measure.type=character(),
-                     state.variable="x",
-                     jump.variable="z",
-                     time.variable="t",
-                     solve.variable,
-                     xinit=NULL){...}
+?yuima.model
 ```
+
+```r
+isClass("yuima.model")
+```
+
+```r
+methods(class = "yuima.model")
+```
+
+などの方法で確認可能．
+
+:::
+
+### `setModel()`コンストラクタ {#sec-model-constructor}
+
+[`yuima.model.R`](https://github.com/yuimaproject/yuima/blob/1bbd1291b58d07fed096a2237db7b233081d51f7/R/yuima.model.R#L118)において次の signature を持つ，`yuima.model`オブジェクトのコンストラクタである．
+
+```r
+setModel <- function(drift=NULL, diffusion=NULL, hurst=0.5, jump.coeff=NULL, measure=list(), measure.type=character(), state.variable="x", jump.variable="z", time.variable="t", solve.variable, xinit=NULL){...}
+```
+
+この `setModel()` 関数により，最も一般的には次の形をした確率微分方程式が定義できる：
+
+$$
+dX_t=a(t,X_t,\alpha)dt+b(t,X_t,\beta)dW_t+c(t,X_t,\gamma)dZ_t,\qquad X_0=x_0.
+$$
+
+$W$ としては Brown 運動だけでなく，一般の Hurst 指数 $H$ を持った分数 Brown 運動 $W^H$ を取ることができる．
+
+$c\ne0$ とすることでジャンプを導入したモデルを指定することもできる．
+
+## 例で見る YUIMA の使い方
 
 ### 1次元の場合
 
-拡散モデル（Ornstein-Uhlenbeck過程）
+Ornstein-Uhlenbeck 過程
 $$
 dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t,\quad (\mu,\theta,\sigma,X_0)=(0,1,0.5,0)
 $$
-からシミュレーションをするためのサンプルコードは次の通り．他に，駆動過程を一般のHurst指数 $H$ についての分数Brown運動 $W^H$ としたり，ジャンプを導入したモデルを指定することもできる．^[モデルの左辺 $dX_t$ は`yuima.model`のスロット`solve.variable`が`state.variable`に暗黙のうちに一致させているところから暗黙に読み込んでいる．]
+を定義してシミュレーションを実行するためのサンプルコードは次の通り．^[モデルの左辺 $dX_t$ は `yuima.model` のスロット `solve.variable` が `state.variable` に暗黙のうちに一致させているところから暗黙に読み込んでいる．]
 
 ```{r}
 #| output: false
+
 # 確率微分方程式モデルの設定
 model <- setModel(drift = "theta*(mu-X)", diffusion = "sigma", state.variable = "X")
 
@@ -177,16 +185,10 @@ sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
 yuima <- setYuima(model = model, sampling = sampling)
 
 # シミュレーションの実行
-simulation <- simulate(yuima, true.parameter = c(mu = 0,theta = 1, sigma = 0.5), 
-                       xinit = 0.02)
+simulation <- simulate(yuima, true.parameter = c(mu = 0,theta = 1, sigma = 0.5), xinit = 0.02)
 ```
 ```{r}
-# 結果のプロット
 plot(simulation)
-```
-
-```{r}
-
 ```
 
 ### 多次元の場合
@@ -196,8 +198,7 @@ $$
 \vctr{dX_t^{(1)}}{dX_t^{(2)}}=\vctr{-3X_t^{(1)}}{-X_t^{(1)}2X_t^{(2)}}dt+\begin{pmatrix}1&0&X_t^{(2)}\\X_t^{(1)}&3&0\end{pmatrix}\begin{pmatrix}dW_t^{(1)}\\dW_t^{(2)}\\dW_t^{(3)}\end{pmatrix}
 $$
 
-シミュレーションは次のように，各項の係数をベクトル・行列の形式で`setModel`へと引き渡すことで行える．
-この場合，左辺を明示するために`solve.variable`のベクトルとしての指定が欠かせなくなる．^[[@Brouste+2014] 第3.4節 pp.12-13．]
+シミュレーションは次のように，各項の係数をベクトル・行列の形式で `setModel` へと引き渡すことで行える．^[１次元の場合と違って，左辺を明示するために`solve.variable`のベクトルとしての指定が欠かせなくなる．[@Brouste+2014] 第3.4節 pp.12-13．]
 
 ```{r}
 #| output: false
@@ -212,19 +213,27 @@ simulation <- simulate(model)
 plot(simulation, plot.type="single", lty=1:2)
 ```
 
-### 分数Gaussなノイズ
+### 分数 Gauss なノイズ
 
-標準分数Brown運動 $W^H$ とは，Hurst指数 $H\in(0,1)$ に対して，
+::: {.callout-tip appearance="simple" icon="false"}
+
+標準分数 Brown 運動 $W^H$ とは，Hurst 指数 $H\in(0,1)$ に対して，
 $$
 \E[W^H_s,W^H_t]=\frac{1}{2}\Paren{\abs{s}^{2H}+\abs{t}^{2H}-\abs{t-s}^{2H}}
 $$
-という共分散構造を持った中心Gauss過程である．$H\ne1/2$ のとき，もはやMarkov過程でもセミマルチンゲールでもない．特に $H>1/2$ のときに長期的な依存を持った振る舞いをし，これが多くの応用を呼んでいる．これに対して，SDE
+という共分散構造を持った中心 Gauss 過程である．
+
+:::
+
+$H\ne1/2$ のとき，もはや Markov 過程でもセミマルチンゲールでもない．特に $H>1/2$ のときに，$W^H$ は長期的な依存を持った振る舞いをしこれが多くの応用を呼んでいる．
+
+この $W^H$ に対して，SDE
 $$
 dX_t=a(X_t)dt+b(X_t)dW_t^H
 $$
 で定まるモデルを定義できる．[@Brouste+2014 3.5節 p.15]
 
-例えば，次の分数OU過程
+例えば分数 OU 過程
 $$
 dY_t=3Y_tdt+dW_t^H
 $$
@@ -242,19 +251,23 @@ plot(sim1, main="H=0.3")
 plot(sim2, main="H=0.7")
 ```
 
-このシミュレーション法はCholesky法と[@Wood-Chan1994] 法から選択が可能である．`simulate`メソッドのキーワード引数`methodfGn="WoodChan"`, `methodfGn="Cholesky"`によって可能である．
+このシミュレーション法は Cholesky 法と [@Wood-Chan1994] 法から選択が可能である．`simulate` メソッドのキーワード引数 `methodfGn="WoodChan"`, `methodfGn="Cholesky"` によって利用可能である．
 
-### Lévy過程
+### Lévy 過程
 
-複合Poisson過程 $Z_t$ とは，Poisson時間に特定の分布に従うサイズの跳躍が起こるという過程である．これを用いて，
+[複合 Poisson 過程](../Process/Poisson.qmd) $Z_t$ とは，Poisson 時間に特定の分布に従うサイズの跳躍が起こるという過程である．
+
+複合 Poisson 過程 $Z_t$ を用いて，
 $$
 dX_t=a(t,X_t,\theta)dt+b(t,X_t,\theta)dW_t+dZ_t
 $$
-というSDEを通じてジャンプを持つ過程が定義できる．さらに $Z_t$ の項に係数 $c$ を持たせるには，$X$ のジャンプを定めるランダム測度
+という SDE を通じてジャンプを持つ過程が定義できる．
+
+さらに $Z_t$ の項に係数 $c$ を持たせるには，$X$ のジャンプを定めるランダム測度（≒確率核）
 $$
 \mu(dt,dz)=\sum_{s>0}1_{\Brace{\Delta Z_s\ne0}}\delta_{(s,\Delta Z_s)}(dt,dz)
 $$
-により，複合Poisson過程が
+により，複合 Poisson 過程が
 $$
 Z_t=\int^t_0\int_{\abs{z}\le1}z(\mu(ds,dz)-\nu(dz)ds)+\int^t_0\int_{\abs{z}>1}z\mu(ds,dz)
 $$
@@ -267,13 +280,15 @@ $$
 $$
 と表せる．
 
-$\nu\in\cP(\R^d)$ が**Lévy測度**であるとは， $\nu(\{0\})=0$ かつ
+$\nu\in\cP(\R^d)$ が [**Lévy 測度**](../Process/Levy.qmd) であるとは， $\nu(\{0\})=0$ かつ
 $$
 \int_{\R^d}(1\land\abs{z}^2)\nu(dz)<\infty
 $$
 を満たすことをいう．
 
-例えば，強度 $\lambda=10$ でGauss分布で大きさが決まる跳躍を持つLévy過程は，`measure.type="CP"`によって指定する．平均 $0$ のOU過程
+例えば，強度 $\lambda=10$ で Gauss 分布を跳躍測度に持つ Lévy 過程は，`measure.type="CP"` によって指定する．
+
+平均 $0$ のジャンプ OU 過程
 $$
 dX_t=-\theta X_tdt+\sigma dW_t+dZ_t
 $$
@@ -290,7 +305,7 @@ sim5 <- simulate(mod5, true.p = list(theta=1, sigma=3), sampling=setSampling(n=1
 plot(sim5)
 ```
 
-一方で，逆正規分布の大きさのジャンプを持つLévy測度 $\nu$ をもち，Poisson成分を持たないOU過程
+一方で，逆正規分布の大きさのジャンプを持つ Lévy 測度 $\nu$ をもち，Poisson 成分を持たない OU 過程
 $$
 dX_t=-xdt+dZ_t
 $$
@@ -308,33 +323,33 @@ plot(sim6)
 
 ## シミュレーションとサンプリング
 
-### `simulate()`関数の使い方
+### `simulate()` 関数の使い方
 
-`yuima`または`yuima.model`で定められたモデルから，Euler-Maruyama法によるシミュレーションを実行する関数．^[ただし，分数Gaussノイズが仮定された場合はCholesky法または [@Wood-Chan1994] の手法による．]
-[`simulate.R`](https://github.com/yuimaproject/yuima/blob/1bbd1291b58d07fed096a2237db7b233081d51f7/R/simulate.R#L4)にてポリモーフィックな実装がなされている．
+`simulate()` は `yuima` または `yuima.model` で定められたモデルから，Euler-Maruyama 法によるシミュレーションを実行する関数．^[ただし，分数 Gauss ノイズが仮定された場合は Cholesky 法または [@Wood-Chan1994] の手法による．]
+
+ソースコードは [`simulate.R`](https://github.com/yuimaproject/yuima/blob/1bbd1291b58d07fed096a2237db7b233081d51f7/R/simulate.R#L4)．ポリモーフィックな実装がなされている．
 
 ```r
-simulate(object, nsim=1, seed=NULL, xinit, true.parameter, space.discretized = FALSE, 
- increment.W = NULL, increment.L = NULL, method = "euler", hurst, methodfGn = "WoodChan",
- 	sampling=sampling, subsampling=subsampling, ...)
+simulate(object, nsim=1, seed=NULL, xinit, true.parameter, space.discretized = FALSE, increment.W = NULL, increment.L = NULL, method = "euler", hurst, methodfGn = "WoodChan", sampling=sampling, subsampling=subsampling, ...)
 ```
 
-返り値は，引数`object`に，シミュレーション結果を`yuima.data`フィールドに格納した`yuima`オブジェクトであり，それに対して`plot()`が使える．
+返り値は `yuima` オブジェクトである．しかし，その `yuima.data` フィールドにはシミュレーション結果が格納されており，それに対して `plot()` を使う．
 
-* `object`が`yuima`オブジェクトの場合
+#### 時間離散化 Euler-Maruyama 法
 
-### 時間離散化Euler-Maruyama法
+最も広く使われているシミュレーション法である．
 
 時間にグリッド $0=\tau_0<\tau_1<\cdots<\tau_j<\cdots$ を導入し，連続過程 $\{X_t\}_{t\in\R_+}$ の離散化 $\{\wt{X}_{\tau_j}\}_{j\in\N}$ を
 $$
 \wt{X}_{\tau_{j+1}}:=\wt{X}_{\tau_j}+b(\tau_j,\wt{X}_{\tau_j})(\tau_{j+1}-\tau_j)+c(\tau_j,\wt{X}_{\tau_j})(W_{\tau_{j+1}}-W_{\tau_j})
 $$
+と定義する．
 
-と定義する． $W_{\tau_{j+1}}-W_{\tau_j}\iidsim\rN(0,\tau_{j+1}-\tau_j)$ を利用してサンプリングできる．
+$W_{\tau_{j+1}}-W_{\tau_j}\iidsim\rN(0,\tau_{j+1}-\tau_j)$ を利用してサンプリングできる．
 
-### 空間離散Euler-Maruyama法
+#### 空間離散 Euler-Maruyama 法
 
-`simulate`メソッドはこの方法も（ジャンプを持たない過程について）実装している．**現状，駆動過程が1次元のSDEに対してのみである**．
+`simulate` メソッドはこの方法も（ジャンプを持たない過程について）実装している．ただし，**現状，駆動過程が1次元のSDEに対してのみである**．
 
 これは，時間離散化 $\{\tau_j\}_{j\in\N}\subset\R$ は次のように取る方法である：
 $$
@@ -344,19 +359,27 @@ $$
 $$
 \ep^2:=\frac{T}{n}=\Delta_n
 $$
-としている．この方法は通常の時間離散化法よりも3倍高速になることが経験的に知られている．これは`space.discretized=TRUE`で指定できる．デフォルトは`=FALSE`となっており，時間離散化の方である．
+としている．
+
+この方法は通常の時間離散化法よりも3倍高速になることが経験的に知られている．
+
+これは `space.discretized=TRUE` で指定できる．デフォルトは `=FALSE` となっており，時間離散化の方である．
 
 他にも [@Iacus2008] のシミュレーション法が実装予定である．
 
 ### `setSampling`コンストラクタ
 
-`simulate`関数は`yuima.sampling`オブジェクトも引数として`sampling = samp`というように受け入れる．**そして出力にそのまま引き継がれる**．
+`simulate` 関数は `yuima.sampling` オブジェクトも引数として `sampling = samp` と取れる．
 
-```{.r filename="setSampling.Rd"}
+そしてこのサンプリングスキームは出力にそのまま引き継がれる．
+
+```{.r filename="setSampling.R"}
 setSampling(Initial = 0, Terminal = 1, n = 100, delta, 
    grid, random = FALSE, sdelta=as.numeric(NULL), 
    sgrid=as.numeric(NULL), interpolation="pt" )
 ```
+
+#### 例
 
 例えば次の2次元モデルを考える
 
@@ -383,11 +406,13 @@ sim2 <- simulate(myModel, sampling=samp)
 str(sim2@sampling)
 ```
 
-これは`samp`そのものである．
+これは`samp`そのものであり，確かに出力に引き継がれている．
 
 ### `subsampling`関数の使い方
 
-２つの独立な指数分布を指定することで，Poisson到着時間を用いてサンプリングする，という`yuima.sampling`オブジェクトは次のように定義する：
+２つの独立な指数分布を指定することで，Poisson 到着時間を用いてサンプリングすることができる．
+
+このような `yuima.sampling` オブジェクトは次のように定義する：
 
 ```{r}
 newsamp <- setSampling(random=list(rdist=c(function(x)
@@ -439,15 +464,17 @@ points(get.zoo.data(Y.sub)[[1]], col="red")
 points(get.zoo.data(Y.sub)[[2]], col="green", pch=18)
 ```
 
-### `zoo`との依存関係
+### 今後の発展
 
-`zoo`というパッケージ [@Zeileis-Grothendieck2005] が，時系列データを保存するために内部で用いられる．
+#### `zoo`との依存関係
 
-より柔軟な時系列データの保存法ができたら，このdependencyは脱したいと考えられているようである．
+サンプリングとサブサンプリングにおいて，`zoo`というパッケージ [@Zeileis-Grothendieck2005] が時系列データを保存するために内部で用いられている．
 
-## 漸近展開
+より柔軟な時系列データの保存法ができたら，この dependency は脱したいと考えられているようである．
 
-確率変数の期待値を近似するのに，Monte Carlo法は普遍的な方法であるが，漸近展開もこれの代替手法である．精度さえ良ければ，計算時間は比較にならないほど速い．
+## 漸近展開と `setFunctional()`
+
+確率変数の期待値を近似するのに Monte Carlo 法は普遍的な方法であるが，漸近展開もこれの代替手法である．精度さえ良ければ，計算時間は比較にならないほど速い．
 
 ### 場面設定
 
@@ -456,13 +483,13 @@ $$
 X^{(\ep)}_t=x_0+\int^t_0a(X_s^{(\ep)},\ep)ds+\int^t_0b(X_s^{(\ep)},\ep)dW_s.
 $$
 
-ただし，$W_t$ は $r$-次元Wiener過程とした．そして，その汎函数
+ただし，$W_t$ は $r$-次元 Wiener 過程とした．そして，その汎函数
 
 $$
 F^{(\ep)}=\sum_{\al=0}^r\int^T_0f_\al(X_t^{(\ep)},\ep)dW_t^\al+F(X_T^{(\ep)},\ep),\quad W^0_t=t
 $$
 
-を決めたいとする．例えば，Black-Scholesモデル
+を決めたいとする．例えば，Black-Scholes モデル
 $$
 dX_t^{(\ep)}=\mu X_t^{(\ep)}dt+\ep X_t^{(\ep)}dW_t
 $$
@@ -478,7 +505,7 @@ $$
 $$
 \E[(X^{(\ep)}_T-K)\lor0]
 $$
-がヨーロピアンコールオプションの価格になる．この値は閉じた形を持っているが，Asian optionについてはこの線型な設定においてさえ数値計算法が要請される．
+がヨーロピアンコールオプションの価格になる．この値は閉じた形を持っているが，Asian option についてはこの線型な設定においてさえ数値計算法が要請される．
 
 ### 渡部理論
 
@@ -508,23 +535,23 @@ $$
 \wt{F}^{(\ep)}\sim\wt{F}^{[0]}+\ep\wt{F}^{[1]}+\ep^2\wt{F}^{[2]}+\cdots\quad(\ep\searrow0)
 $$
 
-この展開は，Malliavin解析のSobolev空間において厳密に成り立つ．これを導くのが [@Watamane1987] の理論である．
+この展開は，Malliavin 解析の Sobolev 空間において厳密に成り立つ．これを導くのが [@Watamane1987] の理論である．
 
-これに基づき，汎函数 $F^{(\ep)}$ の近似を構成する機能が`yuima`に実装されている．この漸近展開をオプションの価格付けに応用したのが [@Yoshida1992] である．
+これに基づき，汎函数 $F^{(\ep)}$ の近似を構成する機能が `yuima` に実装されている．この漸近展開をオプションの価格付けに応用したのが [@Yoshida1992] である．
 
 ### `setFunctional`コンストラクタ
 
-Black-Scholesモデル
+Black-Scholes モデル
 $$
 dX_t^{(\ep)}=\mu X_t^{(\ep)}dt+\ep X_t^{(\ep)}dW_t
 $$
-が定める幾何Brown運動 $(X_t)$ のパラメータが $\mu=1,x_0=1$ を満たす場合において，Asian call optionの価格は，汎函数
+が定める幾何 Brown 運動 $(X_t)$ のパラメータが $\mu=1,x_0=1$ を満たす場合において，Asian call option の価格は，汎函数
 $$
 g(x):=\max\paren{F^{(0)}-K+\ep x,0}
 $$
 を計算すれば良い．
 
-$F^{(\ep)}$ の極限 $F^{(0)}$ の値は，関数`F0`を`yuima.functional`スロットが埋まった`yuima`オブジェクトに適用することで得られる．
+$F^{(\ep)}$ の極限 $F^{(0)}$ の値は，関数 `F0` を `yuima.functional` スロットが埋まった `yuima` オブジェクトに適用することで得られる．
 
 ```{r}
 #| output: false
@@ -559,17 +586,17 @@ asy1 <- asymp$d0 + e*asymp$d1
 asy2 <- asymp$d0 + e*asymp$d1 + e^2 * asymp$d2
 ```
 
-はAsian call priceの，それぞれ1次と2次の漸近展開を与える．
+は Asian call price の，それぞれ１次と２次の漸近展開を与える．
 
-### CIR過程の推測
+### CIR 過程の推測
 
-$X_t$ が幾何Brown運動の場合にしか [@Levy1992] の近似は用いることはできない．例えばCIR模型
+$X_t$ が幾何 Brown 運動の場合にしか [@Levy1992] の近似は用いることはできない．例えば CIR 模型
 $$
 dX_t=0.9X_tdt+\ep\sqrt{X_t}dW_t,\quad X_0=1,
 $$
-の場合でも，漸近展開は有効である．この状態でのEuropean call optionの価格は，2次までの漸近展開が与える値が，100万データ数によるMonte Carlo推定量の精度に匹敵し，当然計算量は圧倒的に少ない．
+の場合でも，漸近展開は有効である．この状態での European call option の価格は，２次までの漸近展開が与える値が，100万データ数による Monte Carlo 推定量の精度に匹敵し，当然計算量は圧倒的に少ない．
 
-## 推論
+## 推論と `setYuima()`
 
 ほとんどの手法が，$N\to\infty,\Delta_n\to0$ の極限で得られるデータ（高頻度データ）にも応用可能な手法になっている．
 
@@ -591,7 +618,7 @@ str(x@data)
 
 ### 擬似最尤推定^[[@Brouste+2014 第6.2節]]
 
-$r$-次元Wiener過程 $\{W_t\}$ が定める拡散過程
+$r$-次元 Wiener 過程 $\{W_t\}$ が定める拡散過程
 
 $$
 dX_t=a(X_t,\theta_2)dt+b(X_t,\theta_1)dW_t

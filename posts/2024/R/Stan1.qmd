@@ -1,7 +1,9 @@
 ---
 title: "Stan 入門"
+subtitle: "rstan による Stan の利用"
 author: "司馬 博文"
 date: 5/17/2024
+date-modified: 9/17/2024
 categories: [Bayesian, Computation, Stan]
 image: Files/Stan.png
 bibliography: 
@@ -34,3 +36,135 @@ listing:
 
 ::: {#lst-stan}
 :::
+
+## `RStan` の利用
+
+### はじめるために
+
+[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) に従って実行します．
+
+::: {.callout-caution title="すでにインストールされており，再インストールしたい場合" collapse="true" icon="false"}
+
+```r
+packageVersion("rstan")
+```
+
+を実行してすでに存在する場合は，次を実行します
+
+```r
+remove.packages("rstan")
+if (file.exists(".RData")) file.remove(".RData")
+```
+
+:::
+
+ほとんどの場合，次の１行でインストールできます：
+
+```r
+install.packages("rstan", repos = "https://cloud.r-project.org/", dependencies = TRUE)
+```
+
+### `RStan` の利用のためには，`c++` コンパイラが必要
+
+XCode コマンドラインツールをインストールすることにより，`/Library/Developer/CommandLineTools/usr/bin` に `clang++` がインストールされます．
+
+```zsh
+clang++ -v -E -x c++ /dev/null
+```
+
+現在では，[`macrtools`](https://mac.thecoatlessprofessor.com/macrtools/) を通じて `C++` コンパイラを R 内でインストールすることもできます．
+
+::: {.callout-caution title="コンパイラ最適化 (MacOS)" collapse="true" icon="false"}
+
+[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) の [Configuring C Toolchain for Mac](https://github.com/stan-dev/rstan/wiki/Configuring-C---Toolchain-for-Mac) では，次のようなコンパイラの最適化が推奨されています：
+
+```r
+dotR <- file.path(Sys.getenv("HOME"), ".R")
+if (!file.exists(dotR)) dir.create(dotR)
+M <- file.path(dotR, "Makevars")
+if (!file.exists(M)) file.create(M)
+arch <- ifelse(R.version$arch == "aarch64", "arm64", "x86_64")
+cat(paste("\nCXX17FLAGS += -O3 -mtune=native -arch", arch, "-ftemplate-depth-256"),
+    file = M, sep = "\n", append = FALSE)
+```
+
+これにより `~/.R/Makevars` に次のような行が追加されます：
+
+```zsh
+CXX17FLAGS += -O3 -mtune=native -arch arm64 -ftemplate-depth-256
+```
+
+:::
+
+### 検証
+
+次のコードが実行されれば，インストールは成功しています．
+
+```r
+example(stan_model, package = "rstan", run.dontrun = TRUE)
+```
+
+### トラブルシューティング
+
+#### `cmath` が見つからない
+
+```r
+Quitting from lines 329-343 (adastan.qmd) 
+
+ compileCode(f, code, language = language, verbose = verbose) でエラー: 
+  using C++ compiler: ‘Apple clang version 16.0.0 (clang-1600.0.26.3)’using C++17using SDK: ‘MacOSX15.0.sdk’In file included from <built-in>:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Dense:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Core:19:/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found  679 | #include <cmath>      |          ^~~~~~~1 error generated.make: *** [file2546221168fc.o] Error 1
+ 呼び出し:  .main ... cxxfunctionplus -> <Anonymous> -> cxxfunction -> compileCode
+ 追加情報:  警告メッセージ: 
+1:  パッケージ 'rstan' はバージョン 4.3.1 の R の下で造られました  
+2:  パッケージ 'bayesplot' はバージョン 4.3.1 の R の下で造られました  
+3:  パッケージ 'rstanarm' はバージョン 4.3.1 の R の下で造られました  
+
+
+Quitting from lines 329-343 (adastan.qmd) 
+ sink(type = "output") でエラー:  コネクションが不正です 
+ 呼び出し:  .main ... eval -> stan -> stan_model -> cxxfunctionplus -> sink
+ 実行が停止されました 
+```
+
+大変長く書いてあるが，要は `fatal error: 'cmath' file not found` である．
+
+筆者の場合は純粋な `clang++` の問題であった：
+
+```zsh
+❯ echo '#include <cmath>
+#include <iostream>
+
+int main() {
+    double result = std::sqrt(16.0);
+    std::cout << "The square root of 16 is " << result << std::endl;
+    return 0;
+}' > test.cpp
+
+
+~
+❯ clang++ -std=c++17 test.cpp -o test
+
+test.cpp:1:10: fatal error: 'cmath' file not found
+    1 | #include <cmath>
+      |          ^~~~~~~
+1 error generated.
+```
+
+このような場合は，まず Xcode の再インストールをすると良い．
+
+```zsh
+softwareupdate --list
+```
+
+の出力を用いて，次のようにする：
+
+```zsh
+softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-10.1"
+```
+
+または次のようにする：
+
+```zsh
+sudo rm -rf /Library/Developer/CommandLineTools
+xcode-select --install
+```
