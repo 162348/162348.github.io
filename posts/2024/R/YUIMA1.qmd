@@ -1,0 +1,225 @@
+---
+title: "YUIMA による汎函数計算"
+subtitle: "漸近展開と `setFunctional()`"
+author: "司馬博文"
+date: 9/18/2024
+categories: [Stan, R, YUIMA, Process]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+    - YUIMA.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: R パッケージ `yuima` は確率過程のモデリングとその統計推測を可能にするフレームワークです．広範なクラスの確率微分方程式のシミュレーションが可能です．今回はそのような確率過程の汎函数の漸近展開に基づく計算方法を紹介します．確率変数の期待値を近似するのに Monte Carlo 法は普遍的な方法ですが，漸近展開が用いられる場合，その計算時間は比較にならないほど速くなります．
+execute:
+  cache: true
+code-fold: false
+code-overflow: wrap
+listing: 
+  -   id: lst-yuima
+      type: grid
+      sort: false
+      contents:
+          - YUIMA.qmd
+          - YUIMA2.qmd
+          - adastan.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+::: {#lst-yuima}
+:::
+
+
+
+## 場面設定
+
+例えば，$d$-次元拡散過程 $X=(X^{(\ep)}_t)_{t\in[0,T]},\ep\in\ocinterval{0,1}$ を次のように定める：
+$$
+X^{(\ep)}_t=x_0+\int^t_0a(X_s^{(\ep)},\ep)ds+\int^t_0b(X_s^{(\ep)},\ep)dW_s.
+$$
+
+ただし，$W_t$ は $r$-次元 Wiener 過程とした．そして，その汎函数
+$$
+F^{(\ep)}=\sum_{\al=0}^r\int^T_0f_\al(X_t^{(\ep)},\ep)dW_t^\al+F(X_T^{(\ep)},\ep),\quad W^0_t=t
+$$
+を推定したいとする．
+
+::: {.callout-warning title="Black-Scholes モデルにおける Asian option の価格" appearance="simple" icon="false"}
+
+例えば，Black-Scholes モデル
+$$
+dX_t^{(\ep)}=\mu X_t^{(\ep)}dt+\ep X_t^{(\ep)}dW_t
+$$
+において，利子率が零である場合のアジアオプションの価格は
+$$
+\E\Square{\max\paren{\frac{1}{T}\int^T_0X_t^{(\ep)}dt-K,0}}
+$$
+と表せる．
+
+これは線型汎函数である．実際，
+$$
+F^{(\ep)}=\frac{1}{T}\int^T_0X_t^{(\ep)}dt,\quad r=1
+$$
+と定めた場合に相当する．
+
+また，$F^{(\ep)}=X^{(\ep)}_T$ とした場合に当たる
+$$
+\E[(X^{(\ep)}_T-K)\lor0]
+$$
+がヨーロピアンコールオプションの価格になる．
+
+:::
+
+このように式で表せても，特に Asian option についてはこの線型な設定においてさえ数値計算法が要請される．
+
+## 渡部理論
+
+ここでは，$\ep\searrow0$ の極限で系が決定論的であるとする．すなわち，
+$$
+b(-,0)=0
+$$
+$$
+f_\al(-,0)=0\quad(\al\in[r])
+$$
+とする．すると $X_t^{(0)}$ は次の常微分方程式
+$$
+\dd{X_t^{(0)}}{t}=a(X_t^{(0)},0),\quad X_0^{(0)}=x_0
+$$
+の解であるから，$F^{(0)}$ も定数
+$$
+F^{(0)}=\int^T_0f_0(X_t^{(0)},0)dt+F(X_T^{(0)},0)
+$$
+で与えられる．
+
+さらに，$a,b,f_\al,F$ がしかるべき正則性条件を満たすとき，汎函数 $F^{(\ep)}$ にはある版が存在して $\ep\in\cointerval{0,1}$ に関して殆ど確実に滑らかである．特に，
+$$
+\wt{F}^{(\ep)}:=\frac{F^{(\ep)}-F^{(0)}}{\ep}
+$$
+は次の確率展開を持つ：
+$$
+\wt{F}^{(\ep)}\sim\wt{F}^{[0]}+\ep\wt{F}^{[1]}+\ep^2\wt{F}^{[2]}+\cdots\quad(\ep\searrow0)
+$$
+
+この展開は，Malliavin 解析の Sobolev 空間において厳密に成り立つ．これを導くのが [@Watamane1987] の理論である．
+
+これに基づき，汎函数 $F^{(\ep)}$ の近似を構成する機能が `yuima` に実装されている．
+
+この漸近展開をオプションの価格付けに応用したのが [@Yoshida1992] である．
+
+## `setFunctional`コンストラクタ
+
+```r
+setFunctional(model, F, f, xinit, e)
+```
+
+Black-Scholes モデル
+$$
+dX_t^{(\ep)}=\mu X_t^{(\ep)}dt+\ep X_t^{(\ep)}dW_t
+$$
+が定める幾何 Brown 運動 $(X_t)$ のパラメータが $\mu=1,x_0=1$ を満たす場合において，Asian call option の価格は，汎函数
+$$
+g(x):=\max\paren{F^{(0)}-K+\ep x,0}
+$$
+を計算すれば良い．
+
+$F^{(\ep)}$ の極限 $F^{(0)}$ の値は，関数 `F0` を `yuima.functional` スロットが埋まった `yuima` オブジェクトに適用することで得られる．
+
+```{r}
+#| output: false
+model <- setModel(drift="x", diffusion=matrix("x*e", 1, 1))
+K <- 100
+yuima <- setYuima(model=model, sampling=setSampling(Terminal=1, n=1000))
+yuima <- setFunctional(yuima, f=list(expression(x/T), expression(0)), F=0, xinit=150, e=0.5)
+F0 <- F0(yuima)
+```
+```{r}
+print(F0)
+```
+
+```{r}
+#| output: false
+g <- function(x) {
+  tmp <- (F0 - 100) + (0.5*x)
+  tmp[(0.5*x) < (100-F0)] <- 0
+  tmp
+}
+asymp <- asymptotic_term(yuima, block=10, expression(0), g)
+```
+```{r}
+str(asymp)
+```
+
+これを適切な和をとれば良い．
+
+```{r}
+e = 0.5
+asy1 <- asymp$d0 + e*asymp$d1
+asy1
+asy2 <- asymp$d0 + e*asymp$d1 + e^2 * asymp$d2
+asy2
+```
+
+は Asian call price の，それぞれ１次と２次の漸近展開を与える．
+
+この設定では対数正規分布に対する Edgeworth 展開によっても計算ができる [@Levy1992]．
+
+## CIR 過程
+
+$X_t$ が幾何 Brown 運動の場合にしか [@Levy1992] の近似は用いることはできないが，`yuima` のアプローチでは可能である
+
+例えば利子率の期間構造のモデルである [CIR 模型](https://en.wikipedia.org/wiki/Cox%E2%80%93Ingersoll%E2%80%93Ross_model) [@Cox+1985]
+$$
+dX_t=(\al-\beta X_t)\,dt+\sqrt{\gamma X_t}\,dW_t
+$$
+がこの境界例になっている．
+
+## 例
+
+$X$ が
+$$
+dX_t=0.9X_tdt+\ep\sqrt{X_t}dW_t,\quad X_0=1,
+$$
+である場合の $K=10,\ep=0.4$ における European call option の価格を考える．
+
+```{r}
+#| output: false
+a <- 0.9; e <- 0.4; Terminal <- 3; xinit <- 1; K <- 10
+drift <- "a * x"; diffusion <- "e * sqrt(x)"
+model <- setModel(drift = drift, diffusion = diffusion)
+n <- 1000 * Terminal
+yuima <- setYuima(model = model, sampling = setSampling(Terminal = Terminal, n = n))
+f <- list(c(expression(0)), c(expression(0)))
+F <- expression(x)
+yuima.ae <- setFunctional(yuima, f = f, F = F, xinit = xinit, e = e)
+rho <- expression(0)
+F1 <- F0(yuima.ae)
+
+get_ge <- function(x, epsilon, K, F0) {
+  tmp <- (F0 - K) + (epsilon * x[1])
+  tmp[(epsilon * x[1]) > (K - F0)] <- 0
+  return(-tmp)
+}
+g <- function(x) {
+  return(get_ge(x, e, K, F1))
+}
+time1 <- proc.time()
+asymp <- asymptotic_term(yuima.ae, block = 100, rho, g)
+time2 <- proc.time()
+```
+```{r}
+ae.value0 <- asymp$d0
+ae.value0
+ae.value1 <- asymp$d0 + e * asymp$d1
+ae.value1
+ae.value2 <- as.numeric(asymp$d0 + e * asymp$d1 + e^2 * asymp$d2)
+ae.value2
+ae.time <- time2 - time1
+ae.time
+```
+
+
+この状態での European call option の価格は，２次までの漸近展開が与える値が 100 万データ数による Monte Carlo 推定量の精度に匹敵し，当然計算量は漸近展開の方が圧倒的に少ない．
