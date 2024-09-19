@@ -10,14 +10,14 @@ bibliography:
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-image: Files/adastan1.png
+image: Files/adaStan1.png
 abstract-title: 概要
 abstract: SDE のベイズ推定を，R パッケージ YUIMA を通じて実行する方法を紹介する．
 code-fold: false
 execute:
-  cache: true
+  cache: false
 listing: 
-  -   id: lst-adastan
+  -   id: lst-adaStan
       type: grid
       sort: false
       contents:
@@ -34,10 +34,21 @@ listing:
           - Stan2.qmd
       date-format: iso
       fields: [title,image,date,subtitle]
+  -   id: lst-stan2
+      contents:
+          - Stan2.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
   -   id: lst-R4
       sort: false
       contents:
           - R4.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+  -   id: lst-brms
+      sort: false
+      contents:
+          - ../Computation/brms.qmd
       date-format: iso
       fields: [title,image,date,subtitle]
 ---
@@ -46,61 +57,71 @@ listing:
 
 R の YUIMA パッケージに関する詳細は，次の記事も参照：
 
-::: {#lst-adastan}
+::: {#lst-adaStan}
 :::
 
 ## ベイズ推定の実行
 
 ### はじめに
 
-`yuima` では多次元の SDE
+確率過程の統計推測を行うための R パッケージ `yuima` では多次元の SDE
 $$
 dX_t=b_t^\theta(X_t)\,dt+\sigma_t^\phi(X_t)\,dW_t,\qquad X_0\in\R^d,
 $$
 に対してパラメータ $\theta\in\R^{d_\theta},\phi\in\R^{d_\phi}$ の推定を実行することができる（[`YUIMA` の記事](YUIMA.qmd#sec-model-constructor) も参照）．
 
-YUIMA においてこの $\theta,\varphi$ の推定に，`qmle()` による擬似最尤推定量を用いることも，`adaBayes()` によるベイズ事後平均による推定も実行可能である．
+YUIMA においてこの $\theta,\varphi$ の推定に，`qmle()` による擬似最尤推定量を用いることも，[`adaBayes()`](https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R) によるベイズ事後平均による推定も実行可能である．
 
-`Stan` を通じた
+### 確率的プログラミング言語 `Stan` との連携
 
-`RStan` は確率的プログラミング言語 Stan とのインターフェイスを提供するパッケージであり，これを用いることで Stan を用いた HMC を用いた事後分布からのサンプリングが実行できる．
+`Stan` は Hamiltonian Monte Carlo 法を用いた事後分布サンプリングを，確率モデルを定義するだけで実行することができる汎用的な言語である．
+
+加えて，バックグラウンドで C++ を用いているため，非常に高速な MCMC 計算が可能である．
 
 確率的プログラミング言語 Stan については次の記事も参照：
 
 ::: {#lst-stan}
 :::
 
-### `RStan` とのインターフェイス {#sec-adastan}
+`RStan` は確率的プログラミング言語 Stan とのインターフェイスを提供するパッケージであり，これを用いることで Stan を通じた HMC を用いた事後分布からのサンプリングが実行できる．
+
+ここでは，`yuima` から Stan を使うことを可能にする関数 `adaStan()` の実装を試みる．
+
+### `RStan` とのインターフェイス {#sec-adaStan}
 
 具体的には，R において，次のような関数を定義する：
 
 ```{r}
 #| output: false
 library(yuima)
+library(rstan)
 
 yuima_to_stan <- function(yuima){  # <1>
-  excode <- 'data {\n  int N;\n  real x[N+1];\n  real T;\n  real h;\n}
+  excode <- 'data {\n  int N;\n  array[N+1] real x;\n  real T;\n  real h;\n}
 parameters {\n'
 
   for(i in 1:length(yuima@model@parameter@all)){  # <2>
-    excode <- paste(excode, "  real", yuima@model@parameter@all[i], ";\n")
+    excode <- paste(excode, " real", yuima@model@parameter@all[i], ";\n")
   }
 
-  excode <- paste(excode,"\n}\n")  # <3>
+  excode <- paste(excode,"\n}")  # <3>
 
-  excode <- paste(excode,'model {\n  x[1] ~ normal(0,1);\n  for(n in 2:(N+1)){\n  ')  # <4>
+  excode <- paste(excode,'\nmodel {\n  x[1] ~ normal(0,1);\n  for(n in 2:(N+1)){')  # <4>
 
   excode <- paste(excode,
-    "x[n] ~ normal(x[n-1] + h *", gsub("x", "x[n-1]", yuima@model@drift), ",sqrt(h) *", gsub("x", "x[n-1]", yuima@model@diffusion[[1]]),");\n}")  # <5>
+    "\n  x[n] ~ normal(x[n-1] + h *", gsub("x", "x[n-1]", yuima@model@drift), ",sqrt(h) *", gsub("x", "x[n-1]", yuima@model@diffusion[[1]]),");\n  }")  # <5>
 
   excode <- paste(excode,'\n}\n')
 }
 
-adastan <- function(yuima){  # <6>
+adaStan <- function(yuima){  # <6>
+  # To Do: yuima オブジェクトのスロットの存在をチェック
+  # 変数名の例外処理
+
   excode <- yuima_to_stan(yuima)
 
   sde_dat <- list(N =  yuima@sampling@n,  # <7>
-    x = as.numeric(sim@data@original.data), 
+    x = as.numeric(yuima@data@original.data), 
     T=yuima@sampling@Terminal,
     h=yuima@sampling@Terminal/yuima@sampling@n)
 
@@ -114,15 +135,15 @@ adastan <- function(yuima){  # <6>
 ```
 
 1. Stan モデルのコード（パラメータ部分は未定）を文字列として `excode` 変数に格納する．
-2. ここからが `adastan` 関数の本体である．Yuima モデルの全てのパラメータについてループを開始して，`excode` にパラメータの宣言を追加していく．
+2. ここからが `adaStan` 関数の本体である．Yuima モデルの全てのパラメータについてループを開始して，`excode` にパラメータの宣言を追加していく．
 3. ここでついに Stan モデルのパラメータの定義部分が完成する．
 4. 最後はモデルの定義部分を追加して，Stan モデルのコードが完成する．最初の観測値 `x[1]` は $\rN(0,1)$ に従う．
 5. それ以降の観測値 `x[n]` は，前の観測値 `x[n-1]` に drift 項と diffusion 項を加えたものに従う．これを実装するために，Yuima モデルの drift 項と diffusion 項の定義文を呼び出し，`x` を `x[n-1]` に置換することで Stan モデルのコードに埋め込む．
-6. `adastan` という関数を定義する．この関数は，Yuima パッケージのオブジェクトを引数として受け取り，Stan での推定を行い，その結果を `fit` オブジェクトとして返す．
+6. `adaStan` という関数を定義する．この関数は，Yuima パッケージのオブジェクトを引数として受け取り，Stan での推定を行い，その結果を `fit` オブジェクトとして返す．
 7. Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト `sde_dat` を作成する．
 8. 最後に Stan モデルをコンパイルして実行し，結果を `fit` オブジェクトとして返す．
 
-これが最初に思いつく，最も直接的な方法かも知れないが，このままではいくつかの問題がある：
+これが最初に思いつく最も直接的な方法かも知れないが，このままではいくつかの問題がある：
 
 ::: {.callout-caution title="問題点"}
 
@@ -134,7 +155,7 @@ Stan を使う以上，どこかで Stan モデルの情報を受け渡すこと
 
 ### 問題点 {#sec-exp-OU}
 
-`adastan()` 関数の挙動を詳しく見るために，次の具体例を考える．
+`adaStan()` 関数の挙動を詳しく見るために，次の具体例を考える．
 
 YUIMA を通じて１次元 OU 過程
 
@@ -145,24 +166,19 @@ $$
 をシミュレーションをするためには，次のようにモデル定義をする：
 
 ```{r}
-model <- setModel(drift = "theta*(mu-X)", diffusion = "sigma", state.variable = "X", solve.variable = "X")
+model <- setModel(drift = "theta*(mu-x)", diffusion = "sigma", state.variable = "x", solve.variable = "x")
 ```
 
 これだけで，YUIMA は勝手にパラメータを識別してくれる：
-<!-- 
-```{r}
-str(model@parameter)
-```
--->
 
 ```{r}
 model@drift
-model@diffusion
+model@diffusion[[1]]
 ```
 
 これを通じて生成される Stan モデル文は
 
-```{.stan}
+```stan
 data {
   int N;
   real x[N+1];
@@ -185,26 +201,135 @@ model {
 }
 ```
 
-となるべきであるが，実際その通りである：
+となるべきであるが，実際その通りになる：
 
 ```{r}
 x <- setYuima(model = model)
-cat(yuima_to_stan(x))
+stancode <- yuima_to_stan(x)
+cat(stancode)
 ```
-
-YUIMA の時点で文字列を直接取り扱っており，オブジェクト `model` がそれを格納しているのだから，もはやこのまま用いることは極めて自然である．
 
 ### `CmdStanR` による解決
 
-```r
-stan_file_variables <- write_stan_file(excode)
+```{r}
+#| output: false
+library(cmdstanr)
+stan_file_variables <- write_stan_file(stancode)
+mod <- cmdstan_model(stan_file_variables)
+```
+
+```{r}
+mod$print()
 ```
 
 などとすることで，一時ファイル上で stan ファイルとバイナリファイルを作成・操作することができる．
 
+```{r}
+mod$stan_file()
+```
+
+## Stan インターフェイス
+
+### `RStan` パッケージ
+
+詳しくは次稿参照：
+
+::: {#lst-stan2}
+:::
+
+前述の OU 過程 [-@sec-exp-OU]
+
+$$
+dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
+$$
+
+で `stan` 関数でベイズ推定を実行してみます．
+
+パラメータは
+$$
+\begin{pmatrix}\theta\\\mu\\\sigma\end{pmatrix}
+=
+\begin{pmatrix}1\\0\\0.5\end{pmatrix}
+$$
+として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみます．
+
+```{r}
+#| output: false
+sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
+yuima <- setYuima(model = model, sampling = sampling)
+simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5), xinit = rnorm(1))
+```
+
+```{r}
+# シミュレーション結果
+plot(simulation)
+```
+
+```{r}
+#| output: false
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+fit <- adaStan(simulation)
+```
+
+```{r}
+print(fit)
+plot(fit)
+```
+
+```{r}
+#| output: false
+library("bayesplot")
+library("rstanarm")
+library("ggplot2")
+
+posterior <- as.matrix(fit)
+plot_title <- ggtitle("Posterior distributions",
+                      "with medians and 80% intervals")
+```
+
+```{r}
+mcmc_areas(posterior,
+           pars = c("theta", "mu", "sigma"),
+           prob = 0.8) + plot_title
+```
+
+$\sigma$ の推定はよくできているが $\mu$ の精度はあまりよくなく，$\theta$ はバイアスがある様で，自信を持って間違えることも多い．
+
+### `brms` パッケージ
+
+[`brms`](https://cran.r-project.org/web/packages/brms/index.html) や `rethinking` も，背後で Stan を利用している．これらが文字式をどのように取り扱っているかを調査する．
+
+
+::: {#lst-brms}
+:::
+
+Stan コードを扱っている関数は [`.stancode()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/stancode.R) であった．
+
+最終的に，[`.compile_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L67) と [`.fit_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L145) が呼ばれるようになっている．
+
+最終的にはこれらの関数も，第 [-@sec-adaStan] 節のサンプルコードと同様の要領で `paste0` を使っていた．
+
+::: {.callout-caution title="`paste0` と `paste` の違い" collapse="true" icon="false"}
+
+```{r}
+# paste0() の使用例
+result1 <- paste0("Hello", "world")
+print(result1)  # "Helloworld"
+
+# paste() の使用例
+result2 <- paste("Hello", "world")
+print(result2)  # "Hello world"
+
+result3 <- paste("Hello", "world", sep = "-")
+print(result3)  # "Hello-world"
+```
+
+:::
+
 ## テンプレート操作
 
-### Expression とは
+::: {.callout-caution title="R の Expression について" collapse="true" icon="false"}
 
 オブジェクト志向言語ではコード自体もオブジェクトであり，これを R では Expression と呼ぶ．
 
@@ -245,146 +370,8 @@ f[[2]] <- NULL
 f
 ```
 
-## Stan インターフェイス
+:::
 
-### `RStan` パッケージ
+## To Do List {.appendix}
 
-#### `stan` 関数
-
-RStan パッケージの本体は `stan` 関数である：
-
-```{.r}
-stan(file, model_name = "anon_model", model_code = "", fit = NA,
-  data = list(), pars = NA,
-  chains = 4, iter = 2000, warmup = floor(iter/2), thin = 1,
-  init = "random", seed = sample.int(.Machine$integer.max, 1),
-  algorithm = c("NUTS", "HMC", "Fixed_param"),
-  control = NULL, sample_file = NULL, diagnostic_file = NULL,
-  save_dso = TRUE, verbose = FALSE, include = TRUE,
-  cores = getOption("mc.cores", 1L),
-  open_progress = interactive() && !isatty(stdout()) &&
-                  !identical(Sys.getenv("RSTUDIO"), "1"),
-  ...,
-  boost_lib = NULL, eigen_lib = NULL
-  )
-```
-
-重要な引数のみピックアップすると，
-
-* `model_code=""`：Stan モデルを定義するコードを，文字列として直接受け渡す．他の方法は `file` としてファイルへのパスを渡すか，フィット済みのものを `fit` オブジェクトとして渡すか，の２つのみである．
-* `data`：
-
-#### 例
-
-前述の OU 過程 [-@sec-exp-OU]
-
-$$
-dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
-$$
-
-で `stan` 関数でベイズ推定を実行してみます．
-
-パラメータは
-$$
-\begin{pmatrix}\theta\\\mu\\\sigma\end{pmatrix}
-=
-\begin{pmatrix}1\\0\\0.5\end{pmatrix}
-$$
-として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみます．
-
-```{r}
-#| output: false
-library(rstan)
-excode <- "data {
-            int N;
-            real x[N+1];
-            real T;
-            real h;
-          }
-
-          parameters {
-            real<lower=0> theta;
-            real<lower=0> mu;
-            real<lower=0> sigma;
-          }
-
-          model {
-            x[1] ~ normal(0,1);
-            for(n in 2:(N+1)){
-              x[n] ~ normal(x[n-1] + h * theta * (mu - x[n-1]),
-                            sqrt(h) * sigma);
-            }
-          }"
-
-sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
-yuima <- setYuima(model = model, sampling = sampling)
-simulation <- simulate(yuima, true.parameter = c(mu = 0,theta = 1, sigma = 0.5), 
-                       xinit = 0.02)
-sde_dat <- list(N =  yuima@sampling@n,
-                  x = as.numeric(simulation@data@original.data), 
-                  T=yuima@sampling@Terminal,
-                  h=yuima@sampling@Terminal/yuima@sampling@n)
-```
-
-```{r}
-# シミュレーション結果
-plot(simulation)
-```
-
-```{r}
-#| output: false
-# ベイズ推定
-rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())
-
-fit <- stan(model_code=excode, data = sde_dat, iter = 1000, chains = 4)
-
-library("bayesplot")
-library("rstanarm")
-library("ggplot2")
-
-posterior <- as.matrix(fit)
-plot_title <- ggtitle("Posterior distributions",
-                      "with medians and 80% intervals")
-```
-
-```{r}
-mcmc_areas(posterior,
-           pars = c("theta", "mu", "sigma"),
-           prob = 0.8) + plot_title
-```
-
-### `brms` パッケージ
-
-[`brms`](https://cran.r-project.org/web/packages/brms/index.html) や `rethinking` も，背後で Stan を利用している．これらが文字式をどのように取り扱っているかを調査する．
-
-```{=html}
-<div class="article-card-container">
-  <div class="article-card">
-    <a href="https://162348.github.io/posts/2024/Computation/brms.html" target="_blank">
-      <img src="https://162348.github.io/posts/2024/Computation/YUIMA_files/figure-html/unnamed-chunk-5-1.png" alt="Article Image" class="article-image">
-      <div class="article-content">
-        <h3 class="article-title">R によるベイズ推定入門</h3>
-        <p class="article-description">brms を用いたベイズ回帰分析入門</p>
-      </div>
-    </a>
-  </div>
-</div>
-```
-
-Stan コードを扱っている関数は [`.stancode()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/stancode.R) であった．最終的に，[`.compile_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L67) と [`.fit_model_rstan()`](https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L145) が呼ばれるようになっている．
-
-`paste0` を使っていた．
-```{r}
-# paste0() の使用例
-result1 <- paste0("Hello", "world")
-print(result1)  # "Helloworld"
-
-# paste() の使用例
-result2 <- paste("Hello", "world")
-print(result2)  # "Hello world"
-
-result3 <- paste("Hello", "world", sep = "-")
-print(result3)  # "Hello-world"
-```
-
+* `adaStan()` 
