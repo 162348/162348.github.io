@@ -9,9 +9,10 @@ image: Files/Stan.png
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
-abstract: Stan は MCMC や変分推論などのベイズ推論エンジンを備えた，統計モデリングのための確率的プログラミング言語です．CLI，Python，Julia，R など，主要な言語からパッケージを通じて利用可能です．その方法をまとめます．
+abstract: Stan は MCMC や変分推論などのベイズ推論エンジンを備えた，統計モデリングのための確率的プログラミング言語です．CLI，Python，Julia，R など，主要な言語からパッケージを通じて利用可能です．本稿では Stan 言語の基本をまとめます．
 execute:
   cache: true
 listing: 
@@ -19,16 +20,24 @@ listing:
       type: grid
       sort: false
       contents:
-          - YUIMA.qmd
-          - R0.qmd
           - adastan.qmd
+          - Stan2.qmd
+          - YUIMA.qmd
       date-format: iso
       fields: [title,image,date,subtitle]
+  -   id: lst-stan2
+      sort: false
+      type: grid
+      contents:
+          - Stan2.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+      page-size: 1
 ---
 
 ::: {.callout-tip title="リンク集" appearance="simple"}
 
-[Documentation](https://mc-stan.org/docs/), [Reference Manual](https://mc-stan.org/docs/reference-manual/), [マニュアル](https://stan-ja.github.io/gh-pages-html/), [stan-ja (GitHub)](https://github.com/stan-ja/stan-ja)
+[GitHub](https://github.com/stan-dev), [Documentation](https://mc-stan.org/docs/), [Reference Manual](https://mc-stan.org/docs/reference-manual/)．
 
 :::
 
@@ -37,134 +46,53 @@ listing:
 ::: {#lst-stan}
 :::
 
-## `RStan` の利用
+## Stan 言語
 
-### はじめるために
+### はじめに
 
-[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) に従って実行します．
+Stan 言語は確率モデルを３つのブロックに分けて記述する．
 
-::: {.callout-caution title="すでにインストールされており，再インストールしたい場合" collapse="true" icon="false"}
+その３つとはデータ，パラメータとモデルである．
 
-```r
-packageVersion("rstan")
-```
+::: {.callout-tip appearance="simple" icon="false"}
 
-を実行してすでに存在する場合は，次を実行します
-
-```r
-remove.packages("rstan")
-if (file.exists(".RData")) file.remove(".RData")
-```
+データは言わずもがなであるが，
 
 :::
 
-ほとんどの場合，次の１行でインストールできます：
+以上の３要素により，事後分布が定まる．
 
-```r
-install.packages("rstan", repos = "https://cloud.r-project.org/", dependencies = TRUE)
-```
+その後 Stan は内部で c++ を用いて事後分布の対数密度とその勾配を自動微分により計算し，Hamiltonian Monte Carlo による事後分布サンプリングを実行する．
 
-### `RStan` の利用のためには，`c++` コンパイラが必要
+### `data` ブロック
 
-XCode コマンドラインツールをインストールすることにより，`/Library/Developer/CommandLineTools/usr/bin` に `clang++` がインストールされます．
+## Stan エコシステム
 
-```zsh
-clang++ -v -E -x c++ /dev/null
-```
+### Stan インターフェイス
 
-現在では，[`macrtools`](https://mac.thecoatlessprofessor.com/macrtools/) を通じて `C++` コンパイラを R 内でインストールすることもできます．
+#### `CmdStan` の仕組み
 
-::: {.callout-caution title="コンパイラ最適化 (MacOS)" collapse="true" icon="false"}
+`CmdStan` は makefiles の集合からなる最も軽量な，コマンドラインベースのインターフェイスである．
 
-[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) の [Configuring C Toolchain for Mac](https://github.com/stan-dev/rstan/wiki/Configuring-C---Toolchain-for-Mac) では，次のようなコンパイラの最適化が推奨されています：
+これを直接 R で wrap した [`CmdStanR` パッケージ](https://mc-stan.org/cmdstanr/) や `CmdStanPy` パッケージもある．
 
-```r
-dotR <- file.path(Sys.getenv("HOME"), ".R")
-if (!file.exists(dotR)) dir.create(dotR)
-M <- file.path(dotR, "Makevars")
-if (!file.exists(M)) file.create(M)
-arch <- ifelse(R.version$arch == "aarch64", "arm64", "x86_64")
-cat(paste("\nCXX17FLAGS += -O3 -mtune=native -arch", arch, "-ftemplate-depth-256"),
-    file = M, sep = "\n", append = FALSE)
-```
+Stan の Math ライブラリ，Algorithm ライブラリなどの出力をテキストファイルで出力してやり取りする．
 
-これにより `~/.R/Makevars` に次のような行が追加されます：
+#### `CmdStan` のインストール {#sec-installing-cmdstan}
 
-```zsh
-CXX17FLAGS += -O3 -mtune=native -arch arm64 -ftemplate-depth-256
-```
+[CmdStan Installation](https://mc-stan.org/docs/cmdstan-guide/installation.html) によると，`conda` による方法とソースからのインストールの2つの方法がある．
 
+一方で次稿で扱う `CmdStanR` を通じてインストールすることもできる：
+
+::: {#lst-stan2}
 :::
 
-### 検証
+## 文献紹介 {.appendix}
 
-次のコードが実行されれば，インストールは成功しています．
+手軽に概要を掴むには Michael Betancourt によるブログ記事 [An introduction to Stan](https://betanalpha.github.io/assets/case_studies/stan_intro.html) が良い．
 
-```r
-example(stan_model, package = "rstan", run.dontrun = TRUE)
-```
+より本格的な解説論文には [@Gelman+2015], [@Carpenter+2017-Stan] がある．
 
-### トラブルシューティング
+[公式の文献紹介](https://mc-stan.org/users/documentation/tutorials) が stan.org から出ているが，情報が古い．
 
-#### `cmath` が見つからない
-
-```r
-Quitting from lines 329-343 (adastan.qmd) 
-
- compileCode(f, code, language = language, verbose = verbose) でエラー: 
-  using C++ compiler: ‘Apple clang version 16.0.0 (clang-1600.0.26.3)’using C++17using SDK: ‘MacOSX15.0.sdk’In file included from <built-in>:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Dense:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Core:19:/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found  679 | #include <cmath>      |          ^~~~~~~1 error generated.make: *** [file2546221168fc.o] Error 1
- 呼び出し:  .main ... cxxfunctionplus -> <Anonymous> -> cxxfunction -> compileCode
- 追加情報:  警告メッセージ: 
-1:  パッケージ 'rstan' はバージョン 4.3.1 の R の下で造られました  
-2:  パッケージ 'bayesplot' はバージョン 4.3.1 の R の下で造られました  
-3:  パッケージ 'rstanarm' はバージョン 4.3.1 の R の下で造られました  
-
-
-Quitting from lines 329-343 (adastan.qmd) 
- sink(type = "output") でエラー:  コネクションが不正です 
- 呼び出し:  .main ... eval -> stan -> stan_model -> cxxfunctionplus -> sink
- 実行が停止されました 
-```
-
-大変長く書いてあるが，要は `fatal error: 'cmath' file not found` である．
-
-筆者の場合は純粋な `clang++` の問題であった：
-
-```zsh
-❯ echo '#include <cmath>
-#include <iostream>
-
-int main() {
-    double result = std::sqrt(16.0);
-    std::cout << "The square root of 16 is " << result << std::endl;
-    return 0;
-}' > test.cpp
-
-
-~
-❯ clang++ -std=c++17 test.cpp -o test
-
-test.cpp:1:10: fatal error: 'cmath' file not found
-    1 | #include <cmath>
-      |          ^~~~~~~
-1 error generated.
-```
-
-このような場合は，まず Xcode の再インストールをすると良い．
-
-```zsh
-softwareupdate --list
-```
-
-の出力を用いて，次のようにする：
-
-```zsh
-softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-10.1"
-```
-
-または次のようにする：
-
-```zsh
-sudo rm -rf /Library/Developer/CommandLineTools
-xcode-select --install
-```
+また，Stan には [日本語のマニュアル](https://stan-ja.github.io/gh-pages-html/) もある：[stan-ja (GitHub)](https://github.com/stan-ja/stan-ja)．

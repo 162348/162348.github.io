@@ -1,8 +1,9 @@
 ---
 title: "YUIMA による確率過程の統計推測"
-subtitle: "`setYuima()`"
+subtitle: "擬似尤度推定量，適応的 Bayes 事後平均"
 author: "司馬 博文"
 date: 9/18/2024
+date-modified: 9/19/2024
 categories: [Stan, R, YUIMA, Process]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -38,7 +39,8 @@ listing:
 ```r
 setYuima(data, model, sampling, characteristic, functional)
 ```
-`data`を`yuima`オブジェクトに持たせた場合，データからパラメータ推定を行うことができる．
+
+`data` を `yuima` オブジェクトに持たせた場合，データからパラメータ推定を行うことができる．
 
 ```r
 data <- read.csv("http://chart.yahoo.com/table.csv?s=IBM&g=d&x=.csv")
@@ -46,17 +48,15 @@ x <- setYuima(data = setData(data$Close))
 str(x@data)
 ```
 
-## 擬似最尤推定^[[@Brouste+2014 第6.2節]]
-
-### 概要
+## 擬似最尤推定
 
 $r$-次元 Wiener 過程 $\{W_t\}$ が定める拡散過程
-
 $$
-dX_t=a(X_t,\theta_2)dt+b(X_t,\theta_1)dW_t
+dX_t=a(X_t,\theta_2)\,dt+b(X_t,\theta_1)\,dW_t
 $$
-
 のパラメータ $\theta_1\in\Theta_1\subset\R^p,\theta_2\in\Theta_2\subset\R^q$ の推定を考えたい．
+
+### 概要
 
 データ
 $$
@@ -79,7 +79,7 @@ $$
 $$
 \wh{\theta}:=\argmax_{\theta}\ell_n(\b{X}_n,\theta)
 $$
-と定めた推定量を **擬似最尤推定量** という．
+と定まる $M$-推定量を **擬似最尤推定量** という．
 
 これを実装する `qmle` 関数が， `stats4` 標準の [`mle` 関数](https://www.rdocumentation.org/packages/stats4/versions/3.6.2/topics/mle-class) に似せて作られている．
 
@@ -109,7 +109,7 @@ yuima <- setYuima(model=ymodel, sampling=ysamp)
 yuima <- simulate(yuima, xinit=1, true.parameter=list(theta1=0.2, theta2=0.3))
 ```
 
-これに対して，QMLEを実行してみる：
+これに対して，QMLE を実行してみる：
 
 ```{r}
 param.init <- list(theta2=0.5, theta1=0.5)
@@ -125,11 +125,11 @@ $\theta_2$ の推定の方が圧倒的に難しいらしいことがよくわか
 
 実は高頻度極限 $\Delta_n\to0,n\to\infty$ において，$\wh{\theta}_1$ は漸近的に混合正規である [@Genon-Catalot-Jacod1993]．
 
-$\wh{\theta}_2$ も一致性を持つには，条件 $T=n\Delta_n\to\infty$ が必要である．これは $T$ が有限であるとき $\theta_2$ のFisher情報量も有限であり，それゆえこの設定したでは一致推定量が存在しないためである．
+$\wh{\theta}_2$ も一致性を持つには，条件 $T=n\Delta_n\to\infty$ が必要である．これは $T$ が有限であるとき $\theta_2$ の Fisher 情報量も有限であり，それゆえこの設定したでは一致推定量が存在しないためである．
 
 $T\to\infty$ の下でエルゴード条件を仮定すれば，一致性だけでなく漸近正規性も達成される．
 
-局所Gauss近似を成立させるためには $n\Delta_n^2\to0$ が必要であるが，これでは条件が強すぎる．任意の $p\ge2$ に対して条件 $n\Delta_n^p\to0$ しか満たさない場合での適応的推定法が [@Uchida-Yoshida2012] によって，大偏差原理による議論に基づいて提案された．
+局所 Gauss 近似を成立させるためには $n\Delta_n^2\to0$ が必要であるが，これでは条件が強すぎる．任意の $p\ge2$ に対して条件 $n\Delta_n^p\to0$ しか満たさない場合での適応的推定法が [@Uchida-Yoshida2012] によって，大偏差原理による議論に基づいて提案された．
 
 $T$ が大きくない場合， $\theta_2$ には小標本的な影響が現れる．これは適応的 Bayes 推定（第 [-@sec-adaBayes] 節）でも議論する．
 
@@ -142,8 +142,6 @@ $T$ が大きくない場合， $\theta_2$ には小標本的な影響が現れ�
 * R-Forge 上の [Source](https://rdrr.io/rforge/yuima/src/R/adaBayes.R)
 * GitHub 上の [Source](https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R)
 :::
-
-### 概要
 
 $r$-次元モデル
 
@@ -159,7 +157,9 @@ $$
 
 を考える．
 
-まず，任意に初期値 $\theta^\star_2\in\Theta_2$ を取り，$\theta_1$ に事前分布 $\pi_1$ を導入して，これに基づいて Bayes 事後平均推定量を
+### 概要
+
+まず，任意に初期値 $\theta^\star_2\in\Theta_2$ を取り，$\theta_1$ に事前分布 $\pi_1$ を導入して，これに基づいて **Bayes 事後平均推定量** を
 $$
 \wt{\theta}_1:=\frac{\int_{\Theta_1}\theta_1\exp(\ell_n(\b{X}_n,(\theta_1,\theta_2^\star)))\pi_1(\theta_1)d\theta_1}{\int_{\Theta_1}\exp(\ell_n(\b{X}_n,(\theta_1,\theta_2^\star)))\pi_1(\theta_1)d\theta_1}
 $$
@@ -167,7 +167,7 @@ $$
 
 $\pi_1$ が $\Theta_1$ 全域を台に持つならば，高頻度極限で良い漸近的性質を持つことは保証される（第 [-@sec-Asymptotics] 節）．
 
-続いて，$\theta_2$ に事前分布 $\pi_2$ を導入して，$\wt{\theta}_1$ から Bayes 事後平均推定量を
+続いて，$\theta_2$ に事前分布 $\pi_2$ を導入して，$\wt{\theta}_1$ から **Bayes 事後平均推定量** を
 $$
 \wt{\theta}_2:=\frac{\int_{\Theta_2}\theta_1\exp(\ell_n(\b{X}_n,(\wt{\theta}_1,\theta_2)))\pi_2(\theta_2)d\theta_2}{\int_{\Theta_2}\exp(\ell_n(\b{X}_n,(\wt{\theta}_1,\theta_2)))\pi_2(\theta_2)d\theta_2}
 $$
@@ -196,22 +196,16 @@ yuima <- simulate(yuima, xinit=1, true.parameter=list(theta1=0.2, theta2=0.3))
 prior <- list(theta2=list(measure.type="code", df="dunif(theta2,0,1)"),
       theta1=list(measure.type="code", df="dunif(theta1,0,1)"))
 bayes1 <- adaBayes(yuima, start=param.init, prior=prior, mcmc=1000)
-summary(bayes1)
 summary(mle1)
+```
+
+```{r}
+bayes1@coef
 ```
 
 ```{r}
 str(bayes1)
 ```
-
-### バグについて
-
-1. `coef(summary(bayes1))`はエラーを生じる．
-
-  > Error in object$coefficients : $ operator is invalid for atomic vectors
-  > Calls: .main ... eval_with_user_handlers -> eval -> eval -> coef -> coef -> coef.default
-
-2. `adaBayes` の後ろの方に必須の引数 `mcmc` がある．Manpage を読む限り `iteration` と同じ役割では？
 
 ### 小標本性がドリフト推定に与えるバイアス
 
@@ -236,15 +230,29 @@ bayes2 <- adaBayes(yuima, start=param.init, prior=prior, mcmc=1000)
 
 ```{r}
 summary(mle2)
+bayes2@coef
 str(bayes2)
 ```
 
-小標本でも適応的Bayes推定量はよく振る舞う．一方で，QMLEでは劣化が激しい．$\wh{\theta}_1$ は小標本の影響を $\wh{\theta}_2$ ほどは大きく受けない．
+小標本でも適応的 Bayes 推定量はよく振る舞う．一方で，QMLE では劣化が激しい．$\wh{\theta}_1$ は小標本の影響を $\wh{\theta}_2$ ほどは大きく受けない．
 
-## 非同期共分散推定^[[@Brouste+2014 第6.4節]]
+## その他の機能
 
-伊藤過程が非同期に離散観測する設定を考える．
+### 共分散推定
 
-## 変化点解析^[[@Brouste+2014 第6.5節]]
+２つの伊藤過程が非同期的に離散観測されたとして，２つの間の共分散を推定する [@Hayashi-Yoshida2005] 推定量も `yuima` には実装されている．
 
-## LASSO モデル選択^[[@Brouste+2014 第6.6節]]
+[@Brouste+2014 第6.4節] を参照．
+
+## これから {.appendix}
+
+* `setYuima()` の help ページに 'PLEASE FINISH THIS' が２箇所ある．
+* help ページによく出てくる `yuimadocs` パッケージとは？
+* `coef(summary(bayes1))`はエラーを生じる．
+
+  > Error in object$coefficients : $ operator is invalid for atomic vectors
+  > Calls: .main ... eval_with_user_handlers -> eval -> eval -> coef -> coef -> coef.default
+
+  `qmle` は `mle` 様に `summary` メソッドを持っているが，`adaaBayes` はまだであるようである．
+
+* `adaBayes` の後ろの方に必須の引数 `mcmc` がある．Manpage を読む限り `iteration` と同じ役割では？

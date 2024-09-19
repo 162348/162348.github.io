@@ -1,0 +1,485 @@
+---
+title: "R 上の Stan インターフェイス"
+subtitle: "`RStan` と `CmdStanR`"
+author: "司馬 博文"
+date: 9/19/2024
+date-modified: 9/19/2024
+categories: [Bayesian, Computation, Stan, R]
+image: Files/adastan.png
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: Stan は MCMC や変分推論などのベイズ推論エンジンを備えた，統計モデリングのための確率的プログラミング言語です．CLI，Python，Julia，R など，主要な言語からパッケージを通じて利用可能ですが，本稿では特に R からの利用方法をまとめます．
+code-fold: false
+code-overflow: wrap
+execute:
+  cache: true
+listing: 
+  -   id: lst-stan
+      type: grid
+      sort: false
+      contents:
+          - adastan.qmd
+          - Stan1.qmd
+          - YUIMA.qmd
+      date-format: iso
+      fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+::: {#lst-stan}
+:::
+
+## 概観 {.unlisted .unnumbered}
+
+`RStan` は `Rcpp` や `inline` といったパッケージにより C++ を R から呼び出すことで，Stan とのインターフェイスを実現している．
+
+一方で `CmdStanR` は `CmdStan` という Stan のコマンドラインインターフェイスを R から呼び出すことで，Stan とのインターフェイスを実現している．
+
+
+
+## `RStan` パッケージ
+
+### はじめるために
+
+[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) に従って実行します．
+
+#### インストール
+
+::: {.callout-caution title="すでにインストールされており，再インストールしたい場合" collapse="true" icon="false"}
+
+```r
+packageVersion("rstan")
+```
+
+を実行してすでに存在する場合は，次を実行します
+
+```r
+remove.packages("rstan")
+if (file.exists(".RData")) file.remove(".RData")
+```
+
+:::
+
+ほとんどの場合，次の１行でインストールできます：
+
+```r
+install.packages("rstan", repos = "https://cloud.r-project.org/", dependencies = TRUE)
+```
+
+#### `RStan` の利用のためには，`c++` コンパイラが必要
+
+XCode コマンドラインツールをインストールすることにより，`/Library/Developer/CommandLineTools/usr/bin` に `clang++` がインストールされます．
+
+```zsh
+clang++ -v -E -x c++ /dev/null
+```
+
+現在では，[`macrtools`](https://mac.thecoatlessprofessor.com/macrtools/) を通じて `C++` コンパイラを R 内でインストールすることもできます．
+
+::: {.callout-caution title="コンパイラ最適化 (MacOS)" collapse="true" icon="false"}
+
+[RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started) の [Configuring C Toolchain for Mac](https://github.com/stan-dev/rstan/wiki/Configuring-C---Toolchain-for-Mac) では，次のようなコンパイラの最適化が推奨されています：
+
+```r
+dotR <- file.path(Sys.getenv("HOME"), ".R")
+if (!file.exists(dotR)) dir.create(dotR)
+M <- file.path(dotR, "Makevars")
+if (!file.exists(M)) file.create(M)
+arch <- ifelse(R.version$arch == "aarch64", "arm64", "x86_64")
+cat(paste("\nCXX17FLAGS += -O3 -mtune=native -arch", arch, "-ftemplate-depth-256"),
+    file = M, sep = "\n", append = FALSE)
+```
+
+これにより `~/.R/Makevars` に次のような行が追加されます：
+
+```zsh
+CXX17FLAGS += -O3 -mtune=native -arch arm64 -ftemplate-depth-256
+```
+
+:::
+
+#### 検証
+
+次のコードが実行されれば，インストールは成功しています．
+
+```r
+example(stan_model, package = "rstan", run.dontrun = TRUE)
+```
+
+### `stan` 関数
+
+RStan パッケージの本体は `stan` 関数である：
+
+```{.r}
+stan(file, model_name = "anon_model", model_code = "", fit = NA,
+  data = list(), pars = NA,
+  chains = 4, iter = 2000, warmup = floor(iter/2), thin = 1,
+  init = "random", seed = sample.int(.Machine$integer.max, 1),
+  algorithm = c("NUTS", "HMC", "Fixed_param"),
+  control = NULL, sample_file = NULL, diagnostic_file = NULL,
+  save_dso = TRUE, verbose = FALSE, include = TRUE,
+  cores = getOption("mc.cores", 1L),
+  open_progress = interactive() && !isatty(stdout()) &&
+                  !identical(Sys.getenv("RSTUDIO"), "1"),
+  ...,
+  boost_lib = NULL, eigen_lib = NULL
+  )
+```
+
+#### モデルの受け渡し
+
+`model_code=""` が Stan モデルを定義するコードを，文字列として直接受け渡すための引数である．
+
+返り値はフィット済みの `stanfit` オブジェクトである．
+
+他の方法は次のとおり：
+
+* `file` としてファイルへのパスを渡す
+* フィット済みの `stanfit` オブジェクトを `fit` 引数として渡す
+
+#### 重要な引数
+
+* `data`：データを与える．`list` 型．
+* `iter`：繰り返し回数．デフォルトは `2000`．
+* `chains`：チェイン数．デフォルトは `4`．
+
+#### `stanfit` オブジェクト
+
+`stan` 関数は Stan モデルを C++ に変換して実行し，結果を `stanfit` オブジェクトとして返す．
+
+これに対して `print`, `summary`, `plot` などのメソッドが利用可能である．
+
+さらに，次の様にして MCMC サンプルを取り出すことができる：
+
+* `as.array` メソッドを用いて MCMC サンプルを `array` 型で取り出す
+* `extract` メソッドを用いて MCMC サンプルを `list` 型で取り出す
+* `posterior` ライブラリの `as_draws_df` メソッドを用いて MCMC サンプルを `df` 型で取り出す．種々のデータ型 `<format>` に対して `as_draws_<format>` が存在する．
+
+取り出した MCMC サンプルは `bayesplot` パッケージの `mcmc_trace`, `mcmc_dens` などの関数を用いて可視化することができる．
+
+#### 例１：軌道と事後分布の可視化
+
+```{r}
+#| output: false
+scode <- "
+parameters {
+  array[2] real y;
+}
+model {
+  y[1] ~ normal(0, 1);
+  y[2] ~ double_exponential(0, 2);
+}
+"
+fit <- stan(model_code = scode, iter = 10000, chains = 4, verbose = FALSE)
+```
+
+```{r}
+#| fig-cap: 軌道のプロット
+library(bayesplot)
+
+mcmc_trace(as.array(fit), pars = c("y[1]", "y[2]"))
+```
+
+```{r}
+#| fig-cap: 密度のプロット
+mcmc_dens(as.array(fit), pars = c("y[1]", "y[2]"))
+```
+
+#### 例２：確率過程の統計推測
+
+OU 過程
+
+$$
+dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
+$$
+
+に対して，`stan` 関数でベイズ推定を実行してみます．
+
+```{r}
+#| output: false
+library(yuima)
+model <- setModel(drift = "theta*(mu-X)", diffusion = "sigma", state.variable = "X")
+```
+
+パラメータは
+$$
+\begin{pmatrix}\theta\\\mu\\\sigma\end{pmatrix}
+=
+\begin{pmatrix}1\\0\\0.5\end{pmatrix}
+$$ {#eq-sde-param}
+として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみます．
+
+```{r}
+#| output: false
+library(rstan)
+excode <- "data {
+            int N;
+            real x[N+1];
+            real h;
+          }
+
+          parameters {
+            real theta;
+            real mu;
+            real<lower=0> sigma;
+          }
+
+          model {
+            x[1] ~ normal(0,1);
+            for(n in 2:(N+1)){
+              x[n] ~ normal(x[n-1] + theta * (mu - x[n-1]) * h,  sqrt(h) * sigma);
+            }
+          }"
+
+sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
+yuima <- setYuima(model = model, sampling = sampling)
+simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5), xinit = rnorm(1))
+sde_dat <- list(N =  yuima@sampling@n,
+                  x = as.numeric(simulation@data@original.data),
+                  h=yuima@sampling@Terminal/yuima@sampling@n)
+```
+
+```{r}
+# シミュレーション結果
+plot(simulation)
+```
+
+```{r}
+#| output: false
+# ベイズ推定
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+fit <- stan(model_code=excode, data = sde_dat, iter = 1000, chains = 4)
+```
+
+```{r}
+print(fit)
+```
+
+パラメータ ([-@eq-sde-param]) がよく推定できていることがわかる．特に $\sigma$ が安定して推定できている：
+
+```{r}
+plot(fit)
+```
+
+
+```{r}
+library("bayesplot")
+library("rstanarm")
+library("ggplot2")
+
+posterior <- as.matrix(fit)
+plot_title <- ggtitle("Posterior distributions",
+                      "with medians and 80% intervals")
+mcmc_areas(posterior,
+           pars = c("theta", "mu", "sigma"),
+           prob = 0.8) + plot_title
+```
+
+### トラブルシューティング
+
+#### `cmath` が見つからない
+
+```r
+Quitting from lines 329-343 (adastan.qmd) 
+
+ compileCode(f, code, language = language, verbose = verbose) でエラー: 
+  using C++ compiler: ‘Apple clang version 16.0.0 (clang-1600.0.26.3)’using C++17using SDK: ‘MacOSX15.0.sdk’In file included from <built-in>:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Dense:1:In file included from /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/Core:19:/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found  679 | #include <cmath>      |          ^~~~~~~1 error generated.make: *** [file2546221168fc.o] Error 1
+ 呼び出し:  .main ... cxxfunctionplus -> <Anonymous> -> cxxfunction -> compileCode
+ 追加情報:  警告メッセージ: 
+1:  パッケージ 'rstan' はバージョン 4.3.1 の R の下で造られました  
+2:  パッケージ 'bayesplot' はバージョン 4.3.1 の R の下で造られました  
+3:  パッケージ 'rstanarm' はバージョン 4.3.1 の R の下で造られました  
+
+
+Quitting from lines 329-343 (adastan.qmd) 
+ sink(type = "output") でエラー:  コネクションが不正です 
+ 呼び出し:  .main ... eval -> stan -> stan_model -> cxxfunctionplus -> sink
+ 実行が停止されました 
+```
+
+大変長く書いてあるが，要は `fatal error: 'cmath' file not found` である．
+
+筆者の場合は純粋な `clang++` の問題であった：
+
+```zsh
+❯ echo '#include <cmath>
+#include <iostream>
+
+int main() {
+    double result = std::sqrt(16.0);
+    std::cout << "The square root of 16 is " << result << std::endl;
+    return 0;
+}' > test.cpp
+
+
+~
+❯ clang++ -std=c++17 test.cpp -o test
+
+test.cpp:1:10: fatal error: 'cmath' file not found
+    1 | #include <cmath>
+      |          ^~~~~~~
+1 error generated.
+```
+
+このような場合は，まず Xcode の再インストールをすると良い．
+
+```zsh
+softwareupdate --list
+```
+
+の出力を用いて，次のようにする：
+
+```zsh
+softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-10.1"
+```
+
+または次のようにする：
+
+```zsh
+sudo rm -rf /Library/Developer/CommandLineTools
+xcode-select --install
+```
+
+## `CmdStanR` パッケージ
+
+`CmdStanPy`, `CmdStanR` はいずれも Stan のインターフェースである．
+
+`CmdStanR` は `R6` オブジェクトを用いており，大変現代的な実装を持っている．
+
+### はじめるために
+
+[Getting Started with CmdStanR](https://mc-stan.org/cmdstanr/articles/cmdstanr.html) に従って実行します．
+
+#### インストール
+
+```r
+install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos")))
+```
+
+#### `CmdStanR` の利用のためには，`CmdStan` が必要
+
+`CmdStanR` を[直接インストールすることもできます](Stan1.qmd#sec-installing-cmdstan)が，`CmdStanR` 内部からインストールすることもできます．
+
+```r
+install_cmdstan(cores = 2)
+```
+```{r}
+cmdstan_version()
+```
+
+多くの場合，自動で `CMDSTAN` 環境変数にパスが設定されます．次のいずれかの方法で確認できます：
+
+```r
+Sys.getenv("CMDSTAN")
+cmdstan_path()
+```
+
+`CmdStanR` の美点の一つは，`install_cmdstan()` により `CmdStan` をアップデートすることで最新の Stan を R から簡単に利用できることである．
+
+一方で `RStan` はパッケージ自体のアップデートを待つ必要がある．
+
+### モデル定義
+
+`cmdstan_model()` 関数は，Stan 言語による記述されたモデル定義を，C++ コードにコンパイルし，その結果を `R6` オブジェクトとして返す．^[実際には，最初に `CmdStanModel` オブジェクトを生成し，`compile()` メソッドを呼び出している．これが `compile = TRUE` フラッグの存在意義である．]
+
+```r
+cmdstan_model(stan_file = NULL, exe_file = NULL, compile = TRUE, ...)
+```
+
+返り値は `CmdStanModel` オブジェクトである．ただし `R6` オブジェクトでもあり，`R6` 流のメソッドの呼び方 `$` が使える．
+
+```{r}
+#| fig-cap: "`cmdstan` についてくる例"
+file <- file.path(cmdstan_path(), "examples", "bernoulli", "bernoulli.stan")
+mod <- cmdstan_model(file)
+```
+
+Stan 言語による定義は次のようにして確認できる：
+
+```{r}
+mod$print()
+names(mod$variables())
+names(mod$variables()$transformed_parameters)
+```
+
+元となったファイルのパスも `stan_file()`, `exe_file()` で確認できる．
+
+### Stan コードの操作
+
+`write_stan_file()` 関数は Stan コードをファイルに書き出すことができる：
+
+```r
+write_stan_file(
+  code,
+  dir = getOption("cmdstanr_write_stan_file_dir", tempdir()),
+  basename = NULL,
+  force_overwrite = FALSE,
+  hash_salt = ""
+)
+```
+
+グローバル環境変数が設定されていない限り，`tempdir()` で一時ファイルが作成される．これは R セッションの終了とともに削除される．
+
+```r
+stan_file_variables <- write_stan_file("
+data {
+  int<lower=1> J;
+  vector<lower=0>[J] sigma;
+  vector[J] y;
+}
+parameters {
+  real mu;
+  real<lower=0> tau;
+  vector[J] theta_raw;
+}
+transformed parameters {
+  vector[J] theta = mu + tau * theta_raw;
+}
+model {
+  target += normal_lpdf(tau | 0, 10);
+  target += normal_lpdf(mu | 0, 10);
+  target += normal_lpdf(theta_raw | 0, 1);
+  target += normal_lpdf(y | theta, sigma);
+}
+")
+mod_v <- cmdstan_model(stan_file_variables)
+variables <- mod_v$variables()
+```
+
+### サンプリング
+
+```{r}
+data_list <- list(N = 10, y = c(0,1,0,0,0,0,0,0,0,1))
+
+fit <- mod$sample(
+  data = data_list,
+  seed = 123,
+  chains = 4,
+  parallel_chains = 4,
+  refresh = 1000 # print update every 1000 iters
+)
+```
+
+返り値 `fit` は `CmdStanMCMC` オブジェクトであり，`summary()` などのメソッドが使用可能である．
+
+`summary()` メソッドは，`posterior` パッケージのメソッド `summarise_draws()` を自動で使うようになっている．
+
+```{r}
+fit$summary()
+fit$summary(variables = c("theta", "lp__"), "mean", "sd")
+```
+
+同様にして `draws()` メソッドで `bayesplot` パッケージが呼び出される．
+
+```{r}
+mcmc_hist(fit$draws("theta"))
+```
+
+## 文献紹介 {.appendix}
