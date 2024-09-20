@@ -3,16 +3,16 @@ title: "SDE のベイズ推定入門"
 subtitle: "YUIMA と Stan を用いた確率過程のベイズ推定入門"
 author: "司馬 博文"
 date: 5/12/2024
-date-modified: 9/19/2024
+date-modified: 9/20/2024
 categories: [Process, MCMC, R, Stan, YUIMA, Bayesian]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-image: Files/adaStan1.png
+image: Files/adastan1.png
 abstract-title: 概要
-abstract: SDE のベイズ推定を，R パッケージ YUIMA を通じて実行する方法を紹介する．
+abstract: R パッケージ YUIMA を用いた SDE のベイズ推定に，Stan を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．
 code-fold: false
 execute:
   cache: false
@@ -23,7 +23,7 @@ listing:
       contents:
           - YUIMA.qmd
           - Stan1.qmd
-          - calculus.qmd
+          - Stan2.qmd
       date-format: iso
       fields: [title,image,date,subtitle]
   -   id: lst-stan
@@ -60,7 +60,7 @@ R の YUIMA パッケージに関する詳細は，次の記事も参照：
 ::: {#lst-adaStan}
 :::
 
-## ベイズ推定の実行
+## 問題提起
 
 ### はじめに
 
@@ -70,11 +70,13 @@ dX_t=b_t^\theta(X_t)\,dt+\sigma_t^\phi(X_t)\,dW_t,\qquad X_0\in\R^d,
 $$
 に対してパラメータ $\theta\in\R^{d_\theta},\phi\in\R^{d_\phi}$ の推定を実行することができる（[`YUIMA` の記事](YUIMA.qmd#sec-model-constructor) も参照）．
 
-YUIMA においてこの $\theta,\varphi$ の推定に，`qmle()` による擬似最尤推定量を用いることも，[`adaBayes()`](https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R) によるベイズ事後平均による推定も実行可能である．
+YUIMA におけるパラメータ $\theta,\varphi$ の推定には，`qmle()` による擬似最尤推定量を用いることも，[`adaBayes()`](https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R) による一般化ベイズによる事後平均推定を実行することも可能である．
+
+現状の `adaBayes()` 関数では，自前のランダムウォーク MH アルゴリズムや p-CN アルゴリズムを用いている．
 
 ### 確率的プログラミング言語 `Stan` との連携
 
-`Stan` は Hamiltonian Monte Carlo 法を用いた事後分布サンプリングを，確率モデルを定義するだけで実行することができる汎用的な言語である．
+`Stan` は Hamiltonian Monte Carlo 法を用いた事後分布サンプリングを，確率モデルを定義するだけで実行することができる言語である．
 
 加えて，バックグラウンドで C++ を用いているため，非常に高速な MCMC 計算が可能である．
 
@@ -85,11 +87,13 @@ YUIMA においてこの $\theta,\varphi$ の推定に，`qmle()` による擬�
 
 `RStan` は確率的プログラミング言語 Stan とのインターフェイスを提供するパッケージであり，これを用いることで Stan を通じた HMC を用いた事後分布からのサンプリングが実行できる．
 
-ここでは，`yuima` から Stan を使うことを可能にする関数 `adaStan()` の実装を試みる．
+ここでは `adaBayes()` 関数をさらに効率的にするために，Stan を用いた事後分布サンプリングを可能にする関数 `adaStan()` の実装を試みる．
 
-### `RStan` とのインターフェイス {#sec-adaStan}
+### アイデアのスケッチ {#sec-adaStan}
 
-具体的には，R において，次のような関数を定義する：
+具体的には，R において次のような関数を定義することになるだろう．
+
+必ずしもベストな方法ではないかもしれないが，まずは `RStan` を用いてスケッチをしてみる．改良版は第 [-@sec-final-form] 節参照．
 
 ```{r}
 #| output: false
@@ -97,7 +101,7 @@ library(yuima)
 library(rstan)
 
 yuima_to_stan <- function(yuima){  # <1>
-  excode <- 'data {\n  int N;\n  array[N+1] real x;\n  real T;\n  real h;\n}
+  excode <- 'data {\n  int N;\n  vector[N+1] x;\n  real T;\n  real h;\n}
 parameters {\n'
 
   for(i in 1:length(yuima@model@parameter@all)){  # <2>
@@ -115,9 +119,6 @@ parameters {\n'
 }
 
 adaStan <- function(yuima){  # <6>
-  # To Do: yuima オブジェクトのスロットの存在をチェック
-  # 変数名の例外処理
-
   excode <- yuima_to_stan(yuima)
 
   sde_dat <- list(N =  yuima@sampling@n,  # <7>
@@ -143,17 +144,19 @@ adaStan <- function(yuima){  # <6>
 7. Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト `sde_dat` を作成する．
 8. 最後に Stan モデルをコンパイルして実行し，結果を `fit` オブジェクトとして返す．
 
-これが最初に思いつく最も直接的な方法かも知れないが，このままではいくつかの問題がある：
+`yuima` オブジェクトのスロットの存在のチェックや変数名 `x` の表記揺れなど，細かな問題も多いだろうが，殊に Stan との接続においてより良い方法を模索したい．
 
 ::: {.callout-caution title="問題点"}
 
-関数内部で Stan model のコードを文字列として生成していることが苦しい．
+関数内部で Stan コードを文字列として生成していることがダサい．
+
+より良いコードオブジェクトの取り扱い方や，Stan とのより安全で効率的なインターフェイスを模索したい．
 
 :::
 
 Stan を使う以上，どこかで Stan モデルの情報を受け渡すことは必要になるが，できることならばもっと良い方法を考えたい．
 
-### 問題点 {#sec-exp-OU}
+### サンプルコードの動き {#sec-exp-OU}
 
 `adaStan()` 関数の挙動を詳しく見るために，次の具体例を考える．
 
@@ -181,15 +184,15 @@ model@diffusion[[1]]
 ```stan
 data {
   int N;
-  real x[N+1];
+  vector[N+1] x;
   real T;
   real h;
 }
 
 parameters {
-  real<lower=0> theta;
-  real<lower=0> mu;
-  real<lower=0> sigma;
+  real theta;
+  real mu;
+  real sigma;
 }
 
 model {
@@ -209,7 +212,11 @@ stancode <- yuima_to_stan(x)
 cat(stancode)
 ```
 
-### `CmdStanR` による解決
+### `CmdStanR` による方法
+
+同様のことが `CmdStanR` というパッケージを用いても実行可能である．
+
+`CmdStanR` では一時ファイル上に stan ファイルを作成して，それをコンパイルして実行する．
 
 ```{r}
 #| output: false
@@ -219,16 +226,175 @@ mod <- cmdstan_model(stan_file_variables)
 ```
 
 ```{r}
-mod$print()
+mod$print()  # R6 オブジェクトなので $ を用いた method 呼び出しができる
 ```
 
-などとすることで，一時ファイル上で stan ファイルとバイナリファイルを作成・操作することができる．
+この方法ではバイナリファイルを作成・操作することができる．R セッションの終了とともに一時ファイルは削除される．
 
 ```{r}
 mod$stan_file()
 ```
 
-## Stan インターフェイス
+### ベクトル化
+
+Stan モデルの問題であるが，なるべくベクトル記法を用いた方が，Stan コードの処理（特に自動微分の計算）が速くなる．
+
+```stan
+model {
+  x[1] ~ normal(0, 1);  // 初期（値の事前）分布
+  x[2:(N + 1)] ~ normal(x[1:N] + h * theta * (rep_vector(mu, N) - x[1:N]), sqrt(h) * sigma);  // xの2番目からN+1番目までをベクトル化して定義
+}
+```
+
+### 一般化ベイズへの拡張
+
+第 [-@sec-adaStan] 節のサンプルコードでは，ひとまず拡散過程のみにターゲットを絞って `adaStan()` を定義した．
+
+ゆくゆくは遷移確率が極めて複雑になるような確率過程に対する推論も考える必要がある．
+
+一方で Stan では `target` 変数を用いて明示的に対数密度を定義することができる．
+
+```stan
+target += normal_lpdf(y | mu, sigma);
+```
+
+この明示的な記法を用いることで，擬似尤度などを用いた一般化ベイズ推定も実行できる．^[例えば Cox 回帰など．Cox 回帰の Stan での実装は [こちらの記事](https://qiita.com/ssugasawa/items/e0f1ca1e19d23c643679) も参照．]
+
+## テンプレート操作
+
+::: {.callout-caution title="R の Expression について" collapse="true" icon="false"}
+
+オブジェクト志向言語ではコード自体もオブジェクトであり，これを R では Expression と呼ぶ．
+
+::: {#lst-R4}
+:::
+
+１つのクラスからなるわけではなく，`call`, `symbol`, `constant`, `pairlist` の４つの型からなる．^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+次のような操作ができる^[[@Wickham2019] [第18章](https://adv-r.hadley.nz/expressions.html)]
+
+`rlang::expr` がコンストラクタである：
+
+```{r}
+library(rlang)
+z <- expr(y <- x*10)
+z
+```
+
+`expression` オブジェクトは `base::eval()` で評価できる：
+
+```{r}
+x <- 4
+eval(z)
+y
+```
+
+`expression` には list のようにアクセス可能である：^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
+
+```{r}
+f <- expr(f(x = 1, y = 2))
+
+f$z <- 3
+f
+```
+
+```{r}
+f[[2]] <- NULL
+f
+```
+
+:::
+
+### `glue` パッケージ
+
+```r
+install.packages("glue")
+```
+
+`glue` （[CRAN](https://cran.r-project.org/web/packages/glue/index.html), [Docs](https://glue.tidyverse.org/)）パッケージは文字列リテラルを扱うパッケージである．
+
+```{r}
+library(glue)
+name <- "  Hirofumi\n  Shiba\n"
+major <- "Mathematics"
+glue::glue('My name is {name}. I study {major}. Nice to meet you!')  # 名前空間の衝突を避けるために :: を使う
+```
+
+```{r}
+glue::glue(" real {param};", param = yuima@model@parameter@all, .collapse = "\n")
+```
+
+これを用いると，`adaStan()` は次のように可読性が高い形で書き直すことができる：
+
+```{r}
+yuima_to_stan_glued <- function(yuima) {
+  # パラメータの定義部分を作成
+  parameters <- glue::glue("real {param};", param = yuima@model@parameter@all)
+  parameters <- paste(parameters, collapse = "\n  ")
+
+  # drift と diffusion の式内の 'x' を 'x[n-1]' に置換
+  drift <- gsub("x", "x[n-1]", yuima@model@drift)
+  diffusion <- gsub("x", "x[n-1]", yuima@model@diffusion[[1]])
+  
+  # Stanコード全体を作成
+  template <- 
+'data {{
+  int N;
+  array[N+1] real x;
+  real T;
+  real h;
+}}
+parameters {{
+  {parameters}
+}}
+model {{
+  x[1] ~ normal(0, 1);
+  for(n in 2:(N+1)) {{
+    x[n] ~ normal(x[n-1] + h * {drift}, sqrt(h) * {diffusion});
+  }}
+}}'
+  excode <- glue::glue(template, .trim = FALSE)  # parameters が複数行に渡る場合でも分離して出力しない
+  
+  return(excode)
+}
+```
+
+```{r}
+yuima_to_stan_glued(yuima)
+```
+
+### `whisker` パッケージ
+
+```r
+install.packages("whisker")
+```
+
+`whisker` パッケージ（[CRAN](https://cran.r-project.org/web/packages/whisker/index.html), [GitHub](https://github.com/edwindj/whisker)）は Web を中心に採用されているテンプレートシステム [`Mustache`](https://en.wikipedia.org/wiki/Mustache_(template_system)) に基づく機能 `whisker.render()` を提供している．
+
+```r
+whisker.render(template, data = parent.frame(), partials = list(),
+debug = FALSE, strict = TRUE)
+```
+
+```{r}
+library(whisker)
+template <-
+'Hello {{name}}
+You have just won ${{value}}!
+{{#in_ca}}
+Well, ${{taxed_value}}, after taxes.
+{{/in_ca}}'
+data <- list(name = "Hirofumi"
+, value = 10000
+, taxed_value = 10000 - (10000 * 0.4)
+, in_ca = TRUE
+)
+whisker.render(template, data)
+```
+
+`Mustache` の記法は [Manual](https://mustache.github.io/mustache.5.html) を参照．
+
+## Stan インターフェイスの調査
 
 ### `RStan` パッケージ
 
@@ -264,6 +430,8 @@ simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5)
 # シミュレーション結果
 plot(simulation)
 ```
+
+さて，このシミュレーション結果から，`adaStan()` 関数でパラメータが復元できるかを確認しましょう．
 
 ```{r}
 #| output: false
@@ -327,51 +495,35 @@ print(result3)  # "Hello-world"
 
 :::
 
-## テンプレート操作
+### `cmdstanr` パッケージ
 
-::: {.callout-caution title="R の Expression について" collapse="true" icon="false"}
+`cmdstanr` パッケージは 2020 年に beta 版がリリースされた，大変新しいパッケージである．
 
-オブジェクト志向言語ではコード自体もオブジェクトであり，これを R では Expression と呼ぶ．
+`R6` クラスを用いた現代的な実装がなされている．
 
-::: {#lst-R4}
-:::
+### 最終的なコード {#sec-final-form}
 
-１つのクラスからなるわけではなく，`call`, `symbol`, `constant`, `pairlist` の４つの型からなる．^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
-
-次のような操作ができる^[[@Wickham2019] [第18章](https://adv-r.hadley.nz/expressions.html)]
-
-`rlang::expr` がコンストラクタである：
+[`adaStan.R`](adaStan.R) を参照．
 
 ```{r}
-library(rlang)
-z <- expr(y <- x*10)
-z
-```
+#| output: false
+source("adaStan.R")
 
-`expression` オブジェクトは `base::eval()` で評価できる：
+model <- setModel(drift = "theta*(mu-x)", diffusion = "sigma", state.variable = "x", solve.variable = "x")
+sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
+yuima <- setYuima(model = model, sampling = sampling)
+simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5), xinit = rnorm(1))
 
-```{r}
-x <- 4
-eval(z)
-y
-```
-
-`expression` には list のようにアクセス可能である：^[[@Wickham2019] [第17章](https://adv-r.hadley.nz/meta-big-picture.html)２節．]
-
-```{r}
-f <- expr(f(x = 1, y = 2))
-
-f$z <- 3
-f
+fit <- adaStan(simulation, iter=2000, rstan=FALSE)
 ```
 
 ```{r}
-f[[2]] <- NULL
-f
+fit$summary()
+mcmc_hist(fit$draws("theta"))
 ```
 
-:::
+面白い！事後分布は２峰性をもっており，2000 回繰り返すと事後平均はかろうじて正解に近づいている．
 
-## To Do List {.appendix}
+## 終わりに {.appendix}
 
-* `adaStan()` 
+* [GPT o1 によるアイデア](https://chatgpt.com/share/66ed138a-dbb0-8008-be8d-441c8be7b8a2)

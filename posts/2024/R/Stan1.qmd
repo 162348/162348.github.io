@@ -1,7 +1,7 @@
 ---
 title: "Stan 入門"
 subtitle: "rstan による Stan の利用"
-author: "司馬 博文"
+author: "司馬博文"
 date: 5/17/2024
 date-modified: 9/17/2024
 categories: [Bayesian, Computation, Stan]
@@ -60,13 +60,194 @@ Stan 言語は確率モデルを３つのブロックに分けて記述する．
 
 :::
 
-以上の３要素により，事後分布が定まる．
+以上の３要素により，事後分布が定まる．それぞれの要素は，対応した名前を持ったスコープ `{}` 内で，この順番で定義される慣習がある．
 
-その後 Stan は内部で c++ を用いて事後分布の対数密度とその勾配を自動微分により計算し，Hamiltonian Monte Carlo による事後分布サンプリングを実行する．
+以前のスコープ内で定義された識別子は，その後のスコープでも利用可能になる．
+
+```{r}
+stan_code <- "
+data {
+    int<lower=0> N;  // N >= 0
+    array[N] int<lower=0, upper=1> y;  // y[n] in {0, 1}
+}
+parameters {
+    real<lower=0, upper=1> theta;  // theta in [0, 1]
+}
+model {
+    theta ~ beta(1, 1);  // uniform prior
+    y ~ bernoulli(theta);  // observation model
+}
+"
+```
+
+その後 Stan プログラムは事後分布の対数密度を表す C++ 関数にコンパイルされる．
+
+最終的にこの対数尤度を用いて，その勾配を自動微分により計算し，Hamiltonian Monte Carlo による事後分布サンプリングを実行する．
+
+Stan エコシステムの詳説は次節 [-@sec-stan-ecosystem] に回し，ここでは Stan 言語の基本に集中する．
+
+### 確率的プログラミング言語
+
+Stan 言語のように確率モデルを記述する（より正確には事後分布の尤度を記述する高級）言語を **確率的プログラミング言語** (PPL: Probabilistic Programming Language) という．
+
+最初期の確率的プログラミング言語の１つに WinBUGS [@Lunn+2000] の実装に代表される BUGS (Bayesian analysis Using Gibbs Sampling) がある．
+
+BUGS では事後分布を詳細に [有向グラフィカルモデル](../Computation/PGM1.qmd) (DAG) で記述し，Gibbs Sampling により事後分布をサンプリングするという仕組みであった．
+
+Stan 言語はさらに柔軟に，（正規化されているとは限らない）対数尤度を記述できるようになっている．
+
+理想的にはあらゆる確率モデルを扱いたいものであるが，現状の Stan 言語はパラメータとしては連続変数のみを持つモデルのみが定義可能である．
 
 ### `data` ブロック
 
-## Stan エコシステム
+Stan は静的な型システムを持ち，変数宣言の際には必ず型を指定する必要がある．
+
+::: {.callout-tip appearance="simple" icon="false" title="Stan の代表的なデータ型"}
+
+* 実数 $x\in\R$
+
+    ```stan
+    real x;
+    ```
+
+* 実数 $x\in[a,b]$
+    
+    ```stan
+    real<lower=a upper=b> x;
+    ```
+
+* 単体 $x\in[0,1]^N,\sum_{n=1}^Nx_n=1$
+
+    ```stan
+    simplex[N] x;
+    ```
+
+* 自然数 $N\in\N$
+    
+    ```stan
+    int<lower=0> N;
+    ```
+
+* 配列 $x\in\R^N$：純粋なコンテナ型であり，線型代数ライブラリは適用不可．
+    
+    ```stan
+    array[N] real x;
+    ```
+
+    `real x[N]` という記法は `Stan 2.26` 以降使われないことに注意（[docs 参照](https://mc-stan.org/docs/2_29/reference-manual/brackets-array-syntax.html)）．
+
+:::
+
+なお，各ブロック内において，あらゆる変数宣言は全ての非宣言的文の前に来る必要がある．
+
+```stan
+{
+    real variable1 = 5;
+    variable1 /= 2;  // ここでエラー
+    real variable2 = exp(variable1);
+}
+```
+
+### `transformed data` ブロック
+
+`data` ブロックでは許されないが，一般に Stan 言語では変数宣言と同時に代入もできる．
+
+代入を省略した場合は `NaN` によって初期化される．
+
+::: {.callout-tip appearance="simple" icon="false" title="Stan の代表的な線型代数関連のデータ型"}
+
+* ベクトル $x\in\R^5$：`c++` の線型代数ライブラリが使える
+
+    ```stan
+    vector[5] x = [0, 1, 2, 3, 4];
+    ```
+
+* 横ベクトル $y\in(\R^5)^*$：$y*x$ が計算可能．
+
+    ```stan
+    row_vector[5] y = [1, 2, 3, 4, 5]';
+    x*y; // 計算可能
+    ```
+
+* 行列 $A\in M_{N,M}(\R)$
+
+    ```stan
+    matrix[N, M] A;
+    ```
+
+:::
+
+`transformed data` ブロックでは，観測される訳でもなければパラメータでもないような，内部で使われる変数が定義される．
+
+### `parameters` ブロック
+
+`parameters` ブロックも同様にして変数を宣言する．
+
+`model` ブロックで使われる変数は，`data`, `parameters` ブロックのいずれかで宣言されている必要がある．
+
+$x\in[a,b]^N$ のような制約領域を持つ変数が `parameters` ブロックで宣言された場合，Stan は内部でパラメータ変換を行い，$[a,b]$ を $\R$ 上に写してサンプリングを実行する．
+
+Gamma 分布のように台が $\R$ の部分集合になるような事前分布を扱う場合，対応する制約領域をパラメータに定義することがサンプリングの効率を上げる．
+
+一方で，$\R$ 全体を台に持つ事前分布を持つパラメータに対して制約領域を宣言した場合，truncate をした事前分布を定義したことに等価になる．
+
+### `model` ブロック
+
+モデルブロックでは対数密度関数の値が変数 `target` として保持されており，`target()` 関数でアクセス可能である．
+
+次の３つの文は等価になる：
+
+```stan
+beta ~ normal(0, 1);
+beta ~ normal(beta | 0, 1);  // syntax sugar
+target += normal_lpdf(beta | 0, 1);  // 実際の処理に近い
+```
+
+### ループと制御
+
+```stan
+for (n in N1:N2) {
+  // Statements executed for each N1 <= n <= N2
+}
+
+if (condition) {
+  // Statements evaluated if condition is true
+} else {
+  // Statements evaluated if condition is false
+}
+```
+
+### `transformed parameters` / `Generated Quantities` ブロック
+
+`transformed parameters` ブロックと `Generated Quantities` ブロックでは，`parameters` ブロックで宣言されたパラメータの関数として推定対象を定義する．
+
+この推定対象は推論後に事後平均が取られて報告される．
+
+２つの違いは，`transformed parameters` ブロックでは `model` ブロックの前に配置され，`model` ブロックでも使えるのに対し，`Generated Quantities` ブロックでは `model` ブロックの後に配置され，純粋に事後分布の関数として処理される点である．
+
+なお，関数定義は `functions` ブロックで行う．
+
+```stan
+functions {
+    real baseline(real a1, real a2, real theta) {
+        return a1 * theta + a2;
+    }
+}
+```
+
+## Stan エコシステム {#sec-stan-ecosystem}
+
+### Stan の推論エンジン
+
+Stan の推論エンジンとして，HMC の他に２つの C++ アルゴリズムが用意されており，それぞれ [BFGS](https://ja.wikipedia.org/wiki/BFGS法) 法による点推定と変分推定を実装している．
+
+### Stan 数学ライブラリ
+
+Stan 言語により定義された確率モデル（対数密度関数）が実際に評価可能にするための C++ 関数のライブラリである．
+
+使える関数のリストは [Stan Functions Reference](https://mc-stan.org/docs/2_22/functions-reference/index.html) を参照．
+
+基本的な数学的関数や統計的関数に加えて，自動微分が実装されており，対数密度関数の勾配や Hessian も計算可能である．
 
 ### Stan インターフェイス
 
@@ -74,7 +255,7 @@ Stan 言語は確率モデルを３つのブロックに分けて記述する．
 
 `CmdStan` は makefiles の集合からなる最も軽量な，コマンドラインベースのインターフェイスである．
 
-これを直接 R で wrap した [`CmdStanR` パッケージ](https://mc-stan.org/cmdstanr/) や `CmdStanPy` パッケージが存在し，同時に Julia, Mathematica, Matlab からも利用可能である．
+これを直接 R で wrap した [`CmdStanR` パッケージ](https://mc-stan.org/cmdstanr/) や `CmdStanPy` パッケージが存在し，同時に Julia `Stan.jl`, Mathematica `MathematicaStan`, Matlab `MatlabStan`, Stata `StataStan` からも利用可能である．
 
 Stan の Math ライブラリ，Algorithm ライブラリなどの出力をテキストファイルで出力してやり取りする．
 
