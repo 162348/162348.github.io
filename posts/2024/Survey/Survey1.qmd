@@ -1,0 +1,210 @@
+---
+title: "ベイズデータ解析１"
+subtitle: "分散分析"
+author: "司馬 博文"
+date: 9/23/2024
+date-modified: 9/23/2024
+categories: [Statistics, Bayesian]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    人間を対象にする研究では，アンケート調査が基本的な手法になる．
+# image: Images/Polyhazard.png
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "../Computation/brms.qmd"
+            - "Survey2.qmd"
+            - "../Process/PureJump.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 分散分析
+
+### はじめに
+
+分散分析は，集団がある因子 $A,B,\cdots$ によって層別されている場合に，層間の平均効果 $\mu_i$ に差があるかどうかを検定する手法である：
+$$
+H_0:\mu_1=\cdots=\mu_p\quad\text{v.s.}\quad H_1:\exists_{i,j\in[p]}\;\mu_i\ne\mu_j.
+$$
+
+因子 $A,B,\cdots$ の個数に関して，$A$ のみの場合を一元配置分散分析，$A,B$ の場合を二元配置分散分析などという．
+
+観測のモデルには **線型 Gauss** の仮定が置かれる．例えば一元配置である場合，
+$$
+Y_{ij}=\mu_i+\ep_{ij},\qquad i\in[p],j\in[n_i],\ep_{ij}\sim\rN(0,\sigma^2),
+$$ {#eq-ANOVA}
+というモデルが仮定されていることに注意．これは変量効果モデルとも呼ばれる形である．
+
+二元配置では
+$$
+Y_{ij}=\mu+\al_i+\beta_j+\ep_{ij}
+$$
+となり，集団は２つの軸 $A,B$ で層別されており（分割表の状態），それぞれの因子からの効果 $\al_i,\beta_j$ が説明変数に加法的に加えられる．
+
+### 分散分析の抽象的な説明
+
+分散分析では，$Y_{ij}$ の変動のうち，$H_0$ の仮定の下で説明されなかった部分（残差） $R_1^2$ と，$H_0$ を仮定しなかった一般の線型 Gauss 模型 ([-@eq-ANOVA]) でもそもそも説明しきれない部分 $R_0^2$ とに関して，
+$$
+F:=\frac{(R^2_1-R^2_0)/q}{R^2_0/(n-r)}
+$$
+を考える．ただし，$r:=\rank(X)$ とした．
+
+この $F$ は，各群への所属を考慮した回帰分析における残差 $R_0$ と，各群への所属を考慮しない回帰分析における残差 $R_1$ とを，自由度を考慮して比を取った形をしている．
+
+この $F$ は一般に非心 F-分布に従い，仮定 $H_0$ の下では中心 F-分布 $\rF(q,n-r)$ に従う．
+
+これは各群への所属に何の効果もない場合には，$F$ が[同じ平均を持つ]{.underline}正規確率変数の自乗和の比になるためである．
+
+この $F$ を検定統計量として仮設検定を実行するのが (repeated measures) ANOVA である．
+
+### Gauss-Markov の仮定
+
+「標本が正規分布に従う母集団からの独立標本である」という帰無仮説を持つ検定に，[@Shapiro-Wilk1965] の検定などがある．
+
+探索的な方法には Q-Q plot などがある．[@vandenBergh+2020] も参照．
+
+等分散の仮定には [@Mauchly1940] の検定や [@Brown-Forsythe1974] の検定などがある．
+
+ただし，検定はデータの一側面しか伝えていない．例えば，データが帰無仮説をどれほど支持しているかの尺度は検定では得られない．
+
+それゆえ，ANOVA などのモデルの仮定を確認するためには，検定だけでなく他の探索的手法と組み合わせることが推奨される．[@Tijmstra2018] も参照．
+
+### 「検定」に対する注意喚起
+
+一方で ANOVA を含めた検定は一面のみを強調する構造となっており，一連の統計解析の中で自然な位置付けを持つものでない．
+
+特に，$p$-値による仮設検定は「データが不十分であることにより判断ができない」ことと，「データと帰無仮説は激しく矛盾する」こととを区別できない．この意味でも限定的な情報量しか持たない．
+
+例えば $p$-値が小さく帰無仮説が棄却されたとしても，$p$-値はモデルの変化に対して頑健ではないかもしれず，実際はほとんど帰無仮説が成り立つことが真実かもしれない．
+
+このような全貌を探索的に捉えるためには，検定を金科玉条とするのではなく，広くモデル比較・モデル選択の観点からアプローチすることが大切である．同様のことが [@Rouder+2016] でも論じられている．
+
+ANOVA は，特に大規模なものが，現在でも実験心理学などの分野で広く用いられている．これは心理学では多くの因子 $A,B,C,\cdots$ が存在し，それぞれが複雑な関係にあるためである．
+
+しかし推定法も従来の $F$-検定を用いたのではその力を十分に発揮できない．解決は丁寧な階層モデリングとベイズによる探索的な解析にある．^[そして因子分析を通じて，記述統計学の正統進化であるということもできる！？ ANOVA の歴史については [@Tweney2014] も参照．]
+
+> ”if you have a complicated data structure and are trying to set up a model, it can help to use multilevel modeling”—not just a simple unitswithin-groups structure but a more general approach with crossed factors where appropriate. This is the way that researchers in psychology use ANOVA, but **they are often ill-served by the classical framework of mean squares and F-tests**. We hope that our estimation-oriented approach will allow the powerful tools of Bayesian modeling to be used for the applied goals of inference about large numbers of structured parameters. [@Gelman2005 p.53]
+
+## ベイズ分散分析
+
+### はじめに
+
+ベイズ分散分析 [@Rouder+2012], [@Rouder+2016] では，検定の代わりに Bayes 因子を用いたモデル比較を行う．
+
+特に [@Rouder+2012] は標準的な事前分布の選択について議論している．
+
+### 考え方
+
+ベイズ的な仮設検定は [@Jeffreys1961] に源流を持つ．一般に，位置母数の事前分布に Cauchy 分布を用いることは [5.3節 @Jeffreys1961] に源流を持つ．このことについては [@Robert+2009] も参照．
+
+同一の人物を繰り返し測定し，
+$$
+Y_i\iidsim\rN(\mu,\sigma^2),\qquad i\in[n],
+$$
+に従って何らかの処置効果 $Y_i$ 観測するとし，帰無仮説 $\mu=0$ の妥当性を議論したいとする．
+
+この際，まずは有効サイズ $\delta:=\mu/\sigma$ という無次元量にパラメータを変換し，これを Cauchy 分布と比較することを考える：
+$$
+M_0:\delta=0\quad\text{v.s.}\quad M_1:\delta\sim\rC(0,1)
+$$
+
+実際，この Cauchy 分布というのは変換 $J(\nu,\sigma):=\frac{\mu^2}{\sigma^2}$ を通じて $\R$ 上の Jeffreys 事前分布（この場合は Lebesgue 測度に一致）に（ほとんど）等価になる．
+
+この２つのモデル $M_0,M_1$ の残りの仮定は共通の Jeffreys の事前分布 $p(\sigma^2)\propt\sigma^{-2}$ で共通とし，Bayes 因子を比較する．
+
+この値を検定統計量のように扱うとき，これを Jeffreys の名前に [@Zellner-Siow1980] を加えて **JZS 因子** [@Bayarri-Darcia-Donato2007] という．
+
+### $p$-値との違い
+
+JZS 因子は $p$-値と比較して，サンプルサイズが大きいほど保守的になる傾向がある．[@Wetzels+2011] は 2007 年に特定の実験心理学雑誌に投稿された 855 件の t-検定に対して，JZS 因子と $p$-値との値を報告してこれを観察している．
+
+また JZS 因子は $N\to\infty$ の極限で，$\delta\ne0$ であった場合は $\infty$ に発散し，$\delta=0$ であった場合は $1$ に収束するという性質を持つ．
+
+### ANOVA でのベイズ化
+
+１元配置 ANOVA のモデルを次のように表す：
+$$
+\b{Y}=\mu\b{1}_n+\sigma\b{X}\b{\theta}+\b{\ep},\qquad\b{\ep}|\sigma^2\sim\rN(\b{0},\sigma^2I_n).
+$$
+各水準 $i\in[p]$ に属するデータの数を $n_i$ とすると
+$$
+\b{X}=\begin{pmatrix}
+\b{1}_{n_1} & \b{0} & \cdots & \b{0}\\
+\b{0} & \b{1}_{n_2} & \cdots & \b{0}\\
+\vdots & \vdots & \ddots & \vdots\\
+\b{0} & \b{0} & \cdots & \b{1}_{n_p}
+\end{pmatrix},\qquad\b{\theta}=\begin{pmatrix}
+\mu_1\\
+\mu_2\\
+\vdots\\
+\mu_p
+\end{pmatrix}.
+$$
+となる．
+
+これに，次の $g$-prior を定める：
+$$
+\b{\theta}\sim\rN(\b{0},G),\qquad G=\diag(g_1,\cdots,g_p),\qquad g_i\iidsim\chi^{-2}(1).
+$$
+これは各 $\mu_i$ に対して独立な Cauchy 事前分布を仮定している．
+
+[@Zellner-Siow1980] の事前分布
+$$
+\b{\theta}|g\sim\rN(\b{0},g(\b{X}^\top\b{X}/n)^{-1}I_p)
+$$
+や一般の $g$-prior との違いとして，スケール因子 $(\b{X}^\top\b{X}/n)^{-1}$ がない形であるのは，ANOVA の説明変数 $\b{X}$ が離散変数であるためである．
+
+### ANOVA でのベイズ因子
+
+帰無仮説 $\mu_1=\cdots=\mu_p$ に対する対立仮設にあたるモデルを確定させることで，ベイズ因子が定まる．
+
+そのためには，
+
+### ベイズ事後 $p$-値
+
+Bayes 因子の他に，検定統計量に対するベイズ事後予測分布を導出し，その裾確率を評価して $p$-値の代替とする方法もある．
+
+これは **事後予測 $p$-値** (posterior predictive $p$-value) [@BDA] と呼ばれる．
+
+Bayes 因子を含め，周辺尤度 $p(\theta|y)$ （エビデンスともいう）を用いた指標は，モデルの仮定に対して感度が高く，「モデルのデータへの当てはまりの良さを１つの指標にまとめた値」としては少し心許ない．
+
+このような懸念がある場合に，ベイズ事後 $p$-値などベイズ事後分布からのサンプリングを通じたモデル検証方法は posterior predictive check [@Gelman-Shalizi2013] と呼ばれ，これを多角的に行うことが一つの理想形とされている [@Gelman+2020]．
+
+## ベイズ統計解析に関する文献案内
+
+応用分野の研究者に対する「なぜベイズを使うのか？」に対する端的な回答として，「統計的有意性」などの「わかりやすい」指標に飛びついた結果，真のデータの声を聞かずに自分の見たいものを見始めてしまうと言うことが少なく，「自己欺瞞に陥りにくい」という美点があることは，[ベイズ機械学習の稿](../AI/BAI.qmd) でも触れた．
+
+$p$-値はそのような欺瞞を生む代用例であり，使用を禁止すべきとの声 [@McShane+2019] もある．その論拠は大まかに次のとおりである．
+
+そもそも $p$-値とは，「帰無仮説を採用したモデルはデータへの当てはまりの度合いが悪い」ということを言っているだけであり，$p$-値が十分に低ければそれ以上の情報は引き出せない．
+
+当然 $p$-値が $0.01$ であることと $0.00001$ であることは質的に全く変わらない [@BDA p.150]．
+
+そのことに加え $p$-値は必ずしも頑健な指標ではなく，帰無仮説を少し摂動させただけで $p$ 値が大きくなってしまうかもしれない．そのような場合は結局ほとんど帰無的であり，「統計的有意性」はほとんど無意味になってしまう．同様の議論が [@Gelman-Stern2006] で展開されている．
+
+このような現状への対処として，応用分野の研究者にもベイズ統計学は根本的な解決法として広く推奨される [@Dienes-Mclatchie2018]．[@Wagenmakers+2016] はその旨を２つの実例を通じて簡潔に実証しており，同時にベイズ統計学の考え方に対する洗練された導入を行なっている．
+
+[@vandenBergh+2020] は分散分析をベイズの方法によって実行する手引きを，特に JASP を用いて実演している．
+
+JASP のベイズ ANOVA のエンジンは R パッケージ `BayesFactor` ([CRAN](https://cran.r-project.org/web/packages/BayesFactor/index.html) / [GitHub](https://github.com/richarddmorey/BayesFactor)) を用いている．`BayesFactor` では大規模な $M$-元配置 ANOVA モデルにおいても Bayes 因子を用いたモデル比較を行うことができる．
+
+また別の角度からの説得的な議論としては，ベイズ階層モデリングは ANOVA の正統進化という理解 [@Gelman2005] である．
+
+
+
+## その他の文献案内 {.appendix}
+
+F-検定については [@吉田朋広2006-数理統計] を参考にした．
+
+ANOVA の歴史については [@Tweney2014] を参照．(repeated measures) ANOVA は多重線型回帰のうち説明変数が離散変数である場合に相当するという理解は，一般化線型モデルの発展と普及に伴って理解が広がった．
+
