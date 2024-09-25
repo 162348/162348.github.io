@@ -1,0 +1,226 @@
+---
+title: "ベイズデータ解析３"
+subtitle: "標本調査データと欠測データの扱い"
+author: "司馬 博文"
+date: 9/24/2024
+date-modified: 9/24/2024
+categories: [Statistics, Bayesian]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    標本調査において欠測はつきものである．観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は **荷重校正** (calibration weighting) が可能である．一方で，項目が欠測している場合 (item nonresponse)，**代入法** (imputation) が用いられる．
+# image: Images/Polyhazard.png
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "Survey1.qmd"
+            - "Survey2.qmd"
+            - "Survey4.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 関連記事 {.unnumbered .unlisted}
+
+::: {#lst-survey}
+:::
+
+## 有限標本論
+
+### 設定
+
+$[N]$ を母集団とする．$[N]$ の部分集合の全体 $P([N])$ 上の確率分布を **抽出計画** (sampling design) といい，ある抽出分布に従って得られる標本 $S\subset[N]$ を **確率標本** (probability sample) という．[日本語では **無作為抽出標本** などとも呼ばれる](https://www.e-stat.go.jp/classifications/terms/90/00/4937)．
+
+この設定では，**包含確率**
+$$
+\pi_i:=\P[i\in S]
+$$
+が定まる．
+
+先ほど，$\cP([N])$ 上の確率変数を確率標本と呼ぶとしたが，正確に $S$ が **確率標本** と呼ばれるためには，$\pi_i>0$ が母集団 $i\in[N]$ の全域で成り立つことが必要である [@Kim2024 p.12]．
+
+### Horvitz-Thompson 推定量
+
+確率標本 $S\in\L(\Om;\cP([N]))$ に対しては，ある量 $y$ についての母集団の総和
+$$
+Y:=\sum_{i=1}^Ny_i
+$$
+が
+$$
+\wh{Y}_\HT:=\sum_{i\in S}\frac{y_i}{\pi_i}
+$$
+により不偏推定できる．
+
+$\wh{Y}_\HT$ は [@Horvitz-Thompson1952] 推定量と呼ばれる．
+
+::: {.callout-tip title="[@Sen1953]-[@Yates-Grundy1953]" icon="false"}
+
+$$
+\V[\wh{Y}_\HT]=\sum_{i,j=1}^N\Paren{\pi_{ij}-\pi_i\pi_j}\frac{y_iy_j}{\pi_i\pi_j}.
+$$
+
+:::
+
+### 効率の改善に向けて
+
+HT 推定量は確率標本 $S$ の分布，すなわち抽出計画に依らずに不偏性を持つ．
+
+これを計画不偏性 (design-unbiasedness) というが，この性質を持つ線型な推定量は HT に限られる．
+
+しかし，HT 推定量はいつでも分散が最小というわけではない．
+
+抽出計画に関する情報を用いて，分散を低減することができる．
+
+特に，HT 推定量の荷重 $\pi_i^{-1}$ を，補助変数 $x_i$ に関する **外部一致性**
+$$
+\sum_{i\in S}w_ix_i=\ov{x}
+$$
+を保ちながら新しいものに変更するものが多く考えられた．
+
+### 比による修正
+
+ある別の変数 $x_i\in\R$ については母集団の総和
+$$
+X:=\sum_{i=1}^Nx_i
+$$
+が既知であるとする．
+
+このとき，$X$ の HT 推定量から，真の値 $X$ との「ズレ方」を用いて，$Y$ の推定量を「校正」することができる．
+
+もっとも直感的には
+$$
+\wh{Y}_{\mathrm{R}}:=\wh{Y}_\HT\frac{X}{\wh{X}_\HT}
+$$
+とできるだろう．
+
+この推定量は ratio estimator などと呼ばれ，性能の代わりにバイアスが生じてしまう．
+
+一般に，$X,Y$ が正の相関を持つとき，大きな分散低減が得られる [@Kim+2024 p.92]．
+
+$x_i=1$ と取った場合を Hajék 推定量ともいう．Hajék 推定量が HT 推定量よりも推奨される状況が [@Sarndal+1992 p.182] にリストされている．
+
+### 一般化最小二乗法 (GLS)
+
+GREG (Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) [@Aitken1936] として知られる推定量は，回帰推定量の一般化とみれる．^[この２つの類似性は [@Zieschang1990] が指摘している．一般の回帰分析の設定下では ["GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation"](https://en.wikipedia.org/wiki/Generalized_least_squares) などと説明される．]
+
+### 回帰推定量
+
+回帰推定量では一般の共変量 $x_i\in\R^p$ が，総和
+$$
+X:=\sum_{i\in[N]}x_i
+$$
+が既知である限り利用される．
+
+$$
+\wh{y}_i:=x_i^\top\wh{B},\qquad\wh{B}:=\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i
+$$
+の総和が，$Y$ に対する **回帰推定量** (regression estimator) と呼ばれる．
+
+これは $(y_i)\in\R^n$ に関する線型推定量になっている．加えて，
+$$
+\sum_{i\in S}w_ix_i=\ov{x}
+$$ {#eq-external-consistency}
+を満たす荷重
+$$
+w_i:=\ov{X}^\top\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\pi_i^{-1}x_i
+$$
+に関して，
+$$
+\wh{Y}_{\mathrm{reg}}=\sum_{i\in S}w_iy_i
+$$
+という形の線型推定量になっている．
+
+式 ([-@eq-external-consistency]) を **外部一致性** (external consistency)，または **校正条件** (calibration / benchmarking property) [@Deville-Sarndal1992] という．
+
+回帰推定量は抽出計画に依らず一致性を持ち，$X,Y$ の間の相関の絶対値が大きいほど，分散低減効果が高くなる [@Kim+2024 p.95]．^[この抽出計画に依らない性質を以て，[@Sarndal+1992] は model-assisted 推定量と呼んでいる．model-dependent 推定量とは対照的である．]
+
+### 事後層別化
+
+**事後層別化** (post-stratification / stratification after selection) は標本抽出の結果を見て標本を層別化する手法であるが，回帰推定量の特別な場合と見れる．
+
+母集団が $G$ 個の層に分けられるとする：$N=N_1+\cdots+N_G$．
+
+このとき，$i\in[N]$ 番目の単位が層 $g\in[G]$ に属するかどうかの指示変数 $x_{ig}\in2$ のベクトル $x_i:=(x_{i1},\cdots,x_{iG})^\top\in2^G$ に関する回帰推定量
+\begin{align*}
+  \wh{Y}_{\mathrm{post}}&:=\sum_{i=1}^Nx_i^\top\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i\\
+  &=\sum_{g=1}^G\sum_{i\in S_g}\pi_i^{-1}\frac{N_g}{\wh{N}_g}y_i,\qquad\wh{N}_g:=\sum_{i\in S}\pi_i^{-1}x_{ig}.
+\end{align*}
+を事後層別化推定量という．
+
+MRP (Multilevel Regression and Post-stratification) [@Gelman-Little1997], [@Gelman2014] は事後層別化の階層モデル・縮小推定版である．
+
+### ランキング法／繰り返し比例的フィッティング法
+
+[@Deming-Stephan1940] では 1940 年の国勢調査の結果の分析を考えていた．
+
+特に，基本的な情報は全数調査されるが，詳細な情報は標本調査でしか得られない状況下で，母集団の $I\times J$ 分割表の各セルの値 $N_{ij}$ の推定を考えていた．
+
+ただし，周辺和 $N_{i-},N_{-j}$ は全数調査で得られているとする．
+
+このとき，$N_{ij}$ の推定量の候補として
+$$
+\frac{n_{ij}}{n_{i-}}N_i,\quad\frac{n_{ij}}{n_{-j}}N_{-j},\quad\frac{n_{ij}}{n}N
+$$
+の３つが考えられる．３番目が良いと考えるかもしれないが，その結果得られる分割表は周辺和を保存しない．
+
+## 欠測データの扱い
+
+### はじめに
+
+観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は **荷重校正** (calibration weighting) が可能である．
+
+一方で，項目が欠測している場合 (item nonresponse)，**代入法** (imputation) が用いられる．^[総務省統計局では，Imputation の訳語として「補定」を用いる．]
+
+### 単位非反応の場合
+
+標本の観測 $Y_i$ は，$\delta_i=0$ のとき欠損しているとする．
+
+#### MAR 条件
+
+加えて，標本全体についてある変数 $X$ が観測できており，これについて次の条件が成り立つとする：
+
+::: {.callout-tip appearance="simple" icon="false" title="[MAR condition @Rubin1976]"}
+
+欠測の指示変数 $\delta$ について，
+$$
+\P[\delta=1|X,Y]=\P[\delta=1|X]=:p(X)
+$$
+が成り立つ．
+
+:::
+
+これは条件付き独立性 $\delta\indep Y\mid X$ を意味し，MAR (Missing At Random) の条件と呼ばれる．^[$Y\to X\to\delta$ が Markov 連鎖をなす，とも換言できる．]
+
+#### 欠測メカニズムの推定
+
+欠測確率 $p(x):=\P[\delta=1|X=x]$ にノンパラメトリックなモデル $p_\phi(x)$ を課したとする．
+
+このとき，パラメータ $\phi$ は擬似最尤推定量 $\wh{\phi}$ により一致推定をすることができる．
+
+#### 傾向スコア
+
+仮に母平均
+$$
+Y:=\sum_{i=1}^Ny_i
+$$
+が推定対象であったとしよう．
+
+このとき，推定された $\wh{\phi}$ を元に，次の推定量が構成できる：
+
+$$
+\wh{Y}_\PS:=\sum_{i\in\delta^{-1}(1)}
+$$
+
+::: {.callout-tip title="命題（傾向スコア推定量の一致性）" icon="false"}
+
+欠測確率 $p$ のモデル $p_\phi(x)$ の特定に成功しているとき，ある正則性に関する条件が満たされる限り，傾向スコア推定量 $\wh{Y}_\PS$ は一致推定量に $n^{-1}$ のオーダーで漸近する．
+
+:::
