@@ -3,7 +3,7 @@ title: "ベイズデータ解析３"
 subtitle: "標本調査データと欠測データの扱い"
 author: "司馬 博文"
 date: 9/24/2024
-date-modified: 9/24/2024
+date-modified: 9/25/2024
 categories: [Statistics, Bayesian]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -107,11 +107,7 @@ $$
 
 $x_i=1$ と取った場合を Hajék 推定量ともいう．Hajék 推定量が HT 推定量よりも推奨される状況が [@Sarndal+1992 p.182] にリストされている．
 
-### 一般化最小二乗法 (GLS)
-
-GREG (Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) [@Aitken1936] として知られる推定量は，回帰推定量の一般化とみれる．^[この２つの類似性は [@Zieschang1990] が指摘している．一般の回帰分析の設定下では ["GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation"](https://en.wikipedia.org/wiki/Generalized_least_squares) などと説明される．]
-
-### 回帰推定量
+### 回帰推定量 {#sec-regression-estimator}
 
 回帰推定量では一般の共変量 $x_i\in\R^p$ が，総和
 $$
@@ -171,32 +167,137 @@ $$
 $$
 の３つが考えられる．３番目が良いと考えるかもしれないが，その結果得られる分割表は周辺和を保存しない．
 
-そこで，指示変数
+この問題は次のような形でも現れる：指示変数
 $$
 x_k=(x_{1-k},\cdots,x_{I-k},x_{-1k},\cdots,x_{-Jk}),\qquad x_{ijk}:=1_{U_{ij}}(k),
 $$
 に基づく事後層別化推定量
 $$
-\wh{Y}_
+\wh{Y}_{\mathrm{post}}=\sum_{i\in S}\pi_i^{-1}g_i(S)y_i,\qquad g_i(S):=\paren{\sum_{k=1}^Nx_k}^\top\paren{\sum_{k\in S}\pi_k^{-1}x_kx_k^\top}^{-1}x_i
 $$
+を考えたいが，これが $\rank\paren{\sum_{k\in S}\pi_k^{-1}x_kx_k^\top}=I+J-1$ であるため，一意な表示を持たない．
+
+$g_i(S)$ の候補のうち，次を満たす $g_i$ を選ぶことが目標である：
+$$
+\sum_{k\in S}\frac{g_k}{\pi_k}x_{i-k}=\sum_{k=1}^Nx_{i-k}=N_{i-},
+$$ {#eq-column}
+$$
+\sum_{k\in S}\frac{g_k}{\pi_k}x_{-jk}=\sum_{k=1}^Nx_{-jk}=N_{-j}.
+$$ {#eq-row}
+
+::: {.callout-tip appearance="simple" icon="false" title="[Iterative Proportional Fitting / Ranking algorithm @Deming-Stephan1940]"}
+
+1. $g^{(0)}_k\gets1$ と初期化する．
+2. $x_{i-k}=1$ すなわち $k\in U_{i-}$ であるとき，
+  $$
+  g^{(t+1)}_k\gets g_k^{(t)}\frac{\sum_{k=1}^Nx_{i-k}}{\sum_{k\in S}\frac{g^{(t)}_k}{\pi_k}x_{i-k}}.
+  $$
+  これにより条件 ([-@eq-column]) が満たされる．
+3. $z_{-jk}=1$ すなわち $k\in U_{-j}$ であるとき，
+  $$
+  g^{(t+2)}_k\gets g_k^{(t+1)}\frac{\sum_{k=1}^Nx_{-jk}}{\sum_{k\in S}\frac{g^{(t+1)}_k}{\pi_k}x_{-jk}}.
+  $$
+  これにより条件 ([-@eq-row]) が満たされる．
+4. 収束するまで繰り返す．
+
+:::
+
+これは特定の目的関数を最小化することに等しい．[@Deming-Stephan1940 p.428], [@Zieschang1990], [@Deville-Sarndal1993] も参照．
+
+### 差分推定量
+
+補助的な量 $y_i^{(0)}$ が母集団全体で観測されている場合，
+$$
+\wh{Y}_{\mathrm{diff}}:=\sum_{i=1}^Ny_i^{(0)}+\sum_{i\in S}\pi_i^{-1}\paren{y_i-y_i^{(0)}}
+$$
+は **差分推定量** (difference estimator) と呼ばれる．
+
+HT 推定量同様不偏であるが，分散の値は変化し，特に $y_i^{(0)}$ が $y_i$ の良い近似であるほど分散が小さくなる [@Kim2024 p.99]．
+
+この $y_i$ の proxy とも言える量 $y_i^{(0)}$ を，他の共変量 $x_i$ から回帰により構成することで，回帰推定量（第 [-@sec-regression-estimator] 節）よりも複雑な $x_i,y_i$ 関係もうまく取り込んだ分散低減が可能になる．
+
+これを **model-assisted estimation** という．
+
+### 一般化最小二乗法 (GLS)
+
+まず母集団 $[N]$ にモデルを当てはめる：
+$$
+y_i=x_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,c_i(x_i)\sigma^2).
+$$ {#eq-superpopulation-model}
+このように母集団に置かれるモデルを **超母集団モデル** (superpopulation model) [@Isaki-Fuller1982] ともいう．特に式 ([-@eq-superpopulation-model]) の Gauss-Markov 型の超母集団モデルを **一般化回帰モデル** (GREG: Generalized Regression) ともいう．
+
+これを解いて得る推定量 $\wh{y}_i=x_i^\top\wh{\beta}_c$ の総和として得られる推定量
+$$
+\wh{Y}_{\mathrm{P}}:=\sum_{i=1}^N\wh{y}_i
+$$
+を **射影推定量** (projection estimator) という．
+
+仮に GREG モデルで
+$$
+\frac{c_i}{\pi_i}\parallel x_i
+$$
+が成り立つならば，内部バイアス校正 (IBC: Internally Biased Calibration) [@Firth-Bennett1998] 条件
+$$
+\sum_{i\in S}\frac{1}{\pi_i}(y_i-\wh{y}_i)=0
+$$
+が成り立つ．これは射影推定量が抽出計画に依らずに一致性を持つための十分条件である．
+
+そうでない場合でも，
+$$
+\wh{Y}_{\mathrm{GREG}}:=\wh{Y}_\HT+\Paren{X-\wh{X}_\HT}^\top\wh{\beta}_c
+$$
+は計画一致性を持つ．これは **一般化回帰推定量** (GREG: Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) [@Aitken1936] と呼ばれる．^[この２つの類似性は [@Zieschang1990] が指摘している．一般の回帰分析の設定下では ["GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation"](https://en.wikipedia.org/wiki/Generalized_least_squares) などと説明される．]
+
+これは，次の表示を持つためである：
+$$
+\wh{Y}_{\mathrm{GREG}}=\sum_{i\in S}\wh{\om}_iy_i,\qquad\wh{\om}_i:=\pi_i^{-1}+\paren{X-\wh{X}_\HT}^\top\paren{\sum_{i\in S}\frac{1}{c_i}x_ix_i^\top}^{-1}\frac{x_i}{c_i}.
+$$
+この荷重 $\wh{\om}_i$ は，**校正条件** (calibration constraint) （式 ([-@eq-external-consistency]) との違いに注意）を満たすものの中で
+$$
+Q(\om):=\sum_{i\in S}(\om_i-d_i)^2c_i,\qquad d_i:=\pi_i^{-1},\quad\subjectto \sum_{i\in S}\om_ix_i=\sum_{i=1}^Nx_i.
+$$
+を最小にするものとも特徴付けられる．
+
+### 校正推定量
+
+一般に，校正条件制約を満たす $(\om_i)$ のうち，特定の目的関数 $Q$ を最小にするものを **校正荷重** (calibration weight)，校正荷重に関する線型推定量を **校正推定量** (calibration estimator) という [@Kim2024 p.103]．
+
+特に，
+$$
+Q(\om)=\sum_{i\in S}\om_i^2c_i
+$$
+を最小化するものは **最適校正推定量** と呼ばれる [@Kim2024 p.110]．
+
+一般に，有限母集団に対する確率標本からの一様最小分散不偏推定量 (UMVUE) は存在しない [@Godambe-Joshi1965] が，GREG 推定量は「期待漸近分散」の下界を達成する [@Isaki-Fuller1982]．
+
+しかし校正推定量は，超母集団モデル ([-@eq-superpopulation-model]) が誤特定されている場合に GREG 推定量より良い性能を示す [@Kim2024 p.112]．
+
+校正荷重を見つける他の方法には，**モデル校正** (model calibration) [@Wu-Sitter2001] がある．この方法では校正条件制約を，超母集団モデルに基づいて別の形のものにする．
 
 ## 欠測データの扱い
 
 ### はじめに
 
-観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は **荷重校正** (calibration weighting) が可能である．
+観測単位が欠測している場合 (unit nonresponse)，call-back / follow-up 調査を行うか，それができない場合は次の２つの対処が可能である：
+
+1. 欠測メカニズムを抑える共変量は見えている場合（MAR 条件），傾向スコア推定量が利用可能（第 [-@sec-propensity-score] 節）．これは欠測メカニズムのモデリングに基づく．
+2. 一般の校正推定量に対しても，
+
+単位欠測の場合は，２段階の標本抽出と状況が似ているのである．
 
 一方で，項目が欠測している場合 (item nonresponse)，**代入法** (imputation) が用いられる．^[総務省統計局では，Imputation の訳語として「補定」を用いる．]
 
-### 単位非反応の場合
+現状は多重代入法（第 [-@sec-MI] 節）が主流であると言える [@vanBuuren2018]．
+
+### 傾向スコア推定量 {#sec-propensity-score}
 
 標本の観測 $Y_i$ は，$\delta_i=0$ のとき欠損しているとする．
 
-#### MAR 条件
+#### MAR 条件：欠測のメカニズムを抑える共変量が観測できている
 
 加えて，標本全体についてある変数 $X$ が観測できており，これについて次の条件が成り立つとする：
 
-::: {.callout-tip appearance="simple" icon="false" title="[MAR condition @Rubin1976]"}
+::: {.callout-tip appearance="simple" icon="false" title="[MAR condition @Rubin1976]^[最も古典的な形のものであり，母集団上の条件であることから，population MAR とも呼ばれる．母集団上の MAR と抽出計画の無視可能性 [@Sugden-Smith1984] との２条件が成り立つとき，標本の MAR が成り立つ [@Berg+2016]．]"}
 
 欠測の指示変数 $\delta$ について，
 $$
@@ -214,7 +315,7 @@ $$
 
 このとき，パラメータ $\phi$ は擬似最尤推定量 $\wh{\phi}$ により一致推定をすることができる．
 
-#### 傾向スコア
+#### 傾向スコア推定量
 
 仮に母平均
 $$
@@ -225,11 +326,166 @@ $$
 このとき，推定された $\wh{\phi}$ を元に，次の推定量が構成できる：
 
 $$
-\wh{Y}_\PS:=\sum_{i\in\delta^{-1}(1)}
+\wh{Y}_\PS:=\sum_{i\in\delta^{-1}(1)}\frac{1}{\pi_i}\frac{y_i}{p_{\wh{\phi}}(x_i)}.
 $$
 
-::: {.callout-tip title="命題（傾向スコア推定量の一致性）" icon="false"}
+::: {.callout-tip title="命題（傾向スコア推定量の一致性）^[[@Kim2024 p.154] 定理12.1も参照．]" icon="false"}
 
 欠測確率 $p$ のモデル $p_\phi(x)$ の特定に成功しているとき，ある正則性に関する条件が満たされる限り，傾向スコア推定量 $\wh{Y}_\PS$ は一致推定量に $n^{-1}$ のオーダーで漸近する．
 
 :::
+
+### 校正推定量
+
+ある校正荷重 $(d_i)$ に関して，計画一致性を持つ推定量
+$$
+\wh{Y}=\sum_{i\in S}d_iy_i
+$$
+を考えているが，単位欠測により特定の $y_i$ が得られず，計算できないものとする．
+
+この場合でも，応答があった部分標本
+$$
+S_R:=\delta^{-1}(1)
+$$
+上の校正推定量
+$$
+\wh{Y}_\om:=\sum_{i\in S_R}\om_iy_i
+$$
+であって，欠測メカニズム $p(x)$ の特定か，または超母集団モデル
+$$
+y_i=x_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,c_i\sigma^2)
+$$
+の特定に成功すれば一致性を持つ，二重頑健なものを構成できる [@Kim-Haziza2014]．
+
+### 代入法
+
+項目非反応がある場合，代入値を $y_i^*$ として
+$$
+\wh{Y}_{\rI}:=\sum_{i\in S}\frac{1}{\pi_i}\Paren{\delta_iy_i+(1-\delta_i)y_i^*}
+$$
+による推定が試みられる．
+
+代入 $y_i^*$ を行うことでリストワイズの削除をするよりも効率を上げることができる．
+
+::: {.callout-tip title="[代入推定量の不偏性 @Kim2024 p.162]" icon="false"}
+
+$$
+\E[Y^*|\delta=0]=\E[Y|\delta=1]
+$$
+が成り立つならば，$\wh{Y}_\rI$ は不偏推定量である．
+
+:::
+
+この条件は，標本内で MAR 条件が成り立つとき：
+$$
+Y|(X,\delta=1)=Y|(X,\delta=0)
+$$
+$Y^*$ を $Y|(X,\delta=1)$ からのサンプリングで代入すれば達成される．
+
+換言すれば代入法において，欠測の原因 $X$ を突き止め，欠測したグループにおける $Y$ の値 $Y|(X,\delta=1)$ にモデルを立て，そこからサンプリングをすることを目指す．
+
+### 回帰による代入
+
+共変量により母集団を $[N]=N_1+\cdots+N_G$ 個のグループに分け，
+$$
+Y_i=X_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,\sigma^2)
+$$ {#eq-semiparametric-model}
+というセミパラメトリック回帰モデルを考える．
+
+推定されたモデルを用いて，$\ep_i^*\sim(0,\sigma^2)$ を残差
+$$
+\wh{ep}_i:=y_i-x_i^\top\wh{\beta}
+$$
+の分布から（リ）サンプリングし，
+$$
+y_i^*\gets x_i^\top\wh{\beta}+\ep_i^*
+$$
+を代入値とする．
+
+以上の手続きは **確率的回帰代入法** (stochastic regression imputation) と呼ばれる．
+
+conditional mean imputation などの Least squares method も同様の考え方に基づく [@Little1992]．
+
+### モデルベースの代入法
+
+回帰による代入におけるモデル ([-@eq-semiparametric-model]) を，単なる Gauss-Markov モデルに限らず一般の統計モデルに取り替えることを考える．
+
+具体的には，$Y|X$ の尤度を $f_\theta(y|x)$ としてモデリングをし，これを
+$$
+\ell(\theta):=\sum_{i\in S}w_i\delta_i\log f_\theta(y_i|x_i)
+$$
+の最大化によって $M$-推定する．ただし，$w_i$ は $Y$ の計画一致性を持つ校正推定量を定める校正荷重であるとする．
+
+最終的に学習されたモデル $f_\theta(y|x_i)$ からのサンプリングによって代入値 $y_i^*$ を生成する．
+
+このモデル $f_\theta(y|x_i)$ を当てはまりの度合いを見ながらベイズ推論によって得る方法もよく取られるようになっている [@Enders+2020]．
+
+### 多重代入法 {#sec-MI}
+
+多重代入法では，モデルベースの代入法をさらに推し進める．
+
+本来の推定量
+$$
+\wh{Y}=\sum_{i\in S}w_iy_i
+$$
+を代入推定量
+$$
+\wh{Y}_\rI=\sum_{i\in S}w_i\Paren{\delta_iy_i+(1-\delta_i)y_i^*},\qquad y_i^*\sim f_\theta(y_i|x_i)
+$$
+で模倣する際，ベイズ事後分布で
+$$
+y_i^*\sim f(y_i|y_{\text{obs}})
+$$
+によって補間することが理想的である．
+
+::: {.callout-tip appearance="simple" icon="false" title="[Multiple Imputation @Rubin1978MI]"}
+
+1. 事後予測分布から補間値を $M$ 個生成する：
+  $$
+  y_i^{(j)}\sim f(y_i|y_{\text{obs}}),\qquad j\in[M].
+  $$
+1. それぞれの補間値について推定量 $\wh{Y}^{(j)}$ を計算し，その平均を最終的な推定値とする：
+  $$\newcommand{\MI}{\mathrm{MI}}
+  \wh{Y}_\MI:=\frac{1}{M}\sum_{j=1}^M\wh{Y}^{(j)}.
+  $$
+
+:::
+
+[@Royston-White2011] は $M\approx10^3$ を推奨している．
+
+### 連鎖方程式による多重代入
+
+多重代入法において事後予測分布から補間値を生成することは，$Y$ に関してモデルを立てる必要があるためネックになりがちである．
+
+**相互条件付き識別性** (FCS: Fully Conditional Specification) [@vanBuuren+2006] が成り立つモデルについては，モデルの具体的な形に依らない Gibbs サンプラーによるサンプリングが可能になる．
+
+これを **連鎖方程式による多重代入** (MICE: Multiple Imputation by Chained Equations) [@vanBuuren-Groothuis-Oudshoorn2011] といい，R 言語 `mice` パッケージで実装されている．
+
+> その実用性も相まってか，近年の Lancet 誌，New England Journal of Medicine 誌のレビューでは，欠測データの取り扱いに最も多く用いられている手法は MICE であるという報告もある[@Rezvan+2015]．<br>
+> [@野間久史2017 p.75]
+
+### その他の代入法
+
+ランダムな欠損ではなく，計画された大規模な欠損がある場合は，two-phase sampling の考え方を応用することができる [@Kim2024 p.173]．
+
+### 代入をしない
+
+代入をせず，欠測しているなら欠測したままで最尤推定を実行することも考えられる．
+
+このアプローチは **完全情報最尤推定** (FIML: Full Information Maximum Likelihood)，より最近では　pairwise likelihood estimation とも呼ばれる．^[完全情報最尤推定の言葉は初期の構造方程式モデリングプログラム AMOS に組み込まれて有名になっていた [@Enders+2001]．]
+
+ただし，推定されたモデルから，欠測値を代入してから結果を出してももちろん良い．ベイズの観点からは，モデルの平均を取ってから予測することに当たる．^[そういえば Bayes 的な integral out に関して doubly robust という考え方はないのか？doubly robust の Bayesian counterpart はなんだろう？]
+
+[1.6節 @vanBuuren2018] も参照．
+
+### 欠測値をどう扱うべきか？
+
+いつでも多重代入法を使えば良いというものではない．例えば $(X,Y)$ の関数関係が知りたい状況下で被説明変数 $Y$ の欠損は無視し，リストワイズ消去をした complete-case analysis が代入法と等価になる．
+
+他にも complete-case analysis や代入をしない方がむしろ適切な場合は多い [2.7節 @vanBuuren2018]．
+
+## 終わりに {.appendix}
+
+パッケージに実装される都合上，多重代入法はパラメトリックな手法であるという言説があるが，必ずしもそうである必要はない．この場合，傾向スコア推定量や校正推定量がセミパラメトリックな手法と呼ばれる．
+
+また，多重代入法は，
