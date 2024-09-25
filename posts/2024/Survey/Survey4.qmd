@@ -1,9 +1,9 @@
 ---
 title: "ベイズデータ解析４"
-subtitle: "非確率標本の解析"
-author: "司馬 博文"
+subtitle: "アンケートデータ・非確率標本の解析"
+author: "司馬博文"
 date: 9/24/2024
-date-modified: 9/24/2024
+date-modified: 9/25/2024
 categories: [Statistics, Bayesian]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -21,7 +21,7 @@ listing:
         contents:
             - "Survey1.qmd"
             - "Survey2.qmd"
-            - "../Computation/brms.qmd"
+            - "Survey3.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -33,21 +33,103 @@ listing:
 ::: {#lst-survey}
 :::
 
-## 設定
+## 非確率標本とは何か？
+
+> Generally speaking, these designs have not been explored in detail by survey researchers even though they are frequently used in other applied research ﬁelds. [@Baker+2013 p.91]
 
 母集団 $[N]$ から部分集合 $S\subset[N]$ が標本として抽出されたとする．
 
 ### 非確率抽出
 
-この手続きは[確率抽出](https://www.e-stat.go.jp/classifications/terms/90/00/4937) (probability sampling) ではなく，各母集団の元 $i\in[N]$ が標本 $S$ にも含まれる確率が正でなかったり，未知であったりするものとする．
+この手続きは[確率抽出](https://www.e-stat.go.jp/classifications/terms/90/00/4937) (probability sampling) ではないものとする．
 
-$\delta_i:=1_S(i)$ が $\delta_i=1$ を満たすときのみ $y_i$ が観測されるとする．
-
-このとき，補助情報 $x_i\;(i\in S)$ が利用可能であるとし，この下で母平均
+確率標本とは $[N]$ の部分集合の全体 $P([N])$ 上の既知の確率分布に従っているとみなせる標本で，さらに何人も標本に選ばれる確率が零でないもの
 $$
-Y:=\sum_{i=1}^Ny_i
+\pi_i:=\P[i\in S]>0
 $$
-の推定を考えよう．
+をいう．詳しくは，[前稿](Survey3.qmd#sec-probability-sample) も参照．
 
-### 抽出過程の無視可能性
+すなわち，$S\in\L(\Om;P([N]))$ の従う分布が未知であったり，抽出計画上絶対に標本に入り得ない単位が存在する場合をいう．
 
+### 例
+
+母集団 $[N]$ を国民全体だとした場合，確率抽出は国勢調査規模の営為によってのみしか達成し得ない．
+
+多くの科学分野で実施されるような，特定の学校の学生や特定の地域の構成員を対象としたサンプル　[**便宜的標本**](https://en.wikipedia.org/wiki/Convenience_sampling) (convenience sample) は全て非確率標本に分類されることになる．
+
+また多くのウェブアンケート代行業者は，事前にアンケートに協力することを約束したユーザーのプールからランダムに抽出して実行する．このような，自主的な応募によって得られたパネルを opt-in panel / panel of volunteers といい，ここからのサンプルもまた便宜的（二段階抽出）標本である．
+
+そのほかの非確率的標本の例については，[Section 3 @AAOR2013] を参照．
+
+### バイアス低減
+
+各単位 $i\in[N]$ が標本に包含される確率
+$$
+\pi_i:=\P[i\in S],\qquad i\in [N],
+$$
+が未知である場合でも，母集団 $[N]$ 上で
+$$
+\pi_i^{-1}\propt x_i^\top\lambda,\qquad i\in[N],
+$$
+を満たす補助変数 $x_i\;(i\in[N])$ が利用可能ならば，推定のバイアスを低減することが可能である．
+
+### 傾向スコア
+
+したがって $\pi_i$ を推定することが問題になる．
+
+$\delta_i:=1_S(i)$ が $\delta_i=1$ を満たすときのみ $y_i$ が観測されるとすると，
+
+$$
+\pi(x):=\P[\delta=1|X=x]
+$$
+を **傾向スコア** (propensity score) [@Rosenbaum-Rubin1983] という．
+
+傾向スコアを推定することで確率標本の議論に帰着させるというアプローチは quasi-randomization approach とも呼ばれる [@Elliott-Valliant2017]．
+
+## 校正推定量
+
+### 確率標本に対する校正推定量
+
+GREG モデルと呼ばれる超母集団模型
+$$
+y_i=x_i^\top\beta+e_i,\qquad e_i\iidsim(0,c_i(x_i)\sigma^2),
+$$ {#eq-super-population-model}
+を仮定する．校正条件
+$$
+\sum_{i\in S}\om_ix_i=\sum_{i=1}^Nx_i
+$$ {#eq-calibration-condition}
+を満たす荷重 $(\om_i)$ を用いた線型推定量
+$$
+\wh{Y}_{\mathrm{cal}}:=\sum_{i\in S}\om_iy_i
+$$
+を **校正推定量** (calibration estimator) といい，抽出計画が **無視可能** (ignorable) である限り $Y$ の不偏推定量になる．
+
+ここまでは [前稿](Survey3.qmd) で見た通りである．
+
+### 非確率標本に対する校正推定量
+
+こうなると $\sum_{i=1}^Nx_i$ が判明・推定すれば良いので，校正推定量に関しては [欠測データに対する対処](Survey3.qmd#sec-calibration-estimator-for-missing-data) と同様に，傾向スコアの推定を通じて非確率標本に対応することができる．
+
+これには超母集団模型 ([-@eq-super-population-model]) に加えて，傾向スコア
+$$
+\P[\delta=1|X=x]=:\pi(x)
+$$
+に対してもモデル $(\pi_\phi)$ をおく必要がある．
+
+このとき，$G\in C^2(\R)$ を強凸関数，$g:=G'$ として
+$$
+Q(\om):=\sum_{i\in S}G(\om_i)c_i(x_i)
+$$
+を，校正条件 ([-@eq-calibration-condition]) と完全情報の下で最尤推定された $\wh{\phi}$ を用いて推定した傾向スコア $\wh{\pi}_i:=\pi(\wh{\phi}(x_i))$ に関して
+$$
+\sum_{i\in S}\om_ig(\wh{\pi}_i^{-1})c_i=\sum_{i=1}^Ng(\wh{\pi}_i^{-1})c_i(x_i)
+$$ {#eq-debiasing-constraint}
+を満たす中で最小化する荷重 $(\om_i)$ を用いた校正推定量は，二重頑健性を持つ．
+
+制約 ([-@eq-debiasing-constraint]) は選択バイアスを抑える役割を持ち，脱偏倚制約 (de-biasing constraint) とも呼ばれる [@Kim2024 p.198]．
+
+## 文献案内 {.appendix}
+
+[@Kim2024] を最も参考にした．他によく読んだものは [@AAOR2013], [@Elliott-Valliant2017]．
+
+セミパラメトリック推定に関する日本語文献は [@逸見昌之2014]．
