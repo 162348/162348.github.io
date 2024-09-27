@@ -1,9 +1,9 @@
 ---
 title: "ベイズデータ解析４"
-subtitle: "アンケートデータ・非確率標本の解析"
+subtitle: "アンケートデータとデータ統合"
 author: "司馬博文"
 date: 9/24/2024
-date-modified: 9/25/2024
+date-modified: 9/27/2024
 categories: [Statistics, Bayesian]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -39,17 +39,17 @@ listing:
 
 母集団 $[N]$ から部分集合 $S\subset[N]$ が標本として抽出されたとする．
 
-### 非確率抽出
+この抽出計画 (sampling design / mechanism) が未知である場合，これを **非確率標本** (nonprobability sample) という．
 
-この手続きは[確率抽出](https://www.e-stat.go.jp/classifications/terms/90/00/4937) (probability sampling) ではないものとする．
+### 非確率標本
 
-確率標本とは $[N]$ の部分集合の全体 $P([N])$ 上の既知の確率分布に従っているとみなせる標本で，さらに何人も標本に選ばれる確率が零でないもの
+[**確率抽出**](https://www.e-stat.go.jp/classifications/terms/90/00/4937) (probability sampling) とは $[N]$ の部分集合の全体 $P([N])$ 上の既知の確率分布に従っているとみなせる標本で，さらに何人も標本に選ばれる確率が零でないもの
 $$
 \pi_i:=\P[i\in S]>0
 $$
 をいう．詳しくは，[前稿](Survey3.qmd#sec-probability-sample) も参照．
 
-すなわち，$S\in\L(\Om;P([N]))$ の従う分布が未知であったり，抽出計画上絶対に標本に入り得ない単位が存在する場合をいう．
+すなわち非確率標本とは，$S\in\L(\Om;P([N]))$ の従う分布が未知であったり，抽出計画上絶対に標本に入り得ない単位が存在する場合をいう．
 
 ### 例
 
@@ -59,18 +59,50 @@ $$
 
 また多くのウェブアンケート代行業者は，事前にアンケートに協力することを約束したユーザーのプールからランダムに抽出して実行する．このような，自主的な応募によって得られたパネルを opt-in panel / panel of volunteers といい，ここからのサンプルもまた便宜的（二段階抽出）標本である．
 
+以上の理由から，多くの「ビッグデータ」と呼ばれるデータは非確率標本である [@Meng2018], [@Kim-Tam2021]．
+
 そのほかの非確率的標本の例については，[Section 3 @AAOR2013] を参照．
+
+### 自己選択バイアスの問題
+
+このような非確率標本では，特定のクラスの単位を包摂できていない問題 (frame undercoverage) や，自ら進んで応募して標本に入ることで生じる交絡とバイアス (self-selection bias) が問題になる．^[すごく大雑把には，収入が高い人ほど収入に関するアンケートに参加しやすい，ウェブに関心のある人ほどウェブアンケートを受けやすい，など．]
+
+端的に言えば，**ランダムな欠測** (MAR: Missing At Random) [@Rubin1976] の仮定が成り立たず，多くの欠測データ手法はそのままでは適用できないことが問題になる．
 
 ### データ統合
 
-このような非確率標本単体では出来ることが限られているかもしれないが，補助情報と組み合わせてモデルを立てることで統計的推論を試みることができる．
+非確率標本単体では出来ることが限られているかもしれないが，補助情報と組み合わせてモデルを立てることで統計的推論を試みることができる．
 
-| Sample | Design | X | Y |
-|:----:|:----:|:---:|:---:|
-| A | Probability | X | [missing]{.color-unite} |
-| B | Nonprobability | X | Y |
+| Data | Design | Representative? | X | Y |
+|:----:|:----:|:---:|:---:|:---:|
+| A | Probability | Yes | X | [missing]{.color-unite} |
+| B | Nonprobability | No | X | Y |
 
-: 典型的なデータの例 {.hover .responsive-sm tbl-colwidths="[10,70,10,10]"}
+: 典型的なデータの例 {.hover .bordered .responsive-sm tbl-colwidths="[10,40,30,10,10]"}
+
+確率標本 A をビッグデータ B と紐づけられるという状況はかなら理想的であるが，仮にこのような dual frame estimation [@Hartley1962], [@Skinner-Rao1996] の一部として非確率標本を扱えるときは，B を A の補助情報とみることで従来の校正荷重による推定の理論が利用可能になる．[校正推定量については前稿も参照](Survey3.qmd)．
+
+例えば A を実験データ，B を観察データとしたデータ統合の試みは計量経済学においても進んでいる [@Athey+2019], [@Athey+2020], [@Park-Sasaki2024]．B をオルタナティブデータと呼ぶ向きもある．
+
+実はこれから見るように，非確率標本の過小包摂性 (under coverage) は，単純ランダム抽出ではない抽出計画による確率標本のバイアス補正の議論に帰着し，自己選択バイアス (self-selection bias) の補正は欠測データの議論に帰着する [@Kim-Tam2021]．
+
+### データ統合の方法
+
+大きく分けて次の３通りが考えられる [@Salvatore2024]：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+1. [荷重校正による方法]{.underline} [@Elliot2009], [@Robbins+2020]
+
+  非確率標本はあくまで確率標本の補助情報とし，荷重校正を実施する．
+
+2. [擬似ランダム化による方法]{.underline} [@Elliott-Valliant2017]
+
+  自然によるランダム化が行われたとし，これを推定するステップを追加することで確率標本の議論に帰着させる．
+
+3. [大量代入 (mass imputation) による方法]{.underline} [@Kim+2021]
+
+:::
 
 ### バイアス低減
 
@@ -93,9 +125,9 @@ $\delta_i:=1_S(i)$ が $\delta_i=1$ を満たすときのみ $y_i$ が観測さ�
 $$
 \pi(x):=\P[\delta=1|X=x]
 $$
-を **傾向スコア** (propensity score) [@Rosenbaum-Rubin1983] という．
+を **包含確率** または **傾向スコア** (propensity score) [@Rosenbaum-Rubin1983] という．^[包含確率の用語は標本調査論による．傾向スコアは欠測データ解析による．]
 
-傾向スコアを推定することで確率標本の議論に帰着させるというアプローチは quasi-randomization approach とも呼ばれる [@Elliott-Valliant2017]．
+「未知のランダム化メカニズム $\pi$」を想定し，これを推定することで確率標本の議論に帰着させるというアプローチは quasi-randomization approach とも呼ばれる [@Elliott-Valliant2017], [@Beresovsky+2024]．
 
 ## 校正推定量
 
@@ -144,3 +176,5 @@ $$ {#eq-debiasing-constraint}
 [@Kim2024] を最も参考にした．他によく読んだものは [@AAOR2013], [@Elliott-Valliant2017]．
 
 セミパラメトリック推定に関する日本語文献は [@逸見昌之2014]．
+
+非確率標本の確率標本と組み合わせた利用については，計量経済学の文献を除いても [@Lohr-Raghunathan2017], [@Meng2018], [@Hand2018], [@Robbins+2020], [@Rao2021], [@Beaumont-Rao2021], [@Angelopoulos2023], [@Golini-Righi2024], [@Salvatore2024] などがあり，大変盛り上がってきている印象がある．
