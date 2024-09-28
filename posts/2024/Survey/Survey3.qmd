@@ -3,7 +3,7 @@ title: "ベイズデータ解析３"
 subtitle: "標本調査データと欠測データの扱い"
 author: "司馬博文"
 date: 9/24/2024
-date-modified: 9/25/2024
+date-modified: 9/28/2024
 categories: [Statistics, Bayesian]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -13,7 +13,7 @@ csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
     標本調査において欠測はつきものである．観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は **荷重校正** (calibration weighting) が可能である．一方で，項目が欠測している場合 (item nonresponse)，**代入法** (imputation) が用いられる．
-# image: Images/Polyhazard.png
+image: Files/Horvitz-Thompson.svg
 listing: 
     -   id: lst-survey
         type: grid
@@ -33,19 +33,40 @@ listing:
 ::: {#lst-survey}
 :::
 
-## 有限標本論
+## 有限標本論の概要
 
 ### 設定 {#sec-probability-sample}
 
-$[N]$ を母集団とする．$[N]$ の部分集合の全体 $P([N])$ 上の確率分布を **抽出計画** (sampling design) といい，ある既知の抽出分布に従って得られる標本 $S\subset[N]$ を **確率標本** (probability sample) という．[日本語では **無作為抽出標本** などとも呼ばれる](https://www.e-stat.go.jp/classifications/terms/90/00/4937)．
+$[N]$ を母集団とする．
 
-この設定では，**包含確率**
+$[N]$ の部分集合の全体 $P([N])$ 上の確率分布を **抽出計画** (sampling design) といい，ある既知の抽出分布に従って得られる標本 $S\subset[N]$ を **確率標本** (probability sample) という．[日本語では **無作為抽出標本** などとも呼ばれる](https://www.e-stat.go.jp/classifications/terms/90/00/4937)．
+
+::: {.callout-caution title="抽出計画の例" collapse="true" icon="false"}
+
+抽出計画 $\L[S]$ には，
+
+- 単純無作為抽出 (SRS: Simple Random Sampling)
+- 系統無作為抽出 (Systematic Random Sampling)
+- 層別抽出 (Stratified Sampling)
+- クラスター抽出 (Cluster Random Sampling)
+
+などの方法が存在する．
+
+例えば，日本の国勢調査は２段階の層別抽出である．
+
+:::
+
+確率標本 $S$ では（１次の）**包含確率**
 $$
-\pi_i:=\P[i\in S]
+\pi_i:=\P[i\in S]=\P[I=1],\qquad I:=1_{i\in S}.
 $$
 が定まる．
 
+::: {.callout-important title="狭義の「確率標本」" collapse="true" icon="false"}
+
 先ほど，$\cP([N])$ 上の確率変数を確率標本と呼ぶとしたが，正確に $S$ が **確率標本** と呼ばれるためには，$\pi_i>0$ が母集団 $i\in[N]$ の全域で成り立つことが必要である [@Kim2024 p.12]．
+
+:::
 
 ### Horvitz-Thompson 推定量
 
@@ -63,13 +84,24 @@ $\wh{Y}_\HT$ は [@Horvitz-Thompson1952] 推定量と呼ばれる．
 
 ::: {.callout-tip title="[@Sen1953]-[@Yates-Grundy1953]" icon="false"}
 
+Horvitz-Thompson 推定量の分散は次で与えられる：
+
 $$
 \V[\wh{Y}_\HT]=\sum_{i,j=1}^N\Paren{\pi_{ij}-\pi_i\pi_j}\frac{y_iy_j}{\pi_i\pi_j}.
 $$
+ただし，
+$$
+\pi_{ij}:=\P[i\in S,j\in S]=\P[I=1=J].
+$$
+を２次の包含確率という．
 
 :::
 
-### 効率の改善に向けて
+Horvitz-Thompson 推定量の要点には，「計画した欠損ならば，重みづけによって不偏推定量を得ることができる」という点にある．
+
+そこで抽出計画が不明な場合もこれを推定し，バイアスを補正しようとするアプローチを傾向スコアの方法，または **擬似ランダム化** (pseudo-randomization) の方法という．
+
+### 「校正」：効率の改善に向けて
 
 HT 推定量は確率標本 $S$ の分布，すなわち抽出計画に依らずに不偏性を持つ．
 
@@ -77,25 +109,46 @@ HT 推定量は確率標本 $S$ の分布，すなわち抽出計画に依らず
 
 しかし，HT 推定量はいつでも分散が最小というわけではない．
 
-抽出計画に関する情報を用いて，分散を低減することができる．
+計画不偏性は bias-variance trade-off の観点からは欠点でもあり，それゆえ抽出計画に関する情報を用いて分散を低減することも考えられる．
 
-特に，HT 推定量の荷重 $\pi_i^{-1}$ を，補助変数 $x_i$ に関する **外部一致性**
+特に，HT 推定量の荷重 $(\pi_i^{-1})$ を，補助変数 $x_i$ に関する **外部一致性**
 $$
 \sum_{i\in S}w_ix_i=\ov{x}
 $$
-を保ちながら新しいものに変更するものが多く考えられた．
+を保ちながら新しいもの $(w_i)$ に変更するものが多く考えられた．
 
-### 比による修正
+::: {.callout-important title="「外部一致性」の別名" appearance="simple" icon="false"}
 
-ある別の変数 $x_i\in\R$ については母集団の総和
+有限標本論は普遍的な統計推測の基礎であると言える．
+
+実際，この外部一致性の条件は多くの分野で考慮されており，種々の名前が与えられている．
+
+* 有限標本論：校正条件 (calibration condition / benchmarking property) （第 [-@sec-regression-estimator] 節）
+* 欠測データ解析：共変量バランシング (covariate balancing) [@Imai-Ratkovic2014]
+* 機械学習（継続学習）：共変量シフト (covariate shift) [@Shimodaira2000]
+
+:::
+
+このアプローチを **荷重校正** (calibration weighting) という．
+
+次章にてこれ以降，種々の荷重校正推定量を紹介する．
+
+## 荷重校正推定量
+
+### はじめに
+
+前述の通り，補助変数 $x$ が母集団上で知られている場合に，ここから抽出計画に対する追加情報を抽出して推定量に組み込むことで，計画的に欠測させられたデータ（＝確率標本）に対する不偏推定量 [@Horvitz-Thompson1952] （以降 HT 推定量という）の効率を改善することを考える．
+
+以降，補助変数 $x\in\R^p$ は母集団上で既知であるとし，その総和を
 $$
-X:=\sum_{i=1}^Nx_i
+X:=\sum_{i\in[N]}x_i
 $$
-が既知であるとする．
+で表す．
 
-このとき，$X$ の HT 推定量から，真の値 $X$ との「ズレ方」を用いて，$Y$ の推定量を「校正」することができる．
+### 比による校正
 
-もっとも直感的には
+補助変数の次元が $p=1$ のとき，最も安直には $X$ の HT 推定量から，真の値 $X$ との「ズレ方」を用いて，$Y$ の推定量を「校正」することができる．
+
 $$
 \wh{Y}_{\mathrm{R}}:=\wh{Y}_\HT\frac{X}{\wh{X}_\HT}
 $$
@@ -103,17 +156,13 @@ $$
 
 この推定量は ratio estimator などと呼ばれ，性能の代わりにバイアスが生じてしまう．
 
-一般に，$X,Y$ が正の相関を持つとき，大きな分散低減が得られる [@Kim2024 p.92]．
+一般に，$X,Y$ が正の相関を持つとき（回帰直線が $0$ の近くを通るとき）大きな分散低減が得られる [@Deng-Wu1987], [@Kim2024 p.92]．
 
 $x_i=1$ と取った場合を Hajék 推定量ともいう．Hajék 推定量が HT 推定量よりも推奨される状況が [@Sarndal+1992 p.182] にリストされている．
 
-### 回帰推定量 {#sec-regression-estimator}
+この推定量は昔は計算の簡単さから使われていたが，一般の次の回帰推定量の方が MSE が小さいことが知られている [@Deng-Wu1987]．
 
-回帰推定量では一般の共変量 $x_i\in\R^p$ が，総和
-$$
-X:=\sum_{i\in[N]}x_i
-$$
-が既知である限り利用される．
+### 回帰推定量 {#sec-regression-estimator}
 
 $$
 \wh{y}_i:=x_i^\top\wh{B},\qquad\wh{B}:=\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i
@@ -280,10 +329,14 @@ $$
 
 観測単位が欠測している場合 (unit nonresponse)，call-back / follow-up 調査を行うか，それができない場合は次の２つの対処が可能である：
 
+::: {.callout-tip appearance="simple" icon="false" title="単位欠測の扱い"}
+
 1. 欠測メカニズムを抑える共変量は見えている場合（MAR 条件），傾向スコア推定量が利用可能（第 [-@sec-propensity-score] 節）．これは欠測メカニズムのモデリングに基づく．
 2. 一般の校正推定量に対しても，
 
-単位欠測の場合は，２段階の標本抽出と状況が似ているのである．
+:::
+
+単位欠測の場合は，２段階の標本抽出と状況が似ているのである．さらには，非確率標本（調査観察データ，ビッグデータなど）の扱いとも似通う．これについては[次稿も参照](Survey4.qmd)．
 
 一方で，項目が欠測している場合 (item nonresponse)，**代入法** (imputation) が用いられる．^[総務省統計局では，Imputation の訳語として「補定」を用いる．]
 
