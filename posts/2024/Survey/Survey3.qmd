@@ -47,8 +47,8 @@ $[N]$ の部分集合の全体 $P([N])$ 上の確率分布を **抽出計画** (
 
 - 単純無作為抽出 (SRS: Simple Random Sampling)
 - 系統無作為抽出 (Systematic Random Sampling)
-- 層別抽出 (Stratified Sampling)
-- クラスター抽出 (Cluster Random Sampling)
+- 層別抽出 (Stratified Sampling)：母集団を層別し，各層の間では独立な抽出を行う．層ごとに抽出計画は異なっても良い．条件付きランダム化 (conditional randomization) ともいう [Section 2.2 @Hernan-Robins2020 p.17]．
+- クラスター抽出 (Cluster Random Sampling)：クラスターがまずランダム抽出され，そのクラスター内の全構成員が標本に加わる．クラスターのことを PSU (Primary Sampling Unit) ともいう．クラスター内でもランダム抽出が行われた場合，**２段階クラスターサンプリング** という．
 
 などの方法が存在する．
 
@@ -80,7 +80,7 @@ $$
 $$
 により不偏推定できる．
 
-$\wh{Y}_\HT$ は [@Horvitz-Thompson1952] 推定量と呼ばれる．
+$\wh{Y}_\HT$ は [@Horvitz-Thompson1952] 推定量と呼ばれる．^[Inverse probability weighting estimator ともいう [@Hernan-Robins2020 p.22]．]
 
 ::: {.callout-tip title="[@Sen1953]-[@Yates-Grundy1953]" icon="false"}
 
@@ -133,7 +133,7 @@ $$
 
 次章にてこれ以降，種々の荷重校正推定量を紹介する．
 
-## 荷重校正推定量
+## 回帰推定量
 
 ### はじめに
 
@@ -156,7 +156,7 @@ $$
 
 この推定量は ratio estimator などと呼ばれ，性能の代わりにバイアスが生じてしまう．
 
-一般に，$X,Y$ が正の相関を持つとき（回帰直線が $0$ の近くを通るとき）大きな分散低減が得られる [@Deng-Wu1987], [@Kim2024 p.92]．
+一般に，$X,Y$ が正の相関を持つとき大きな分散低減が得られる [@Deng-Wu1987], [@Kim2024 p.92]．
 
 $x_i=1$ と取った場合を Hajék 推定量ともいう．Hajék 推定量が HT 推定量よりも推奨される状況が [@Sarndal+1992 p.182] にリストされている．
 
@@ -164,12 +164,17 @@ $x_i=1$ と取った場合を Hajék 推定量ともいう．Hajék 推定量が
 
 ### 回帰推定量 {#sec-regression-estimator}
 
+超母集団模型
 $$
-\wh{y}_i:=x_i^\top\wh{B},\qquad\wh{B}:=\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i
+Y=X^\top\beta+\ep,\qquad\ep\iidsim(0,\sigma^2)
 $$
-の総和が，$Y$ に対する **回帰推定量** (regression estimator) と呼ばれる．
+を想定し，得られている標本のみから $\wh{\beta}$ を推定する．こうして得られる
+$$
+\wh{y}_i:=x_i^\top\wh{\beta},\qquad\wh{\beta}:=\paren{\sum_{i\in S}\pi_i^{-1}x_ix_i^\top}^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i
+$$
+の総和が，$Y$ に対する **回帰推定量** (regression estimator) と呼ばれる．^[結果的に，[Weighted Least Squares](https://en.wikipedia.org/wiki/Weighted_least_squares) と同じ形になっている．WLS は誤差分散が既知の形 $W^{-1}:=\diag(\sigma_1^2,\cdots,\sigma_n^2)$ をしている場合の最良線型不偏推定量 (BLUE) である．一般に最小二乗法は広い設定で BLUE を与え続け，一般の既知の分散 $V(X)$ を持つ場合は **GLS** (Generalized Least Squares) と呼ばれる．$V(X)$ が既知である場合などなく，一般にはこれの推定から始める必要があり，これは Feasible GLS と呼ばれる [@Hayashi2000 p.59]．]
 
-これは $(y_i)\in\R^n$ に関する線型推定量になっている．加えて，
+これは $(y_i)\in\R^n$ に関する線型推定量になっている．加えて，外部一致性
 $$
 \sum_{i\in S}w_ix_i=\ov{x}
 $$ {#eq-external-consistency}
@@ -185,7 +190,7 @@ $$
 
 式 ([-@eq-external-consistency]) を **外部一致性** (external consistency)，または **校正条件** (calibration / benchmarking property) [@Deville-Sarndal1992] という．
 
-回帰推定量は抽出計画に依らず一致性を持ち，$X,Y$ の間の相関の絶対値が大きいほど，分散低減効果が高くなる [@Kim2024 p.95]．^[この抽出計画に依らない性質を以て，[@Sarndal+1992] は model-assisted 推定量と呼んでいる．model-dependent 推定量とは対照的である．]
+回帰推定量は $X,Y$ の関係に依らず一致性を持ち，$X,Y$ の間の相関の絶対値が大きいほど分散低減効果が高くなる [@Kim2024 p.95]．^[この抽出計画に依らない性質を以て，[@Sarndal+1992] は model-assisted 推定量と呼んでいる．model-dependent 推定量とは対照的である．]
 
 ### 事後層別化
 
@@ -253,6 +258,22 @@ $$ {#eq-row}
 
 これは特定の目的関数を最小化することに等しい．[@Deming-Stephan1940 p.428], [@Zieschang1990], [@Deville-Sarndal1993] も参照．
 
+## 荷重校正推定量
+
+### はじめに
+
+回帰推定量は $X$ から $Y$ に関する情報を抽出することで，HT 推定量の効率を改善することができる方法である．
+
+しかし，HT のもう一つの魅力的な性質であった **計画一致性** (design consistency) が失われている．
+
+回帰推定量の性質である **外部一致性** (external consistency) を保ちながら，別の解を見つけることで，回帰推定量を一般化する形で計画一致性を持つ効率的な推定量を構成することを考える．
+
+実はこの方法は，モデリングの観点からは $X,Y$ の間のモデルを，標本レベルから母集団レベルに一般化することに相当する．こうして考えられる超母集団モデルを **一般化回帰モデル** (GREG: Generalized Regression) という．
+
+このような方法で HT 推定量を改善した計画一致性を持つ推定量を model-assisted estimator，特に特定の制約下最適化問題の解として与えられるものを **校正推定量** (calibrated estimator) という．
+
+校正推定量は計画一致性を持つために，傾向スコアの推定に成功していれば不偏性が保証される．この性質は二重頑健推定量の構成の基礎となる．
+
 ### 差分推定量
 
 補助的な量 $y_i^{(0)}$ が母集団全体で観測されている場合，
@@ -265,21 +286,25 @@ HT 推定量同様不偏であるが，分散の値は変化し，特に $y_i^{(
 
 この $y_i$ の proxy とも言える量 $y_i^{(0)}$ を，他の共変量 $x_i$ から回帰により構成することで，回帰推定量（第 [-@sec-regression-estimator] 節）よりも複雑な $x_i,y_i$ 関係もうまく取り込んだ分散低減が可能になる．
 
-これを **model-assisted estimation** という．
+このように（暗黙裡にでも）モデルを用いており，加えて [モデルの特定が成功しているかに依らず HT 推定量を改善できる]{.underline} 方法を **model-assisted estimation** といい，校正推定量の基本的な考え方である．
 
-### 一般化最小二乗法 (GLS)
+### 一般化回帰モデルと射影推定量 {#sec-projection-estimator}
 
-まず母集団 $[N]$ にモデルを当てはめる：
+まず母集団 $[N]$ に応用 $Y$ のモデルを当てはめる：
 $$
 y_i=x_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,c_i(x_i)\sigma^2).
 $$ {#eq-superpopulation-model}
-このように母集団に置かれるモデルを **超母集団モデル** (superpopulation model) [@Isaki-Fuller1982] ともいう．特に式 ([-@eq-superpopulation-model]) の Gauss-Markov 型の超母集団モデルを **一般化回帰モデル** (GREG: Generalized Regression) ともいう．
+このように母集団に置かれるモデルを **超母集団モデル** (superpopulation model) [@Isaki-Fuller1982] という．
+
+特に式 ([-@eq-superpopulation-model]) の Gauss-Markov 型の超母集団モデルを **一般化回帰モデル** (GREG: Generalized Regression) ともいう．
 
 これを解いて得る推定量 $\wh{y}_i=x_i^\top\wh{\beta}_c$ の総和として得られる推定量
 $$
 \wh{Y}_{\mathrm{P}}:=\sum_{i=1}^N\wh{y}_i
 $$
-を **射影推定量** (projection estimator) という．
+を（モデルベースの） **射影推定量** (projection estimator) という．
+
+射影推定量は計画一致性を持つとは限らない．
 
 仮に GREG モデルで
 $$
@@ -289,15 +314,23 @@ $$
 $$
 \sum_{i\in S}\frac{1}{\pi_i}(y_i-\wh{y}_i)=0
 $$
-が成り立つ．これは射影推定量が抽出計画に依らずに一致性を持つための十分条件である．
+が成り立つ．
 
-そうでない場合でも，
+この IBC が，射影推定量が抽出計画に依らずに一致性を持つための十分条件である [補題9.1 @Kim2024 p.100]．
+
+### 一般化最小二乗法 (GLS)
+
+当然 GREG モデルが IBC 条件を満たすとは限らない．
+
+そのような場合でも計画一致性を持つような推定量を考えたい．実は，
 $$
 \wh{Y}_{\mathrm{GREG}}:=\wh{Y}_\HT+\Paren{X-\wh{X}_\HT}^\top\wh{\beta}_c
 $$
-は計画一致性を持つ．これは **一般化回帰推定量** (GREG: Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) [@Aitken1936] と呼ばれる．^[この２つの類似性は [@Zieschang1990] が指摘している．一般の回帰分析の設定下では ["GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation"](https://en.wikipedia.org/wiki/Generalized_least_squares) などと説明される．]
+は計画一致性を持つ．
 
-これは，次の表示を持つためである：
+これは **一般化回帰推定量** (GREG: Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) [@Aitken1936] と呼ばれる．^[この２つの類似性は [@Zieschang1990] が指摘している．一般の回帰分析の設定下では ["GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation"](https://en.wikipedia.org/wiki/Generalized_least_squares) などと説明される．]
+
+一般化回帰推定量は次の最適化による特徴付けがある：
 $$
 \wh{Y}_{\mathrm{GREG}}=\sum_{i\in S}\wh{\om}_iy_i,\qquad\wh{\om}_i:=\pi_i^{-1}+\paren{X-\wh{X}_\HT}^\top\paren{\sum_{i\in S}\frac{1}{c_i}x_ix_i^\top}^{-1}\frac{x_i}{c_i}.
 $$
@@ -305,23 +338,47 @@ $$
 $$
 Q(\om):=\sum_{i\in S}(\om_i-d_i)^2c_i,\qquad d_i:=\pi_i^{-1},\quad\subjectto \sum_{i\in S}\om_ix_i=\sum_{i=1}^Nx_i.
 $$
-を最小にするものとも特徴付けられる．
+を最小にするものとも特徴付けられる [@Kim2024 p.102]．
 
-### 校正推定量
+特に，$\wh{w}_i\xrightarrow[n\to\infty]{\mathrm{p}}d_i$．
 
-一般に，校正条件制約を満たす $(\om_i)$ のうち，特定の目的関数 $Q$ を最小にするものを **校正荷重** (calibration weight)，校正荷重に関する線型推定量を **校正推定量** (calibration estimator) という [@Kim2024 p.103]．
+### 校正推定量 {#sec-calibration-estimator}
+
+一般に，校正条件制約を満たす $(\om_i)$ のうち，凸関数 $G$ が定める目的関数
+$$
+Q(\om):=\sum_{i\in S}d_iG\paren{\frac{\om_i}{d_i}}c_i
+$$
+を最小にするものを **校正荷重** (calibration weight)，校正荷重に関する線型推定量を **校正推定量** (calibration estimator) という [@Deville-Sarndal1992], [@Kim2024 p.103]．
+
+ほとんどの校正推定量は漸近的に GREG 推定量に一致する．
+
+一般に，有限母集団に対する確率標本からの一様最小分散不偏推定量 (UMVUE) は存在しない [@Godambe-Joshi1965] が，GREG 推定量は「期待漸近分散」の下界を達成する [@Isaki-Fuller1982]．
+
+### 最適校正推定量
 
 特に，
 $$
 Q(\om)=\sum_{i\in S}\om_i^2c_i
 $$
-を最小化するものは **最適校正推定量** と呼ばれる [@Kim2024 p.110]．
+を最小化するものは **最適校正推定量** (optimal calibrated estimator) と呼ばれる [@Kim2024 p.110]．
 
-一般に，有限母集団に対する確率標本からの一様最小分散不偏推定量 (UMVUE) は存在しない [@Godambe-Joshi1965] が，GREG 推定量は「期待漸近分散」の下界を達成する [@Isaki-Fuller1982]．
+これはモデルの視点からは $x$ を拡張して人工的に IBC 条件を満たすようにした射影推定量（第 [-@sec-projection-estimator] 節）とも見れる．
 
-しかし校正推定量は，超母集団モデル ([-@eq-superpopulation-model]) が誤特定されている場合に GREG 推定量より良い性能を示す [@Kim2024 p.112]．
+最適校正推定量は超母集団モデル ([-@eq-superpopulation-model]) が誤特定されている場合に GREG 推定量より良い性能を示す [@Kim2024 p.112]．
 
-校正荷重を見つける他の方法には，**モデル校正** (model calibration) [@Wu-Sitter2001] がある．この方法では校正条件制約を，超母集団モデルに基づいて別の形のものにする．
+GREG モデルより一般的な超母集団モデルに対しての同様の手続きは **モデル校正** (model calibration) [@Wu-Sitter2001] と呼ばれている．この方法では $X,Y$ の関係を推定し，$Y$ の線型推定量を $m(X)$ の形で構成してから，最適構成推定量の議論に還元する．
+
+### 一般化エントロピー法
+
+最適構成推定量の構成に倣い，
+$$
+Q(\om):=\sum_{i\in S}G(\om_i)c_i\qquad\subjectto\sum_{i\in S}\om_ig(d_i)c_i=\sum_{i=1}^Ng(d_i)c_i
+$$
+の最小化により校正荷重を構成する方法を **一般化エントロピー法** (generalized entropy method) [@Kwon+2024] という．
+
+これは目的関数には計画荷重 $d_i=\pi_i^{-1}$ が入っていないが，制約条件に入っていることで計画一致性を達成している．
+
+超母集団モデルである GREG モデルが正しく特定されているならば [@Godambe-Joshi1965] の下界を達成するが，そうでなくとも一致性は保たれる上に，一般の校正推定量（第 [-@sec-calibration-estimator] 節）よりも分散は小さいである [@Kwon+2024]．^[ただし，余分な項があるために，正しく特定されている下では校正推定量よりもやや分散が大きい．]
 
 ## 欠測データの扱い
 
@@ -346,7 +403,7 @@ $$
 
 標本の観測 $Y_i$ は，$\delta_i=0$ のとき欠損しているとする．
 
-#### MAR 条件：欠測のメカニズムを抑える共変量が観測できている
+#### MAR 条件：欠測のメカニズムを抑える共変量が観測できている {#sec-MAR}
 
 加えて，標本全体についてある変数 $X$ が観測できており，これについて次の条件が成り立つとする：
 
@@ -410,7 +467,7 @@ y_i=x_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,c_i\sigma^2)
 $$
 の特定に成功すれば一致性を持つ，二重頑健なものを構成できる [@Kim-Haziza2014]．
 
-### 代入法
+### 代入法とその不偏性条件
 
 項目非反応がある場合，代入値を $y_i^*$ として
 $$
@@ -418,7 +475,7 @@ $$
 $$
 による推定が試みられる．
 
-代入 $y_i^*$ を行うことでリストワイズの削除をするよりも効率を上げることができる．
+代入 $y_i^*$ を行うことでリストワイズの削除をするよりも推定の効率を上げることができる．
 
 ::: {.callout-tip title="[代入推定量の不偏性 @Kim2024 p.162]" icon="false"}
 
@@ -429,25 +486,33 @@ $$
 
 :::
 
-この条件は，標本内で MAR 条件が成り立つとき：
+この条件は，標本内で MAR 条件（第 [-@sec-MAR] 節）が成り立つとき：
 $$
-Y|(X,\delta=1)=Y|(X,\delta=0)
-$$
-$Y^*$ を $Y|(X,\delta=1)$ からのサンプリングで代入すれば達成される．
+Y|(X,\delta=1)=Y|(X,\delta=0),
+$$ {#eq-sample-MAR}
+$Y^*$ を $Y|(X,\delta)$ からのサンプリングで代入すれば達成される．
 
-換言すれば代入法において，欠測の原因 $X$ を突き止め，欠測したグループにおける $Y$ の値 $Y|(X,\delta=1)$ にモデルを立て，そこからサンプリングをすることを目指す．
+さらに強い条件
+$$
+\delta\indep Y\mid X
+$$
+が成り立つとき，標本内の MAR 条件が成り立つ．
+
+換言すれば代入法において，欠測の原因 $X$ を突き止め，欠測したグループにおける $Y$ の値 $Y|(X,\delta=1)$ にモデル (outcome model) を立て，そこからサンプリングをすることを目指す．
 
 ### 回帰による代入
 
-共変量により母集団を $[N]=N_1+\cdots+N_G$ 個のグループに分け，
+仮に共変量 $X$ が $Y$ と強い相関を持つとする．このように線型回帰模型を背後に想定することが適切な場合は，よく次のような手続きで代入がされる．
+
+まず共変量により母集団を $[N]=N_1+\cdots+N_G$ 個に層別化し，それぞれの層で
 $$
 Y_i=X_i^\top\beta+\ep_i,\qquad\ep_i\iidsim(0,\sigma^2)
 $$ {#eq-semiparametric-model}
 というセミパラメトリック回帰モデルを考える．
 
-推定されたモデルを用いて，$\ep_i^*\sim(0,\sigma^2)$ を残差
+次に推定されたモデルを用いて，$\ep_i^*\sim(0,\sigma^2)$ を残差
 $$
-\wh{ep}_i:=y_i-x_i^\top\wh{\beta}
+\wh{\ep}_i:=y_i-x_i^\top\wh{\beta}
 $$
 の分布から（リ）サンプリングし，
 $$
@@ -457,21 +522,43 @@ $$
 
 以上の手続きは **確率的回帰代入法** (stochastic regression imputation) と呼ばれる．
 
+層の中の他のセルをランダムに選んでその値を代入する hot deck imputation や，セルの加重平均を代入する fractional hot deck も同様の考え方に基づく [@Fuller-Kim2005]．
+
 conditional mean imputation などの Least squares method も同様の考え方に基づく [@Little1992]．
 
-### モデルベースの代入法
+$Y$ と強い相関を持つ補助変数 $X$ がいつでも見つかるとは限らない．
 
-回帰による代入におけるモデル ([-@eq-semiparametric-model]) を，単なる Gauss-Markov モデルに限らず一般の統計モデルに取り替えることを考える．
+その場合は Gauss-Markov モデル ([-@eq-semiparametric-model]) を一般の統計モデルに一般化すれば良い．
 
-具体的には，$Y|X$ の尤度を $f_\theta(y|x)$ としてモデリングをし，これを
+### 母集団モデルによる代入法
+
+一方で，母集団上での $Y,X$ の関係についてモデルを立てて $Y|X$ からサンプリングをすることも考えられる．
+
+::: {.callout-important title="注（無情報サンプリング条件）" collapse="true" icon="false"}
+
+母集団の分布と標本の分布が一致するとき，**無情報サンプリング** (noninformative sampling) が実施されたという．そうでない場合は **informative sampling** という．
+
+サンプリングが無情報であるための十分条件には
+$$
+\P[I=1|X,Y]=\P[I=1|X]
+$$
+が挙げられる．[@Sugden-Smith1984] はこれを無情報サンプリング条件という．
+
+この下では母集団のモデルと標本のモデルとは一致するが，一般にはこの２つは厳密に峻別しなければ混乱の源である．
+
+:::
+
+標本内の MAR 条件 ([-@eq-sample-MAR]) だけでなく，母集団上で MAR 条件が成り立つ場合は，$Y|X$ の尤度を $f_\theta(y|x)$ としてモデリングをし，これを
 $$
 \ell(\theta):=\sum_{i\in S}w_i\delta_i\log f_\theta(y_i|x_i)
 $$
-の最大化によって $M$-推定する．^[一方で，重み付き推定方程式として理解することもできる．[5.2節 @高井啓二+2016 p.163]．] ただし，$w_i$ は $Y$ の計画一致性を持つ校正推定量を定める校正荷重であるとする．
+の最大化によって $M$-推定することが考えられる．^[一方で，重み付き推定方程式として理解することもできる．[5.2節 @高井啓二+2016 p.163]．] ただし，$w_i$ は $Y$ の計画一致性を持つ校正推定量を定める校正荷重であるとする．
 
 最終的に学習されたモデル $f_\theta(y|x_i)$ からのサンプリングによって代入値 $y_i^*$ を生成する．
 
 このモデル $f_\theta(y|x_i)$ を当てはまりの度合いを見ながらベイズ推論によって得る方法もよく取られるようになっている [@Enders+2020]．
+
+母集団上の MAR 条件が成り立たない場合は $Y|(X,\delta=0)$ のモデリングを考える必要がある．
 
 ### 多重代入法 {#sec-MI}
 
@@ -548,6 +635,8 @@ $$
 パッケージに実装される都合上，多重代入法はパラメトリックな手法であるという言説があるが，必ずしもそうである必要はない．この場合，傾向スコア推定量や校正推定量がセミパラメトリックな手法と呼ばれる．
 
 また多重代入法が代入に使われたのちに，後続の解析は全く違うモデルが使われることもあり，このような場合は整合性 (congeniality) [@Meng1994] の議論が必要になる．
+
+特に公的統計においては，後続のタスクが One Number Principle に従うようにするために欠測のあるデータは代入してしまうこともあり得る [Section 13.1 @Kim2024 p.161]．
 
 いずれの場合も，多重代入法の「代入法」としての側面が強調されるあまり理論的背景が捨象され，また多重代入法の実際の使われ方が使用可能なパッケージでの実装方式に強く依存され，元来の手法の数理的本体が見失われている状況と言うことができるだろう．
 
