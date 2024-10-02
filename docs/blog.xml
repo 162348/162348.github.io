@@ -15,7 +15,933 @@
 <link>https://162348.github.io/blog.html</link>
 </image>
 <generator>quarto-1.4.549</generator>
-<lastBuildDate>Mon, 23 Sep 2024 15:00:00 GMT</lastBuildDate>
+<lastBuildDate>Tue, 01 Oct 2024 15:00:00 GMT</lastBuildDate>
+<item>
+  <title>理想点解析のハンズオン</title>
+  <dc:creator>司馬博文 </dc:creator>
+  <link>https://162348.github.io/posts/2024/TransDimensionalModels/IdealPoint1.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="前稿" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="前稿">前稿</h2>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="Bayesian,Statistics,MCMC" data-listing-date-sort="1721055600000" data-listing-file-modified-sort="1727853238174" data-listing-date-modified-sort="1727794800000" data-listing-reading-time-sort="4" data-listing-word-count-sort="769">
+<a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img src="https://162348.github.io/posts/2024/TransDimensionalModels/Images/IdeologyPosition.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+理想点解析・多次元展開法・項目応答理論
+</h5>
+<div class="card-subtitle listing-subtitle">
+空間モデルの特定を目指して
+</div>
+<div class="listing-categories">
+<div class="listing-category" onclick="window.quartoListingCategory('Bayesian'); return false;">
+Bayesian
+</div>
+<div class="listing-category" onclick="window.quartoListingCategory('Statistics'); return false;">
+Statistics
+</div>
+<div class="listing-category" onclick="window.quartoListingCategory('MCMC'); return false;">
+MCMC
+</div>
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-16
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>本校では次の３つのパッケージを紹介する：</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li><code>pscl</code> <span class="citation" data-cites="Zeileis+2008">(Zeileis et al., 2008)</span>：<a href="https://github.com/atahk/pscl">GitHub</a>, <a href="https://cran.r-project.org/web/packages/pscl/index.html">CRAN</a>．<span class="citation" data-cites="Arnold2018">(Arnold, 2018)</span> も参照．</li>
+<li><code>MCMCpack</code> <span class="citation" data-cites="Martin+2011">(Martin et al., 2011)</span>：<a href="https://github.com/cran/MCMCpack">GitHub</a>, <a href="https://cran.r-project.org/web/packages/MCMCpack/index.html">CRAN</a></li>
+<li><code>emIRT</code> <span class="citation" data-cites="Imai+2016">(Imai et al., 2016)</span>：<a href="https://github.com/kosukeimai/emIRT">GitHub</a>, <a href="https://cran.r-project.org/web/packages/emIRT/index.html">CRAN</a></li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="pscl-パッケージ" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="pscl-パッケージ"><span class="header-section-number">1</span> <code>pscl</code> パッケージ</h2>
+<div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"pscl"</span>)</span></code></pre></div>
+<section id="voteview-データ" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="voteview-データ"><span class="header-section-number">1.1</span> <code>voteview</code> データ</h3>
+<p>このパッケージでは，Keith T. Poole と Howard Rosenthal が 1995 年から運営しているサイト <a href="https://voteview.com/"><code>voteview.com</code></a> のデータを利用するための関数 <code>readKH()</code> が提供されている．</p>
+<p>例えば連邦議会 (U.S. Congress) 117 議会期 (Congress) 2021.1.3-2023.1.3 の上院 (Senate) の点呼投票データを読み込むには以下のようにする：<sup>1</sup></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(pscl)</span>
+<span id="cb2-2">s117 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">readKH</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"https://voteview.com/static/data/out/votes/S117_votes.ord"</span>,</span>
+<span id="cb2-3">                <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">desc=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"117th U.S. Senate"</span>)</span></code></pre></div>
+</div>
+<p><code>s117</code> は <code>rollcall</code> オブジェクト，８つのフィールドを持った配列である．</p>
+<p><code>s117$votes</code> データは <img src="https://latex.codecogs.com/png.latex?n=104"> 議員の計 <img src="https://latex.codecogs.com/png.latex?m=949"> 回の投票からなる <img src="https://latex.codecogs.com/png.latex?10">-値の行列である．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(s117)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Summary of rollcall object s117 
+
+Description:     117th U.S. Senate 
+Source:      https://voteview.com/static/data/out/votes/S117_votes.ord 
+
+Number of Legislators:       104
+Number of Roll Call Votes:   949
+
+
+Using the following codes to represent roll call votes:
+Yea:         1 2 3 
+Nay:         4 5 6 
+Abstentions:     7 8 9 
+Not In Legislature:  0 
+
+Party Composition:
+    D Indep     R 
+   50     2    52 
+
+Vote Summary:
+               Count Percent
+0 (notInLegis)  3544     3.6
+1 (yea)        55542    56.3
+6 (nay)        35995    36.5
+7 (missing)        5     0.0
+9 (missing)     3610     3.7
+
+Use summary(s117,verbose=TRUE) for more detailed information.</code></pre>
+</div>
+</div>
+</section>
+<section id="点呼投票データ" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="点呼投票データ"><span class="header-section-number">1.2</span> 点呼投票データ</h3>
+<p>点呼投票データとは <img src="https://latex.codecogs.com/png.latex?n%5Ctimes%20m"> の行列で，そのエントリーは２値変数である（今回は <img src="https://latex.codecogs.com/png.latex?1"> か <img src="https://latex.codecogs.com/png.latex?6">）．</p>
+<p>しかし実際には種々の欠測により，<img src="https://latex.codecogs.com/png.latex?0,7,9"> も使われる．</p>
+<p>これをヒートマップで可視化してみる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(tidyverse)</span>
+<span id="cb5-2"></span>
+<span id="cb5-3">votes_df <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.data.frame</span>(s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>votes[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>]) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rownames_to_column</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Legislator"</span>)  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 投票データをデータフレームに変換し、行名を列として追加</span></span>
+<span id="cb5-4"></span>
+<span id="cb5-5">votes_long <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> votes_df <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">pivot_longer</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cols =</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span>Legislator, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">names_to =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Vote"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">values_to =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"value"</span>)  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># データを長形式に変換</span></span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ggplot</span>(votes_long, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">aes</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> Vote, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> Legislator, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">fill =</span> value)) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">geom_tile</span>() <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale_fill_gradient</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">low =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"white"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">high =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">theme</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">axis.text.x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">element_text</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">angle =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">90</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">hjust =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">labs</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Votes"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Legislators"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">title =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Voting Patterns"</span>)  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># ヒートマップを作成</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/IdealPoint1_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="政党毎の賛成率" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="政党毎の賛成率"><span class="header-section-number">1.3</span> 政党毎の賛成率</h3>
+<p>政党でソートし，賛成率を最初の 15 法案についてプロットしたものは次の通り：</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(dplyr)</span>
+<span id="cb7-2"></span>
+<span id="cb7-3"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 政党ごとの賛成票の割合を計算</span></span>
+<span id="cb7-4">party_votes <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>votes <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span></span>
+<span id="cb7-5">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.data.frame</span>() <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span></span>
+<span id="cb7-6">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">mutate</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">party =</span> s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>legis.data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>party) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span></span>
+<span id="cb7-7">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">group_by</span>(party) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span></span>
+<span id="cb7-8">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summarise</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">across</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">everything</span>(), <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">mean</span>(. <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">na.rm =</span> <span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>)))</span>
+<span id="cb7-9"></span>
+<span id="cb7-10"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># データを長形式に変換</span></span>
+<span id="cb7-11">party_votes_long <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> party_votes <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">pivot_longer</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cols =</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span>party, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">names_to =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Vote"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">values_to =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"value"</span>)</span>
+<span id="cb7-12"></span>
+<span id="cb7-13"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># DとRのデータのみを抽出</span></span>
+<span id="cb7-14">party_votes_d <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> party_votes_long <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">filter</span>(party <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"D"</span>)</span>
+<span id="cb7-15">party_votes_r <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> party_votes_long <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">%&gt;%</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">filter</span>(party <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"R"</span>)</span>
+<span id="cb7-16"></span>
+<span id="cb7-17"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Democrats (D) のデータのみをプロット</span></span>
+<span id="cb7-18"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ggplot</span>(party_votes_d, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">aes</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">gsub</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Vote "</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">""</span>, Vote)), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> value)) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb7-19">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">geom_line</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">color =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"blue"</span>) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb7-20">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">theme</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">axis.text.x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">element_blank</span>(),</span>
+<span id="cb7-21">        <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">axis.ticks.x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">element_blank</span>()) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb7-22">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">labs</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Votes"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Proportion of Yea votes"</span>,</span>
+<span id="cb7-23">       <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">title =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Proportion of Yea votes for Democrats"</span>)</span></code></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># Democrats (D) と Republicans (R) のデータを同じプロットに追加</span></span>
+<span id="cb8-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ggplot</span>() <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb8-3">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">geom_line</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> party_votes_d[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>,], <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">aes</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">gsub</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Vote "</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">""</span>, Vote)), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> value, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">color =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Democrat"</span>), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">linewidth =</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span>) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb8-4">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">geom_line</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> party_votes_r[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">15</span>,], <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">aes</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.numeric</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">gsub</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Vote "</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">""</span>, Vote)), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> value, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">color =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Republican"</span>), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">linewidth =</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span>) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb8-5">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale_color_manual</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">values =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Democrat"</span> <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">=</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"blue"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Republican"</span> <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">=</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>)) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb8-6">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">theme</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">axis.text.x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">element_blank</span>(),</span>
+<span id="cb8-7">        <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">axis.ticks.x =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">element_blank</span>()) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span></span>
+<span id="cb8-8">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">labs</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Votes"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">y =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Proportion of Yea votes"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">color =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Party"</span>,</span>
+<span id="cb8-9">       <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">title =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Proportion of Yea votes by Party"</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/IdealPoint1_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>民主党の 0-1 がはっきりした投票行動が見られる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1">s109 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">readKH</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"https://voteview.com/static/data/out/votes/S109_votes.ord"</span>,</span>
+<span id="cb9-2">                <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">desc=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"109th U.S. Senate"</span>)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Attempting to read file in Keith Poole/Howard Rosenthal (KH) format.
+Attempting to create roll call object
+109th U.S. Senate 
+102 legislators and 645 roll calls
+Frequency counts for vote types:
+rollCallMatrix
+    0     1     6     7     9 
+  645 40207 22650     1  2287 </code></pre>
+</div>
+</div>
+</section>
+<section id="ベイズ推定" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="ベイズ推定"><span class="header-section-number">1.4</span> ベイズ推定</h3>
+<p><code>pscl</code> パッケージでは，<code>rollcall</code> オブジェクトに対して <code>ideal()</code> 関数を用いてデータ拡張に基づく Gibbs サンプラーを通じた理想点解析を行うことができる．</p>
+<p><a href="https://github.com/atahk/pscl/blob/master/man/ideal.Rd"><code>ideal()</code> 関数のマニュアル</a> に記載された例では <code>maxiter=260E3, burnin=10E3, thin=100</code> での実行が例示されているが，ここでは簡単に実行してみる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1">n <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">dim</span>(s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>legis.data)[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>]</span>
+<span id="cb11-2">x0 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">rep</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,n)</span>
+<span id="cb11-3">x0[s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>legis.data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>party<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"D"</span>] <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb11-4">x0[s117<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>legis.data<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>party<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"R"</span>] <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb11-5"></span>
+<span id="cb11-6"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(tictoc)</span>
+<span id="cb11-7"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">tic</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"ideal() fitting"</span>)</span>
+<span id="cb11-8"></span>
+<span id="cb11-9">id1 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ideal</span>(s117,</span>
+<span id="cb11-10">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">d=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,</span>
+<span id="cb11-11">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">startvals=</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">list</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">x=</span>x0),</span>
+<span id="cb11-12">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">normalize=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>,</span>
+<span id="cb11-13">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">store.item=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>,</span>
+<span id="cb11-14">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">maxiter=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10000</span>,  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># MCMCの反復回数</span></span>
+<span id="cb11-15">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">burnin=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>,</span>
+<span id="cb11-16">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">thin=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">50</span>,  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 間引き間隔</span></span>
+<span id="cb11-17">             <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">verbose=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>)</span>
+<span id="cb11-18"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">toc</span>()</span></code></pre></div>
+</div>
+<p><code>ideal() fitting: 43.938 sec elapsed</code> であった．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(id1)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Looking up legislator names and party affiliations
+in rollcall object s117 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/IdealPoint1_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><a href="https://github.com/atahk/pscl/blob/master/man/plot.ideal.Rd"><code>plot.ideal()</code> 関数のマニュアル</a> にある通り，<code>shoALLNames = FALSE</code> がデフォルトになっている．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(id1)  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># 全議員の正確な推定値が見れる．</span></span></code></pre></div>
+</div>
+<p>もっとも保守的な議員として Trump，５番目にリベラルな議員として Biden の名前がみえる．Harris は中道である．</p>
+</section>
+</section>
+<section id="emirt-パッケージ" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="emirt-パッケージ"><span class="header-section-number">2</span> <code>emIRT</code> パッケージ</h2>
+<div class="sourceCode" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"emIRT"</span>)</span></code></pre></div>
+<p>このパッケージには備え付けの 80-110 議会期の上院における点呼投票データ <code>dwnom</code> がある．</p>
+<p>このデータに対して，階層モデルを用いた理想点解析を行う関数 <code>hierIRT()</code> がある．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(emIRT)</span>
+<span id="cb16-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data</span>(dwnom)</span>
+<span id="cb16-3"></span>
+<span id="cb16-4"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## This takes about 10 minutes to run on 8 threads</span></span>
+<span id="cb16-5"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## You may need to reduce threads depending on what your machine can support</span></span>
+<span id="cb16-6">lout <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">hierIRT</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">.data =</span> dwnom<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>data.in,</span>
+<span id="cb16-7">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">.starts =</span> dwnom<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>cur,</span>
+<span id="cb16-8">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">.priors =</span> dwnom<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>priors,</span>
+<span id="cb16-9">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">.control =</span> {<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">list</span>(</span>
+<span id="cb16-10">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">threads =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">8</span>,</span>
+<span id="cb16-11">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">verbose =</span> <span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>,</span>
+<span id="cb16-12">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">thresh =</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1e-4</span>,</span>
+<span id="cb16-13">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">maxit=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">200</span>,</span>
+<span id="cb16-14">                    <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">checkfreq=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb16-15">                        )})</span>
+<span id="cb16-16"></span>
+<span id="cb16-17"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## Bind ideal point estimates back to legislator data</span></span>
+<span id="cb16-18">final <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">cbind</span>(dwnom<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>legis, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">idealpt.hier=</span>lout<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>means<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>x_implied)</span>
+<span id="cb16-19"></span>
+<span id="cb16-20"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## These are estimates from DW-NOMINATE as given on the Voteview example</span></span>
+<span id="cb16-21"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## From file "SL80110C21.DAT"</span></span>
+<span id="cb16-22">nomres <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> dwnom<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>nomres</span>
+<span id="cb16-23"></span>
+<span id="cb16-24"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## Merge the DW-NOMINATE estimates to model results by legislator ID</span></span>
+<span id="cb16-25"><span class="do" style="color: #5E5E5E;
+background-color: null;
+font-style: italic;">## Check correlation between hierIRT() and DW-NOMINATE scores</span></span>
+<span id="cb16-26">res <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">merge</span>(final, nomres, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">by=</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"senate"</span>,<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"id"</span>),<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">all.x=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>,<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">all.y=</span><span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">FALSE</span>)</span>
+<span id="cb16-27"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">cor</span>(res<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>idealpt.hier, res<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>dwnom1d)</span></code></pre></div>
+</div>
+
+
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Arnold2018" class="csl-entry">
+Arnold, J. B. (2018). <em><a href="https://jrnold.github.io/bugs-examples-in-stan/"><span class="nocase">Simon Jackman’s Bayesian Model Examples in Stan</span></a></em>.
+</div>
+<div id="ref-Imai+2016" class="csl-entry">
+Imai, K., Lo, J., and Olmsted, J. (2016). <a href=""><span class="nocase">Fast Estimation of Ideal Points with Massive Data</span></a>. <em>American Political Science Review</em>, <em>110</em>(4), 631–656.
+</div>
+<div id="ref-Martin+2011" class="csl-entry">
+Martin, A. D., Quinn, K. M., and Park, J. H. (2011). <a href="https://doi.org/10.18637/jss.v042.i09"><span class="nocase">MCMCpack: Markov chain Monte Carlo in R</span></a>. <em>Journal of Statistical Software</em>, <em>42</em>(9), 1–21.
+</div>
+<div id="ref-Zeileis+2008" class="csl-entry">
+Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft.org/v27/i08/">Regression models for count data in <span>R</span></a>. <em>Journal of Statistical Software</em>, <em>27</em>(8).
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>１つの議会期 (Congress) は２つの会期 (Session)，第１会期と第２会期から構成される．↩︎</p></li>
+</ol>
+</section></div> ]]></description>
+  <category>Bayesian</category>
+  <category>Statistics</category>
+  <category>MCMC</category>
+  <category>R</category>
+  <guid>https://162348.github.io/posts/2024/TransDimensionalModels/IdealPoint1.html</guid>
+  <pubDate>Tue, 01 Oct 2024 15:00:00 GMT</pubDate>
+  <media:content url="https://162348.github.io/posts/2024/TransDimensionalModels/Images/IdealPoint.png" medium="image" type="image/png" height="103" width="144"/>
+</item>
 <item>
   <title>ベイズデータ解析４</title>
   <dc:creator>司馬博文 </dc:creator>
@@ -15690,417 +16616,6 @@ Zhang, Z., and Zha, H. (2004). <a href="https://doi.org/10.1137/S106482750241915
   <guid>https://162348.github.io/posts/2024/Kernels/Manifold.html</guid>
   <pubDate>Mon, 29 Jul 2024 15:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/Kernels/Images/UMAPvSNE.png" medium="image" type="image/png" height="93" width="144"/>
-</item>
-<item>
-  <title>表現学習と非線型独立成分分析</title>
-  <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2024/Kernels/NCL.html</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<section id="関連ページ" class="level2 unnumbered unlisted">
-<h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
-<div id="listing-kernel-listing" class="quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Kernel" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1727612454756" data-listing-date-modified-sort="1723302000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="581">
-<a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="https://162348.github.io/posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-カーネル法の概観
-</h5>
-<div class="card-subtitle listing-subtitle">
-半正定値カーネルから距離学習まで
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-10
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Nature,Statistics,Geometry" data-listing-date-sort="1722265200000" data-listing-file-modified-sort="1727759099141" data-listing-date-modified-sort="1723647600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
-<a href="../../../posts/2024/Kernels/Manifold.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="https://162348.github.io/posts/2024/Kernels/Images/UMAPvSNE.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-非線型な次元縮約法の概観
-</h5>
-<div class="card-subtitle listing-subtitle">
-最古にして最難のタスクと多様体学習
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-07-30
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="Deep,Nature,Sampling" data-listing-date-sort="1711724400000" data-listing-file-modified-sort="1727007848003" data-listing-date-modified-sort="1722438000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
-<a href="../../../posts/2024/Samplers/EBM.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="https://162348.github.io/posts/2024/Samplers/Files/NCL/thumb_checkerboard.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-エネルギーベースモデル
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル５
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-03-30
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-</section>
-<section id="表現学習とは何か" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="表現学習とは何か"><span class="header-section-number">1</span> 表現学習とは何か？</h2>
-<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="表現学習５つのアプローチ">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-表現学習５つのアプローチ
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li>教師あり学習による表現学習</li>
-<li>生成による表現学習</li>
-<li>自己教師あり表現学習</li>
-<li>ノイズ対照による表現学習</li>
-<li>独立成分分析による表現学習</li>
-</ol>
-</div>
-</div>
-<p>極めて高精度な分類器が完成してすぐのころ，分類タスクが極めて上手なニューラルネットワークは他の下流タスクでも良い成績が観察され，最初に考えられた方法が１であった（<a href="../../../posts/2024/Kernels/Kernel.html#sec-distance-learning">距離学習</a>でも同様）．</p>
-<p>一方でこのスキームではすぐにドメインシフトと転移学習が問題になった．</p>
-<p>これを克服するのが２の方法である．高精度なデータを生成できる深層潜在模型が学習された場合，その潜在変数は現実の何らかの表象になっているだろう，というアイデアは analysis-by-synthesis <span class="citation" data-cites="Roberts1963">(Roberts, 1963)</span>, <span class="citation" data-cites="Lee-Mumford2003">(Lee and Mumford, 2003)</span> とも呼ばれている．</p>
-<p>この方法は，文字のストローク（トメ，ハネ）が集まった構造に注目するなど，データの生成過程がある程度明らかなものでは特に性能が良い <span class="citation" data-cites="Lake+2015">(Lake et al., 2015)</span>．</p>
-<p><a href="../../../posts/2024/Kernels/Deep4.html#sec-beta-VAE"><img src="https://latex.codecogs.com/png.latex?%5Cbeta">-VAE</a> <span class="citation" data-cites="Higgins+2017">(Higgins et al., 2017)</span> や BiGAN <span class="citation" data-cites="Donahue+2017">(Donahue et al., 2017)</span> はその例であるが，ImageNet などの大規模データに対する分類や分割のタスクで十分な性能はまだ見られていないという．</p>
-</section>
-<section id="生成から雑音除去へ" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="生成から雑音除去へ"><span class="header-section-number">2</span> 生成から雑音除去へ</h2>
-<p>２よりも表現学習として良い性質を持つのが３である．</p>
-<p>生成のためには大変多くの特徴量が必要であるが，下流タスクに重要なのはその一部のみに限る．このような場合，<a href="../../../posts/2024/Kernels/Deep4.html#sec-denoising-autoencoder">Denoising Autoencoder</a> <span class="citation" data-cites="Vincent+2008">(Vincent et al., 2008)</span> のように「データにノイズを印加してこれを戻すのに必要な知識は何か？」を問うことが極めて普遍的な力を持つ．</p>
-<p>雑音除去と同様に，表現学習に極めて有効なタスクがマスク除去 <span class="citation" data-cites="Devlin+2019">(Devlin et al., 2019)</span> である．これは画像領域にも応用されている：BEiT <span class="citation" data-cites="Bao+2022">(Bao et al., 2022)</span>．<strong>masked autoencoder</strong> <span class="citation" data-cites="He+2022">(He et al., 2022)</span> が現在の state of the art であるようである．</p>
-</section>
-<section id="sec-NCL4RL" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="sec-NCL4RL"><span class="header-section-number">3</span> 対照学習による表現学習</h2>
-<p>ノイズ対照学習に基づいた方法が第４勢力として登場（再興）してきている．multiview representation learning とも呼ばれる．</p>
-<section id="sec-NCL" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="sec-NCL"><span class="header-section-number">3.1</span> ノイズ対照学習 (NCL)</h3>
-<p>この方法では，雑音やマスク除去とは違った方法で，「真のデータをノイズと見分ける」という予測問題として表現学習を解く．<sup>1</sup></p>
-<p>この方法は最初自然言語処理で大きな成功を収めた <span class="citation" data-cites="Mnih-Kavukcuoglu2013">(Mnih and Kavukcuoglu, 2013)</span>．例えば word2vec <span class="citation" data-cites="Mikolov2013">(Mikolov, Chen, et al., 2013)</span>, <span class="citation" data-cites="Mikolov2013b">(Mikolov, Sutskever, et al., 2013)</span> も NCL に基づく．</p>
-<p>一方で前述の通り，BART や GPT などの現代の言語モデルは，ノイズ対照の先へ行き，デノイジングやデマスキングによる表現学習を行っている．</p>
-<p>しかし NCL には，雑音・マスク除去と違い，ある程度どのようなデータを「似ている」とするかの制御が効くという美点がある．これを <a href="../../../posts/2024/Kernels/Kernel.html#sec-distance-learning"><strong>距離学習</strong></a> ともいう．<sup>2</sup></p>
-<p>発展した対照学習法，例えば CPC (Contrastive Predictive Coding) <span class="citation" data-cites="Oord+2019">(Oord et al., 2019)</span> は，言語，音声，画像，３次元空間での強化学習など，多くの領域で有力な代替を提供するようである．</p>
-<p>また CLIP <span class="citation" data-cites="Radford+2019">(Radford et al., 2019)</span> では，データのモーダリティを超えて，言語と画像の関係について大規模に事前学習をさせることが可能になっている．</p>
-</section>
-<section id="sec-CPC" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="sec-CPC"><span class="header-section-number">3.2</span> 対照的予測符号化 (CPC) <span class="citation" data-cites="Oord+2019">(Oord et al., 2019)</span></h3>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/Kernels/Images/contrastive_repr4.jpeg" class="img-fluid figure-img"></p>
-<figcaption>Contrastive Predictive Coding <span class="citation" data-cites="Oord+2019">(Oord et al., 2019)</span></figcaption>
-</figure>
-</div>
-<p>まずエンコーダー <img src="https://latex.codecogs.com/png.latex?z_t=g_%7B%5Ctext%7Benc%7D%7D(x_t)"> を作る．続いて，自己回帰モデル <img src="https://latex.codecogs.com/png.latex?g_%7B%5Ctext%7Bar%7D%7D"> を用いて <img src="https://latex.codecogs.com/png.latex?z_%7B1:t%7D"> を要約して予測しようとする．</p>
-<p>この段階で潜在表現 <img src="https://latex.codecogs.com/png.latex?c_t=g_%7B%5Ctext%7Bar%7D%7D(z_%7B1:t%7D)"> が作られることを期待するのであるが，直接 <img src="https://latex.codecogs.com/png.latex?p(x%7Cc)"> を予測しようとしてしまうと，必ずしも有用な潜在表現 <img src="https://latex.codecogs.com/png.latex?c"> が得られるとは限らない．</p>
-<p>そこで，距離 <img src="https://latex.codecogs.com/png.latex?k"> だけ離れたデータ <img src="https://latex.codecogs.com/png.latex?x_%7Bt+k%7D"> の尤度比 <img src="https://latex.codecogs.com/png.latex?%0Af_k(x_%7Bt+k%7D,c_t)%5C,%5Cpropto%5C,%5Cfrac%7Bp(x_%7Bt+k%7D%7Cc_t)%7D%7Bp(x_%7Bt+k%7D)%7D%0A"> を， <img src="https://latex.codecogs.com/png.latex?%0Af_k(x_%7Bt+k%7D,c_t)=%5Cexp%5Cleft(z_%7Bt+k%7D%5E%5Ctop%20W_kc_t%5Cright)%0A"> の形で予測しようとし，この荷重 <img src="https://latex.codecogs.com/png.latex?W_k"> の推定を考える．</p>
-<p>これは，表現学習においては予測 <img src="https://latex.codecogs.com/png.latex?p(x%7Cc)"> が至上命題であるわけではなく，<img src="https://latex.codecogs.com/png.latex?x"> と <img src="https://latex.codecogs.com/png.latex?c"> の相互情報量が近ければ十分であるために用意された，表現学習のための代理目標（<strong>InfoMax</strong> <span class="citation" data-cites="Linsker1988">(Linsker, 1988)</span> ともいう）であり，<strong>InfoNCE 損失</strong> または <a href="../../../posts/2024/Kernels/Kernel.html#sec-triplet-loss"><img src="https://latex.codecogs.com/png.latex?n">-ペア損失</a> <span class="citation" data-cites="Sohn2016">(Sohn, 2016)</span> とも呼ばれる．<sup>3</sup></p>
-<p>このモデルに対しては，GAN 様の敵対的生成であるノイズ対照学習の損失を用いることができる．<span class="citation" data-cites="Oord+2019">(Oord et al., 2019)</span> では，エンコーダとして残差接続を持つ strided convolutional layer が，自己回帰モデルとして GRU (Gated Recurrent Unit) <span class="citation" data-cites="Cho+2014">(Cho et al., 2014)</span> という RNN の変種が使われている．</p>
-<p>こうして推定された <img src="https://latex.codecogs.com/png.latex?(z_t,c_t)"> は，<img src="https://latex.codecogs.com/png.latex?x_%7B1:t%7D"> までのヒストリを見た要約が欲しい場合は <img src="https://latex.codecogs.com/png.latex?c_t"> を，そうでない場合は <img src="https://latex.codecogs.com/png.latex?z_t"> を，データ <img src="https://latex.codecogs.com/png.latex?x_t"> の潜在表現として使える．</p>
-</section>
-<section id="対照的言語-画像事前学習-clip-radford2019" class="level3" data-number="3.3">
-<h3 data-number="3.3" class="anchored" data-anchor-id="対照的言語-画像事前学習-clip-radford2019"><span class="header-section-number">3.3</span> 対照的言語-画像事前学習 (CLIP) <span class="citation" data-cites="Radford+2019">(Radford et al., 2019)</span></h3>
-<p>ノイズ対照学習に基づくアプローチの美点は，別のモーダリティを持つデータを統合しやすい点にある．</p>
-<p>これを用いて，言語と画像の関係について大規模に事前学習をさせたのが OpenAI の <a href="https://openai.com/index/clip/">CLIP</a> <span class="citation" data-cites="Radford+2019">(Radford et al., 2019)</span> である．</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/Kernels/Images/CLIP.png" class="img-fluid figure-img"></p>
-<figcaption>画像に対する種々のノイズ対照学習法がどのようなノイズと対照させるか <span class="citation" data-cites="Murphy2023">(Murphy, 2023, p. 1055)</span></figcaption>
-</figure>
-</div>
-<p><a href="../../../posts/2024/Kernels/Kernel.html#sec-deep-metric-learning">対照学習による深層距離学習において重要なのは，正のノイズと負のノイズを各サンプル <img src="https://latex.codecogs.com/png.latex?x"> に対してどう作るか？である</a> <span class="citation" data-cites="Tian+2020WhatMakes">(Tian, Sun, et al., 2020)</span>．</p>
-<p>SimCLR <span class="citation" data-cites="Chen+2020SimCLR">(Chen et al., 2020)</span> は，<img src="https://latex.codecogs.com/png.latex?x"> に対する変換（ランダムなトリミング，リサイズ，並行移動など）を学習し，データ拡張によって正のノイズと負のノイズを作る．</p>
-<p>CMC (Contrastive Multiple Coding) <span class="citation" data-cites="Tian+2020">(Tian, Krishnan, et al., 2020)</span> は，<img src="https://latex.codecogs.com/png.latex?x"> の輝度 (luma) と彩度 (chroma) を取り出して正のノイズと負のノイズとする．</p>
-<p>SupCon (Supervised Contrastive Learning) <span class="citation" data-cites="Khosla+2020">(Khosla et al., 2020)</span> は画像に対するラベルングが得られるとき，これを教師的に用いて正のノイズと負のノイズを作る．これは <a href="../../../posts/2024/Kernels/Kernel.html#sec-NCA">近傍成分分析 (NCA)</a> <span class="citation" data-cites="Goldberger+2004">(Goldberger et al., 2004)</span> と対照学習を組み合わせた発想であり，実際後続の分類タスクがうまく，ロバストになるという．</p>
-</section>
-<section id="非対照学習" class="level3" data-number="3.4">
-<h3 data-number="3.4" class="anchored" data-anchor-id="非対照学習"><span class="header-section-number">3.4</span> 非対照学習</h3>
-<p>Vision Transformer (ViT) で用いられる DINO (Self-Distilation with no Labels) <span class="citation" data-cites="Caron+2021">(Caron et al., 2021)</span> などは，負のノイズを使わず，正のノイズのみを使った表現学習法である．</p>
-<p>BYOL (Bootstrap Your Own Latent) <span class="citation" data-cites="Grill+2020">(Grill et al., 2020)</span> も負のノイズを使わない手法であるが，目的関数には似ているノイズを寄せるための項しかなく，深層表現が退化しない理由はどうやら学習ダイナミクスの方にあるという．</p>
-<p>Barlow Twins <span class="citation" data-cites="Zbontar+2021">(Zbontar et al., 2021)</span> では，正のノイズとの間の，各特徴量に関する相関係数行列 <img src="https://latex.codecogs.com/png.latex?C"> から定まる <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D:=%5Csum_%7Bi=1%7D%5Ep(1-C_%7Bii%7D)%5E2+%5Clambda%5Csum_%7Bi%5Cne%20j%7DC_%7Bij%7D%5E2%0A"> を目的関数とする．</p>
-<p>第二項の存在により，負のノイズがなくとも表現が縮退することが回避される．この方法は，HSIC <span class="citation" data-cites="Gretton+2007">(Gretton et al., 2007)</span> などのカーネル独立性検定法を，表現学習に応用している形とみれる．</p>
-</section>
-</section>
-<section id="独立成分分析による表現学習" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="独立成分分析による表現学習"><span class="header-section-number">4</span> 独立成分分析による表現学習</h2>
-<p>表現学習の１つの目標である <strong>disentangle</strong> とは，要因ごとにデータ内の変動を説明して分離することをいう．</p>
-<p>これを達成するには，データやモデルに追加の仮定が必要な場合が多い <span class="citation" data-cites="Locatello+2020">(Locatello et al., 2020)</span>．どのような状況で安定した disentanglement が可能であるかについて，独立成分分析の知見，特に指数型分布族と識別可能性の概念を通じて理解する試みがある <span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020)</span>, <span class="citation" data-cites="Roeder+2021">(Roeder et al., 2021)</span>, <span class="citation" data-cites="Halva+2021">(Hälvä et al., 2021)</span>．</p>
-<p>特に，独立成分分析が目指すように，現実に何らかの意味で則した方法でデータの潜在表現を得ることが，表現学習で最も好ましい，あるべき disentanglement であるとするならば，「深層模型がいつ識別可能になるか？」は基本的な問題だというべきだろう <span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020)</span>．<sup>4</sup></p>
-<p>このような立場を <strong>因果的表現学習</strong> (causal representation learning) ともいう．<sup>5</sup></p>
-<p>VAE などの深層生成モデル，ノイズ対照学習，独立成分分析などはいずれも，多層の階層モデルを学習するという点では共通しており，１つの分野の発見が他に資することが多い．</p>
-</section>
-<section id="sec-identifiability" class="level2" data-number="5">
-<h2 data-number="5" class="anchored" data-anchor-id="sec-identifiability"><span class="header-section-number">5</span> 深層潜在モデルの識別可能性</h2>
-<p>仮に追加に観測されている変数 <img src="https://latex.codecogs.com/png.latex?u"> が存在して，事前分布 <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta(z%7Cu)"> は <img src="https://latex.codecogs.com/png.latex?z"> 上で積の形に分解し，指数型分布族に属するとする．すなわち，潜在変数は <img src="https://latex.codecogs.com/png.latex?U"> で条件づければ互いに独立であるとする．この仮定が識別可能性の鍵となる <span class="citation" data-cites="Hyvarinen+2019">(Hyvarinen et al., 2019)</span>．</p>
-<p><img src="https://latex.codecogs.com/png.latex?u"> はタイムスタンプや前時点での観測，信頼できないラベルなどがありえる <span class="citation" data-cites="Hyvarinen-Morioka2016">(Hyvärinen and Morioka, 2016)</span>．</p>
-<p>観測 <img src="https://latex.codecogs.com/png.latex?X"> と潜在変数 <img src="https://latex.codecogs.com/png.latex?Z"> に対して，<img src="https://latex.codecogs.com/png.latex?%5Ctheta=(f,T,%5Clambda)"> をパラメータとして <img src="https://latex.codecogs.com/png.latex?%0Ap_%5Ctheta(x,z%7Cu)=p_f(x%7Cz)p_%7BT,%5Clambda%7D(z%7Cu),%0A"> <img src="https://latex.codecogs.com/png.latex?%0AX=f(Z)+%5Cepsilon,%5Cqquad%20%5Cepsilon%5Csim%20p_%5Cepsilon(%5Cepsilon).%0A"> という形のモデルは，<img src="https://latex.codecogs.com/png.latex?p_%7BT,%5Clambda%7D"> が十分統計量 <img src="https://latex.codecogs.com/png.latex?T"> とパラメータ <img src="https://latex.codecogs.com/png.latex?%5Clambda"> を持つ指数型分布族である限り，いくつかの正則性条件を満たせば識別可能になる：</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Khemakhem+2020 定理１]">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020 定理１)</span>
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>次の４条件が成り立つ場合，パラメータ <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> は，ある線型変換 <img src="https://latex.codecogs.com/png.latex?A"> に対して <img src="https://latex.codecogs.com/png.latex?%0AT%5Ccirc%20f%5E%7B-1%7D=A%5Ccirc%20%5Cwidetilde%7BT%7D%5Ccirc%5Cwidetilde%7Bf%7D%5E%7B-1%7D+c%0A"> の違いを除いて識別可能である：</p>
-<ol type="1">
-<li><img src="https://latex.codecogs.com/png.latex?p_%5Cepsilon"> の特性関数は殆ど至る所零にならない．</li>
-<li><img src="https://latex.codecogs.com/png.latex?f"> は単射である．</li>
-<li>十分統計量 <img src="https://latex.codecogs.com/png.latex?%5C%7BT_%7Bi,j%7D%5C%7D_%7Bi%5Cin%5Bn%5D,j%5Cin%5Bk%5D%7D"> は殆ど至る所可微分で，任意の測度正集合上に線型独立な関数を定める．</li>
-<li>ある点 <img src="https://latex.codecogs.com/png.latex?u%5E0,%5Ccdots,u%5E%7Bnk%7D"> が存在して，行列 <img src="https://latex.codecogs.com/png.latex?(%5Clambda(u%5E1)%5C;%5Ccdots%5C;%5Clambda(u%5E%7Bnk%7D))-(%5Clambda(u%5E0)%5C;%5Ccdots%5C;%5Clambda(u%5E0))"> は可逆：</li>
-</ol>
-</div>
-</div>
-<p>加えて，モデルが真の分布を含む場合，変分下界の最大化は上述の線型変換 <img src="https://latex.codecogs.com/png.latex?A"> の違いを除いて <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> の一致推定に成功する．</p>
-</section>
-<section id="非線型独立成分分析" class="level2" data-number="6">
-<h2 data-number="6" class="anchored" data-anchor-id="非線型独立成分分析"><span class="header-section-number">6</span> 非線型独立成分分析</h2>
-<p>非線型独立成分分析は，ある独立な成分からなる潜在変数 <img src="https://latex.codecogs.com/png.latex?%0Ap(z)=%5Cprod_%7Bi=1%7D%5Edp_i(z_i)%0A"> に対して，観測がこの非線型変換 <img src="https://latex.codecogs.com/png.latex?x=f(z)"> であると仮定し，データ生成過程を特定しようとする営みである．</p>
-<p>これは上のモデルの <img src="https://latex.codecogs.com/png.latex?%5Cepsilon=0"> とした場合に他ならない．</p>
-<p>つまるところ，従来からの深層生成モデリングのうち，統計的に特別な意味を持つものが非線型独立成分分析と捉えることもできるはずである．すなわち，生成モデルと非線型独立成分分析は，モデルの骨子自体は共通で，その適用目的が違うに過ぎない（<a href="../../../posts/2024/Samplers/Sampling.html#sec-sampling-as-synthesis">この稿</a> も参照）．</p>
-<p>ただし，統計モデルと見る以上は識別可能性が肝要である．しかし近年の ICA は，識別可能性を緩めた形 5 で得ることに成功しており，これにより深層生成モデルとの同一視が進むことになる <span class="citation" data-cites="Hyvarinen+2019">(Hyvarinen et al., 2019)</span>, <span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020)</span>．</p>
-</section>
-<section id="vae-の識別可能性" class="level2" data-number="7">
-<h2 data-number="7" class="anchored" data-anchor-id="vae-の識別可能性"><span class="header-section-number">7</span> VAE の識別可能性</h2>
-<p>これにより，VAE などの深層生成モデルをより統計的に意味のあるものとすることができる．上述の定理により識別可能性を確保した VAE を iVAE (identifiable VAE) <span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020)</span> と呼ぶ．</p>
-<p>また逆の方向には，非線型 ICA モデルを変分ベイズや確率的勾配降下法により推定することができる．</p>
-<p>また <span class="citation" data-cites="Kivva+2021">(Kivva et al., 2021)</span>, <span class="citation" data-cites="Kivva+2022">(Kivva et al., 2022)</span>, <span class="citation" data-cites="Lopez+2024">(Lopez et al., 2024)</span> によると，VAE の事前分布が特定の混合分布の形を持つならば，補助変数 <img src="https://latex.codecogs.com/png.latex?u"> が存在しない場合でも，VAE は識別可能な因果グラフを与えるという．</p>
-</section>
-<section id="sec-InfoMax" class="level2" data-number="8">
-<h2 data-number="8" class="anchored" data-anchor-id="sec-InfoMax"><span class="header-section-number">8</span> InfoMax</h2>
-<p>CPC 3.2 が目指したように，元データの情報量を最大限保った潜在表現を獲得することが，後続タスクにおいて有利になるだろう．</p>
-<p>実は，生物の脳の認識様式もこれに沿っていると考えられ，視覚神経に関する研究を起源として <strong>効率的符号化仮説</strong> (Efficient Coding Hypothesis) <span class="citation" data-cites="Barlow1961">(H. B. Barlow, 1961)</span>, <span class="citation" data-cites="Barlow1972">(H. B. Barlow, 1972)</span> または情報処理分野において <strong>情報量最大化仮説</strong> (InfoMax) <span class="citation" data-cites="Linsker1988">(Linsker, 1988)</span>, <span class="citation" data-cites="Bell-Sejnowski1995">(Bell and Sejnowski, 1995)</span> と呼ばれている．</p>
-<p>この仮説は視覚の研究における vision as inverse graphics <span class="citation" data-cites="Romaszko+2017">(Romaszko et al., 2017)</span> / analysis by synthesis <span class="citation" data-cites="Kersten+2004">(Kersten et al., 2004)</span>, <span class="citation" data-cites="Yuille-Kersten2006">(Yuille and Kersten, 2006)</span> から，一般に脳が外界モデルを獲得するプロセスに拡張され，<strong>ベイズ脳仮説</strong> <span class="citation" data-cites="Doya+2006">(Doya et al., 2006)</span> とも呼ばれる <span class="citation" data-cites="島崎秀昭2019">(島崎秀昭, 2019)</span>．</p>
-<p>情報理論においては，information bottleneck principle <span class="citation" data-cites="Tishby+2000">(Tishby et al., 2000)</span>, <span class="citation" data-cites="Tishby-Zaslavsky2015">(Tishby and Zaslavsky, 2015)</span> としても継承されている．</p>
-</section>
-
-
-
-<div id="quarto-appendix" class="default"><section id="参考文献" class="level2 appendix" data-number="9"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">9</span> 参考文献</h2><div class="quarto-appendix-contents">
-
-<p><span class="citation" data-cites="Hyvarinen-Morioka2016">(Hyvärinen and Morioka, 2016)</span>, <span class="citation" data-cites="Hyvarinen-Morioka2017">(Hyvarinen and Morioka, 2017)</span>, <span class="citation" data-cites="Hyvarinen+2019">(Hyvarinen et al., 2019)</span> は深層潜在モデルが識別可能になるための条件を示した非線型 ICA の論文である．</p>
-<p>Efficient coding 仮説と InfoMax については，<span class="citation" data-cites="島崎秀昭2019">(島崎秀昭, 2019)</span> が大変良い日本語文献である．</p>
-<blockquote class="blockquote">
-<p>例えばハエの視覚細胞を用いた実験で神経細胞の非線形な応答関数が外界の視覚刺激の分布に適応し，出力が一様に分布することで神経細胞のダイナミックレンジが効率よく使用されていることが示されている <span class="citation" data-cites="Laughlin1981">(Laughlin, 1981)</span>, <span class="citation" data-cites="Brenner+2000">(Brenner et al., 2000)</span>．このように非線形器を外界の分布に適応させる過程を学習と呼ぶ． <span class="citation" data-cites="島崎秀昭2019">(島崎秀昭, 2019)</span></p>
-</blockquote>
-
-
-
-
-</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
-<div id="ref-Bao+2022" class="csl-entry">
-Bao, H., Dong, L., Piao, S., and Wei, F. (2022). <a href="https://openreview.net/forum?id=p-BhZSz59o4"><span>BE</span>iT: <span>BERT</span> pre-training of image transformers</a>. In <em>International conference on learning representations</em>.
-</div>
-<div id="ref-Barlow1961" class="csl-entry">
-Barlow, H. B. (1961). <a href="https://doi.org/10.7551/mitpress/9780262518420.003.0013"><span class="nocase">Possible Principles Underlying the Transformations of Sensory Messages</span></a>. In <em><span>Sensory Communication</span></em>. The MIT Press.
-</div>
-<div id="ref-Barlow1972" class="csl-entry">
-Barlow, H. B. (1972). <a href="https://doi.org/10.1068/p010371">Single units and sensation: A neuron doctrine for perceptual psychology?</a> <em>Perception</em>, <em>1</em>(4), 371–394.
-</div>
-<div id="ref-Bell-Sejnowski1995" class="csl-entry">
-Bell, A. J., and Sejnowski, T. J. (1995). <a href="https://doi.org/10.1162/neco.1995.7.6.1129"><span class="nocase">An Information-Maximization Approach to Blind Separation and Blind Deconvolution</span></a>. <em>Neural Computation</em>, <em>7</em>(6), 1129–1159.
-</div>
-<div id="ref-Brenner+2000" class="csl-entry">
-Brenner, N., Bialek, W., and de Ruyter van Steveninck, R. (2000). <a href="https://doi.org/10.1016/S0896-6273(00)81205-2">Adaptive rescaling maximizes information transmission</a>. <em>Neuron</em>, <em>26</em>(3), 695–702.
-</div>
-<div id="ref-Caron+2021" class="csl-entry">
-Caron, M., Touvron, H., Misra, I., Jegou, H., Mairal, J., Bojanowski, P., and Joulin, A. (2021). <a href="https://doi.org/10.1109/ICCV48922.2021.00951">Emerging properties in self-supervised vision transformers</a>. In <em>2021 IEEE/CVF international conference on computer vision (ICCV)</em>, pages 9630–9640.
-</div>
-<div id="ref-Chen+2020SimCLR" class="csl-entry">
-Chen, T., Kornblith, S., Norouzi, M., and Hinton, G. (2020). <a href="https://proceedings.mlr.press/v119/chen20j.html">A simple framework for contrastive learning of visual representations</a>. In H. D. III and A. Singh, editors, <em>Proceedings of the 37th international conference on machine learning</em>,Vol. 119, pages 1597–1607. PMLR.
-</div>
-<div id="ref-Cho+2014" class="csl-entry">
-Cho, K., Merriënboer, B. van, Gulcehre, C., Bahdanau, D., Bougares, F., Schwenk, H., and Bengio, Y. (2014). <a href="https://doi.org/10.3115/v1/D14-1179">Learning phrase representations using <span>RNN</span> encoder<span>–</span>decoder for statistical machine translation</a>. In A. Moschitti, B. Pang, and W. Daelemans, editors, <em>Proceedings of the 2014 conference on empirical methods in natural language processing (<span>EMNLP</span>)</em>, pages 1724–1734. Doha, Qatar: Association for Computational Linguistics.
-</div>
-<div id="ref-Devlin+2019" class="csl-entry">
-Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. (2019). <a href="https://aclanthology.org/N19-1423/">BERT: Pre-training of deep bidirectional transformers for language understanding</a>. In <em>Proceedings of the 2019 conference of the north american chapter of the association for computational linguistics: Human language technologies</em>,Vol. 1, pages 4171–4186.
-</div>
-<div id="ref-Donahue+2017" class="csl-entry">
-Donahue, J., Krähenbühl, P., and Darrell, T. (2017). <a href="https://openreview.net/forum?id=BJtNZAFgg">Adversarial feature learning</a>. In <em>International conference on learning representations</em>.
-</div>
-<div id="ref-Doya+2006" class="csl-entry">
-Doya, K., Ishii, S., Pouget, A., and Rao, R. P. N. (2006). <em><a href="https://doi.org/10.7551/mitpress/9780262042383.001.0001"><span class="nocase">Bayesian Brain: Probabilistic Approaches to Neural Coding </span></a></em>. The MIT Press.
-</div>
-<div id="ref-Elias1955" class="csl-entry">
-Elias, P. (1955). <a href="https://doi.org/10.1109/TIT.1955.1055126">Predictive coding–i</a>. <em>IRE Transactions on Information Theory</em>, <em>1</em>(1), 16–24.
-</div>
-<div id="ref-Goldberger+2004" class="csl-entry">
-Goldberger, J., Hinton, G. E., Roweis, S., and Salakhutdinov, R. R. (2004). <a href="https://proceedings.neurips.cc/paper_files/paper/2004/file/42fe880812925e520249e808937738d2-Paper.pdf">Neighbourhood components analysis</a>. In L. Saul, Y. Weiss, and L. Bottou, editors, <em>Advances in neural information processing systems</em>,Vol. 17. MIT Press.
-</div>
-<div id="ref-Gretton+2007" class="csl-entry">
-Gretton, A., Fukumizu, K., Teo, C., Song, L., Schölkopf, B., and Smola, A. (2007). <a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/d5cfead94f5350c12c322b5b664544c1-Paper.pdf">A kernel statistical test of independence</a>. In J. Platt, D. Koller, Y. Singer, and S. Roweis, editors, <em>Advances in neural information processing systems</em>,Vol. 20. Curran Associates, Inc.
-</div>
-<div id="ref-Grill+2020" class="csl-entry">
-Grill, J.-B., Strub, F., Altché, F., Tallec, C., Richemond, P., Buchatskaya, E., … Valko, M. (2020). <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/f3ada80d5c4ee70142b17b8192b2958e-Paper.pdf">Bootstrap your own latent - a new approach to self-supervised learning</a>. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, <em>Advances in neural information processing systems</em>,Vol. 33, pages 21271–21284. Curran Associates, Inc.
-</div>
-<div id="ref-Halva+2021" class="csl-entry">
-Hälvä, H., Le Corff, S., Lehéricy, L., So, J., Zhu, Y., Gassiat, E., and Hyvarinen, A. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/0cdbb4e65815fbaf79689b15482e7575-Paper.pdf">Disentangling identifiable features from noisy data with structured nonlinear ICA</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 1624–1633. Curran Associates, Inc.
-</div>
-<div id="ref-He+2022" class="csl-entry">
-He, K., Chen, X., Xie, S., Li, Y., Dollár, P., and Girshick, R. (2022). Masked autoencoders are scalable vision learners. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 16000–16009.
-</div>
-<div id="ref-Higgins+2017" class="csl-entry">
-Higgins, I., Matthey, L., Pal, A., Burgess, C., Glorot, X., Botvinick, M., … Lerchner, A. (2017). <a href="https://openreview.net/forum?id=Sy2fzU9gl">Beta-<span>VAE</span>: Learning basic visual concepts with a constrained variational framework</a>. In <em>International conference on learning representations</em>.
-</div>
-<div id="ref-Hyvarinen-Morioka2017" class="csl-entry">
-Hyvarinen, A., and Morioka, H. (2017). <a href="https://proceedings.mlr.press/v54/hyvarinen17a.html"><span class="nocase">Nonlinear ICA of Temporally Dependent Stationary Sources</span></a>. In A. Singh and J. Zhu, editors, <em>Proceedings of the 20th international conference on artificial intelligence and statistics</em>,Vol. 54, pages 460–469. PMLR.
-</div>
-<div id="ref-Hyvarinen+2019" class="csl-entry">
-Hyvarinen, A., Sasaki, H., and Turner, R. (2019). <a href="https://proceedings.mlr.press/v89/hyvarinen19a.html">Nonlinear ICA using auxiliary variables and generalized contrastive learning</a>. In K. Chaudhuri and M. Sugiyama, editors, <em>Proceedings of the twenty-second international conference on artificial intelligence and statistics</em>,Vol. 89, pages 859–868. PMLR.
-</div>
-<div id="ref-Hyvarinen-Morioka2016" class="csl-entry">
-Hyvärinen, A., and Morioka, H. (2016). Unsupervised feature extraction by time-contrastive learning and nonlinear ICA. In <em>Proceedings of the 30th international conference on neural information processing systems</em>, pages 3772–3780. Red Hook, NY, USA: Curran Associates Inc.
-</div>
-<div id="ref-Kersten+2004" class="csl-entry">
-Kersten, D., Mamassian, P., and Yuille, A. (2004). <a href="https://doi.org/10.1146/annurev.psych.55.090902.142005">Object perception as bayesian inference</a>. <em>Annual Review of Psychology</em>, <em>55</em>(Volume 55, 2004), 271–304. Journal Article.
-</div>
-<div id="ref-Khemakhem+2020" class="csl-entry">
-Khemakhem, I., Kingma, D., Monti, R., and Hyvarinen, A. (2020). <a href="https://proceedings.mlr.press/v108/khemakhem20a.html">Variational autoencoders and nonlinear ICA: A unifying framework</a>. In S. Chiappa and R. Calandra, editors, <em>Proceedings of the twenty third international conference on artificial intelligence and statistics</em>,Vol. 108, pages 2207–2217. PMLR.
-</div>
-<div id="ref-Khosla+2020" class="csl-entry">
-Khosla, P., Teterwak, P., Wang, C., Sarna, A., Tian, Y., Isola, P., … Krishnan, D. (2020). <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/d89a66c7c80a29b1bdbab0f2a1a94af8-Paper.pdf">Supervised contrastive learning</a>. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, <em>Advances in neural information processing systems</em>,Vol. 33, pages 18661–18673. Curran Associates, Inc.
-</div>
-<div id="ref-Kivva+2022" class="csl-entry">
-Kivva, B., Rajendran, G., Ravikumar, P. K., and Aragam, B. (2022). <a href="https://openreview.net/forum?id=UeG3kt_Ebg2">Identifiability of deep generative models under mixture priors without auxiliary information</a>. In <em>UAI 2022 workshop on causal representation learning</em>.
-</div>
-<div id="ref-Kivva+2021" class="csl-entry">
-Kivva, B., Rajendran, G., Ravikumar, P., and Aragam, B. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/966aad8981dcc75b5b8ab04427a833b2-Paper.pdf">Learning latent causal graphs via mixture oracles</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 18087–18101. Curran Associates, Inc.
-</div>
-<div id="ref-Lake+2015" class="csl-entry">
-Lake, B. M., Salakhutdinov, R., and Tenenbaum, J. B. (2015). <a href="https://doi.org/10.1126/science.aab3050">Human-level concept learning through probabilistic program induction</a>. <em>Science</em>, <em>350</em>(6266), 1332–1338.
-</div>
-<div id="ref-Laughlin1981" class="csl-entry">
-Laughlin, S. (1981). <a href="https://doi.org/doi:10.1515/znc-1981-9-1040">A simple coding procedure enhances a neuron’s information capacity</a>. <em>Zeitschrift f<span>ü</span>r Naturforschung C</em>, <em>36</em>(9-10), 910–912.
-</div>
-<div id="ref-Lee-Mumford2003" class="csl-entry">
-Lee, T. S., and Mumford, D. (2003). <a href="https://doi.org/10.1364/JOSAA.20.001434">Hierarchical bayesian inference in the visual cortex</a>. <em>J. Opt. Soc. Am. A</em>, <em>20</em>(7), 1434–1448.
-</div>
-<div id="ref-Linsker1988" class="csl-entry">
-Linsker, R. (1988). <a href="https://doi.org/10.1109/2.36"><span class="nocase">Self-Organization in a Perceptual Network</span></a>. <em>Computer</em>, <em>21</em>(3), 105–117.
-</div>
-<div id="ref-Locatello+2020" class="csl-entry">
-Locatello, F., Bauer, S., Lucic, M., Raetsch, G., Gelly, S., Schölkopf, B., and Bachem, O. (2020). <a href="http://jmlr.org/papers/v21/19-976.html">A sober look at the unsupervised learning of disentangled representations and their evaluation</a>. <em>Journal of Machine Learning Research</em>, <em>21</em>(209), 1–62.
-</div>
-<div id="ref-Lopez+2024" class="csl-entry">
-Lopez, R., Huetter, J.-C., Hajiramezanali, E., Pritchard, J. K., and Regev, A. (2024). <a href="https://proceedings.mlr.press/v236/lopez24a.html">Toward the identifiability of comparative deep generative models</a>. In F. Locatello and V. Didelez, editors, <em>Proceedings of the third conference on causal learning and reasoning</em>,Vol. 236, pages 868–912. PMLR.
-</div>
-<div id="ref-Mikolov2013" class="csl-entry">
-Mikolov, T., Chen, K., Corrado, G., and Dean, J. (2013). <em><a href="https://arxiv.org/abs/1301.3781">Efficient estimation of word representations in vector space</a></em>.
-</div>
-<div id="ref-Mikolov2013b" class="csl-entry">
-Mikolov, T., Sutskever, I., Chen, K., Corrado, G. S., and Dean, J. (2013). <a href="https://proceedings.neurips.cc/paper_files/paper/2013/file/9aa42b31882ec039965f3c4923ce901b-Paper.pdf">Distributed representations of words and phrases and their compositionality</a>. In C. J. Burges, L. Bottou, M. Welling, Z. Ghahramani, and K. Q. Weinberger, editors, <em>Advances in neural information processing systems</em>,Vol. 26. Curran Associates, Inc.
-</div>
-<div id="ref-Mnih-Kavukcuoglu2013" class="csl-entry">
-Mnih, A., and Kavukcuoglu, K. (2013). <a href="https://proceedings.neurips.cc/paper_files/paper/2013/file/db2b4182156b2f1f817860ac9f409ad7-Paper.pdf">Learning word embeddings efficiently with noise-contrastive estimation</a>. In C. J. Burges, L. Bottou, M. Welling, Z. Ghahramani, and K. Q. Weinberger, editors, <em>Advances in neural information processing systems</em>,Vol. 26. Curran Associates, Inc.
-</div>
-<div id="ref-Murphy2023" class="csl-entry">
-Murphy, K. P. (2023). <em><a href="http://probml.github.io/book2">Probabilistic machine learning: Advanced topics</a></em>. MIT Press.
-</div>
-<div id="ref-Oord+2019" class="csl-entry">
-Oord, A. van den, Li, Y., and Vinyals, O. (2019). <a href="https://arxiv.org/abs/1807.03748">Representation learning with contrastive predictive coding</a>.
-</div>
-<div id="ref-Radford+2019" class="csl-entry">
-Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., and Sutskever, I. (2019). <em><a href="https://github.com/openai/gpt-2?tab=readme-ov-file">Language models are unsupervised multitask learners</a></em>.
-</div>
-<div id="ref-Rao-Ballard1999" class="csl-entry">
-Rao, R. P. N., and Ballard, D. H. (1999). <a href="https://doi.org/10.1038/4580">Predictive coding in the visual cortex: A functional interpretation of some extra-classical receptive-field effects</a>. <em>Nature Neuroscience</em>, <em>2</em>(1), 79–87.
-</div>
-<div id="ref-Roberts1963" class="csl-entry">
-Roberts, L. G. (1963). <em>Machine perception of three-dimensional solids</em> (PhD thesis). Massachusetts Institute of Technology. Retrieved from <a href="http://hdl.handle.net/1721.1/11589">http://hdl.handle.net/1721.1/11589</a>
-</div>
-<div id="ref-Roeder+2021" class="csl-entry">
-Roeder, G., Metz, L., and Kingma, D. (2021). <a href="https://proceedings.mlr.press/v139/roeder21a.html">On linear identifiability of learned representations</a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 9030–9039. PMLR.
-</div>
-<div id="ref-Romaszko+2017" class="csl-entry">
-Romaszko, L., Williams, C. K. I., Moreno, P., and Kohli, P. (2017). <a href="https://doi.org/10.1109/ICCVW.2017.115">Vision-as-inverse-graphics: Obtaining a rich 3D explanation of a scene from a single image</a>. In <em>2017 IEEE international conference on computer vision workshops (ICCVW)</em>, pages 940–948.
-</div>
-<div id="ref-Sohn2016" class="csl-entry">
-Sohn, K. (2016). <a href="https://proceedings.neurips.cc/paper_files/paper/2016/file/6b180037abbebea991d8b1232f8a8ca9-Paper.pdf">Improved deep metric learning with multi-class n-pair loss objective</a>. In D. Lee, M. Sugiyama, U. Luxburg, I. Guyon, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 29. Curran Associates, Inc.
-</div>
-<div id="ref-Tian+2020" class="csl-entry">
-Tian, Y., Krishnan, D., and Isola, P. (2020). Contrastive multiview coding. In A. Vedaldi, H. Bischof, T. Brox, and J.-M. Frahm, editors, <em>Computer vision – ECCV 2020</em>, pages 776–794. Cham: Springer International Publishing.
-</div>
-<div id="ref-Tian+2020WhatMakes" class="csl-entry">
-Tian, Y., Sun, C., Poole, B., Krishnan, D., Schmid, C., and Isola, P. (2020). <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/4c2e5eaae9152079b9e95845750bb9ab-Paper.pdf">What makes for good views for contrastive learning?</a> In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, <em>Advances in neural information processing systems</em>,Vol. 33, pages 6827–6839. Curran Associates, Inc.
-</div>
-<div id="ref-Tishby+2000" class="csl-entry">
-Tishby, N., Pereira, F. C., and Bialek, W. (2000). <a href="https://arxiv.org/abs/physics/0004057">The information bottleneck method</a>.
-</div>
-<div id="ref-Tishby-Zaslavsky2015" class="csl-entry">
-Tishby, N., and Zaslavsky, N. (2015). <a href="https://doi.org/10.1109/ITW.2015.7133169">Deep learning and the information bottleneck principle</a>. In <em>2015 IEEE information theory workshop (ITW)</em>, pages 1–5.
-</div>
-<div id="ref-Vincent+2008" class="csl-entry">
-Vincent, P., Larochelle, H., Bengio, Y., and Manzagol, P.-A. (2008). <a href="https://doi.org/10.1145/1390156.1390294">Extracting and composing robust features with denoising autoencoders</a>. In <em>Proceedings of the 25th international conference on machine learning</em>, pages 1096–1103. New York, NY, USA: Association for Computing Machinery.
-</div>
-<div id="ref-Yuille-Kersten2006" class="csl-entry">
-Yuille, A., and Kersten, D. (2006). <a href="https://doi.org/10.1016/j.tics.2006.05.002"><span class="nocase">Vision as Bayesian Inference: Analysis by Synthesis?</span></a> <em>Trends in Cognitive Sciences</em>, <em>10</em>(7), 301–308.
-</div>
-<div id="ref-Zbontar+2021" class="csl-entry">
-Zbontar, J., Jing, L., Misra, I., LeCun, Y., and Deny, S. (2021). <a href="https://proceedings.mlr.press/v139/zbontar21a.html">Barlow twins: Self-supervised learning via redundancy reduction</a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 12310–12320. PMLR.
-</div>
-<div id="ref-島崎秀昭2019" class="csl-entry">
-島崎秀昭. (2019). <a href="https://doi.org/10.3902/jnns.26.72">ベイズ統計と熱力学から見る生物の学習と認識のダイナミクス</a>. <em>日本神経回路学会誌</em>, <em>26</em>(3), 72–98.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p>予測符号化 (<a href="https://en.wikipedia.org/wiki/Predictive_coding">predictive coding</a>) <span class="citation" data-cites="Elias1955">(Elias, 1955)</span> は従来からデータ圧縮の原理であると同時に，認知科学において，脳のメンタルモデルとしても有名である <span class="citation" data-cites="Rao-Ballard1999">(Rao and Ballard, 1999)</span>．↩︎</p></li>
-<li id="fn2"><p><span class="citation" data-cites="Murphy2023">(Murphy, 2023, p. 1056)</span> 第32.3.4.2節も参照．↩︎</p></li>
-<li id="fn3"><p>相互情報量は<img src="https://latex.codecogs.com/png.latex?I(x;c)=%5Csum%20p(x,c)%5Clog%5Cfrac%7Bp(x%7Cc)%7D%7Bp(x)%7D"> と表される．密度比の推定が成功していれば，相互情報量は殆ど変わらない．↩︎</p></li>
-<li id="fn4"><p>The advantage of the new framework over typical deep latent-variable models used with VAEs is that we actually recover the original latents, thus providing principled disentanglement. <span class="citation" data-cites="Khemakhem+2020">(Khemakhem et al., 2020)</span> Section 6．↩︎</p></li>
-<li id="fn5"><p><span class="citation" data-cites="Murphy2023">(Murphy, 2023, p. 1060)</span> 33.4.1節も参照．↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>Deep</category>
-  <guid>https://162348.github.io/posts/2024/Kernels/NCL.html</guid>
-  <pubDate>Sun, 28 Jul 2024 15:00:00 GMT</pubDate>
-  <media:content url="https://162348.github.io/posts/2024/Kernels/Images/contrastive_repr4.jpeg" medium="image" type="image/jpeg"/>
 </item>
 </channel>
 </rss>
