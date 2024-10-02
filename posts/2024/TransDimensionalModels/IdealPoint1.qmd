@@ -1,0 +1,230 @@
+---
+title: "理想点解析のハンズオン"
+subtitle: "`pscl`, `MCMCpack`, `emIRT` パッケージ"
+author: "司馬博文"
+date: 10/2/2024
+date-modified: 10/2/2024
+categories: [Bayesian, Statistics, MCMC, R]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+    - IdealPoint.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    理想点解析とは，政治学においてイデオロギーを定量化する方法論である．この手法は多くの側面を持ち，[多次元展開法](../Kernels/Manifold.qmd#sec-MDU) (MDU: Multidimensional Unfolding) であると同時に項目反応モデルでもある．初めに政治学における理想点解析の目的と役割を概観し，続いて多次元展開法と項目反応理論の２つの観点から理想点解析を眺める．
+image: Images/IdealPoint.png
+code-fold: false
+execute:
+    cache: true
+listing: 
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        contents:
+            - "IdealPoint.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 前稿 {.unnumbered .unlisted}
+
+::: {#lst-embedding}
+:::
+
+本校では次の３つのパッケージを紹介する：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* `pscl` [@Zeileis+2008]：[GitHub](https://github.com/atahk/pscl), [CRAN](https://cran.r-project.org/web/packages/pscl/index.html)．[@Arnold2018] も参照．
+* `MCMCpack` [@Martin+2011]：[GitHub](https://github.com/cran/MCMCpack), [CRAN](https://cran.r-project.org/web/packages/MCMCpack/index.html)
+* `emIRT` [@Imai+2016]：[GitHub](https://github.com/kosukeimai/emIRT), [CRAN](https://cran.r-project.org/web/packages/emIRT/index.html)
+
+:::
+
+## `pscl` パッケージ
+
+```r
+install.packages("pscl")
+```
+
+### `voteview` データ
+
+このパッケージでは，Keith T. Poole と Howard Rosenthal が 1995 年から運営しているサイト [`voteview.com`](https://voteview.com/) のデータを利用するための関数 `readKH()` が提供されている．
+
+例えば連邦議会 (U.S. Congress) 117 議会期 (Congress) 2021.1.3-2023.1.3 の上院 (Senate) の点呼投票データを読み込むには以下のようにする：^[１つの議会期 (Congress) は２つの会期 (Session)，第１会期と第２会期から構成される．]
+
+```{r}
+#| output: false
+library(pscl)
+s117 <- readKH("https://voteview.com/static/data/out/votes/S117_votes.ord",
+                desc="117th U.S. Senate")
+```
+
+`s117` は `rollcall` オブジェクト，８つのフィールドを持った配列である．
+
+`s117$votes` データは $n=104$ 議員の計 $m=949$ 回の投票からなる $10$-値の行列である．
+
+```{r}
+summary(s117)
+```
+
+### 点呼投票データ
+
+点呼投票データとは $n\times m$ の行列で，そのエントリーは２値変数である（今回は $1$ か $6$）．
+
+しかし実際には種々の欠測により，$0,7,9$ も使われる．
+
+これをヒートマップで可視化してみる．
+
+```{r}
+#| output: false
+#| code-fold: false
+library(tidyverse)
+
+votes_df <- as.data.frame(s117$votes[1:15, 1:15]) %>% rownames_to_column("Legislator")  # 投票データをデータフレームに変換し、行名を列として追加
+
+votes_long <- votes_df %>% pivot_longer(cols = -Legislator, names_to = "Vote", values_to = "value")  # データを長形式に変換
+```
+```{r}
+ggplot(votes_long, aes(x = Vote, y = Legislator, fill = value)) + geom_tile() + scale_fill_gradient(low = "white", high = "red") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(x = "Votes", y = "Legislators", title = "Voting Patterns")  # ヒートマップを作成
+```
+
+### 政党毎の賛成率
+
+政党でソートし，賛成率を最初の 15 法案についてプロットしたものは次の通り：
+
+```{r}
+#| output: false
+#| code-fold: true
+library(dplyr)
+
+# 政党ごとの賛成票の割合を計算
+party_votes <- s117$votes %>%
+  as.data.frame() %>%
+  mutate(party = s117$legis.data$party) %>%
+  group_by(party) %>%
+  summarise(across(everything(), ~mean(. == 1, na.rm = TRUE)))
+
+# データを長形式に変換
+party_votes_long <- party_votes %>% pivot_longer(cols = -party, names_to = "Vote", values_to = "value")
+
+# DとRのデータのみを抽出
+party_votes_d <- party_votes_long %>% filter(party == "D")
+party_votes_r <- party_votes_long %>% filter(party == "R")
+
+# Democrats (D) のデータのみをプロット
+ggplot(party_votes_d, aes(x = as.numeric(gsub("Vote ", "", Vote)), y = value)) +
+  geom_line(color = "blue") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(x = "Votes", y = "Proportion of Yea votes",
+       title = "Proportion of Yea votes for Democrats")
+```
+```{r}
+# Democrats (D) と Republicans (R) のデータを同じプロットに追加
+ggplot() +
+  geom_line(data = party_votes_d[1:15,], aes(x = as.numeric(gsub("Vote ", "", Vote)), y = value, color = "Democrat"), linewidth = 0.5) +
+  geom_line(data = party_votes_r[1:15,], aes(x = as.numeric(gsub("Vote ", "", Vote)), y = value, color = "Republican"), linewidth = 0.5) +
+  scale_color_manual(values = c("Democrat" = "blue", "Republican" = "red")) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(x = "Votes", y = "Proportion of Yea votes", color = "Party",
+       title = "Proportion of Yea votes by Party")
+```
+
+民主党の 0-1 がはっきりした投票行動が見られる．
+
+```{r}
+s109 <- readKH("https://voteview.com/static/data/out/votes/S109_votes.ord",
+                desc="109th U.S. Senate")
+```
+
+### ベイズ推定
+
+`pscl` パッケージでは，`rollcall` オブジェクトに対して `ideal()` 関数を用いてデータ拡張に基づく Gibbs サンプラーを通じた理想点解析を行うことができる．
+
+[`ideal()` 関数のマニュアル](https://github.com/atahk/pscl/blob/master/man/ideal.Rd) に記載された例では `maxiter=260E3, burnin=10E3, thin=100` での実行が例示されているが，ここでは簡単に実行してみる．
+
+```{r}
+#| output: false
+n <- dim(s117$legis.data)[1]
+x0 <- rep(0,n)
+x0[s117$legis.data$party=="D"] <- -1
+x0[s117$legis.data$party=="R"] <- 1
+
+library(tictoc)
+tic("ideal() fitting")
+
+id1 <- ideal(s117,
+             d=1,
+             startvals=list(x=x0),
+             normalize=TRUE,
+             store.item=TRUE,
+             maxiter=10000,  # MCMCの反復回数
+             burnin=5000,
+             thin=50,  # 間引き間隔
+             verbose=TRUE)
+toc()
+```
+
+`ideal() fitting: 43.938 sec elapsed` であった．
+
+```{r}
+plot(id1)
+```
+
+[`plot.ideal()` 関数のマニュアル](https://github.com/atahk/pscl/blob/master/man/plot.ideal.Rd) にある通り，`shoALLNames = FALSE` がデフォルトになっている．
+
+```{r}
+#| output: false
+summary(id1)  # 全議員の正確な推定値が見れる．
+```
+
+もっとも保守的な議員として Trump，５番目にリベラルな議員として Biden の名前がみえる．Harris は中道である．
+
+## `emIRT` パッケージ
+
+```r
+install.packages("emIRT")
+```
+
+このパッケージには備え付けの 80-110 議会期の上院における点呼投票データ `dwnom` がある．
+
+このデータに対して，階層モデルを用いた理想点解析を行う関数 `hierIRT()` がある．
+
+```{r}
+#| eval: false
+library(emIRT)
+data(dwnom)
+
+## This takes about 10 minutes to run on 8 threads
+## You may need to reduce threads depending on what your machine can support
+lout <- hierIRT(.data = dwnom$data.in,
+                    .starts = dwnom$cur,
+                    .priors = dwnom$priors,
+                    .control = {list(
+                    threads = 8,
+                    verbose = TRUE,
+                    thresh = 1e-4,
+				    maxit=200,
+				    checkfreq=1
+                        )})
+
+## Bind ideal point estimates back to legislator data
+final <- cbind(dwnom$legis, idealpt.hier=lout$means$x_implied)
+
+## These are estimates from DW-NOMINATE as given on the Voteview example
+## From file "SL80110C21.DAT"
+nomres <- dwnom$nomres
+
+## Merge the DW-NOMINATE estimates to model results by legislator ID
+## Check correlation between hierIRT() and DW-NOMINATE scores
+res <- merge(final, nomres, by=c("senate","id"),all.x=TRUE,all.y=FALSE)
+cor(res$idealpt.hier, res$dwnom1d)
+```
+
