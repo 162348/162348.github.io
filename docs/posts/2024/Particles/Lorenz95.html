@@ -7,8 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
+<meta name="dcterms.date" content="2024-10-05">
 
-<title>Hirofumi Shiba - 粒子フィルターの実装</title>
+<title>Hirofumi Shiba - 大気モデル概観</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,6 +21,40 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 /* CSS for citations */
 div.csl-bib-body { }
@@ -90,20 +125,20 @@ div.csl-indent {
 <script>
 
   window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-lst-embedding .list');
+    const listingTargetEl = window.document.querySelector('#listing-lst-listing .list');
     if (!listingTargetEl) {
       // No listing discovered, do not attach.
       return; 
     }
 
     const options = {
-      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
       
       searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
     };
 
     window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-lst-embedding'] = new List('listing-lst-embedding', options);
+    window['quarto-listings']['listing-lst-listing'] = new List('listing-lst-listing', options);
 
     if (window['quarto-listing-loaded']) {
       window['quarto-listing-loaded']();
@@ -188,13 +223,13 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 粒子フィルターの実装">
-<meta property="og:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し，比較する．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Particles/assets/profile.jpg">
+<meta property="og:title" content="Hirofumi Shiba - 大気モデル概観">
+<meta property="og:description" content="Lorenz’ 96 とは (Lorenz, 1995) によって導入された大気モデルである．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Particles/Files/lorenz96_animation.gif">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 粒子フィルターの実装">
-<meta name="twitter:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し，比較する．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Particles/assets/profile.jpg">
+<meta name="twitter:title" content="Hirofumi Shiba - 大気モデル概観">
+<meta name="twitter:description" content="Lorenz’ 96 とは (Lorenz, 1995) によって導入された大気モデルである．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Particles/Files/lorenz96_animation.gif">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -244,11 +279,11 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">粒子フィルターの実装</h1>
-            <p class="subtitle lead">リサンプリング編</p>
+      <h1 class="title">大気モデル概観</h1>
+            <p class="subtitle lead">Lorenz 96 モデル</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Particles</div>
-                <div class="quarto-category">Python</div>
+                <div class="quarto-category">Nature</div>
               </div>
                   </div>
   </div>
@@ -266,17 +301,23 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">1/14/2024</p>
+        <p class="date">10/05/2024</p>
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">10/05/2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し，比較する．
+      <p>Lorenz’ 96 とは <span class="citation" data-cites="Lorenz1995">(<a href="#ref-Lorenz1995" role="doc-biblioref">Lorenz, 1995</a>)</span> によって導入された大気モデルである．</p>
     </div>
   </div>
   
@@ -288,9 +329,10 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#リサンプリング法の形式化" id="toc-リサンプリング法の形式化" class="nav-link active" data-scroll-target="#リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</a>
+  <li><a href="#lorenz-96-モデル" id="toc-lorenz-96-モデル" class="nav-link active" data-scroll-target="#lorenz-96-モデル"><span class="header-section-number">1</span> Lorenz 96 モデル</a>
   <ul class="collapse">
-  <li><a href="#リサンプリングとは" id="toc-リサンプリングとは" class="nav-link" data-scroll-target="#リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</a></li>
+  <li><a href="#モデル定義" id="toc-モデル定義" class="nav-link" data-scroll-target="#モデル定義"><span class="header-section-number">1.1</span> モデル定義</a></li>
+  <li><a href="#dynamicalsystems.jl-でシミュレーション" id="toc-dynamicalsystems.jl-でシミュレーション" class="nav-link" data-scroll-target="#dynamicalsystems.jl-でシミュレーション"><span class="header-section-number">1.2</span> <code>DynamicalSystems.jl</code> でシミュレーション</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -302,30 +344,68 @@ window.Quarto = {
 
 
 
-<p>Python を用いた粒子フィルター全体の実装は <a href="../../../posts/2023/Particles/ParticleFilter.html">粒子フィルターの実装 | Particles Package</a> 参照：</p>
-<div id="listing-lst-embedding" class="listing quarto-float quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Particles,Python" data-listing-date-sort="1702220400000" data-listing-file-modified-sort="1723202236927" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="12" data-listing-word-count-sort="2261">
-<a href="../../../posts/2023/Particles/ParticleFilter.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top">
-<img src="../../../posts/2023/Particles/sample_plot.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
+<section id="関連記事" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
+<div id="listing-lst-listing" class="listing quarto-float quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Particles,Survey" data-listing-date-sort="1712415600000" data-listing-file-modified-sort="1728110243269" data-listing-date-modified-sort="1728054000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="319">
+<a href="../../../posts/2024/Particles/ParticleMethods.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../../2023/Surveys/cover_LowResolution.jpg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-粒子フィルターの実装 | Particles Package
+粒子法の概観
 </h5>
-<div class="listing-categories">
-<div class="listing-category" onclick="window.quartoListingCategory('Particles'); return false;">
-Particles
-</div>
-<div class="listing-category" onclick="window.quartoListingCategory('Python'); return false;">
-Python
-</div>
+<div class="card-subtitle listing-subtitle">
+分子動力学法から SMC サンプラーまで
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
-2023-12-11
+2024-04-07
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Particles,MCMC,Survey" data-listing-date-sort="1702479600000" data-listing-file-modified-sort="1727007848170" data-listing-date-modified-sort="1722783600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="488">
+<a href="../../../posts/Surveys/SMCSamplers.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/Surveys/SMCSamplers_LowResolution.jpg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+粒子フィルターを用いたサンプリング | About SMC Samplers
+</h5>
+<div class="card-subtitle listing-subtitle">
+テンパリングを通じたもう一つの万能サンプラー
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2023-12-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Particles,Survey,Computation" data-listing-date-sort="1700838000000" data-listing-file-modified-sort="1727748783627" data-listing-date-modified-sort="1702566000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
+<a href="../../../posts/2023/Surveys/ParticleFilter.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2023/Surveys/cover_LowResolution.jpg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+粒子フィルターとは何か
+</h5>
+<div class="card-subtitle listing-subtitle">
+非線型フィルタリング手法としての粒子フィルタ
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2023-11-25
 </div>
 </div>
 </div>
@@ -342,113 +422,65 @@ No matching items
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="リサンプリング法の形式化" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</h2>
-<p>リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="問題設定と記法">
-<div class="callout-header d-flex align-content-center">
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
-<div class="callout-title-container flex-fill">
-問題設定と記法
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li>状態空間を距離空間 <span class="math inline">\(E\)</span> とし，この上の Markov 過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;E)\)</span> を既知とし，<strong>参照過程</strong> と呼ぶ．</li>
-<li>この Markov 過程の，時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> までの見本道の分布を <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> と表す．</li>
-<li>非負値な有界可測関数の列 <span class="math inline">\(\{G_n\}_{n=0}^t\subset \mathcal{L}_b(E^2)_+\)</span> に関して， <span class="math display">\[
-\mathbb{Q}_{t}(dx_{0:t}):=\frac{1}{L_t}G_0(x_0)\left(\prod_{s=1}^tG_s(x_{s-1},x_s)\right)\mathbb{M}_t(dx_{0:t})
-\]</span> という形で表現される分布 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> を，<strong>ポテンシャル関数</strong> <span class="math inline">\((G_n)_{n=0}^t\)</span> に関する <strong>Feynman-Kac 測度</strong> という．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></li>
-<li>積測度の確率核による分解 <span class="math display">\[
-\mathbb{M}_t(dx_{0:t})=\mathbb{M}_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
-\]</span> を用いる．黒板ボールド <span class="math inline">\(\mathbb{M}_0,\cdots,\mathbb{M}_t\)</span> は積確率測度で，イタリック体 <span class="math inline">\(M_1,\cdots,M_t\)</span> は確率核を表す．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
-</ol>
-</div>
-</div>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="例（フィルタリング問題と Feynman-Kac 測度）">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-例（フィルタリング問題と Feynman-Kac 測度）
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\{X_n\}\)</span> をシステムダイナミクス，<span class="math inline">\(\{Y_n\}\subset\mathcal{L}(\Omega;\mathbb{R}^d)\)</span> を観測モデル <span class="math display">\[
-\operatorname{P}[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
-\]</span> <span class="math display">\[
-A\in\mathcal{B}(\mathbb{R}^d),\quad x\in E,
-\]</span> に従った観測の過程とした，<a href="../../../posts/2023/Surveys/SSM.html">状態空間モデル</a> <span class="math inline">\((X_n,Y_n)\)</span> におけるフィルタリング問題とは，<span class="math inline">\(y_1,\cdots,y_n,\cdots\in\mathbb{R}^d\)</span> を観測として <span class="math display">\[
-G_n(x_{n-1},x_n):=f_n(y_n|x_n)
-\]</span> と定めた場合の Feynman-Kac 測度 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\)</span> がフィルタリング分布に他ならないから，これを時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> 毎に観測 <span class="math inline">\(y_1,\cdots,y_t\)</span> から逐次推定する問題と解釈できる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<div class="callout-body-container">
+<ul>
+<li><a href="https://github.com/milankl/Lorenz96.jl/tree/v0.3.0"><code>Loorenz96.jl</code></a> パッケージ <span class="citation" data-cites="Milan2021">(<a href="#ref-Milan2021" role="doc-biblioref">K, 2021</a>)</span></li>
+<li><code>DynamicalSystems.jl</code> (<a href="https://github.com/JuliaDynamics/DynamicalSystems.jl">GitHub</a> / <a href="https://juliadynamics.github.io/DynamicalSystems.jl/dev/">Docs</a>) パッケージ</li>
+</ul>
 </div>
 </div>
 </div>
-<section id="リサンプリングとは" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</h3>
-<p>Feynman-Kac 測度を <span class="math inline">\(\mathbb{Q}_0,\mathbb{Q}_1,\cdots\)</span> と逐次的に推定していく問題を考える．</p>
-<ol type="1">
-<li>時刻 <span class="math inline">\(t=0\)</span> にて，提案分布を <span class="math inline">\(\mathbb{M}_0\)</span>，目標分布を <span class="math inline">\(\mathbb{Q}_0(dx_0)\propto G_0(x_0)\mathbb{M}_0(dx_0)\)</span> とした重点サンプリングを行って，<span class="math inline">\(\mathbb{Q}_0\)</span> の重点サンプリング推定量 <span class="math display">\[
-\mathbb{Q}_0^N(dx_0):=\sum_{i=1}^NW_0^{i}\delta_{X_0^{i}}(dx_0),
-\]</span> <span class="math display">\[
-X_0^i\overset{\text{iid}}{\sim}\mathbb{M}_0,\quad W^i_0:=\frac{G_0(X_0^i)}{\sum_{j=1}^NG_0(X_0^j)}
-\]</span> を得る．</li>
-<li>時刻 <span class="math inline">\(t=1\)</span> では目標分布 <span class="math inline">\(\mathbb{Q}_1(dx_{0:1})\propto G_1(x_0,x_1)\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> を，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> から重点サンプリングすることを考える．</li>
-</ol>
-<p>そこで，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> に従う標本 <span class="math inline">\(\{(X_0^i,X_1^i)\}_{i=1}^N\)</span> をどう得るかが問題になる．これを得たならば，残る重点サンプリングのステップとは，ポテンシャル <span class="math inline">\(G_1(x_0,x_1)\propto\frac{d \mathbb{Q}_1}{d \mathbb{Q}_0\otimes M_1}\)</span> に関して重み付けするのみである．</p>
-<p>まず，リサンプリングをしない粒子フィルターは，逐次重点サンプリングに等しい．その考え方は次の通りである：</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="逐次重点サンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-逐次重点サンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\mathbb{Q}_0\)</span> の近似 <span class="math inline">\(\mathbb{Q}_0^N\)</span> を得た Step 1. はこの提案分布を計算する途中だったと見做す．</p>
-<p>つまり，Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させて得る粒子の荷重和 <span class="math display">\[
-\sum_{i=1}^NW^i_0(\delta_{X_0^i}\otimes\delta_{X_1^i}),
-\]</span> <span class="math display">\[
-X_1^i\sim M_1(X_0^i,-)
-\]</span> を，<span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の良い近似として利用することが出来る．</p>
-<p>これは極めて計算効率が良い戦略である．</p>
-</div>
-</div>
-<p>しかし荷重 <span class="math inline">\(W_0^i\le1\)</span> が引き継がれている点に注目して欲しい．ここに新たに <span class="math inline">\(W_0^iW_1^i\cdots\)</span> と連なっていくことになる．これでは，時間が経つ <span class="math inline">\(t\to\infty\)</span> につれて荷重の分散が拡大し，殆ど１つの粒子しか Feynman-Kac 分布 <span class="math inline">\(\mathbb{Q}_t\)</span> の推定に寄与しないことになる．これでは，たくさん粒子を用意した意味がない．</p>
-<p>そこで，定期的にリサンプリングを行い，<span class="math inline">\(\mathbb{Q}_t^N\)</span> の表現を荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> に頼り切るのではなく，粒子の濃密で代替して，荷重の方は一様化に戻すという段階を挟む．</p>
-<p>このリサンプリングの段階は，実用上はほとんどの場合，荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> の状態を監視して適応的に行うことが多い．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="リサンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-リサンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>計算が効率的である点を除けば，前段階 Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させる必要はなかったのである．</p>
-<p>むしろ，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> から直接 i.i.d. サンプリング（のようなもの）を行えば，追加の計算は必要になろうと，荷重が一様な <span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の近似を得ることが出来る．</p>
-<p>これはリサンプリングによって実現できる．</p>
-<p>というのは，まず <span class="math inline">\(\mathbb{Q}_0^N\)</span> からサンプリングを行う！．（完全に無駄なステップに見えるかも知れないが！）．</p>
-<p>正確に言えば，粒子番号 <span class="math inline">\([N]=\left\{1,\cdots,N\right\}\)</span> から，その重み <span class="math inline">\(W_0^1,\cdots,W_0^N\)</span> に従って，重複を許して <span class="math inline">\(N\)</span> 個の番号 <span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> をサンプリングする．すなわち，<span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> を多項分布 <span class="math inline">\(\mathrm{Mult}_N(W_0^{1:N})\)</span> のサンプルとする．すると，元の近似と分布同等である： <span class="math display">\[
-\mathbb{Q}^N_0=\sum_{n=1}^NW_0^n\delta_{X_0^n}\overset{\text{d}}{=}\sum_{n=1}^N\delta_{X_0^{A_1^n}}.
-\]</span> この操作を <strong>リサンプリング</strong> という．</p>
-<p>続いて，これを発展させる： <span class="math display">\[
-X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
+</section>
+<section id="lorenz-96-モデル" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="lorenz-96-モデル"><span class="header-section-number">1</span> Lorenz 96 モデル</h2>
+<section id="モデル定義" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="モデル定義"><span class="header-section-number">1.1</span> モデル定義</h3>
+<p><span class="math display">\[
+\frac{d x_i}{d t}=\biggr(x_{i+1}-x_{i-2}\biggl)x_{i-1}-x_i+F
 \]</span></p>
-<p>こうして得る粒子系 <span class="math inline">\(\{(X_0^{A_1^n},X_1^n)\}_{n=1}^N\)</span> は <span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> を一様な荷重で近似している： <span class="math display">\[
-\mathbb{Q}^N_0\otimes M_1\approx\frac{1}{N}\sum_{n=1}^N\delta_{(X_0^{A_1^n},X_1^n)}.
-\]</span></p>
-<p>ただし，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> の <strong>i.i.d. サンプルではない</strong> 点に注意すべきである．新たな粒子 <span class="math inline">\(X_1^n\)</span> の祖先番号 <span class="math inline">\(A_1^{n}\)</span> に重複を許しているため，いずれか２つのサンプルは依存関係をもち得る．</p>
+</section>
+<section id="dynamicalsystems.jl-でシミュレーション" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="dynamicalsystems.jl-でシミュレーション"><span class="header-section-number">1.2</span> <code>DynamicalSystems.jl</code> でシミュレーション</h3>
+<p><code>DynamicalSystems.jl</code> (<a href="https://github.com/JuliaDynamics/DynamicalSystems.jl">GitHub</a> / <a href="https://juliadynamics.github.io/DynamicalSystems.jl/dev/">Docs</a>) パッケージの<a href="https://juliadynamics.github.io/DynamicalSystems.jl/dev/tutorial/#Example:-Lorenz96">チュートリアルに Lorenz96 の例がある</a>．</p>
+<div id="708551fc" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DynamicalSystems</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">lorenz96_rule!</span>(du, u, p, t)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    F <span class="op">=</span> p[<span class="fl">1</span>]; N <span class="op">=</span> <span class="fu">length</span>(u)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 3 edge cases</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    du[<span class="fl">1</span>] <span class="op">=</span> (u[<span class="fl">2</span>] <span class="op">-</span> u[N <span class="op">-</span> <span class="fl">1</span>]) <span class="op">*</span> u[N] <span class="op">-</span> u[<span class="fl">1</span>] <span class="op">+</span> F</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    du[<span class="fl">2</span>] <span class="op">=</span> (u[<span class="fl">3</span>] <span class="op">-</span> u[N]) <span class="op">*</span> u[<span class="fl">1</span>] <span class="op">-</span> u[<span class="fl">2</span>] <span class="op">+</span> F</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    du[N] <span class="op">=</span> (u[<span class="fl">1</span>] <span class="op">-</span> u[N <span class="op">-</span> <span class="fl">2</span>]) <span class="op">*</span> u[N <span class="op">-</span> <span class="fl">1</span>] <span class="op">-</span> u[N] <span class="op">+</span> F</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># then the general case</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> n <span class="kw">in</span> <span class="fl">3</span><span class="op">:</span>(N <span class="op">-</span> <span class="fl">1</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        du[n] <span class="op">=</span> (u[n <span class="op">+</span> <span class="fl">1</span>] <span class="op">-</span> u[n <span class="op">-</span> <span class="fl">2</span>]) <span class="op">*</span> u[n <span class="op">-</span> <span class="fl">1</span>] <span class="op">-</span> u[n] <span class="op">+</span> F</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span> <span class="co"># always `return nothing` for in-place form!</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fl">6</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>u0 <span class="op">=</span> <span class="fu">range</span>(<span class="fl">0.1</span>, <span class="fl">1</span>; length <span class="op">=</span> N)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>p0 <span class="op">=</span> [<span class="fl">8.0</span>]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>lorenz96 <span class="op">=</span> <span class="fu">CoupledODEs</span>(lorenz96_rule!, u0, p0)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>total_time <span class="op">=</span> <span class="fl">12.5</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>sampling_time <span class="op">=</span> <span class="fl">0.02</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>Y, t <span class="op">=</span> <span class="fu">trajectory</span>(lorenz96, total_time; Ttr <span class="op">=</span> <span class="fl">2.2</span>, Δt <span class="op">=</span> sampling_time)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="26">
+<pre><code>(6-dimensional StateSpaceSet{Float64} with 626 points, 2.2:0.02:14.7)</code></pre>
 </div>
+</div>
+<p>最初の３成分を取り出して，３次元空間にプロットしてみる：<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/lorenz96_animation.gif" class="img-fluid figure-img"></p>
+<figcaption>Lorenz 96 Model</figcaption>
+</figure>
 </div>
 
 
@@ -459,18 +491,16 @@ X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
-Chopin, N., and Papaspiliopoulos, O. (2020). <em><a href="https://link.springer.com/book/10.1007/978-3-030-47845-2">An introduction to sequential monte carlo</a></em>. Springer Cham.
+<div id="ref-Milan2021" class="csl-entry" role="listitem">
+K, M. (2021, July). <a href="https://doi.org/10.5281/zenodo.5121430">Milankl/Lorenz96.jl: v0.3.0</a> (Version v0.3.0). Zenodo.
 </div>
-<div id="ref-DelMoral-Penev14-StochasticProcesses" class="csl-entry" role="listitem">
-Del&nbsp;Moral, P., and Penev, S. (2014). <em>Stochastic processes. From applications to theory</em>. Chapman; Hall/CRC Press.
+<div id="ref-Lorenz1995" class="csl-entry" role="listitem">
+Lorenz, E. N. (1995). <a href="https://www.ecmwf.int/en/elibrary/75462-predictability-problem-partly-solved">Predictability: A problem partly solved</a>. In <em>Seminar on predictability, 4-8 september 1995</em>. ECMWF.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p><span class="math inline">\(L_t\)</span> は積分を <span class="math inline">\(1\)</span> にするための正規化定数である．詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, pp. 51–52</a>)</span>, <span class="citation" data-cites="DelMoral-Penev14-StochasticProcesses">(<a href="#ref-DelMoral-Penev14-StochasticProcesses" role="doc-biblioref">Del&nbsp;Moral and Penev, 2014, p. 239</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>確率核に関する記法は <a href="../../../static/Notations.html#sec-kernels">本サイトの数学記法一覧</a> を参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, p. 53</a>)</span> 参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>コードは<a href="Files/Lorenz96.jl">こちら</a>を参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

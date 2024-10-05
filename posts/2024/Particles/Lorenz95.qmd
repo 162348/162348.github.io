@@ -1,0 +1,86 @@
+---
+title: "大気モデル概観"
+subtitle: "Lorenz 96 モデル"
+author: "司馬 博文"
+date: 10/5/2024
+date-modified: 10/5/2024
+categories: [Particles, Nature]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+image: Files/lorenz96_animation.gif
+abstract-title: 概要
+abstract: |
+    Lorenz' 96 とは [@Lorenz1995] によって導入された大気モデルである．
+code-fold: false
+execute:
+    cache: false
+listing: 
+    -   id: lst-listing
+        type: grid
+        sort: false
+        contents:
+            - ParticleMethods.qmd
+            - "../../Surveys/SMCSamplers.qmd"
+            - "../../2023/Surveys/ParticleFilter.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+## 関連記事 {.unnumbered .unlisted}
+
+::: {#lst-listing}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* [`Loorenz96.jl`](https://github.com/milankl/Lorenz96.jl/tree/v0.3.0) パッケージ [@Milan2021]
+* `DynamicalSystems.jl` ([GitHub](https://github.com/JuliaDynamics/DynamicalSystems.jl) / [Docs](https://juliadynamics.github.io/DynamicalSystems.jl/dev/)) パッケージ
+
+:::
+
+## Lorenz 96 モデル
+
+### モデル定義
+
+$$
+\dd{x_i}{t}=\Paren{x_{i+1}-x_{i-2}}x_{i-1}-x_i+F
+$$
+
+### `DynamicalSystems.jl` でシミュレーション
+
+`DynamicalSystems.jl` ([GitHub](https://github.com/JuliaDynamics/DynamicalSystems.jl) / [Docs](https://juliadynamics.github.io/DynamicalSystems.jl/dev/)) パッケージの[チュートリアルに Lorenz96 の例がある](https://juliadynamics.github.io/DynamicalSystems.jl/dev/tutorial/#Example:-Lorenz96)．
+
+```{julia}
+using DynamicalSystems
+
+function lorenz96_rule!(du, u, p, t)
+    F = p[1]; N = length(u)
+    # 3 edge cases
+    du[1] = (u[2] - u[N - 1]) * u[N] - u[1] + F
+    du[2] = (u[3] - u[N]) * u[1] - u[2] + F
+    du[N] = (u[1] - u[N - 2]) * u[N - 1] - u[N] + F
+    # then the general case
+    for n in 3:(N - 1)
+        du[n] = (u[n + 1] - u[n - 2]) * u[n - 1] - u[n] + F
+    end
+    return nothing # always `return nothing` for in-place form!
+end
+
+N = 6
+u0 = range(0.1, 1; length = N)
+p0 = [8.0]
+lorenz96 = CoupledODEs(lorenz96_rule!, u0, p0)
+
+total_time = 12.5
+sampling_time = 0.02
+Y, t = trajectory(lorenz96, total_time; Ttr = 2.2, Δt = sampling_time)
+```
+
+最初の３成分を取り出して，３次元空間にプロットしてみる：^[コードは[こちら](Files/Lorenz96.jl)を参照．]
+
+![Lorenz 96 Model](Files/lorenz96_animation.gif)
