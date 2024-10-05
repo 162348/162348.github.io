@@ -4,7 +4,7 @@ subtitle: "Lorenz 96 モデル"
 author: "司馬 博文"
 date: 10/5/2024
 date-modified: 10/5/2024
-categories: [Particles, Nature]
+categories: [Particles, Nature, Julia]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
@@ -40,6 +40,7 @@ listing:
 
 * [`Loorenz96.jl`](https://github.com/milankl/Lorenz96.jl/tree/v0.3.0) パッケージ [@Milan2021]
 * `DynamicalSystems.jl` ([GitHub](https://github.com/JuliaDynamics/DynamicalSystems.jl) / [Docs](https://juliadynamics.github.io/DynamicalSystems.jl/dev/)) パッケージ
+* `EnsembleKalmanProcesses.jl` ([GitHub](https://github.com/CliMA/EnsembleKalmanProcesses.jl) / [Docs](https://clima.github.io/EnsembleKalmanProcesses.jl/dev/examples/lorenz_example/)) パッケージ
 
 :::
 
@@ -47,13 +48,21 @@ listing:
 
 ### モデル定義
 
+Lorenz 96 とは，[@Lorenz1995] によって導入された力学系の通称である：
+
 $$
-\dd{x_i}{t}=\Paren{x_{i+1}-x_{i-2}}x_{i-1}-x_i+F
+\dd{x_i}{t}=\Paren{x_{i+1}-x_{i-2}}x_{i-1}-x_i+F,\qquad F\in\R.
 $$
+
+ただし，係数については，空間の次元 $x\in\R^N$ について $x_{i-N}=x_{i+N}=x_i$ と約束する．
+
+
 
 ### `DynamicalSystems.jl` でシミュレーション
 
 `DynamicalSystems.jl` ([GitHub](https://github.com/JuliaDynamics/DynamicalSystems.jl) / [Docs](https://juliadynamics.github.io/DynamicalSystems.jl/dev/)) パッケージの[チュートリアルに Lorenz96 の例がある](https://juliadynamics.github.io/DynamicalSystems.jl/dev/tutorial/#Example:-Lorenz96)．
+
+$F=8$ の場合はカオス的な振る舞いを示す：
 
 ```{julia}
 using DynamicalSystems
@@ -81,6 +90,94 @@ sampling_time = 0.02
 Y, t = trajectory(lorenz96, total_time; Ttr = 2.2, Δt = sampling_time)
 ```
 
+```{julia}
+using Plots
+
+p = plot(xlabel = "time", ylabel = "variable", legend = false)
+for var in eachcol(Y)
+    plot!(p, t, var)
+end
+plot(p)
+```
+
 最初の３成分を取り出して，３次元空間にプロットしてみる：^[コードは[こちら](Files/Lorenz96.jl)を参照．]
 
 ![Lorenz 96 Model](Files/lorenz96_animation.gif)
+
+::: {.callout-important title="ODE ソルバーの選択" collapse="true" icon="false"}
+
+`CoupledODEs` のデフォルトのソルバーは
+
+> [Tsit5 - Tsitouras 5/4 Runge-Kutta method. (free 4th order interpolant).](https://docs.sciml.ai/DiffEqDocs/latest/solvers/ode_solve/)
+
+である．次のようにカスタマイズもできる
+
+```julia
+using OrdinaryDiffEq: Vern9 # accessing the ODE solvers
+diffeq = (alg = Vern9(), abstol = 1e-9, reltol = 1e-9)
+lorenz96_vern = ContinuousDynamicalSystem(lorenz96_rule!, u0, p0; diffeq)
+
+Y, t = trajectory(lorenz96_vern, total_time; Ttr = 2.2, Δt = sampling_time)
+Y[end]
+```
+
+:::
+
+### ２タイムスケール版
+
+[Section 4 @Lorenz1995] では２タイムスケール版の Lorenz 96 モデルが導入されている：
+\begin{align*}
+  \dd{x_i}{t}&=-x_{i-1}(x_{i-2}-x_{i+1})-x_i+F-\paren{\frac{hc}{b}}\sum_{j=1}^{J-1}Y_{j,i},\\
+  \dd{y_{j,i}}{t}&=-cbY_{j+1,i}(Y_{j+2,i}-Y_{j-1,i})-cY_{j,i}+\frac{hc}{b}X_i.
+\end{align*}
+
+## 非圧縮 Navier-Stokes 方程式
+
+`IncompressibleNavierStokes.jl` ([GitHub](https://github.com/agdestein/IncompressibleNavierStokes.jl) / [Docs](https://agdestein.github.io/IncompressibleNavierStokes.jl/dev/)) パッケージを用いて，非圧縮 Navier-Stokes 方程式を解くことができる．
+
+```{julia}
+#| eval: false
+using GLMakie
+using IncompressibleNavierStokes
+
+# Setup
+setup = Setup(
+    x = (tanh_grid(0.0, 2.0, 200, 1.2), tanh_grid(0.0, 1.0, 100, 1.2)),
+    boundary_conditions = ((DirichletBC(), DirichletBC()), (DirichletBC(), DirichletBC())),
+    temperature = temperature_equation(;
+        Pr = 0.71,
+        Ra = 1e7,
+        Ge = 1.0,
+        boundary_conditions = (
+            (SymmetricBC(), SymmetricBC()),
+            (DirichletBC(1.0), DirichletBC(0.0)),
+        ),
+    ),
+)
+
+# Solve equation
+solve_unsteady(;
+    setup,
+    ustart = velocityfield(setup, (dim, x, y) -> zero(x)),
+    tempstart = temperaturefield(setup, (x, y) -> 1 / 2 + sinpi(30 * x) / 100),
+    tlims = (0.0, 30.0),
+    Δt = 0.02,
+    processors = (;
+        anim = animator(;
+            setup,
+            path = "temperature.mp4",
+            fieldname = :temperature,
+            colorrange = (0.0, 1.0),
+            size = (900, 500),
+            colormap = :seaborn_icefire_gradient,
+            nupdate = 5,
+        ),
+    ),
+)
+```
+
+![](Files/temperature.gif)
+
+## 文献紹介 {.appendix}
+
+[@vanKekem2018], [@Kerin-Engler2022] が概観に良い．[@Balwada+2023] は２タイムスケール版について詳しい．
