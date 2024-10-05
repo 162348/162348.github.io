@@ -1,10 +1,10 @@
 ---
-title: "大気モデル概観"
-subtitle: "Lorenz 96 モデル"
-author: "司馬 博文"
+title: "流体モデル概観"
+subtitle: "大気の Lorenz 96 モデル，流体の Navier-Stokes モデル"
+author: "司馬博文"
 date: 10/5/2024
-date-modified: 10/5/2024
-categories: [Particles, Nature, Julia]
+date-modified: 10/6/2024
+categories: [Nature, Julia]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
@@ -13,7 +13,11 @@ csl: ../../../assets/apalike.csl
 image: Files/lorenz96_animation.gif
 abstract-title: 概要
 abstract: |
-    Lorenz' 96 とは [@Lorenz1995] によって導入された大気モデルである．
+    Lorenz' 63, Lorenz' 96 とはそれぞれ [@Lorenz1963], [@Lorenz1995] によって導入された大気モデルである．
+    前者はバタフライ効果の語源ともなった，最初に特定されたカオス力学系でもある．
+    Navier-Stokes 方程式は流体の運動を記述する方程式である．
+    これらはいずれもデータ同化・軌道推定技術のベンチマークとして用いられている．
+    ここでそれぞれのモデルの数学的性質と Julia を通じたシミュレーションの方法をまとめる．
 code-fold: false
 execute:
     cache: false
@@ -131,7 +135,38 @@ Y[end]
   \dd{y_{j,i}}{t}&=-cbY_{j+1,i}(Y_{j+2,i}-Y_{j-1,i})-cY_{j,i}+\frac{hc}{b}X_i.
 \end{align*}
 
-## 非圧縮 Navier-Stokes 方程式
+## 非圧縮・粘性 Navier-Stokes 方程式
+
+### モデル定義
+
+$M^n$ を $n$-次元可微分多様体，$v:M\times\R_+\to\R^n$ を $M$ 上のベクトル場とする．$v$ に関する非圧縮・粘性 Navier-Stokes 方程式は次のように表せる [@Evans2010 p.6]：
+
+$$
+\partial_tv-\nu\Lap v+v\cdot\nabla v=f-\nabla p,\qquad\nu>0,
+$$
+$$
+\div v=0,\quad\int_M v_j(x,-)\,dx=0\quad(j\in[n]),\quad v(x,0)=:u(x).
+$$
+$\nu>0$ を **粘性** (viscosity) 係数，$p:M\times\R_+\to\R$ を **圧力** (pressure) という．$f$ は時間一定の外力である．
+
+### 数値解法
+
+$v$ を数値的に得るためには **射影法** (projection method) [@Chorin1967], [@Chorin1968] を用いる．
+
+この方法では Holmholtz の射影作用素 $P$ が用いられる．
+
+これは
+$$
+\dd{v}{t}+\nu Av+B(v,v)=P(f),\qquad v(0)=u
+$$ {#eq-projected-navier-stokes}
+という ODE への帰着を可能にする．ただし，
+$$
+B(v,w):=\frac{1}{2}P(v\cdot\nabla w)+\frac{1}{2}P(w\cdot\nabla v).
+$$
+
+あとは ODE ([-@eq-projected-navier-stokes]) をソルバーで解くのである．
+
+### シミュレーション
 
 `IncompressibleNavierStokes.jl` ([GitHub](https://github.com/agdestein/IncompressibleNavierStokes.jl) / [Docs](https://agdestein.github.io/IncompressibleNavierStokes.jl/dev/)) パッケージを用いて，非圧縮 Navier-Stokes 方程式を解くことができる．
 
@@ -181,3 +216,5 @@ solve_unsteady(;
 ## 文献紹介 {.appendix}
 
 [@vanKekem2018], [@Kerin-Engler2022] が概観に良い．[@Balwada+2023] は２タイムスケール版について詳しい．
+
+Navier-Stokes 方程式のデータ同化に関しては [@Kantas+2014] などで考えられている．
