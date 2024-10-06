@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬博文">
+
+<title>ベイズデータ解析３ – Hirofumi Shiba</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-survey .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-survey'] = new List('listing-lst-survey', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  .navbar-title, .menu-text {
+      font-family: "Zen Kurenaido", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="ベイズデータ解析３ – Hirofumi Shiba">
+<meta property="og:description" content="標本調査において欠測はつきものである．観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は 荷重校正 (calibration weighting) が可能である．一方で，項目が欠測している場合 (item nonresponse)，代入法 (imputation) が用いられる．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Survey/Files/Horvitz-Thompson.svg">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta name="twitter:title" content="ベイズデータ解析３ – Hirofumi Shiba">
+<meta name="twitter:description" content="標本調査において欠測はつきものである．観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は 荷重校正 (calibration weighting) が可能である．一方で，項目が欠測している場合 (item nonresponse)，代入法 (imputation) が用いられる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Survey/Files/Horvitz-Thompson.svg">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">ベイズデータ解析３</h1>
+            <p class="subtitle lead">標本調査データと欠測データの扱い</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Bayesian</div>
+                <div class="quarto-category">Statistics</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬博文 </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">9/24/2024</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">9/29/2024</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      <p>標本調査において欠測はつきものである．観測単位が欠測している場合 (unit nonresponse)，call-back や follow-up などの調査を行うか，それができない場合は <strong>荷重校正</strong> (calibration weighting) が可能である．一方で，項目が欠測している場合 (item nonresponse)，<strong>代入法</strong> (imputation) が用いられる．</p>
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#有限標本論の概要" id="toc-有限標本論の概要" class="nav-link active" data-scroll-target="#有限標本論の概要"><span class="header-section-number">1</span> 有限標本論の概要</a>
+  <ul class="collapse">
+  <li><a href="#sec-probability-sample" id="toc-sec-probability-sample" class="nav-link" data-scroll-target="#sec-probability-sample"><span class="header-section-number">1.1</span> 設定</a></li>
+  <li><a href="#horvitz-thompson-推定量" id="toc-horvitz-thompson-推定量" class="nav-link" data-scroll-target="#horvitz-thompson-推定量"><span class="header-section-number">1.2</span> Horvitz-Thompson 推定量</a></li>
+  <li><a href="#校正効率の改善に向けて" id="toc-校正効率の改善に向けて" class="nav-link" data-scroll-target="#校正効率の改善に向けて"><span class="header-section-number">1.3</span> 「校正」：効率の改善に向けて</a></li>
+  </ul></li>
+  <li><a href="#回帰推定量" id="toc-回帰推定量" class="nav-link" data-scroll-target="#回帰推定量"><span class="header-section-number">2</span> 回帰推定量</a>
+  <ul class="collapse">
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#比による校正" id="toc-比による校正" class="nav-link" data-scroll-target="#比による校正"><span class="header-section-number">2.2</span> 比による校正</a></li>
+  <li><a href="#sec-regression-estimator" id="toc-sec-regression-estimator" class="nav-link" data-scroll-target="#sec-regression-estimator"><span class="header-section-number">2.3</span> 回帰推定量</a></li>
+  <li><a href="#事後層別化" id="toc-事後層別化" class="nav-link" data-scroll-target="#事後層別化"><span class="header-section-number">2.4</span> 事後層別化</a></li>
+  <li><a href="#ランキング法繰り返し比例的フィッティング法" id="toc-ランキング法繰り返し比例的フィッティング法" class="nav-link" data-scroll-target="#ランキング法繰り返し比例的フィッティング法"><span class="header-section-number">2.5</span> ランキング法／繰り返し比例的フィッティング法</a></li>
+  </ul></li>
+  <li><a href="#荷重校正推定量" id="toc-荷重校正推定量" class="nav-link" data-scroll-target="#荷重校正推定量"><span class="header-section-number">3</span> 荷重校正推定量</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">3.1</span> はじめに</a></li>
+  <li><a href="#差分推定量" id="toc-差分推定量" class="nav-link" data-scroll-target="#差分推定量"><span class="header-section-number">3.2</span> 差分推定量</a></li>
+  <li><a href="#sec-projection-estimator" id="toc-sec-projection-estimator" class="nav-link" data-scroll-target="#sec-projection-estimator"><span class="header-section-number">3.3</span> 一般化回帰モデルと射影推定量</a></li>
+  <li><a href="#一般化最小二乗法-gls" id="toc-一般化最小二乗法-gls" class="nav-link" data-scroll-target="#一般化最小二乗法-gls"><span class="header-section-number">3.4</span> 一般化最小二乗法 (GLS)</a></li>
+  <li><a href="#sec-calibration-estimator" id="toc-sec-calibration-estimator" class="nav-link" data-scroll-target="#sec-calibration-estimator"><span class="header-section-number">3.5</span> 校正推定量</a></li>
+  <li><a href="#最適校正推定量" id="toc-最適校正推定量" class="nav-link" data-scroll-target="#最適校正推定量"><span class="header-section-number">3.6</span> 最適校正推定量</a></li>
+  <li><a href="#一般化エントロピー法" id="toc-一般化エントロピー法" class="nav-link" data-scroll-target="#一般化エントロピー法"><span class="header-section-number">3.7</span> 一般化エントロピー法</a></li>
+  </ul></li>
+  <li><a href="#欠測データの扱い" id="toc-欠測データの扱い" class="nav-link" data-scroll-target="#欠測データの扱い"><span class="header-section-number">4</span> 欠測データの扱い</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-2" id="toc-はじめに-2" class="nav-link" data-scroll-target="#はじめに-2"><span class="header-section-number">4.1</span> はじめに</a></li>
+  <li><a href="#sec-propensity-score" id="toc-sec-propensity-score" class="nav-link" data-scroll-target="#sec-propensity-score"><span class="header-section-number">4.2</span> 傾向スコア推定量</a></li>
+  <li><a href="#sec-calibration-estimator-for-missing-data" id="toc-sec-calibration-estimator-for-missing-data" class="nav-link" data-scroll-target="#sec-calibration-estimator-for-missing-data"><span class="header-section-number">4.3</span> 校正推定量</a></li>
+  <li><a href="#代入法とその不偏性条件" id="toc-代入法とその不偏性条件" class="nav-link" data-scroll-target="#代入法とその不偏性条件"><span class="header-section-number">4.4</span> 代入法とその不偏性条件</a></li>
+  <li><a href="#回帰による代入" id="toc-回帰による代入" class="nav-link" data-scroll-target="#回帰による代入"><span class="header-section-number">4.5</span> 回帰による代入</a></li>
+  <li><a href="#マッチングによる代入" id="toc-マッチングによる代入" class="nav-link" data-scroll-target="#マッチングによる代入"><span class="header-section-number">4.6</span> マッチングによる代入</a></li>
+  <li><a href="#sec-superpopulation-model-imputation" id="toc-sec-superpopulation-model-imputation" class="nav-link" data-scroll-target="#sec-superpopulation-model-imputation"><span class="header-section-number">4.7</span> 母集団モデルによる代入法</a></li>
+  </ul></li>
+  <li><a href="#多重代入法" id="toc-多重代入法" class="nav-link" data-scroll-target="#多重代入法"><span class="header-section-number">5</span> 多重代入法</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-3" id="toc-はじめに-3" class="nav-link" data-scroll-target="#はじめに-3"><span class="header-section-number">5.1</span> はじめに</a></li>
+  <li><a href="#sec-MI" id="toc-sec-MI" class="nav-link" data-scroll-target="#sec-MI"><span class="header-section-number">5.2</span> 多重代入法</a></li>
+  <li><a href="#連鎖方程式による多重代入" id="toc-連鎖方程式による多重代入" class="nav-link" data-scroll-target="#連鎖方程式による多重代入"><span class="header-section-number">5.3</span> 連鎖方程式による多重代入</a></li>
+  <li><a href="#その他の代入法" id="toc-その他の代入法" class="nav-link" data-scroll-target="#その他の代入法"><span class="header-section-number">5.4</span> その他の代入法</a></li>
+  <li><a href="#代入をしない" id="toc-代入をしない" class="nav-link" data-scroll-target="#代入をしない"><span class="header-section-number">5.5</span> 代入をしない</a></li>
+  <li><a href="#欠測値をどう扱うべきか" id="toc-欠測値をどう扱うべきか" class="nav-link" data-scroll-target="#欠測値をどう扱うべきか"><span class="header-section-number">5.6</span> 欠測値をどう扱うべきか？</a></li>
+  </ul></li>
+  
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="関連記事" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Bayesian,Statistics" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="516">
+<a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/BayesANOVA.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析１
+</h5>
+<div class="card-subtitle listing-subtitle">
+分散分析
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-23
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Statistics" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/ATE.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析２
+</h5>
+<div class="card-subtitle listing-subtitle">
+平均処置効果の推定とセミパラメトリック法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-23
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Bayesian,Statistics" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/DataIntegration.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析４
+</h5>
+<div class="card-subtitle listing-subtitle">
+アンケートデータとデータ統合
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-24
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="有限標本論の概要" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="有限標本論の概要"><span class="header-section-number">1</span> 有限標本論の概要</h2>
+<section id="sec-probability-sample" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="sec-probability-sample"><span class="header-section-number">1.1</span> 設定</h3>
+<p><span class="math inline">\([N]\)</span> を母集団とする．</p>
+<p><span class="math inline">\([N]\)</span> の部分集合の全体 <span class="math inline">\(P([N])\)</span> 上の確率分布を <strong>抽出計画</strong> (sampling design) といい，ある既知の抽出分布に従って得られる標本 <span class="math inline">\(S\subset[N]\)</span> を <strong>確率標本</strong> (probability sample) という．<a href="https://www.e-stat.go.jp/classifications/terms/90/00/4937">日本語では <strong>無作為抽出標本</strong> などとも呼ばれる</a>．</p>
+<div class="callout callout-style-default callout-caution no-icon callout-titled" title="抽出計画の例">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+抽出計画の例
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>抽出計画 <span class="math inline">\(\mathcal{L}[S]\)</span> には，</p>
+<ul>
+<li>単純無作為抽出 (SRS: Simple Random Sampling)</li>
+<li>系統無作為抽出 (Systematic Random Sampling)</li>
+<li>層別抽出 (Stratified Sampling)：母集団を層別し，各層の間では独立な抽出を行う．層ごとに抽出計画は異なっても良い．条件付きランダム化 (conditional randomization) ともいう <span class="citation" data-cites="Hernan-Robins2020">(Section 2.2 <a href="#ref-Hernan-Robins2020" role="doc-biblioref">Hernán and Robins, 2020, p. 17</a>)</span>．</li>
+<li>クラスター抽出 (Cluster Random Sampling)：クラスターがまずランダム抽出され，そのクラスター内の全構成員が標本に加わる．クラスターのことを PSU (Primary Sampling Unit) ともいう．クラスター内でもランダム抽出が行われた場合，<strong>２段階クラスターサンプリング</strong> という．</li>
+</ul>
+<p>などの方法が存在する．</p>
+<p>例えば，日本の国勢調査は２段階の層別抽出である．</p>
+</div>
+</div>
+</div>
+<p>確率標本 <span class="math inline">\(S\)</span> では（１次の）<strong>包含確率</strong> <span class="math display">\[
+\pi_i:=\operatorname{P}[i\in S]=\operatorname{P}[I=1],\qquad I:=1_{i\in S}.
+\]</span> が定まる．</p>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="狭義の「確率標本」">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+狭義の「確率標本」
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>先ほど，<span class="math inline">\(\mathcal{P}([N])\)</span> 上の確率変数を確率標本と呼ぶとしたが，正確に <span class="math inline">\(S\)</span> が <strong>確率標本</strong> と呼ばれるためには，<span class="math inline">\(\pi_i&gt;0\)</span> が母集団 <span class="math inline">\(i\in[N]\)</span> の全域で成り立つことが必要である <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 12</a>)</span>．</p>
+</div>
+</div>
+</div>
+</section>
+<section id="horvitz-thompson-推定量" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="horvitz-thompson-推定量"><span class="header-section-number">1.2</span> Horvitz-Thompson 推定量</h3>
+<p>確率標本 <span class="math inline">\(S\in\mathcal{L}(\Omega;\mathcal{P}([N]))\)</span> に対しては，ある量 <span class="math inline">\(y\)</span> についての母集団の総和 <span class="math display">\[
+Y:=\sum_{i=1}^Ny_i
+\]</span> が <span class="math display">\[
+\widehat{Y}_\mathrm{HT}:=\sum_{i\in S}\frac{y_i}{\pi_i}
+\]</span> により不偏推定できる．</p>
+<p><span class="math inline">\(\widehat{Y}_\mathrm{HT}\)</span> は <span class="citation" data-cites="Horvitz-Thompson1952">(<a href="#ref-Horvitz-Thompson1952" role="doc-biblioref">Horvitz and Thompson, 1952</a>)</span> 推定量と呼ばれる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Sen1953]-[@Yates-Grundy1953]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Sen1953">(<a href="#ref-Sen1953" role="doc-biblioref">Sen, 1953</a>)</span>-<span class="citation" data-cites="Yates-Grundy1953">(<a href="#ref-Yates-Grundy1953" role="doc-biblioref">Yates and Grundy, 1953</a>)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Horvitz-Thompson 推定量の分散は次で与えられる：</p>
+<p><span class="math display">\[
+\mathrm{V}[\widehat{Y}_\mathrm{HT}]=\sum_{i,j=1}^N\biggr(\pi_{ij}-\pi_i\pi_j\biggl)\frac{y_iy_j}{\pi_i\pi_j}.
+\]</span> ただし， <span class="math display">\[
+\pi_{ij}:=\operatorname{P}[i\in S,j\in S]=\operatorname{P}[I=1=J].
+\]</span> を２次の包含確率という．</p>
+</div>
+</div>
+<p>Horvitz-Thompson 推定量の要点には，「計画した欠損ならば，重みづけによって不偏推定量を得ることができる」という点にある．</p>
+<p>そこで抽出計画が不明な場合もこれを推定し，バイアスを補正しようとするアプローチを傾向スコアの方法，または <strong>擬似ランダム化</strong> (pseudo-randomization) の方法という．</p>
+</section>
+<section id="校正効率の改善に向けて" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="校正効率の改善に向けて"><span class="header-section-number">1.3</span> 「校正」：効率の改善に向けて</h3>
+<p>HT 推定量は確率標本 <span class="math inline">\(S\)</span> の分布，すなわち抽出計画に依らずに不偏性を持つ．</p>
+<p>これを計画不偏性 (design-unbiasedness) というが，この性質を持つ線型な推定量は HT に限られる．</p>
+<p>しかし，HT 推定量はいつでも分散が最小というわけではない．</p>
+<p>計画不偏性は bias-variance trade-off の観点からは欠点でもあり，それゆえ抽出計画に関する情報を用いて分散を低減することも考えられる．</p>
+<p>特に，HT 推定量の荷重 <span class="math inline">\((\pi_i^{-1})\)</span> を，補助変数 <span class="math inline">\(x_i\)</span> に関する <strong>外部一致性</strong> <span class="math display">\[
+\sum_{i\in S}w_ix_i=\overline{x}
+\]</span> を保ちながら新しいもの <span class="math inline">\((w_i)\)</span> に変更するものが多く考えられた．</p>
+<div class="callout callout-style-simple callout-important no-icon callout-titled" title="「外部一致性」の別名">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+「外部一致性」の別名
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>有限標本論は普遍的な統計推測の基礎であると言える．</p>
+<p>実際，この外部一致性の条件は多くの分野で考慮されており，種々の名前が与えられている．</p>
+<ul>
+<li>有限標本論：校正条件 (calibration condition / benchmarking property) （第 <a href="#sec-regression-estimator" class="quarto-xref">2.3</a> 節）</li>
+<li>欠測データ解析：共変量バランシング (covariate balancing) <span class="citation" data-cites="Imai-Ratkovic2014">(<a href="#ref-Imai-Ratkovic2014" role="doc-biblioref">Imai and Ratkovic, 2014</a>)</span></li>
+<li>機械学習（継続学習）：共変量シフト (covariate shift) <span class="citation" data-cites="Shimodaira2000">(<a href="#ref-Shimodaira2000" role="doc-biblioref">Shimodaira, 2000</a>)</span></li>
+</ul>
+</div>
+</div>
+<p>このアプローチを <strong>荷重校正</strong> (calibration weighting) という．</p>
+<p>次章にてこれ以降，種々の荷重校正推定量を紹介する．</p>
+</section>
+</section>
+<section id="回帰推定量" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="回帰推定量"><span class="header-section-number">2</span> 回帰推定量</h2>
+<section id="はじめに" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>前述の通り，補助変数 <span class="math inline">\(x\)</span> が母集団上で知られている場合に，ここから抽出計画に対する追加情報を抽出して推定量に組み込むことで，計画的に欠測させられたデータ（＝確率標本）に対する不偏推定量 <span class="citation" data-cites="Horvitz-Thompson1952">(<a href="#ref-Horvitz-Thompson1952" role="doc-biblioref">Horvitz and Thompson, 1952</a>)</span> （以降 HT 推定量という）の効率を改善することを考える．</p>
+<p>以降，補助変数 <span class="math inline">\(x\in\mathbb{R}^p\)</span> は母集団上で既知であるとし，その総和を <span class="math display">\[
+X:=\sum_{i\in[N]}x_i
+\]</span> で表す．</p>
+</section>
+<section id="比による校正" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="比による校正"><span class="header-section-number">2.2</span> 比による校正</h3>
+<p>補助変数の次元が <span class="math inline">\(p=1\)</span> のとき，最も安直には <span class="math inline">\(X\)</span> の HT 推定量から，真の値 <span class="math inline">\(X\)</span> との「ズレ方」を用いて，<span class="math inline">\(Y\)</span> の推定量を「校正」することができる．</p>
+<p><span class="math display">\[
+\widehat{Y}_{\mathrm{R}}:=\widehat{Y}_\mathrm{HT}\frac{X}{\widehat{X}_\mathrm{HT}}
+\]</span> とできるだろう．</p>
+<p>この推定量は ratio estimator などと呼ばれ，性能の代わりにバイアスが生じてしまう．</p>
+<p>一般に，<span class="math inline">\(X,Y\)</span> が正の相関を持つとき大きな分散低減が得られる <span class="citation" data-cites="Deng-Wu1987">(<a href="#ref-Deng-Wu1987" role="doc-biblioref">Deng and Wu, 1987</a>)</span>, <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 92</a>)</span>．</p>
+<p><span class="math inline">\(x_i=1\)</span> と取った場合を Hajék 推定量ともいう．Hajék 推定量が HT 推定量よりも推奨される状況が <span class="citation" data-cites="Sarndal+1992">(<a href="#ref-Sarndal+1992" role="doc-biblioref">Särndal et al., 1992, p. 182</a>)</span> にリストされている．</p>
+<p>この推定量は昔は計算の簡単さから使われていたが，一般の次の回帰推定量の方が MSE が小さいことが知られている <span class="citation" data-cites="Deng-Wu1987">(<a href="#ref-Deng-Wu1987" role="doc-biblioref">Deng and Wu, 1987</a>)</span>．</p>
+</section>
+<section id="sec-regression-estimator" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-regression-estimator"><span class="header-section-number">2.3</span> 回帰推定量</h3>
+<p>超母集団模型 <span class="math display">\[
+Y=X^\top\beta+\epsilon,\qquad\epsilon\overset{\text{iid}}{\sim}(0,\sigma^2)
+\]</span> を想定し，得られている標本のみから <span class="math inline">\(\widehat{\beta}\)</span> を推定する．こうして得られる <span class="math display">\[
+\widehat{y}_i:=x_i^\top\widehat{\beta},\qquad\widehat{\beta}:=\left(\sum_{i\in S}\pi_i^{-1}x_ix_i^\top\right)^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i
+\]</span> の総和が，<span class="math inline">\(Y\)</span> に対する <strong>回帰推定量</strong> (regression estimator) と呼ばれる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>これは <span class="math inline">\((y_i)\in\mathbb{R}^n\)</span> に関する線型推定量になっている．加えて，外部一致性 <span id="eq-external-consistency"><span class="math display">\[
+\sum_{i\in S}w_ix_i=\overline{x}
+\tag{1}\]</span></span> を満たす荷重 <span class="math display">\[
+w_i:=\overline{X}^\top\left(\sum_{i\in S}\pi_i^{-1}x_ix_i^\top\right)^{-1}\pi_i^{-1}x_i
+\]</span> に関して， <span class="math display">\[
+\widehat{Y}_{\mathrm{reg}}=\sum_{i\in S}w_iy_i
+\]</span> という形の線型推定量になっている．</p>
+<p>式 (<a href="#eq-external-consistency" class="quarto-xref">1</a>) を <strong>外部一致性</strong> (external consistency)，または <strong>校正条件</strong> (calibration / benchmarking property) <span class="citation" data-cites="Deville-Sarndal1992">(<a href="#ref-Deville-Sarndal1992" role="doc-biblioref">Deville and Särndal, 1992</a>)</span> という．</p>
+<p>回帰推定量は <span class="math inline">\(X,Y\)</span> の関係に依らず一致性を持ち，<span class="math inline">\(X,Y\)</span> の間の相関の絶対値が大きいほど分散低減効果が高くなる <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 95</a>)</span>．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+</section>
+<section id="事後層別化" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="事後層別化"><span class="header-section-number">2.4</span> 事後層別化</h3>
+<p><strong>事後層別化</strong> (post-stratification / stratification after selection) は標本抽出の結果を見て標本を層別化する手法であるが，回帰推定量の特別な場合と見れる．</p>
+<p>母集団が <span class="math inline">\(G\)</span> 個の層に分けられるとする：<span class="math inline">\(N=N_1+\cdots+N_G\)</span>．</p>
+<p>このとき，<span class="math inline">\(i\in[N]\)</span> 番目の単位が層 <span class="math inline">\(g\in[G]\)</span> に属するかどうかの指示変数 <span class="math inline">\(x_{ig}\in2\)</span> のベクトル <span class="math inline">\(x_i:=(x_{i1},\cdots,x_{iG})^\top\in2^G\)</span> に関する回帰推定量 <span class="math display">\[\begin{align*}
+  \widehat{Y}_{\mathrm{post}}&amp;:=\sum_{i=1}^Nx_i^\top\left(\sum_{i\in S}\pi_i^{-1}x_ix_i^\top\right)^{-1}\sum_{i\in S}\pi_i^{-1}x_iy_i\\
+  &amp;=\sum_{g=1}^G\sum_{i\in S_g}\pi_i^{-1}\frac{N_g}{\widehat{N}_g}y_i,\qquad\widehat{N}_g:=\sum_{i\in S}\pi_i^{-1}x_{ig}.
+\end{align*}\]</span> を事後層別化推定量という．</p>
+<p>MRP (Multilevel Regression and Post-stratification) <span class="citation" data-cites="Gelman-Little1997">(<a href="#ref-Gelman-Little1997" role="doc-biblioref">Gelman and Little, 1997</a>)</span>, <span class="citation" data-cites="Gelman2014">(<a href="#ref-Gelman2014" role="doc-biblioref">Gelman, 2014</a>)</span> は事後層別化の階層モデル・縮小推定版である．</p>
+</section>
+<section id="ランキング法繰り返し比例的フィッティング法" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="ランキング法繰り返し比例的フィッティング法"><span class="header-section-number">2.5</span> ランキング法／繰り返し比例的フィッティング法</h3>
+<p><span class="citation" data-cites="Deming-Stephan1940">(<a href="#ref-Deming-Stephan1940" role="doc-biblioref">Deming and Stephan, 1940</a>)</span> では 1940 年の国勢調査の結果の分析を考えていた．</p>
+<p>特に，基本的な情報は全数調査されるが，詳細な情報は標本調査でしか得られない状況下で，母集団の <span class="math inline">\(I\times J\)</span> 分割表の各セル <span class="math inline">\(U_{ij}\)</span> の値 <span class="math inline">\(N_{ij}\)</span> の推定を考えていた．</p>
+<p>ただし，周辺和 <span class="math inline">\(N_{i-},N_{-j}\)</span> は全数調査で得られているとする．</p>
+<p>このとき，<span class="math inline">\(N_{ij}\)</span> の推定量の候補として <span class="math display">\[
+\frac{n_{ij}}{n_{i-}}N_i,\quad\frac{n_{ij}}{n_{-j}}N_{-j},\quad\frac{n_{ij}}{n}N
+\]</span> の３つが考えられる．３番目が良いと考えるかもしれないが，その結果得られる分割表は周辺和を保存しない．</p>
+<p>この問題は次のような形でも現れる：指示変数 <span class="math display">\[
+x_k=(x_{1-k},\cdots,x_{I-k},x_{-1k},\cdots,x_{-Jk}),\qquad x_{ijk}:=1_{U_{ij}}(k),
+\]</span> に基づく事後層別化推定量 <span class="math display">\[
+\widehat{Y}_{\mathrm{post}}=\sum_{i\in S}\pi_i^{-1}g_i(S)y_i,\qquad g_i(S):=\left(\sum_{k=1}^Nx_k\right)^\top\left(\sum_{k\in S}\pi_k^{-1}x_kx_k^\top\right)^{-1}x_i
+\]</span> を考えたいが，これが <span class="math inline">\(\operatorname{rank}\left(\sum_{k\in S}\pi_k^{-1}x_kx_k^\top\right)=I+J-1\)</span> であるため，一意な表示を持たない．</p>
+<p><span class="math inline">\(g_i(S)\)</span> の候補のうち，次を満たす <span class="math inline">\(g_i\)</span> を選ぶことが目標である： <span id="eq-column"><span class="math display">\[
+\sum_{k\in S}\frac{g_k}{\pi_k}x_{i-k}=\sum_{k=1}^Nx_{i-k}=N_{i-},
+\tag{2}\]</span></span> <span id="eq-row"><span class="math display">\[
+\sum_{k\in S}\frac{g_k}{\pi_k}x_{-jk}=\sum_{k=1}^Nx_{-jk}=N_{-j}.
+\tag{3}\]</span></span></p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="[Iterative Proportional Fitting / Ranking algorithm @Deming-Stephan1940]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Deming-Stephan1940">(Iterative Proportional Fitting / Ranking algorithm <a href="#ref-Deming-Stephan1940" role="doc-biblioref">Deming and Stephan, 1940</a>)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><span class="math inline">\(g^{(0)}_k\gets1\)</span> と初期化する．</li>
+<li><span class="math inline">\(x_{i-k}=1\)</span> すなわち <span class="math inline">\(k\in U_{i-}\)</span> であるとき， <span class="math display">\[
+  g^{(t+1)}_k\gets g_k^{(t)}\frac{\sum_{k=1}^Nx_{i-k}}{\sum_{k\in S}\frac{g^{(t)}_k}{\pi_k}x_{i-k}}.
+  \]</span> これにより条件 (<a href="#eq-column" class="quarto-xref">2</a>) が満たされる．</li>
+<li><span class="math inline">\(z_{-jk}=1\)</span> すなわち <span class="math inline">\(k\in U_{-j}\)</span> であるとき， <span class="math display">\[
+  g^{(t+2)}_k\gets g_k^{(t+1)}\frac{\sum_{k=1}^Nx_{-jk}}{\sum_{k\in S}\frac{g^{(t+1)}_k}{\pi_k}x_{-jk}}.
+  \]</span> これにより条件 (<a href="#eq-row" class="quarto-xref">3</a>) が満たされる．</li>
+<li>収束するまで繰り返す．</li>
+</ol>
+</div>
+</div>
+<p>これは特定の目的関数を最小化することに等しい．<span class="citation" data-cites="Deming-Stephan1940">(<a href="#ref-Deming-Stephan1940" role="doc-biblioref">Deming and Stephan, 1940, p. 428</a>)</span>, <span class="citation" data-cites="Zieschang1990">(<a href="#ref-Zieschang1990" role="doc-biblioref">Zieschang, 1990</a>)</span>, <span class="citation" data-cites="Deville-Sarndal1993">(<a href="#ref-Deville-Sarndal1993" role="doc-biblioref">Jean-Claude Deville and Sautory, 1993</a>)</span> も参照．</p>
+</section>
+</section>
+<section id="荷重校正推定量" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="荷重校正推定量"><span class="header-section-number">3</span> 荷重校正推定量</h2>
+<section id="はじめに-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">3.1</span> はじめに</h3>
+<p>回帰推定量は <span class="math inline">\(X\)</span> から <span class="math inline">\(Y\)</span> に関する情報を抽出することで，HT 推定量の効率を改善することができる方法である．</p>
+<p>しかし，HT のもう一つの魅力的な性質であった <strong>計画一致性</strong> (design consistency) が失われている．</p>
+<p>回帰推定量の性質である <strong>外部一致性</strong> (external consistency) を保ちながら，別の解を見つけることで，回帰推定量を一般化する形で計画一致性を持つ効率的な推定量を構成することを考える．</p>
+<p>実はこの方法は，モデリングの観点からは <span class="math inline">\(X,Y\)</span> の間のモデルを，標本レベルから母集団レベルに一般化することに相当する．こうして考えられる超母集団モデルを <strong>一般化回帰モデル</strong> (GREG: Generalized Regression) という．</p>
+<p>このような方法で HT 推定量を改善した計画一致性を持つ推定量を model-assisted estimator，特に特定の制約下最適化問題の解として与えられるものを <strong>校正推定量</strong> (calibrated estimator) という．</p>
+<p>校正推定量は計画一致性を持つために，傾向スコアの推定に成功していれば不偏性が保証される．この性質は二重頑健推定量の構成の基礎となる．</p>
+</section>
+<section id="差分推定量" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="差分推定量"><span class="header-section-number">3.2</span> 差分推定量</h3>
+<p>補助的な量 <span class="math inline">\(y_i^{(0)}\)</span> が母集団全体で観測されている場合， <span class="math display">\[
+\widehat{Y}_{\mathrm{diff}}:=\sum_{i=1}^Ny_i^{(0)}+\sum_{i\in S}\pi_i^{-1}\left(y_i-y_i^{(0)}\right)
+\]</span> は <strong>差分推定量</strong> (difference estimator) と呼ばれる．</p>
+<p>HT 推定量同様不偏であるが，分散の値は変化し，特に <span class="math inline">\(y_i^{(0)}\)</span> が <span class="math inline">\(y_i\)</span> の良い近似であるほど分散が小さくなる <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 99</a>)</span>．</p>
+<p>この <span class="math inline">\(y_i\)</span> の proxy とも言える量 <span class="math inline">\(y_i^{(0)}\)</span> を，他の共変量 <span class="math inline">\(x_i\)</span> から回帰により構成することで，回帰推定量（第 <a href="#sec-regression-estimator" class="quarto-xref">2.3</a> 節）よりも複雑な <span class="math inline">\(x_i,y_i\)</span> 関係もうまく取り込んだ分散低減が可能になる．</p>
+<p>このように（暗黙裡にでも）モデルを用いており，加えて <u>モデルの特定が成功しているかに依らず HT 推定量を改善できる</u> 方法を <strong>model-assisted estimation</strong> といい，校正推定量の基本的な考え方である．</p>
+</section>
+<section id="sec-projection-estimator" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-projection-estimator"><span class="header-section-number">3.3</span> 一般化回帰モデルと射影推定量</h3>
+<p>まず母集団 <span class="math inline">\([N]\)</span> に応用 <span class="math inline">\(Y\)</span> のモデルを当てはめる： <span id="eq-superpopulation-model"><span class="math display">\[
+y_i=x_i^\top\beta+\epsilon_i,\qquad\epsilon_i\overset{\text{iid}}{\sim}(0,c_i(x_i)\sigma^2).
+\tag{4}\]</span></span> このように母集団に置かれるモデルを <strong>超母集団モデル</strong> (superpopulation model) <span class="citation" data-cites="Isaki-Fuller1982">(<a href="#ref-Isaki-Fuller1982" role="doc-biblioref">Isaki and Fuller, 1982</a>)</span> という．</p>
+<p>特に式 (<a href="#eq-superpopulation-model" class="quarto-xref">4</a>) の Gauss-Markov 型の超母集団モデルを <strong>一般化回帰モデル</strong> (GREG: Generalized Regression) ともいう．</p>
+<p>これを解いて得る推定量 <span class="math inline">\(\widehat{y}_i=x_i^\top\widehat{\beta}_c\)</span> の総和として得られる推定量 <span class="math display">\[
+\widehat{Y}_{\mathrm{P}}:=\sum_{i=1}^N\widehat{y}_i
+\]</span> を（モデルベースの） <strong>射影推定量</strong> (projection estimator) という．</p>
+<p>射影推定量は計画一致性を持つとは限らない．</p>
+<p>仮に GREG モデルで <span class="math display">\[
+\frac{c_i}{\pi_i}\parallel x_i
+\]</span> が成り立つならば，内部バイアス校正 (IBC: Internally Biased Calibration) <span class="citation" data-cites="Firth-Bennett1998">(<a href="#ref-Firth-Bennett1998" role="doc-biblioref">Firth and Bennett, 1998</a>)</span> 条件 <span class="math display">\[
+\sum_{i\in S}\frac{1}{\pi_i}(y_i-\widehat{y}_i)=0
+\]</span> が成り立つ．</p>
+<p>この IBC が，射影推定量が抽出計画に依らずに一致性を持つための十分条件である <span class="citation" data-cites="Kim2024">(補題9.1 <a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 100</a>)</span>．</p>
+</section>
+<section id="一般化最小二乗法-gls" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="一般化最小二乗法-gls"><span class="header-section-number">3.4</span> 一般化最小二乗法 (GLS)</h3>
+<p>当然 GREG モデルが IBC 条件を満たすとは限らない．</p>
+<p>そのような場合でも計画一致性を持つような推定量を考えたい．実は， <span class="math display">\[
+\widehat{Y}_{\mathrm{GREG}}:=\widehat{Y}_\mathrm{HT}+\biggr(X-\widehat{X}_\mathrm{HT}\biggl)^\top\widehat{\beta}_c
+\]</span> は計画一致性を持つ．</p>
+<p>これは <strong>一般化回帰推定量</strong> (GREG: Generalized Regression Estimator) または計量経済学において GLS (Generalized Least Squares) <span class="citation" data-cites="Aitken1936">(<a href="#ref-Aitken1936" role="doc-biblioref">Aitken, 1936</a>)</span> と呼ばれる．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>一般化回帰推定量は次の最適化による特徴付けがある： <span class="math display">\[
+\widehat{Y}_{\mathrm{GREG}}=\sum_{i\in S}\widehat{\omega}_iy_i,\qquad\widehat{\omega}_i:=\pi_i^{-1}+\left(X-\widehat{X}_\mathrm{HT}\right)^\top\left(\sum_{i\in S}\frac{1}{c_i}x_ix_i^\top\right)^{-1}\frac{x_i}{c_i}.
+\]</span> この荷重 <span class="math inline">\(\widehat{\omega}_i\)</span> は，<strong>校正条件</strong> (calibration constraint) （式 (<a href="#eq-external-consistency" class="quarto-xref">1</a>) との違いに注意）を満たすものの中で <span class="math display">\[
+Q(\omega):=\sum_{i\in S}(\omega_i-d_i)^2c_i,\qquad d_i:=\pi_i^{-1},\quad\operatorname{subject to}\sum_{i\in S}\omega_ix_i=\sum_{i=1}^Nx_i.
+\]</span> を最小にするものとも特徴付けられる <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 102</a>)</span>．</p>
+<p>特に，<span class="math inline">\(\widehat{w}_i\xrightarrow[n\to\infty]{\mathrm{p}}d_i\)</span>．</p>
+</section>
+<section id="sec-calibration-estimator" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="sec-calibration-estimator"><span class="header-section-number">3.5</span> 校正推定量</h3>
+<p>一般に，校正条件制約を満たす <span class="math inline">\((\omega_i)\)</span> のうち，凸関数 <span class="math inline">\(G\)</span> が定める目的関数 <span class="math display">\[
+Q(\omega):=\sum_{i\in S}d_iG\left(\frac{\omega_i}{d_i}\right)c_i
+\]</span> を最小にするものを <strong>校正荷重</strong> (calibration weight)，校正荷重に関する線型推定量を <strong>校正推定量</strong> (calibration estimator) という <span class="citation" data-cites="Deville-Sarndal1992">(<a href="#ref-Deville-Sarndal1992" role="doc-biblioref">Deville and Särndal, 1992</a>)</span>, <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 103</a>)</span>．</p>
+<p>ほとんどの校正推定量は漸近的に GREG 推定量に一致する．</p>
+<p>一般に，有限母集団に対する確率標本からの一様最小分散不偏推定量 (UMVUE) は存在しない <span class="citation" data-cites="Godambe-Joshi1965">(<a href="#ref-Godambe-Joshi1965" role="doc-biblioref">Godambe and Joshi, 1965</a>)</span> が，GREG 推定量は「期待漸近分散」の下界を達成する <span class="citation" data-cites="Isaki-Fuller1982">(<a href="#ref-Isaki-Fuller1982" role="doc-biblioref">Isaki and Fuller, 1982</a>)</span>．</p>
+</section>
+<section id="最適校正推定量" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="最適校正推定量"><span class="header-section-number">3.6</span> 最適校正推定量</h3>
+<p>特に， <span class="math display">\[
+Q(\omega)=\sum_{i\in S}\omega_i^2c_i
+\]</span> を最小化するものは <strong>最適校正推定量</strong> (optimal calibrated estimator) と呼ばれる <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 110</a>)</span>．</p>
+<p>これはモデルの視点からは <span class="math inline">\(x\)</span> を拡張して人工的に IBC 条件を満たすようにした射影推定量（第 <a href="#sec-projection-estimator" class="quarto-xref">3.3</a> 節）とも見れる．</p>
+<p>最適校正推定量は超母集団モデル (<a href="#eq-superpopulation-model" class="quarto-xref">4</a>) が誤特定されている場合に GREG 推定量より良い性能を示す <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 112</a>)</span>．</p>
+<p>GREG モデルより一般的な超母集団モデルに対しての同様の手続きは <strong>モデル校正</strong> (model calibration) <span class="citation" data-cites="Wu-Sitter2001">(<a href="#ref-Wu-Sitter2001" role="doc-biblioref">Wu and Sitter, 2001</a>)</span> と呼ばれている．この方法では <span class="math inline">\(X,Y\)</span> の関係を推定し，<span class="math inline">\(Y\)</span> の線型推定量を <span class="math inline">\(m(X)\)</span> の形で構成してから，最適構成推定量の議論に還元する．</p>
+</section>
+<section id="一般化エントロピー法" class="level3" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="一般化エントロピー法"><span class="header-section-number">3.7</span> 一般化エントロピー法</h3>
+<p>最適構成推定量の構成に倣い， <span class="math display">\[
+Q(\omega):=\sum_{i\in S}G(\omega_i)c_i\qquad\operatorname{subject to}\sum_{i\in S}\omega_ig(d_i)c_i=\sum_{i=1}^Ng(d_i)c_i
+\]</span> の最小化により校正荷重を構成する方法を <strong>一般化エントロピー法</strong> (generalized entropy method) <span class="citation" data-cites="Kwon+2024">(<a href="#ref-Kwon+2024" role="doc-biblioref">Kwon et al., 2024</a>)</span> という．</p>
+<p>これは目的関数には計画荷重 <span class="math inline">\(d_i=\pi_i^{-1}\)</span> が入っていないが，制約条件に入っていることで計画一致性を達成している．</p>
+<p>超母集団モデルである GREG モデルが正しく特定されているならば <span class="citation" data-cites="Godambe-Joshi1965">(<a href="#ref-Godambe-Joshi1965" role="doc-biblioref">Godambe and Joshi, 1965</a>)</span> の下界を達成するが，そうでなくとも一致性は保たれる上に，一般の校正推定量（第 <a href="#sec-calibration-estimator" class="quarto-xref">3.5</a> 節）よりも分散は小さいである <span class="citation" data-cites="Kwon+2024">(<a href="#ref-Kwon+2024" role="doc-biblioref">Kwon et al., 2024</a>)</span>．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+</section>
+</section>
+<section id="欠測データの扱い" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="欠測データの扱い"><span class="header-section-number">4</span> 欠測データの扱い</h2>
+<section id="はじめに-2" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">4.1</span> はじめに</h3>
+<p>観測単位が欠測している場合 (unit nonresponse)，call-back / follow-up 調査を行うか，それができない場合は次の２つの対処が可能である：</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="単位欠測の扱い">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+単位欠測の扱い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>欠測メカニズムを抑える共変量は見えている場合（MAR 条件），傾向スコア推定量が利用可能（第 <a href="#sec-propensity-score" class="quarto-xref">4.2</a> 節）．これは欠測メカニズムのモデリングに基づく．</li>
+<li>一般の校正推定量に対しても，</li>
+</ol>
+</div>
+</div>
+<p>単位欠測の場合は，２段階の標本抽出と状況が似ているのである．さらには，非確率標本（調査観察データ，ビッグデータなど）の扱いとも似通う．これについては<a href="../../../posts/2024/Survey/Survey4.html">次稿も参照</a>．</p>
+<p>一方で，項目が欠測している場合 (item nonresponse)，<strong>代入法</strong> (imputation) が用いられる．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p>現状は多重代入法（第 <a href="#sec-MI" class="quarto-xref">5.2</a> 節）が主流であると言える <span class="citation" data-cites="vanBuuren2018">(<a href="#ref-vanBuuren2018" role="doc-biblioref">Buuren, 2018</a>)</span>．</p>
+</section>
+<section id="sec-propensity-score" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="sec-propensity-score"><span class="header-section-number">4.2</span> 傾向スコア推定量</h3>
+<p>標本の観測 <span class="math inline">\(Y_i\)</span> は，<span class="math inline">\(\delta_i=0\)</span> のとき欠損しているとする．</p>
+<section id="sec-MAR" class="level4" data-number="4.2.1">
+<h4 data-number="4.2.1" class="anchored" data-anchor-id="sec-MAR"><span class="header-section-number">4.2.1</span> MAR 条件：欠測のメカニズムを抑える共変量が観測できている</h4>
+<p>加えて，標本全体についてある変数 <span class="math inline">\(X\)</span> が観測できており，これについて次の条件が成り立つとする：</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="[MAR condition @Rubin1976]^[最も古典的な形のものであり，母集団上の条件であることから，population MAR とも呼ばれる．母集団上の MAR と抽出計画の無視可能性 [@Sugden-Smith1984] との２条件が成り立つとき，標本の MAR が成り立つ [@Berg+2016]．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Rubin1976">(MAR condition <a href="#ref-Rubin1976" role="doc-biblioref">Rubin, 1976</a>)</span><a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>欠測の指示変数 <span class="math inline">\(\delta\)</span> について， <span class="math display">\[
+\operatorname{P}[\delta=1|X,Y]=\operatorname{P}[\delta=1|X]=:p(X)
+\]</span> が成り立つ．</p>
+</div>
+</div>
+<p>これは条件付き独立性 <span class="math inline">\(\delta\perp\!\!\!\perp Y\mid X\)</span> よりも弱い条件で，MAR (Missing At Random) の条件と呼ばれる．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+</section>
+<section id="欠測メカニズムの推定" class="level4" data-number="4.2.2">
+<h4 data-number="4.2.2" class="anchored" data-anchor-id="欠測メカニズムの推定"><span class="header-section-number">4.2.2</span> 欠測メカニズムの推定</h4>
+<p>欠測確率 <span class="math inline">\(p(x):=\operatorname{P}[\delta=1|X=x]\)</span> にノンパラメトリックなモデル <span class="math inline">\(p_\phi(x)\)</span> を課したとする．</p>
+<p>このとき，パラメータ <span class="math inline">\(\phi\)</span> は擬似最尤推定量 <span class="math inline">\(\widehat{\phi}\)</span> により一致推定をすることができる．</p>
+</section>
+<section id="傾向スコア推定量" class="level4" data-number="4.2.3">
+<h4 data-number="4.2.3" class="anchored" data-anchor-id="傾向スコア推定量"><span class="header-section-number">4.2.3</span> 傾向スコア推定量</h4>
+<p>仮に母平均 <span class="math display">\[
+Y:=\sum_{i=1}^Ny_i
+\]</span> が推定対象であったとしよう．</p>
+<p>このとき，推定された <span class="math inline">\(\widehat{\phi}\)</span> を元に，次の推定量が構成できる：</p>
+<p><span class="math display">\[
+\widehat{Y}_\mathrm{PS}:=\sum_{i\in\delta^{-1}(1)}\frac{1}{\pi_i}\frac{y_i}{p_{\widehat{\phi}}(x_i)}.
+\]</span></p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題（傾向スコア推定量の一致性）^[[@Kim2024 p.154] 定理12.1も参照．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題（傾向スコア推定量の一致性）<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>欠測確率 <span class="math inline">\(p\)</span> のモデル <span class="math inline">\(p_\phi(x)\)</span> の特定に成功しているとき，ある正則性に関する条件が満たされる限り，傾向スコア推定量 <span class="math inline">\(\widehat{Y}_\mathrm{PS}\)</span> は一致推定量に <span class="math inline">\(n^{-1}\)</span> のオーダーで漸近する．</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-calibration-estimator-for-missing-data" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="sec-calibration-estimator-for-missing-data"><span class="header-section-number">4.3</span> 校正推定量</h3>
+<p>ある校正荷重 <span class="math inline">\((d_i)\)</span> に関して，計画一致性を持つ推定量 <span class="math display">\[
+\widehat{Y}=\sum_{i\in S}d_iy_i
+\]</span> を考えているが，単位欠測により特定の <span class="math inline">\(y_i\)</span> が得られず，計算できないものとする．</p>
+<p>この場合でも，応答があった部分標本 <span class="math display">\[
+S_R:=\delta^{-1}(1)
+\]</span> 上の校正推定量 <span class="math display">\[
+\widehat{Y}_\omega:=\sum_{i\in S_R}\omega_iy_i
+\]</span> であって，欠測メカニズム <span class="math inline">\(p(x)\)</span> の特定か，または超母集団モデル <span class="math display">\[
+y_i=x_i^\top\beta+\epsilon_i,\qquad\epsilon_i\overset{\text{iid}}{\sim}(0,c_i\sigma^2)
+\]</span> の特定に成功すれば一致性を持つ，二重頑健なものを構成できる <span class="citation" data-cites="Kim-Haziza2014">(<a href="#ref-Kim-Haziza2014" role="doc-biblioref">Kim and Haziza, 2014</a>)</span>．</p>
+</section>
+<section id="代入法とその不偏性条件" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="代入法とその不偏性条件"><span class="header-section-number">4.4</span> 代入法とその不偏性条件</h3>
+<p>項目非反応がある場合，代入値を <span class="math inline">\(y_i^*\)</span> として <span class="math display">\[
+\widehat{Y}_{\mathrm{I}}:=\sum_{i\in S}\frac{1}{\pi_i}\biggr(\delta_iy_i+(1-\delta_i)y_i^*\biggl)
+\]</span> による推定が試みられる．</p>
+<p>代入 <span class="math inline">\(y_i^*\)</span> を行うことでリストワイズの削除をするよりも推定の効率を上げることができる．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[代入推定量の不偏性 @Kim2024 p.162]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Kim2024">(代入推定量の不偏性 <a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 162</a>)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+\operatorname{E}[Y^*|\delta=0]=\operatorname{E}[Y|\delta=1]
+\]</span> が成り立つならば，<span class="math inline">\(\widehat{Y}_\mathrm{I}\)</span> は不偏推定量である．</p>
+</div>
+</div>
+<p>この条件は，標本内で MAR 条件（第 <a href="#sec-MAR" class="quarto-xref">4.2.1</a> 節）が成り立つとき： <span id="eq-sample-MAR"><span class="math display">\[
+Y|(X,\delta=1)=Y|(X,\delta=0),
+\tag{5}\]</span></span> <span class="math inline">\(Y^*\)</span> を <span class="math inline">\(Y|(X,\delta)\)</span> からのサンプリングで代入すれば達成される．</p>
+<p>さらに強い条件 <span class="math display">\[
+\delta\perp\!\!\!\perp Y\mid X
+\]</span> が成り立つとき，標本内の MAR 条件が成り立つ．</p>
+<p>換言すれば代入法において，欠測の原因 <span class="math inline">\(X\)</span> を突き止め，欠測したグループにおける <span class="math inline">\(Y\)</span> の値 <span class="math inline">\(Y|(X,\delta=1)\)</span> にモデル (outcome model) を立て，そこからサンプリングをすることを目指す．</p>
+</section>
+<section id="回帰による代入" class="level3" data-number="4.5">
+<h3 data-number="4.5" class="anchored" data-anchor-id="回帰による代入"><span class="header-section-number">4.5</span> 回帰による代入</h3>
+<p>仮に共変量 <span class="math inline">\(X\)</span> が <span class="math inline">\(Y\)</span> と強い相関を持つとする．このように線型回帰模型を背後に想定することが適切な場合は，よく次のような手続きで代入がされる．</p>
+<p>まず共変量により母集団を <span class="math inline">\([N]=N_1+\cdots+N_G\)</span> 個に層別化し，それぞれの層で <span id="eq-semiparametric-model"><span class="math display">\[
+Y_i=X_i^\top\beta+\epsilon_i,\qquad\epsilon_i\overset{\text{iid}}{\sim}(0,\sigma^2)
+\tag{6}\]</span></span> というセミパラメトリック回帰モデルを考える．</p>
+<p>次に推定されたモデルを用いて，<span class="math inline">\(\epsilon_i^*\sim(0,\sigma^2)\)</span> を残差 <span class="math display">\[
+\widehat{\epsilon}_i:=y_i-x_i^\top\widehat{\beta}
+\]</span> の分布から（リ）サンプリングし， <span class="math display">\[
+y_i^*\gets x_i^\top\widehat{\beta}+\epsilon_i^*
+\]</span> を代入値とする．</p>
+<p>以上の手続きは <strong>確率的回帰代入法</strong> (stochastic regression imputation) と呼ばれる．平均を代入する場合は単に回帰代入法または条件付き平均代入法 (conditional mean imputation) という．</p>
+<p><span class="math inline">\(Y\)</span> と強い相関を持つ補助変数 <span class="math inline">\(X\)</span> がいつでも見つかるとは限らない．</p>
+<p>その場合は Gauss-Markov モデル (<a href="#eq-semiparametric-model" class="quarto-xref">6</a>) を一般の統計モデルに一般化すれば良い．</p>
+</section>
+<section id="マッチングによる代入" class="level3" data-number="4.6">
+<h3 data-number="4.6" class="anchored" data-anchor-id="マッチングによる代入"><span class="header-section-number">4.6</span> マッチングによる代入</h3>
+<p>層の中の他のセルをランダムに選んでその値を代入する hot deck imputation や，セルの加重平均を代入する fractional hot deck も同様の考え方に基づく <span class="citation" data-cites="Fuller-Kim2005">(<a href="#ref-Fuller-Kim2005" role="doc-biblioref">Fuller and Kim, 2005</a>)</span>．</p>
+<p>このような手法は <strong>マッチング</strong> と呼ばれ，カーネル法と関連が深い <span class="citation" data-cites="Cheng1994">(<a href="#ref-Cheng1994" role="doc-biblioref">Cheng, 1994</a>)</span>．加重平均は対象のセルとの関連度を「距離」によって測り，距離を計算するのに使われる変数は <strong>キー</strong> ともいう <span class="citation" data-cites="高井啓二+2016">(<a href="#ref-高井啓二+2016" role="doc-biblioref">高井啓二 et al., 2016, p. 110</a>)</span>．傾向スコアマッチングでは傾向スコアがキーである．</p>
+<p>最も単純には同一データセット内の最も似ている単位を持ち出してその値を代入するのがマッチングであるが，最も洗練された方法としては類似度に依存して関連度を自動的に重みづけて，データセット全体で加重平均をとっても良いわけである．</p>
+<p>他の標本の値を参考にする場合は cold deck imputation という．</p>
+<p>などの Least squares method も同様の考え方に基づく <span class="citation" data-cites="Little1992">(<a href="#ref-Little1992" role="doc-biblioref">Little, 1992</a>)</span>．</p>
+</section>
+<section id="sec-superpopulation-model-imputation" class="level3" data-number="4.7">
+<h3 data-number="4.7" class="anchored" data-anchor-id="sec-superpopulation-model-imputation"><span class="header-section-number">4.7</span> 母集団モデルによる代入法</h3>
+<p>一方で，母集団上での <span class="math inline">\(Y,X\)</span> の関係についてモデルを立てて <span class="math inline">\(Y|X\)</span> からサンプリングをすることも考えられる．</p>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="注（無情報サンプリング条件）">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+注（無情報サンプリング条件）
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>母集団の分布と標本の分布が一致するとき，<strong>無情報サンプリング</strong> (noninformative sampling) が実施されたという．そうでない場合は <strong>informative sampling</strong> という．</p>
+<p>サンプリングが無情報であるための十分条件には <span class="math display">\[
+\operatorname{P}[I=1|X,Y]=\operatorname{P}[I=1|X]
+\]</span> が挙げられる．<span class="citation" data-cites="Sugden-Smith1984">(<a href="#ref-Sugden-Smith1984" role="doc-biblioref">Sugden and Smith, 1984</a>)</span> はこれを無情報サンプリング条件という．</p>
+<p>この下では母集団のモデルと標本のモデルとは一致するが，一般にはこの２つは厳密に峻別しなければ混乱の源である．</p>
+</div>
+</div>
+</div>
+<p>標本内の MAR 条件 (<a href="#eq-sample-MAR" class="quarto-xref">5</a>) だけでなく，母集団上で MAR 条件が成り立つ場合は，<span class="math inline">\(Y|X\)</span> の尤度を <span class="math inline">\(f_\theta(y|x)\)</span> としてモデリングをし，これを <span class="math display">\[
+\ell(\theta):=\sum_{i\in S}w_i\delta_i\log f_\theta(y_i|x_i)
+\]</span> の最大化によって <span class="math inline">\(M\)</span>-推定することが考えられる．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+<p>ただし，<span class="math inline">\(w_i\)</span> は <span class="math inline">\(Y\)</span> の計画一致性を持つ校正推定量を定める校正荷重であるとする．<span class="math inline">\(w_i\)</span> の存在は標本と母集団のズレに起因する．</p>
+<p>最終的に学習されたモデル <span class="math inline">\(f_\theta(y|x_i)\)</span> からのサンプリングによって代入値 <span class="math inline">\(y_i^*\)</span> を生成する．</p>
+<p>このモデル <span class="math inline">\(f_\theta(y|x_i)\)</span> を当てはまりの度合いを見ながらベイズ推論によって得る方法もよく取られるようになっている <span class="citation" data-cites="Enders+2020">(<a href="#ref-Enders+2020" role="doc-biblioref">C. K. Enders et al., 2020</a>)</span>．</p>
+<p>母集団上の MAR 条件が成り立たない場合は <span class="math inline">\(Y|(X,\delta=0)\)</span> のモデリングを考える必要がある．</p>
+</section>
+</section>
+<section id="多重代入法" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="多重代入法"><span class="header-section-number">5</span> 多重代入法</h2>
+<section id="はじめに-3" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="はじめに-3"><span class="header-section-number">5.1</span> はじめに</h3>
+<p>ベイズの観点からは，欠測データとパラメータとは違いがない <span class="citation" data-cites="BDA">(Chapter 18 <a href="#ref-BDA" role="doc-biblioref">Gelman et al., 2014, p. 449</a>)</span>．</p>
+<p>ベイズ事後分布は欠測データとパラメータの上に同時に定まり，欠測データに関して積分をすることで最終的な推論が実行される．</p>
+<p>これを模倣する形で提案されたのが <strong>多重代入法</strong> (MI: Multiple Imputation) <span class="citation" data-cites="Rubin1978MI">(<a href="#ref-Rubin1978MI" role="doc-biblioref">Rubin, 1978</a>)</span>, <span class="citation" data-cites="Rubin1987MI">(<a href="#ref-Rubin1987MI" role="doc-biblioref">Rubin, 1987</a>)</span> である．</p>
+<p>多重代入法ではベイズ事後分布から補完値を複数生成し，複数の擬似完全データに関して同じ解析を実行し，最後に結果を平均する．</p>
+<p>擬似完全データに対する解析が一貫したベイズ推論であった場合，この一連の手続きによって（近似的な）ベイズ推論が実行されることになる．</p>
+<p>しかしデータの補完とその後の擬似完全データ解析は <strong>融和性</strong> (congeniality) を保つ限り別の方法を用いても良いように拡張された <span class="citation" data-cites="Meng1994">(<a href="#ref-Meng1994" role="doc-biblioref">Meng, 1994</a>)</span>．</p>
+<p>このことにより多重代入法は広く使われるようになっている．</p>
+</section>
+<section id="sec-MI" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="sec-MI"><span class="header-section-number">5.2</span> 多重代入法</h3>
+<p>多重代入法では，モデルベースの代入法（第 <a href="#sec-superpopulation-model-imputation" class="quarto-xref">4.7</a> 節）をさらに推し進める．</p>
+<p>本来の推定量 <span class="math display">\[
+\widehat{Y}=\sum_{i\in S}w_iy_i
+\]</span> を代入推定量 <span class="math display">\[
+\widehat{Y}_\mathrm{I}=\sum_{i\in S}w_i\biggr(\delta_iy_i+(1-\delta_i)y_i^*\biggl),\qquad y_i^*\sim f_\theta(y_i|x_i)
+\]</span> で模倣する際，ベイズ事後予測分布で <span class="math display">\[
+y_i^*\sim f(y_i|y_{\text{obs}})
+\]</span> によって補間することが理想的である．</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="[Multiple Imputation @Rubin1978MI]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Rubin1978MI">(Multiple Imputation <a href="#ref-Rubin1978MI" role="doc-biblioref">Rubin, 1978</a>)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>事後予測分布から補間値を <span class="math inline">\(M\)</span> 個生成する： <span class="math display">\[
+  y_i^{(j)}\sim f(y_i|y_{\text{obs}}),\qquad j\in[M].
+  \]</span></li>
+<li>それぞれの補間値について推定量 <span class="math inline">\(\widehat{Y}^{(j)}\)</span> を計算し，その平均を最終的な推定値とする： <span class="math display">\[\newcommand{\MI}{\mathrm{MI}}
+  \widehat{Y}_\MI:=\frac{1}{M}\sum_{j=1}^M\widehat{Y}^{(j)}.
+  \]</span></li>
+</ol>
+</div>
+</div>
+<p><span class="citation" data-cites="Royston-White2011">(<a href="#ref-Royston-White2011" role="doc-biblioref">Royston and White, 2011</a>)</span> は <span class="math inline">\(M\approx10^3\)</span> を推奨している．</p>
+</section>
+<section id="連鎖方程式による多重代入" class="level3" data-number="5.3">
+<h3 data-number="5.3" class="anchored" data-anchor-id="連鎖方程式による多重代入"><span class="header-section-number">5.3</span> 連鎖方程式による多重代入</h3>
+<p>多重代入法において事後予測分布から補間値を生成することは，<span class="math inline">\(Y\)</span> に関してモデルを立てる必要があるためネックになりがちである．</p>
+<p><strong>相互条件付き識別性</strong> (FCS: Fully Conditional Specification) <span class="citation" data-cites="vanBuuren+2006">(<a href="#ref-vanBuuren+2006" role="doc-biblioref">Stef Van Buuren and Rubin, 2006</a>)</span> が成り立つモデルについては，モデルの具体的な形に依らない Gibbs サンプラーによるサンプリングが可能になる．</p>
+<p>これを <strong>連鎖方程式による多重代入</strong> (MICE: Multiple Imputation by Chained Equations) <span class="citation" data-cites="vanBuuren-Groothuis-Oudshoorn2011">(<a href="#ref-vanBuuren-Groothuis-Oudshoorn2011" role="doc-biblioref">Buuren and Groothuis-Oudshoorn, 2011</a>)</span> といい，R 言語 <code>mice</code> パッケージで実装されている．</p>
+<blockquote class="blockquote">
+<p>その実用性も相まってか，近年の Lancet 誌，New England Journal of Medicine 誌のレビューでは，欠測データの取り扱いに最も多く用いられている手法は MICE であるという報告もある<span class="citation" data-cites="Rezvan+2015">(<a href="#ref-Rezvan+2015" role="doc-biblioref">Hayati Rezvan et al., 2015</a>)</span>．<br> <span class="citation" data-cites="野間久史2017">(<a href="#ref-野間久史2017" role="doc-biblioref">久史, 2017, p. 75</a>)</span></p>
+</blockquote>
+</section>
+<section id="その他の代入法" class="level3" data-number="5.4">
+<h3 data-number="5.4" class="anchored" data-anchor-id="その他の代入法"><span class="header-section-number">5.4</span> その他の代入法</h3>
+<p>ランダムな欠損ではなく，計画された大規模な欠損がある場合は，two-phase sampling の考え方を応用することができる <span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 173</a>)</span>．</p>
+<p>なお，全ての代入法はモデル <span class="math inline">\(Y|(X,\delta)\)</span> の特定を間違えると，<span class="math inline">\(\widehat{Y}\)</span> の不偏性が失われることに注意 <span class="citation" data-cites="Rezvan+2015">(<a href="#ref-Rezvan+2015" role="doc-biblioref">Hayati Rezvan et al., 2015</a>)</span>．</p>
+</section>
+<section id="代入をしない" class="level3" data-number="5.5">
+<h3 data-number="5.5" class="anchored" data-anchor-id="代入をしない"><span class="header-section-number">5.5</span> 代入をしない</h3>
+<p>代入をせず，欠測しているなら欠測したままで最尤推定を実行することも考えられる．</p>
+<p>このアプローチは <strong>完全情報最尤推定</strong> (FIML: Full Information Maximum Likelihood)，より最近では　pairwise likelihood estimation とも呼ばれる．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+<p>欠測が <span class="math inline">\(Y\)</span> に依存しない場合，この「最尤推定量」は MAR の下で一致性と漸近正規性を持つ．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
+<p>ただし，推定されたモデルから，欠測値を代入してから結果を出してももちろん良い．ベイズの観点からは，モデルの平均を取ってから予測することに当たる．<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a></p>
+<p><span class="citation" data-cites="vanBuuren2018">(1.6節 <a href="#ref-vanBuuren2018" role="doc-biblioref">Buuren, 2018</a>)</span> も参照．</p>
+</section>
+<section id="欠測値をどう扱うべきか" class="level3" data-number="5.6">
+<h3 data-number="5.6" class="anchored" data-anchor-id="欠測値をどう扱うべきか"><span class="header-section-number">5.6</span> 欠測値をどう扱うべきか？</h3>
+<p>いつでも多重代入法を使えば良いというものではない．</p>
+<p>例えば <span class="math inline">\((X,Y)\)</span> の関数関係が知りたい回帰分析の状況下で被説明変数 <span class="math inline">\(Y\)</span> の欠損は，これを無視してリストワイズ消去をした complete-case analysis が代入法と等価になる．</p>
+<p>他にも complete-case analysis や代入をしない方がむしろ適切な場合は多い <span class="citation" data-cites="vanBuuren2018">(2.7節 <a href="#ref-vanBuuren2018" role="doc-biblioref">Buuren, 2018</a>)</span>．</p>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6</span> 終わりに</h2><div class="quarto-appendix-contents">
+
+
+
+</div></section><section id="多重代入法について" class="level3 appendix" data-number="6.1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6.1</span> 多重代入法について</h2><div class="quarto-appendix-contents">
+
+<p>パッケージに実装される都合上，多重代入法はパラメトリックな手法であるという言説があるが，必ずしもそうである必要はない．この場合，傾向スコア推定量や校正推定量がセミパラメトリックな手法と呼ばれる．</p>
+<p>また多重代入法が代入に使われたのちに，後続の解析は全く違うモデルが使われることもあり，このような場合は <strong>融和性</strong> (congeniality) <span class="citation" data-cites="Meng1994">(<a href="#ref-Meng1994" role="doc-biblioref">Meng, 1994</a>)</span> の議論が必要になる．</p>
+<p>特に公的統計においては，後続のタスクが One Number Principle に従うようにするために欠測のあるデータは代入してしまい，擬似完全データを作成することもあり得る <span class="citation" data-cites="Kim2024">(Section 13.1 <a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 161</a>)</span>．</p>
+<p>この観点から見れば，多重代入法とは擬似完全データを複数作ることで後続推定精度営みというようにも思える．</p>
+<p>いずれの場合も，多重代入法の「代入法」としての側面が強調されるあまり理論的背景が捨象され，また多重代入法の実際の使われ方が使用可能なパッケージでの実装方式に強く依存され，元来の手法の数理的本体が見失われている状況と言うことができるだろう．</p>
+<blockquote class="blockquote">
+<p>Bayesian inference draws no distinction between missing data and parameters; both are uncertain, and they have a joint posterior distribution, conditional on observed data. <span class="citation" data-cites="BDA">(Chapter 18 <a href="#ref-BDA" role="doc-biblioref">Gelman et al., 2014, p. 449</a>)</span></p>
+</blockquote>
+</div></section><section id="mar-について" class="level3 appendix" data-number="6.2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6.2</span> MAR について</h2><div class="quarto-appendix-contents">
+
+<p>MAR は現行で最も緩い条件である．</p>
+<p>そして，MAR が成立しているかは確認したがく，感度分析などが推奨される <span class="citation" data-cites="逸見昌之2014">(<a href="#ref-逸見昌之2014" role="doc-biblioref">逸見昌之, 2014</a>)</span>．</p>
+<p>欠測するかどうか <span class="math inline">\(\delta\)</span> が，欠測する所の値 <span class="math inline">\(Y\)</span> に依存している場合，これを MNAR という．この場合のセミパラメトリック最適な推定法は <span class="citation" data-cites="Morikawa-Kim2021">(<a href="#ref-Morikawa-Kim2021" role="doc-biblioref">Morikawa and Kim, 2021</a>)</span> などが提案されている．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Aitken1936" class="csl-entry" role="listitem">
+Aitken, A. C. (1936). <a href="https://doi.org/10.1017/S0370164600014346">IV.—on least squares and linear combination of observations</a>. <em>Proceedings of the Royal Society of Edinburgh</em>, <em>55</em>, 42–48.
+</div>
+<div id="ref-Berg+2016" class="csl-entry" role="listitem">
+Berg, E., Kim, J.-K., and Skinner, C. (2016). <a href="https://doi.org/10.1093/jssam/smw032"><span>Imputation Under Informative Sampling</span></a>. <em>Journal of Survey Statistics and Methodology</em>, <em>4</em>(4), 436–462.
+</div>
+<div id="ref-vanBuuren2018" class="csl-entry" role="listitem">
+Buuren, S. van. (2018). <em><a href="https://stefvanbuuren.name/fimd/"><span class="nocase">Flexible Imputation of Missing Data</span></a></em>. Boca Raton, FL.: CRC Press.
+</div>
+<div id="ref-vanBuuren-Groothuis-Oudshoorn2011" class="csl-entry" role="listitem">
+Buuren, S. van, and Groothuis-Oudshoorn, K. (2011). <a href="https://doi.org/10.18637/jss.v045.i03">Mice: Multivariate imputation by chained equations in r</a>. <em>Journal of Statistical Software</em>, <em>45</em>(3), 1–67.
+</div>
+<div id="ref-Cheng1994" class="csl-entry" role="listitem">
+Cheng, P. E. (1994). <a href="http://www.jstor.org/stable/2291203">Nonparametric estimation of mean functionals with data missing at random</a>. <em>Journal of the American Statistical Association</em>, <em>89</em>(425), 81–87.
+</div>
+<div id="ref-Deming-Stephan1940" class="csl-entry" role="listitem">
+Deming, W. E., and Stephan, F. F. (1940). <a href="http://www.jstor.org/stable/2235722">On a least squares adjustment of a sampled frequency table when the expected marginal totals are known</a>. <em>The Annals of Mathematical Statistics</em>, <em>11</em>(4), 427–444.
+</div>
+<div id="ref-Deng-Wu1987" class="csl-entry" role="listitem">
+Deng, L.-Y., and Wu, C. F. J. (1987). <a href="http://www.jstor.org/stable/2289466">Estimation of variance of the regression estimator</a>. <em>Journal of the American Statistical Association</em>, <em>82</em>(398), 568–576.
+</div>
+<div id="ref-Deville-Sarndal1992" class="csl-entry" role="listitem">
+Deville, J.-C., and Särndal, C.-E. (1992). <a href="https://doi.org/10.1080/01621459.1992.10475217">Calibration estimators in survey sampling</a>. <em>Journal of the American Statistical Association</em>, <em>87</em>(418), 376–382.
+</div>
+<div id="ref-Enders+2001" class="csl-entry" role="listitem">
+Enders, Craig K., and Bandalos, D. L. (2001). <a href="https://doi.org/10.1207/S15328007SEM0803\_5">The relative performance of full information maximum likelihood estimation for missing data in structural equation models</a>. <em>Structural Equation Modeling: A Multidisciplinary Journal</em>, <em>8</em>(3), 430–457.
+</div>
+<div id="ref-Enders+2020" class="csl-entry" role="listitem">
+Enders, C. K., Du, H., and Keller, B. T. (2020). <a href="https://psycnet.apa.org/doi/10.1037/met0000228"><span class="nocase">A Model-based Imputation Procedure for Multilevel Regression Models with Random Coefficients, Interaction Effects, and Nonlinear Terms</span></a>. <em>Psychological Methods</em>, <em>25</em>(1), 88–112.
+</div>
+<div id="ref-Firth-Bennett1998" class="csl-entry" role="listitem">
+Firth, D., and Bennett, K. E. (1998). <a href="https://doi.org/10.1111/1467-9868.00105">Robust models in probability sampling</a>. <em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <em>60</em>(1), 3–21.
+</div>
+<div id="ref-Fuller-Kim2005" class="csl-entry" role="listitem">
+Fuller, W. A., and Kim, J.-K. (2005). <a href="https://www150.statcan.gc.ca/n1/pub/12-001-x/2005002/article/9041-eng.pdf">Hot deck imputation for the response model</a>. <em>Survey Methodology</em>, <em>31</em>(2), 139–149.
+</div>
+<div id="ref-Gelman2014" class="csl-entry" role="listitem">
+Gelman, A. (2014). <a href="https://doi.org/10.1214/13-STS458"><span class="nocase">How Bayesian Analysis Cracked the Red-State, Blue-State Problem</span></a>. <em>Statistical Science</em>, <em>29</em>(1), 26–35.
+</div>
+<div id="ref-BDA" class="csl-entry" role="listitem">
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., and Rubin, D. B. (2014). <em><a href="http://www.stat.columbia.edu/~gelman/book/">Bayesian data analysis</a></em>. Boca Raton : CRC Press.
+</div>
+<div id="ref-Gelman-Little1997" class="csl-entry" role="listitem">
+Gelman, A., and Little, T. (1997). <a href="https://www150.statcan.gc.ca/n1/en/catalogue/12-001-X19970023616">Poststratification into many categories using hierarchical logistic regression</a>. <em>Survey Methodology</em>, (1997002).
+</div>
+<div id="ref-Godambe-Joshi1965" class="csl-entry" role="listitem">
+Godambe, V. P., and Joshi, V. M. (1965). <a href="http://www.jstor.org/stable/2239112">Admissibility and bayes estimation in sampling finite populations. i</a>. <em>The Annals of Mathematical Statistics</em>, <em>36</em>(6), 1707–1722.
+</div>
+<div id="ref-Hayashi2000" class="csl-entry" role="listitem">
+Hayashi, F. (2000). <em><a href="https://press.princeton.edu/books/ebook/9781400823833/econometrics-1">Econometrics</a></em>. Princeton University Press.
+</div>
+<div id="ref-Rezvan+2015" class="csl-entry" role="listitem">
+Hayati Rezvan, P., Lee, K. J., and Simpson, J. A. (2015). <a href="https://doi.org/10.1186/s12874-015-0022-1">The rise of multiple imputation: A review of the reporting and implementation of the method in medical research</a>. <em>BMC Medical Research Methodology</em>, <em>15</em>(1), 30.
+</div>
+<div id="ref-Hernan-Robins2020" class="csl-entry" role="listitem">
+Hernán, M. A., and Robins, J. M. (2020). <em><a href=""><span>Causal Inference: What If</span></a></em>. Boca Raton: Chapman &amp; Hall/CRC.
+</div>
+<div id="ref-Horvitz-Thompson1952" class="csl-entry" role="listitem">
+Horvitz, D. G., and Thompson, D. J. (1952). <a href="https://doi.org/10.1080/01621459.1952.10483446">A generalization of sampling without replacement from a finite universe</a>. <em>Journal of the American Statistical Association</em>, <em>47</em>(260), 663–685.
+</div>
+<div id="ref-Imai-Ratkovic2014" class="csl-entry" role="listitem">
+Imai, K., and Ratkovic, M. (2014). <a href="http://www.jstor.org/stable/24772753">Covariate balancing propensity score</a>. <em>Journal of the Royal Statistical Society. Series B (Statistical Methodology)</em>, <em>76</em>(1), 243–263.
+</div>
+<div id="ref-Isaki-Fuller1982" class="csl-entry" role="listitem">
+Isaki, C. T., and Fuller, W. A. (1982). <a href="https://doi.org/10.1080/01621459.1982.10477770">Survey design under the regression superpopulation model</a>. <em>Journal of the American Statistical Association</em>, <em>77</em>(377), 89–96.
+</div>
+<div id="ref-Deville-Sarndal1993" class="csl-entry" role="listitem">
+Jean-Claude Deville, C.-E. S., and Sautory, O. (1993). <a href="https://doi.org/10.1080/01621459.1993.10476369">Generalized raking procedures in survey sampling</a>. <em>Journal of the American Statistical Association</em>, <em>88</em>(423), 1013–1020.
+</div>
+<div id="ref-Kim2024" class="csl-entry" role="listitem">
+Kim, J. K. (2024). <a href="https://arxiv.org/abs/2401.07625">Statistics in survey sampling</a>.
+</div>
+<div id="ref-Kim-Haziza2014" class="csl-entry" role="listitem">
+Kim, J. K., and Haziza, D. (2014). <a href="http://www.jstor.org/stable/26432548">DOUBLY ROBUST INFERENCE WITH MISSING DATA IN SURVEY SAMPLING</a>. <em>Statistica Sinica</em>, <em>24</em>(1), 375–394.
+</div>
+<div id="ref-Kwon+2024" class="csl-entry" role="listitem">
+Kwon, Y., Kim, J. K., and Qiu, Y. (2024). <a href="https://arxiv.org/abs/2404.01076">Debiased calibration estimation using generalized entropy in survey sampling</a>.
+</div>
+<div id="ref-Little1992" class="csl-entry" role="listitem">
+Little, R. J. A. (1992). <a href="https://doi.org/10.1080/01621459.1992.10476282">Regression with missing x’s: A review</a>. <em>Journal of the American Statistical Association</em>, <em>87</em>(420), 1227–1237.
+</div>
+<div id="ref-Meng1994" class="csl-entry" role="listitem">
+Meng, X.-L. (1994). <a href="https://doi.org/10.1214/ss/1177010269"><span class="nocase">Multiple-Imputation Inferences with Uncongenial Sources of Input</span></a>. <em>Statistical Science</em>, <em>9</em>(4), 538–558.
+</div>
+<div id="ref-Morikawa-Kim2021" class="csl-entry" role="listitem">
+Morikawa, K., and Kim, J. K. (2021). <a href="https://doi.org/10.1214/21-AOS2070"><span class="nocase">Semiparametric optimal estimation with nonignorable nonresponse data</span></a>. <em>The Annals of Statistics</em>, <em>49</em>(5), 2991–3014.
+</div>
+<div id="ref-Royston-White2011" class="csl-entry" role="listitem">
+Royston, P., and White, I. R. (2011). <a href="https://doi.org/10.18637/jss.v045.i04">Multiple imputation by chained equations (MICE): Implementation in stata</a>. <em>Journal of Statistical Software</em>, <em>45</em>(4), 1–20.
+</div>
+<div id="ref-Rubin1976" class="csl-entry" role="listitem">
+Rubin, D. B. (1976). <a href="http://www.jstor.org/stable/2335739">Inference and missing data</a>. <em>Biometrika</em>, <em>63</em>(3), 581–592.
+</div>
+<div id="ref-Rubin1978MI" class="csl-entry" role="listitem">
+Rubin, D. B. (1978). <a href="http://www.asasrms.org/Proceedings/y1978f.html">Multiple imputations in sample surveys - a phenomenological bayesian approach to nonresponse</a>. <em>Proceedings of the Survey Research Methods Section, ASA</em>, 20–28.
+</div>
+<div id="ref-Rubin1987MI" class="csl-entry" role="listitem">
+Rubin, D. B. (1987). <em><a href="https://doi.org/10.1002/9780470316696"><span class="nocase">Multiple Imputation for Nonresponse in Surveys</span></a></em>. John Wiley &amp; Sons.
+</div>
+<div id="ref-Sarndal+1992" class="csl-entry" role="listitem">
+Särndal, C.-E., Swensson, B., and Wretman, J. (1992). <em><a href="https://link.springer.com/book/9780387406206">Model assisted survey sampling</a></em>. Springer New York.
+</div>
+<div id="ref-Sen1953" class="csl-entry" role="listitem">
+Sen, A. R. (1953). <a href="">On the estimate of the variance in sampling with varying probabilities</a>. <em>Journal of the Indian Society of Agricultural Statistics</em>, <em>5</em>, 119–127.
+</div>
+<div id="ref-Shimodaira2000" class="csl-entry" role="listitem">
+Shimodaira, H. (2000). <a href="https://doi.org/10.1016/S0378-3758(00)00115-4">Improving predictive inference under covariate shift by weighting the log-likelihood function</a>. <em>Journal of Statistical Planning and Inference</em>, <em>90</em>(2), 227–244.
+</div>
+<div id="ref-vanBuuren+2006" class="csl-entry" role="listitem">
+Stef Van Buuren, C. G. M. G.-O., J. P. L. Brand, and Rubin, D. B. (2006). <a href="https://doi.org/10.1080/10629360600810434">Fully conditional specification in multivariate imputation</a>. <em>Journal of Statistical Computation and Simulation</em>, <em>76</em>(12), 1049–1064.
+</div>
+<div id="ref-Sugden-Smith1984" class="csl-entry" role="listitem">
+Sugden, R. A., and Smith, T. M. F. (1984). <a href="https://doi.org/10.1093/biomet/71.3.495"><span class="nocase">Ignorable and informative designs in survey sampling inference</span></a>. <em>Biometrika</em>, <em>71</em>(3), 495–506.
+</div>
+<div id="ref-Wu-Sitter2001" class="csl-entry" role="listitem">
+Wu, C., and Sitter, R. R. (2001). <a href="https://doi.org/10.1198/016214501750333054">A model-calibration approach to using complete auxiliary information from survey data</a>. <em>Journal of the American Statistical Association</em>, <em>96</em>(453), 185–193.
+</div>
+<div id="ref-Yates-Grundy1953" class="csl-entry" role="listitem">
+Yates, F., and Grundy, P. M. (1953). <a href="https://doi.org/10.1111/j.2517-6161.1953.tb00140.x">Selection without replacement from within strata with probability proportional to size</a>. <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>, <em>15</em>(2), 253–261.
+</div>
+<div id="ref-Zieschang1990" class="csl-entry" role="listitem">
+Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample weighting methods and estimation of totals in the consumer expenditure survey</a>. <em>Journal of the American Statistical Association</em>, <em>85</em>(412), 986–1001.
+</div>
+<div id="ref-野間久史2017" class="csl-entry" role="listitem">
+久史. (2017). <a href="https://doi.org/10.5023/jappstat.46.67">連鎖方程式による多重代入法</a>. <em>応用統計学</em>, <em>46</em>(2), 67–86.
+</div>
+<div id="ref-狩野裕2019" class="csl-entry" role="listitem">
+狩野裕. (2019). <a href="https://doi.org/10.11329/jjssj.48.199">欠測データ解析のmissとmyth</a>. <em>日本統計学会誌</em>, <em>48</em>(2), 199–214.
+</div>
+<div id="ref-逸見昌之2014" class="csl-entry" role="listitem">
+逸見昌之. (2014). <a href="https://www.ism.ac.jp/editsec/toukei/pdf/62-1-103.pdf">欠測データに対するセミパラメトリックな解析法――その理論的背景について――</a>. <em>統計数理</em>, <em>62</em>(1), 103–122.
+</div>
+<div id="ref-高井啓二+2016" class="csl-entry" role="listitem">
+高井啓二, 星野崇宏, and 野間久史. (2016). <em><a href="https://www.iwanami.co.jp/book/b260306.html">欠測データの統計科学：医学と社会科学への応用</a></em>,Vol. 1. 岩波書店.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>Inverse probability weighting estimator ともいう <span class="citation" data-cites="Hernan-Robins2020">(<a href="#ref-Hernan-Robins2020" role="doc-biblioref">Hernán and Robins, 2020, p. 22</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>結果的に，<a href="https://en.wikipedia.org/wiki/Weighted_least_squares">Weighted Least Squares</a> と同じ形になっている．WLS は誤差分散が既知の形 <span class="math inline">\(W^{-1}:=\mathrm{diag}(\sigma_1^2,\cdots,\sigma_n^2)\)</span> をしている場合の最良線型不偏推定量 (BLUE) である．一般に最小二乗法は広い設定で BLUE を与え続け，一般の既知の分散 <span class="math inline">\(V(X)\)</span> を持つ場合は <strong>GLS</strong> (Generalized Least Squares) と呼ばれる．<span class="math inline">\(V(X)\)</span> が既知である場合などなく，一般にはこれの推定から始める必要があり，これは Feasible GLS と呼ばれる <span class="citation" data-cites="Hayashi2000">(<a href="#ref-Hayashi2000" role="doc-biblioref">Hayashi, 2000, p. 59</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>この抽出計画に依らない性質を以て，<span class="citation" data-cites="Sarndal+1992">(<a href="#ref-Sarndal+1992" role="doc-biblioref">Särndal et al., 1992</a>)</span> は model-assisted 推定量と呼んでいる．model-dependent 推定量とは対照的である．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>この２つの類似性は <span class="citation" data-cites="Zieschang1990">(<a href="#ref-Zieschang1990" role="doc-biblioref">Zieschang, 1990</a>)</span> が指摘している．一般の回帰分析の設定下では <a href="https://en.wikipedia.org/wiki/Generalized_least_squares">“GLS is more efficient than OLS under heteroscedasticity (also spelled heteroskedasticity) or autocorrelation”</a> などと説明される．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>ただし，余分な項があるために，正しく特定されている下では校正推定量よりもやや分散が大きい．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>総務省統計局では，Imputation の訳語として「補定」を用いる．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>最も古典的な形のものであり，母集団上の条件であることから，population MAR とも呼ばれる．母集団上の MAR と抽出計画の無視可能性 <span class="citation" data-cites="Sugden-Smith1984">(<a href="#ref-Sugden-Smith1984" role="doc-biblioref">Sugden and Smith, 1984</a>)</span> との２条件が成り立つとき，標本の MAR が成り立つ <span class="citation" data-cites="Berg+2016">(<a href="#ref-Berg+2016" role="doc-biblioref">Berg et al., 2016</a>)</span>．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="math inline">\(Y\to X\to\delta\)</span> が Markov 連鎖をなす，とも換言できる．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p><span class="citation" data-cites="Kim2024">(<a href="#ref-Kim2024" role="doc-biblioref">Kim, 2024, p. 154</a>)</span> 定理12.1も参照．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p>一方で，重み付き推定方程式の解として定まる <span class="math inline">\(Z\)</span>-推定量として構成することもできる．<span class="citation" data-cites="高井啓二+2016">(5.2節 <a href="#ref-高井啓二+2016" role="doc-biblioref">高井啓二 et al., 2016, p. 163</a>)</span>．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>完全情報最尤推定の言葉は初期の構造方程式モデリングプログラム AMOS に組み込まれて有名になっていた <span class="citation" data-cites="Enders+2001">(<a href="#ref-Enders+2001" role="doc-biblioref">Craig K. Enders and Bandalos, 2001</a>)</span>．直接尤度 (direct likelihood) または観測尤度 (observed likelihood) の方法ともいう <span class="citation" data-cites="狩野裕2019">(<a href="#ref-狩野裕2019" role="doc-biblioref">狩野裕, 2019</a>)</span>．<strong>完全尤度</strong> (full likelihood) の用語は <span class="citation" data-cites="高井啓二+2016">(<a href="#ref-高井啓二+2016" role="doc-biblioref">高井啓二 et al., 2016</a>)</span> など．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="狩野裕2019">(<a href="#ref-狩野裕2019" role="doc-biblioref">狩野裕, 2019</a>)</span> に素晴らしい解説がある．日本語の文献としては <span class="citation" data-cites="高井啓二+2016">(<a href="#ref-高井啓二+2016" role="doc-biblioref">高井啓二 et al., 2016</a>)</span> もあり，第５章で推定方程式の観点から解説されている．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p>そういえば Bayes 的な integral out に関して doubly robust という考え方はないのか？doubly robust の Bayesian counterpart はなんだろう？<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

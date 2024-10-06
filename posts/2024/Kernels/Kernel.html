@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬博文">
+
+<title>カーネル法の概観 – Hirofumi Shiba</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-kernel-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-kernel-listing'] = new List('listing-kernel-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  .navbar-title, .menu-text {
+      font-family: "Zen Kurenaido", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="カーネル法の概観 – Hirofumi Shiba">
+<meta property="og:description" content="カーネル法とは，半正定値カーネルを用いてデータを Hilbert 空間内に埋め込むことで，非線型な変換を行う統一的な手法である．再生核 Hilbert 空間の理論により，写した先における内積は，半正定値カーネルの評価を通じて効率的に計算できるため，無限次元空間上での表現に対する tractable な手段を提供する．適切な半正定値カーネルを用いることで，データの「類似度」を定義することができる．本稿では半正定値カーネルの理論と距離学習法を扱う．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/Images/Gibbs.svg">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta name="twitter:title" content="カーネル法の概観 – Hirofumi Shiba">
+<meta name="twitter:description" content="カーネル法とは，半正定値カーネルを用いてデータを Hilbert 空間内に埋め込むことで，非線型な変換を行う統一的な手法である．再生核 Hilbert 空間の理論により，写した先における内積は，半正定値カーネルの評価を通じて効率的に計算できるため，無限次元空間上での表現に対する tractable な手段を提供する．適切な半正定値カーネルを用いることで，データの「類似度」を定義することができる．本稿では半正定値カーネルの理論と距離学習法を扱う．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/Images/Gibbs.svg">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">カーネル法の概観</h1>
+            <p class="subtitle lead">半正定値カーネルから距離学習まで</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Kernel</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬博文 </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">8/10/2024</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">8/11/2024</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      カーネル法とは，半正定値カーネルを用いてデータを Hilbert 空間内に埋め込むことで，非線型な変換を行う統一的な手法である．再生核 Hilbert 空間の理論により，写した先における内積は，半正定値カーネルの評価を通じて効率的に計算できるため，無限次元空間上での表現に対する tractable な手段を提供する．適切な半正定値カーネルを用いることで，データの「類似度」を定義することができる．本稿では半正定値カーネルの理論と距離学習法を扱う．
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#半正定値カーネル" id="toc-半正定値カーネル" class="nav-link active" data-scroll-target="#半正定値カーネル"><span class="header-section-number">1</span> 半正定値カーネル</a>
+  <ul class="collapse">
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
+  <li><a href="#定常カーネル" id="toc-定常カーネル" class="nav-link" data-scroll-target="#定常カーネル"><span class="header-section-number">1.2</span> 定常カーネル</a>
+  <ul class="collapse">
+  <li><a href="#poisson-核" id="toc-poisson-核" class="nav-link" data-scroll-target="#poisson-核"><span class="header-section-number">1.2.1</span> Poisson 核</a></li>
+  <li><a href="#sec-Gauss-kernel" id="toc-sec-Gauss-kernel" class="nav-link" data-scroll-target="#sec-Gauss-kernel"><span class="header-section-number">1.2.2</span> Gauss 核</a></li>
+  <li><a href="#sec-ARD-kernel" id="toc-sec-ARD-kernel" class="nav-link" data-scroll-target="#sec-ARD-kernel"><span class="header-section-number">1.2.3</span> 関連度自動決定核 (ARD)</a></li>
+  <li><a href="#matérn-核" id="toc-matérn-核" class="nav-link" data-scroll-target="#matérn-核"><span class="header-section-number">1.2.4</span> Matérn 核</a></li>
+  <li><a href="#定常スペクトル核" id="toc-定常スペクトル核" class="nav-link" data-scroll-target="#定常スペクトル核"><span class="header-section-number">1.2.5</span> 定常スペクトル核</a></li>
+  </ul></li>
+  <li><a href="#非定常カーネル" id="toc-非定常カーネル" class="nav-link" data-scroll-target="#非定常カーネル"><span class="header-section-number">1.3</span> 非定常カーネル</a>
+  <ul class="collapse">
+  <li><a href="#多項式核" id="toc-多項式核" class="nav-link" data-scroll-target="#多項式核"><span class="header-section-number">1.3.1</span> 多項式核</a></li>
+  <li><a href="#gibbs-核" id="toc-gibbs-核" class="nav-link" data-scroll-target="#gibbs-核"><span class="header-section-number">1.3.2</span> Gibbs 核</a></li>
+  <li><a href="#スペクトル核-remes2017" id="toc-スペクトル核-remes2017" class="nav-link" data-scroll-target="#スペクトル核-remes2017"><span class="header-section-number">1.3.3</span> スペクトル核 <span class="citation" data-cites="Remes+2017">(Remes et al., 2017)</span></a></li>
+  </ul></li>
+  <li><a href="#位相空間上の核" id="toc-位相空間上の核" class="nav-link" data-scroll-target="#位相空間上の核"><span class="header-section-number">1.4</span> 位相空間上の核</a>
+  <ul class="collapse">
+  <li><a href="#乱歩核" id="toc-乱歩核" class="nav-link" data-scroll-target="#乱歩核"><span class="header-section-number">1.4.1</span> 乱歩核</a></li>
+  </ul></li>
+  <li><a href="#weisfeiler-lehman-核" id="toc-weisfeiler-lehman-核" class="nav-link" data-scroll-target="#weisfeiler-lehman-核"><span class="header-section-number">1.5</span> Weisfeiler-Lehman 核</a></li>
+  <li><a href="#核の構成" id="toc-核の構成" class="nav-link" data-scroll-target="#核の構成"><span class="header-section-number">1.6</span> 核の構成</a>
+  <ul class="collapse">
+  <li><a href="#半正定値核のなす正錐" id="toc-半正定値核のなす正錐" class="nav-link" data-scroll-target="#半正定値核のなす正錐"><span class="header-section-number">1.6.1</span> 半正定値核のなす正錐</a></li>
+  <li><a href="#sec-KDE" id="toc-sec-KDE" class="nav-link" data-scroll-target="#sec-KDE"><span class="header-section-number">1.6.2</span> カーネル密度推定量 (KDE)</a></li>
+  <li><a href="#カーネル回帰" id="toc-カーネル回帰" class="nav-link" data-scroll-target="#カーネル回帰"><span class="header-section-number">1.6.3</span> カーネル回帰</a></li>
+  <li><a href="#局所線型回帰-llr" id="toc-局所線型回帰-llr" class="nav-link" data-scroll-target="#局所線型回帰-llr"><span class="header-section-number">1.6.4</span> 局所線型回帰 (LLR)</a></li>
+  <li><a href="#半正定値構成" id="toc-半正定値構成" class="nav-link" data-scroll-target="#半正定値構成"><span class="header-section-number">1.6.5</span> 半正定値構成</a></li>
+  <li><a href="#核の押し出し" id="toc-核の押し出し" class="nav-link" data-scroll-target="#核の押し出し"><span class="header-section-number">1.6.6</span> 核の押し出し</a></li>
+  </ul></li>
+  <li><a href="#sec-RFF" id="toc-sec-RFF" class="nav-link" data-scroll-target="#sec-RFF"><span class="header-section-number">1.7</span> 核の Monte Carlo 近似</a>
+  <ul class="collapse">
+  <li><a href="#カーネルの近似" id="toc-カーネルの近似" class="nav-link" data-scroll-target="#カーネルの近似"><span class="header-section-number">1.7.1</span> カーネルの近似</a></li>
+  <li><a href="#random-fourier-features" id="toc-random-fourier-features" class="nav-link" data-scroll-target="#random-fourier-features"><span class="header-section-number">1.7.2</span> Random Fourier Features</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-metric-learning" id="toc-sec-metric-learning" class="nav-link" data-scroll-target="#sec-metric-learning"><span class="header-section-number">2</span> 距離学習</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#k-近傍分類" id="toc-k-近傍分類" class="nav-link" data-scroll-target="#k-近傍分類"><span class="header-section-number">2.2</span> <span class="math inline">\(K\)</span>-近傍分類</a></li>
+  <li><a href="#mahalanobis-距離の学習" id="toc-mahalanobis-距離の学習" class="nav-link" data-scroll-target="#mahalanobis-距離の学習"><span class="header-section-number">2.3</span> Mahalanobis 距離の学習</a>
+  <ul class="collapse">
+  <li><a href="#大マージン最近傍-lmnn-weinberger2005" id="toc-大マージン最近傍-lmnn-weinberger2005" class="nav-link" data-scroll-target="#大マージン最近傍-lmnn-weinberger2005"><span class="header-section-number">2.3.1</span> 大マージン最近傍 <span class="citation" data-cites="Weinberger+2005">(LMNN, Kilian Q. Weinberger et al., 2005)</span></a></li>
+  <li><a href="#sec-NCA" id="toc-sec-NCA" class="nav-link" data-scroll-target="#sec-NCA"><span class="header-section-number">2.3.2</span> 近傍成分分析 <span class="citation" data-cites="Goldberger+2004">(NCA, Goldberger et al., 2004)</span></a></li>
+  </ul></li>
+  <li><a href="#sec-deep-metric-learning" id="toc-sec-deep-metric-learning" class="nav-link" data-scroll-target="#sec-deep-metric-learning"><span class="header-section-number">2.4</span> 深層距離学習</a>
+  <ul class="collapse">
+  <li><a href="#分類に基づく目的関数" id="toc-分類に基づく目的関数" class="nav-link" data-scroll-target="#分類に基づく目的関数"><span class="header-section-number">2.4.1</span> 分類に基づく目的関数</a></li>
+  <li><a href="#者比較に基づく目的関数" id="toc-者比較に基づく目的関数" class="nav-link" data-scroll-target="#者比較に基づく目的関数"><span class="header-section-number">2.4.2</span> ２者比較に基づく目的関数</a></li>
+  <li><a href="#sec-triplet-loss" id="toc-sec-triplet-loss" class="nav-link" data-scroll-target="#sec-triplet-loss"><span class="header-section-number">2.4.3</span> ３者比較に基づく目的関数</a></li>
+  <li><a href="#者比較の加速" id="toc-者比較の加速" class="nav-link" data-scroll-target="#者比較の加速"><span class="header-section-number">2.4.4</span> ３者比較の加速</a></li>
+  </ul></li>
+  </ul></li>
+  
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<section id="関連ページ" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
+<div id="listing-kernel-listing" class="quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Bayesian,Kernel,Python" data-listing-date-sort="1707609600000" data-listing-file-modified-sort="1728218522244" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="592">
+<a href="../../../posts/2024/Kernels/GP.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../docs/posts/2024/Kernels/GP_files/figure-html/cell-10-output-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Gauss 過程を用いた統計解析
+</h5>
+<div class="card-subtitle listing-subtitle">
+実践編（回帰と分類）
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-11
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Bayesian,Kernel,Process" data-listing-date-sort="1707609600000" data-listing-file-modified-sort="1728218522244" data-listing-date-modified-sort="1723075200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="216">
+<a href="../../../posts/2024/Kernels/GP2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Gauss 過程を用いたベイズ推論
+</h5>
+<div class="card-subtitle listing-subtitle">
+理論編
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-11
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Kernel" data-listing-date-sort="1699315200000" data-listing-file-modified-sort="1728218521745" data-listing-date-modified-sort="1710374400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="256">
+<a href="../../../posts/2023/KernelMethods/KernelMethods4Mathematicians.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2023/KernelMethods/KernelMethods.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+数学者のためのカーネル法概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+カーネル PCA と SVM を例として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2023-11-07
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="3" data-categories="Kernel" data-listing-date-sort="1710374400000" data-listing-file-modified-sort="1728218522266" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="48">
+<a href="../../../posts/2024/Kernels/Kernel1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<div class="listing-item-img-placeholder card-img-top" style="height: 150px;">&nbsp;</div>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+カーネル法１
+</h5>
+<div class="card-subtitle listing-subtitle">
+カーネル平均埋め込み
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-03-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="4" data-categories="Deep,Nature,Statistics,Geometry" data-listing-date-sort="1722297600000" data-listing-file-modified-sort="1728218522266" data-listing-date-modified-sort="1723680000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
+<a href="../../../posts/2024/Kernels/Manifold.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Kernels/Images/UMAPvSNE.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+非線型な次元縮約法の概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+最古にして最難のタスクと多様体学習
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-30
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="5" data-categories="Deep" data-listing-date-sort="1722211200000" data-listing-file-modified-sort="1728218522267" data-listing-date-modified-sort="1723420800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="385">
+<a href="../../../posts/2024/Kernels/NCL.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Kernels/Images/contrastive_repr4.jpeg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+表現学習と非線型独立成分分析
+</h5>
+<div class="card-subtitle listing-subtitle">
+「データ理解」に向けた深層潜在変数モデル
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-29
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+</section>
+<section id="半正定値カーネル" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> 半正定値カーネル</h1>
+<section id="はじめに" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h2>
+<p>カーネル法は，カーネルの選択と構成が第一歩になる．</p>
+<p>例えば <a href="../../../posts/2024/Kernels/GP2.html">Gauss 過程</a> は，平均関数と共分散関数＝正定値カーネルを定めるごとに定まる．従って Gauss 過程回帰などを実行する前には，適切な事前 Gauss 過程を定める半正定値カーネルを選ぶ必要がある．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義（正定値核関数）^[[@Murphy2022 p.565] 17.1節は，半正定値核のことを Mercer 核とも呼んでいる．]">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+定義（正定値核関数）<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>一般に <strong>核</strong> とは，可測関数 <span class="math inline">\(E,F\)</span> の間の写像 <span class="math inline">\(K:E\to\mathcal{S}(F)\)</span> をいう．ただし，<span class="math inline">\(\mathcal{S}(F)\)</span> は <span class="math inline">\(F\)</span> 上の符号付き測度全体の集合とする．</p>
+<p>特に <span class="math inline">\(F\)</span> 上の確率測度の全体 <span class="math inline">\(\mathcal{P}(F)\)</span> に値を取る核を <a href="../../../posts/2024/Probability/Kernel.html"><strong>確率核</strong></a> という．</p>
+<p><strong>核（関数）</strong> とは，<span class="math inline">\(F\)</span> 上に自然な <span class="math inline">\(\sigma\)</span>-有限測度 <span class="math inline">\(\nu\in\mathcal{S}(F)\)</span> がある際に，次を満たす積分核 <span class="math inline">\(k:E\times F\to\mathbb{R}\)</span> をいう： <span class="math display">\[
+K(x,A)=\int_A k(x,y)\,d\nu(y).
+\]</span></p>
+<p><strong>正定値核</strong> とは，この積分核 <span class="math inline">\(k\)</span> であって，さらに半正定値関数でもあるものをいう．</p>
+<p>以降，本稿でカーネルと言った場合，積分核となる関数 <span class="math inline">\(k:E\times F\to\mathbb{R}\)</span> を指す．一般のカーネルについては，<a href="../../../posts/2024/Probability/Kernel.html">確率核の稿</a>を参照．</p>
+</div>
+</div>
+</div>
+</section>
+<section id="定常カーネル" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="定常カーネル"><span class="header-section-number">1.2</span> 定常カーネル</h2>
+<p>距離空間 <span class="math inline">\((T,d)\)</span> 上の Gauss 過程 <span class="math inline">\((X_t)\)</span> が定常的である場合，共分散関数 <span class="math display">\[
+\mathrm{C}(s,t):=\operatorname{E}\biggl[(X_s-\operatorname{E}[X_s])(X_t-\operatorname{E}[X_t])\biggr],\qquad s,t\in T
+\]</span> は距離 <span class="math inline">\(d(s,t)\)</span> のみの関数になる．</p>
+<p>このような半正定値関数 <span class="math inline">\(\mathrm{C}\)</span> の例を <span class="math inline">\(T=\mathbb{R}^d\)</span> として挙げる．</p>
+<section id="poisson-核" class="level3" data-number="1.2.1">
+<h3 data-number="1.2.1" class="anchored" data-anchor-id="poisson-核"><span class="header-section-number">1.2.1</span> Poisson 核</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義 (Poisson kernel)">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+定義 (Poisson kernel)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>（<span class="math inline">\(\mathbb{R}^d\)</span> 上の）Poisson 核とは，Cauchy 分布 <span class="math inline">\(\mathrm{C}(0,\ell^{-1})\)</span> の特性関数 <span class="math display">\[
+K(x,y;\ell)=\exp\left(-\frac{\|x-y\|_1}{\ell}\right)
+\]</span> をいう．</p>
+</div>
+</div>
+</section>
+<section id="sec-Gauss-kernel" class="level3" data-number="1.2.2">
+<h3 data-number="1.2.2" class="anchored" data-anchor-id="sec-Gauss-kernel"><span class="header-section-number">1.2.2</span> Gauss 核</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義 (Gaussian Radial Basis Function kernel / Squared Exponential kernel)^[RBF は [@持橋-大羽2019 p.68]，SE は [@Rasmussen-Williams2006 p.14] の用語．[@Murphy2023] では両方が併記されている．Gaussian kernel とも呼ばれる．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+定義 (Gaussian Radial Basis Function kernel / Squared Exponential kernel)<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Gauss 核（動径基底関数カーネルともいう）とは，Gauss 分布 <span class="math inline">\(\mathrm{N}(0,\ell^{-2})\)</span> の特性関数 <span class="math display">\[
+K(x,y;\ell):=\exp\left(-\frac{\lvert x-y\rvert^2}{2\ell^2}\right)
+\]</span> をいう．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+</div>
+</div>
+<p><a href="https://en.wikipedia.org/wiki/Radial_basis_function">Radial Basis Function</a> とは動径 <span class="math inline">\(r=\lvert x\rvert\)</span> の関数であることをいう．RBF カーネルと言ったとき特に Gauss 核を指すことが多いが，これは混乱を招く．<span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023</a>)</span> では Squared Exponential kernel の語が使われているが，ここでは Gauss 核と呼ぶ．</p>
+</section>
+<section id="sec-ARD-kernel" class="level3" data-number="1.2.3">
+<h3 data-number="1.2.3" class="anchored" data-anchor-id="sec-ARD-kernel"><span class="header-section-number">1.2.3</span> 関連度自動決定核 (ARD)</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="定義 (ARD: Autonatic Relevance Determination)^[[@MacKay1994], [@Neal1996 p.16] なども参照．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+定義 (ARD: Autonatic Relevance Determination)<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Gauss カーネルの Euclid ノルムを Mahalanobis ノルムに変更したもの <span class="math display">\[
+K(r;\Sigma,\sigma^2)=\sigma^2\exp\left(-\frac{r^\top\Sigma^{-1}r}{2}\right)
+\]</span> を関連度自動決定カーネルともいう．</p>
+</div>
+</div>
+<p>そもそも関連度自動決定 <span class="citation" data-cites="MacKay1994">(<a href="#ref-MacKay1994" role="doc-biblioref">MacKay, 1994</a>)</span>, <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996, p. 16</a>)</span> またはスパースベイズ学習 <span class="citation" data-cites="Tipping2001">(<a href="#ref-Tipping2001" role="doc-biblioref">Tipping, 2001</a>)</span> とは，ニューラルネットワークの最初のレイヤーの荷重をスパースにするために分散不定の正規分布を事前分布として導入する，という技法である <span class="citation" data-cites="Loeliger+2016">(<a href="#ref-Loeliger+2016" role="doc-biblioref">Loeliger et al., 2016</a>)</span>．</p>
+<p>一般に出力をスパースにするためのフレームワークとしても活用され，ARD 核はその最たる例である．</p>
+</section>
+<section id="matérn-核" class="level3" data-number="1.2.4">
+<h3 data-number="1.2.4" class="anchored" data-anchor-id="matérn-核"><span class="header-section-number">1.2.4</span> Matérn 核</h3>
+<p>ARD 核は軟化性能を持つため，見本道は無限回微分可能になってしまう．</p>
+<p>これが不適な状況下では，<a href="https://en.wikipedia.org/wiki/Mat%C3%A9rn_covariance_function">Matérn 核</a> <span class="math display">\[
+K(r;\nu,\ell)=\frac{2^{1-\nu}}{\Gamma(\nu)}\left(\frac{\sqrt{2\nu}r}{\ell}\right)^\nu K_\nu\left(\frac{\sqrt{2\nu}r}{\ell}\right)
+\]</span> などが用いられることがある．ただし，<span class="math inline">\(K_\nu\)</span> は修正 Bessel 関数とする．</p>
+<p><span class="math inline">\(\nu\)</span> は滑らか度を決定し，見本道は <span class="math inline">\(\lfloor\nu\rfloor\)</span> 階 <span class="math inline">\(L^2\)</span>-微分可能になる．<span class="math inline">\(\nu\to\infty\)</span> の極限で Gauss 核に収束する．</p>
+<p><span class="math inline">\(\nu=1/2\)</span> の場合 <span class="math display">\[
+K(r;1/2,\ell)=\exp\left(-\frac{r}{\ell}\right)
+\]</span> であり，対応する Gauss 過程は <a href="../../../posts/2024/Process/OU1.html">Ornstein-Uhlenbeck 過程</a> である．</p>
+</section>
+<section id="定常スペクトル核" class="level3" data-number="1.2.5">
+<h3 data-number="1.2.5" class="anchored" data-anchor-id="定常スペクトル核"><span class="header-section-number">1.2.5</span> 定常スペクトル核</h3>
+<p>任意の（定常な）正定値関数は，ある関数 <span class="math inline">\(p\)</span> に関して <span id="eq-spectral-decomposition"><span class="math display">\[
+K(r)=\int_{\mathbb{R}^d}p(\omega)e^{i\omega^\top r}\,d\omega
+\tag{1}\]</span></span> と表せる．この <span class="math inline">\(p\)</span> は <strong>スペクトル密度</strong> という．</p>
+<p><span class="math inline">\(K\)</span> が RBF 核であるとき，<span class="math inline">\(p\)</span> もそうなる： <span class="math display">\[
+p(\omega)=\sqrt{2\pi\ell^2}\exp\biggr(-2\pi^2\omega^2\ell^2\biggl).
+\]</span></p>
+<p>この対応を用いて，スペクトル密度 <span class="math inline">\(p\)</span> をデザインすることで，様々な正定値カーネルを得ることが出来る．</p>
+<p>例えば spectral mixture kernel <span class="citation" data-cites="Wilson-Adams2013">(<a href="#ref-Wilson-Adams2013" role="doc-biblioref">Wilson and Adams, 2013</a>)</span> では，スケール母数と位置母数とについて RBF 核の混合を考えることで，新たな正定値カーネルを構成する．</p>
+</section>
+</section>
+<section id="非定常カーネル" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="非定常カーネル"><span class="header-section-number">1.3</span> 非定常カーネル</h2>
+<p>環境統計学などにおいて，空間相関の仕方が時間的に変化していくという設定がよくある．</p>
+<p>このような場合は，一般の２変数の半正定値カーネル関数を考えることが有用である．</p>
+<section id="多項式核" class="level3" data-number="1.3.1">
+<h3 data-number="1.3.1" class="anchored" data-anchor-id="多項式核"><span class="header-section-number">1.3.1</span> 多項式核</h3>
+<p><span class="math display">\[
+K(x,y)=(x^\top y+c)^M
+\]</span> は非斉次項 <span class="math inline">\(c\)</span> を持つ，<span class="math inline">\(M\)</span> 次の多項式核と呼ばれる．</p>
+</section>
+<section id="gibbs-核" class="level3" data-number="1.3.2">
+<h3 data-number="1.3.2" class="anchored" data-anchor-id="gibbs-核"><span class="header-section-number">1.3.2</span> Gibbs 核</h3>
+<p>Gibbs 核 <span class="citation" data-cites="Gibbs1997">(<a href="#ref-Gibbs1997" role="doc-biblioref">Gibbs, 1997</a>)</span> は，ハイパーパラメータ <span class="math inline">\(\sigma,\ell\)</span> を入力に依存するようにした RBF 核である： <span class="math display">\[
+K(x,y)=\sigma(x)\sigma(y)\sqrt{\frac{2\ell(x)\ell(y)}{\ell(x)^2+\ell(y)^2}}\exp\left(-\frac{\lvert x-y\rvert^2}{\ell(x)^2+\ell(y)^2}\right).
+\]</span></p>
+<p>このようにすることで，<span class="math inline">\(\sigma,\ell\)</span> を別の Gauss 過程でモデリングし，階層モデルを考えることもできる <span class="citation" data-cites="Heinonen+2016">(<a href="#ref-Heinonen+2016" role="doc-biblioref">Heinonen et al., 2016</a>)</span>．</p>
+</section>
+<section id="スペクトル核-remes2017" class="level3" data-number="1.3.3">
+<h3 data-number="1.3.3" class="anchored" data-anchor-id="スペクトル核-remes2017"><span class="header-section-number">1.3.3</span> スペクトル核 <span class="citation" data-cites="Remes+2017">(<a href="#ref-Remes+2017" role="doc-biblioref">Remes et al., 2017</a>)</span></h3>
+<p>正定値核は Fourier 変換を通じて，スペクトル密度によって指定することもできる（Bochner の定理）．</p>
+<p>この手法は，非定常核に対しても <span class="citation" data-cites="Remes+2017">(<a href="#ref-Remes+2017" role="doc-biblioref">Remes et al., 2017</a>)</span> が拡張している．</p>
+</section>
+</section>
+<section id="位相空間上の核" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="位相空間上の核"><span class="header-section-number">1.4</span> 位相空間上の核</h2>
+<p>文章上の string kernel <span class="citation" data-cites="Lodhi+2002">(<a href="#ref-Lodhi+2002" role="doc-biblioref">Lodhi et al., 2002</a>)</span> やグラフ上の graph kernel <span class="citation" data-cites="Kriege+2020">(<a href="#ref-Kriege+2020" role="doc-biblioref">Kriege et al., 2020</a>)</span> も考えられている．</p>
+<section id="乱歩核" class="level3" data-number="1.4.1">
+<h3 data-number="1.4.1" class="anchored" data-anchor-id="乱歩核"><span class="header-section-number">1.4.1</span> 乱歩核</h3>
+<p><span class="citation" data-cites="Borgwardt+2006">(<a href="#ref-Borgwardt+2006" role="doc-biblioref">Borgwardt et al., 2006</a>)</span> は random walk kernel を提案しており，<span class="math inline">\(\mathbb{R}^d\)</span> へ埋め込まれるようなものの計算量は <span class="math inline">\(O(n^3d)\)</span> である．</p>
+</section>
+</section>
+<section id="weisfeiler-lehman-核" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="weisfeiler-lehman-核"><span class="header-section-number">1.5</span> Weisfeiler-Lehman 核</h2>
+<p>さらに効率の良いカーネルとして Weisfeiler-Lehman カーネル <span class="citation" data-cites="Shervashidze+2011">(<a href="#ref-Shervashidze+2011" role="doc-biblioref">Shervashidze et al., 2011</a>)</span> もある．</p>
+</section>
+<section id="核の構成" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="核の構成"><span class="header-section-number">1.6</span> 核の構成</h2>
+<section id="半正定値核のなす正錐" class="level3" data-number="1.6.1">
+<h3 data-number="1.6.1" class="anchored" data-anchor-id="半正定値核のなす正錐"><span class="header-section-number">1.6.1</span> 半正定値核のなす正錐</h3>
+<p>半正定値核は <span class="math inline">\(\mathrm{Map}(T^2,\mathbb{R})\)</span> 上で閉凸錐をなす．すなわち， <span class="math display">\[
+c_1K_1+c_2K_2,\qquad c_1,c_2\ge0,
+\]</span> とその各点収束極限は再び半正定値核である．</p>
+</section>
+<section id="sec-KDE" class="level3" data-number="1.6.2">
+<h3 data-number="1.6.2" class="anchored" data-anchor-id="sec-KDE"><span class="header-section-number">1.6.2</span> カーネル密度推定量 (KDE)</h3>
+<p>データ <span class="math inline">\(\{x_n\}\subset\mathcal{X}\)</span> と半正定値核 <span class="math inline">\(K\)</span> に対して， <span class="math display">\[
+p(x|\{x_n\})=\frac{1}{N}\sum_{n=1}^NK_\ell(x,x_n)
+\]</span> は再び半正定値核である．これを <strong>Parzen 窓推定量</strong> または <strong>カーネル密度推定量</strong> という．</p>
+<p>これはデータの経験分布と確率核 <span class="math inline">\(K\)</span> との畳み込みになっている．<span class="math inline">\(K\)</span> として Gauss 核を用いると，これはデータ分布の軟化として使え，<a href="../../../posts/2024/Samplers/EBM.html#sec-RSM">デノイジングスコアマッチング</a>などに応用を持つ．</p>
+<p>ただし，<span class="math inline">\(\ell\)</span> は <strong>幅</strong> (bandwidth) とよばれるハイパーパラメータである．例えば <span class="math inline">\(K\)</span> が動径 <span class="math inline">\(r\)</span> の関数であるとき， <span class="math display">\[
+K_\ell(r):=\frac{1}{\ell}K\left(\frac{r}{\ell}\right)
+\]</span> などと導入できる．</p>
+</section>
+<section id="カーネル回帰" class="level3" data-number="1.6.3">
+<h3 data-number="1.6.3" class="anchored" data-anchor-id="カーネル回帰"><span class="header-section-number">1.6.3</span> カーネル回帰</h3>
+<p>データが <span class="math inline">\(\mathcal{D}=\{(x_i,y_i)\}_{i=1}^n\)</span> という形で与えられ，平均 <span class="math inline">\(\operatorname{E}[Y|X,\mathcal{D}]\)</span> を推定することを考える．</p>
+<p>この際，まず結合密度を次の形で推定する： <span class="math display">\[
+p(y,x|\mathcal{D})=\frac{1}{n}\sum_{i=1}^nK_\ell(x,x_i)K_\ell(y,y_i)
+\]</span> これを用いると，次のように平均が推定できる： <span class="math display">\[
+\operatorname{E}[Y|X,\mathcal{D}]=\int_{\mathcal{Y}} yp(y|X,\mathcal{D})\,dy=\sum_{i=1}^ny_iw_i(x),\qquad w_i(x):=\frac{K_\ell(x,x_i)}{\sum_{j=1}^nK_\ell(x,x_j)}.
+\]</span></p>
+<p>この手続きを，<strong>カーネル回帰</strong> / カーネル平滑化，または回帰関数に関する <span class="citation" data-cites="Nadaraya1964">(<a href="#ref-Nadaraya1964" role="doc-biblioref">Nadaraya, 1964</a>)</span>-<span class="citation" data-cites="Watson1964">(<a href="#ref-Watson1964" role="doc-biblioref">Watson, 1964</a>)</span> 推定量という．</p>
+</section>
+<section id="局所線型回帰-llr" class="level3" data-number="1.6.4">
+<h3 data-number="1.6.4" class="anchored" data-anchor-id="局所線型回帰-llr"><span class="header-section-number">1.6.4</span> 局所線型回帰 (LLR)</h3>
+<p>カーネル回帰では <span class="math inline">\(\operatorname{E}[Y|X,\mathcal{D}]\)</span> を，<span class="math inline">\(\{y_i\}\)</span> の適切な線型和として予測していた．実は <span class="math display">\[
+\sum_{i=1}^ny_iw_i(x)=\min_\beta\sum_{i=1}^n(y_i-\beta)^2K_\ell(x,x_i)
+\]</span> の解として特徴付けられる．</p>
+<p>代わりに， <span class="math display">\[
+\mu(x):=\min_{\beta}\sum_{i=1}^n\biggr(y_i-\beta^\top\phi(x_i)\biggl)^2K_\ell(x,x_i)
+\]</span> によって <span class="math inline">\(\operatorname{E}[Y|X,\mathcal{D}]\)</span> を予測することを，局所線型回帰 (locally linear regression) または <a href="https://en.wikipedia.org/wiki/Local_regression">LOWESS (Locally Weighted Scatterplot Smoothing)</a> <span class="citation" data-cites="Cleveland1979">(<a href="#ref-Cleveland1979" role="doc-biblioref">Cleveland, 1979</a>)</span>, <span class="citation" data-cites="Cleveland-Devlin1988">(<a href="#ref-Cleveland-Devlin1988" role="doc-biblioref">Cleveland and Devlin, 1988</a>)</span>，または <a href="https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter">Savitsky-Golay フィルター</a> <span class="citation" data-cites="Savitzky-Golay1964">(<a href="#ref-Savitzky-Golay1964" role="doc-biblioref">Savitzky and Golay, 1964</a>)</span> という．</p>
+</section>
+<section id="半正定値構成" class="level3" data-number="1.6.5">
+<h3 data-number="1.6.5" class="anchored" data-anchor-id="半正定値構成"><span class="header-section-number">1.6.5</span> 半正定値構成</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(K:T^2\to\mathbb{C}\)</span> を半正定値，<span class="math inline">\(f:\mathcal{X}\to\mathbb{C}\)</span> を関数とする． <span class="math display">\[
+\widetilde{K}(x,y):=f(x)K(x,y)\overline{f(y)}
+\]</span> は再び半正定値である．</p>
+</div>
+</div>
+</section>
+<section id="核の押し出し" class="level3" data-number="1.6.6">
+<h3 data-number="1.6.6" class="anchored" data-anchor-id="核の押し出し"><span class="header-section-number">1.6.6</span> 核の押し出し</h3>
+<p><span class="math inline">\(S^1\simeq[0,2\pi)\)</span> 上の確率分布は，方向データとして，海洋学における波の方向，気象学における風向のモデリングに応用を持つ．</p>
+<p>全射 <span class="math inline">\(\pi:\mathbb{R}\twoheadrightarrow S^1\)</span> に従って，<span class="math inline">\(\mathbb{R}\)</span>-値の Gauss 過程を，方向データ値の Gauss 過程に押し出すことが出来る <span class="citation" data-cites="Jona-Lasinio+2012">(<a href="#ref-Jona-Lasinio+2012" role="doc-biblioref">Jona-Lasinio et al., 2012</a>)</span>．</p>
+<p>これに伴い，<span class="math inline">\(\mathbb{R}\)</span>-値の核 <span class="math inline">\(K:\mathbb{R}\to\mathcal{P}(\mathbb{R})\)</span> を <span class="math inline">\(S^1\)</span>-値に押し出すこともできる： <span class="math display">\[
+\pi_*K:\mathbb{R}\to\mathcal{P}(\mathbb{R})\xrightarrow{\pi_*}\mathcal{P}(S^1).
+\]</span></p>
+<p><span class="math inline">\(\pi\)</span> による Gauss 分布の押し出し <span class="math inline">\(\pi_*\mathrm{N}_1(\mu,\sigma^2)\)</span> は <a href="https://en.wikipedia.org/wiki/Wrapped_normal_distribution">wrapped normal distribution</a> と呼ばれている．これに対応し，この Gauss 過程は wrapped Gaussian process と呼ばれている <span class="citation" data-cites="Jona-Lasinio+2012">(<a href="#ref-Jona-Lasinio+2012" role="doc-biblioref">Jona-Lasinio et al., 2012</a>)</span>．</p>
+</section>
+</section>
+<section id="sec-RFF" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="sec-RFF"><span class="header-section-number">1.7</span> 核の Monte Carlo 近似</h2>
+<section id="カーネルの近似" class="level3" data-number="1.7.1">
+<h3 data-number="1.7.1" class="anchored" data-anchor-id="カーネルの近似"><span class="header-section-number">1.7.1</span> カーネルの近似</h3>
+<p>以上，種々のカーネル関数を紹介してきたが，これらはデータに関して効率的に計算される必要がある．</p>
+<p>特に潜在空間上での Gram 行列の逆行列または Cholesky 分解を計算する <span class="math inline">\(O(n^3)\)</span> の複雑性が難点である <span class="citation" data-cites="Liu+2020">(<a href="#ref-Liu+2020" role="doc-biblioref">Liu et al., 2020</a>)</span>．</p>
+<p>このデータ数 <span class="math inline">\(n\)</span> に関してスケールしない点が従来カーネル法の難点とされてきたが，これはランダムなカーネル関数を用いた Monte Carlo 近似によって高速化できる．<span class="math inline">\(m\)</span> 個のランダムに選択された基底関数を用いれば，Monte Carlo 誤差を許して計算量は <span class="math inline">\(O(nm+m^3)\)</span> にまで圧縮できる．</p>
+</section>
+<section id="random-fourier-features" class="level3" data-number="1.7.2">
+<h3 data-number="1.7.2" class="anchored" data-anchor-id="random-fourier-features"><span class="header-section-number">1.7.2</span> Random Fourier Features</h3>
+<p>正定値核のスペクトル表現 (<a href="#eq-spectral-decomposition" class="quarto-xref">1</a>) を通じて，核の値 <span class="math inline">\(K(x,y)\)</span> を Monte Carlo 近似をすることが出来る．</p>
+<p>例えば <span class="math inline">\(K\)</span> が RBF 核であるとき，<span class="math inline">\(p\)</span> は正規密度になるから，Gauss 確率変数からのサンプリングを通じてこれを実現できる： <span class="math display">\[
+K(x,y)\approx\phi(x)^\top\phi(y),\qquad \phi(x):=\sqrt{\frac{1}{D}}\begin{pmatrix}\sin(Z^\top x)\\\cos(Z^\top x)\end{pmatrix},Z=(z_{ij}),z_{ij}\overset{\text{iid}}{\sim}\mathrm{N}(0,\sigma^{-2}).
+\]</span></p>
+<p>これは核の値 <span class="math inline">\(K(x,y)\)</span> を，逆に（ランダムに定まる）特徴ベクトル <span class="math inline">\(\phi(x),\phi(y)\)</span> の値を通じて計算しているため，Random Fourier Features <span class="citation" data-cites="Rahimi-Recht2007">(<a href="#ref-Rahimi-Recht2007" role="doc-biblioref">Rahimi and Recht, 2007</a>)</span>, <span class="citation" data-cites="Sutherland-Schneider2015">(<a href="#ref-Sutherland-Schneider2015" role="doc-biblioref">Sutherland and Schneider, 2015</a>)</span>，または Random Kitchen Sinks <span class="citation" data-cites="Rahimi-Recht2008">(<a href="#ref-Rahimi-Recht2008" role="doc-biblioref">Rahimi and Recht, 2008</a>)</span> と呼ばれる．</p>
+<p><span class="math inline">\(Z\)</span> の行を互いに直交するように取ることで，Monte Carlo 推定の精度が上がる．これを orthogonal random features <span class="citation" data-cites="Yu+2016">(<a href="#ref-Yu+2016" role="doc-biblioref">Yu et al., 2016</a>)</span> と呼ぶ．</p>
+</section>
+</section>
+</section>
+<section id="sec-metric-learning" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> 距離学習</h1>
+<section id="はじめに-1" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h2>
+<p>２つのデータ点 <span class="math inline">\(x_1,x_2\in\mathcal{X}\)</span> に対して，その意味論的な距離 <span class="math inline">\(d(x_1,x_2)\)</span> を学習することを考える．</p>
+<p>これはある種の表現学習として，分類，クラスタリング，<a href="../../../posts/2024/Kernels/Manifold.html">次元縮約</a> などの事前タスクとしても重要である．顔認識など，computer vision への応用が大きい．</p>
+<p>古典的には，<span class="math inline">\(K\)</span>-近傍分類器と対置させ，これが最大の精度を発揮するような距離を学習することが考えられる</p>
+<p>また，ニューラルネットワークにより埋め込み <span class="math inline">\(f:\mathcal{X}\hookrightarrow\mathbb{R}^d\)</span> を構成し，その後 <span class="math inline">\(\mathbb{R}^d\)</span> 上の Euclid 距離を <span class="math inline">\(d\)</span> として用いるとき，これを <strong>深層距離学習</strong> (deep metric learning) という．</p>
+<p>深層距離学習では距離学習自体が下流タスクとなっており，その性能が深層埋め込み <span class="math inline">\(f\)</span> に依存している．実際，深層距離学習の性能は芳しいと言えないことが知られている <span class="citation" data-cites="Musgrave+2020">(<a href="#ref-Musgrave+2020" role="doc-biblioref">Musgrave et al., 2020</a>)</span>．</p>
+</section>
+<section id="k-近傍分類" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="k-近傍分類"><span class="header-section-number">2.2</span> <span class="math inline">\(K\)</span>-近傍分類</h2>
+<p>ラベル付きデータ <span class="math inline">\(\mathcal{D}=\{(x_i,y_i)\}\subset\mathcal{X}\times[C]\)</span> が与えられているとする．</p>
+<p><span class="math inline">\(K\)</span>-近傍分類法は，「<span class="math inline">\(x\)</span> の近傍上位 <span class="math inline">\(K\)</span> 個のデータに訊いてみる」という方法であり，こうして得る事後確率 <span class="math display">\[
+p(y=c|x,\mathcal{D})=\frac{1}{K}\sum_{i\in\mathcal{D}_K(x)}1_{\left\{y_i=c\right\}}
+\]</span> から <span class="math inline">\(x\)</span> のラベルを予測する．</p>
+<p>この事後分布をさらにクラスタリングに用いたものが <a href="../../../posts/2024/Computation/VI.html"><span class="math inline">\(K\)</span>-平均法</a> <span class="citation" data-cites="MacQueen1967">(<a href="#ref-MacQueen1967" role="doc-biblioref">MacQueen, 1967</a>)</span>, <span class="citation" data-cites="Lloyd1982">(<a href="#ref-Lloyd1982" role="doc-biblioref">Lloyd, 1982</a>)</span> である</p>
+<p><a href="https://ja.wikipedia.org/wiki/K近傍法"><span class="math inline">\(K\)</span>-近傍法</a>はそのシンプルな発想に拘らず一致性と，良い収束レートを持つ <span class="citation" data-cites="Chaudhuri-DasGupta2014">(<a href="#ref-Chaudhuri-DasGupta2014" role="doc-biblioref">Chaudhuri and Dasgupta, 2014</a>)</span>．</p>
+<p>一様カーネル <span class="math display">\[
+K(r;\ell):=\frac{1}{2\ell}1_{[0,\ell]}(r)
+\]</span> が定める密度推定量を，どの</p>
+</section>
+<section id="mahalanobis-距離の学習" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="mahalanobis-距離の学習"><span class="header-section-number">2.3</span> Mahalanobis 距離の学習</h2>
+<p><span class="math display">\[
+d(x_1,x_2;M):=\sqrt{(x_1-x_2)^\top M(x_1-x_2)}
+\]</span> というパラメトリックモデルを過程し，<span class="math inline">\(M\)</span> を学習することを考える．</p>
+<section id="大マージン最近傍-lmnn-weinberger2005" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="大マージン最近傍-lmnn-weinberger2005"><span class="header-section-number">2.3.1</span> 大マージン最近傍 <span class="citation" data-cites="Weinberger+2005">(LMNN, <a href="#ref-Weinberger+2005" role="doc-biblioref">Kilian Q. Weinberger et al., 2005</a>)</span></h3>
+<p>Large margin nearest neighbor (LMNN) <span class="citation" data-cites="Weinberger+2005">(<a href="#ref-Weinberger+2005" role="doc-biblioref">Kilian Q. Weinberger et al., 2005</a>)</span>, <span class="citation" data-cites="Weinberger-Saul2009">(<a href="#ref-Weinberger-Saul2009" role="doc-biblioref">Kilian Q. Weinberger and Saul, 2009</a>)</span> は，<span class="math inline">\(K\)</span>-近傍分類器による後続タスクが最も精度が良くなるように <span class="math inline">\(M\)</span> を学習する方法をいう．</p>
+<p>各データ番号 <span class="math inline">\(i\in[n]\)</span> に対して，これと似ているデータ番号の集合 <span class="math inline">\(N_i\subset[n]\)</span> が与えられているとする（ラベルが同一であるデータ点など）．これに対して，<span class="math inline">\(\lambda\in(0,1),m\ge0\)</span> をハイパーパラメータとして， <span class="math display">\[
+\mathcal{L}(M):=(1-\lambda)\mathcal{L}^-(M)+\lambda\mathcal{L}^+(M),\qquad\lambda\in(0,1),
+\]</span> <span class="math display">\[
+\mathcal{L}^-(M):=\sum_{i=1}^n\sum_{j\in N_i}d(x_i,x_j;M)^2,\quad\mathcal{L}^+(M):=\sum_{i=1}^n\sum_{j\in N_i}\sum_{k=1}^N\delta_{ik}\biggr(m+d(x_i,x_j;M)^2-d(x_i,x_k;M)^2\biggl)^2,
+\]</span> を最小化するように <span class="math inline">\(M\)</span> を学習する．</p>
+<p><span class="math inline">\(\mathcal{L}\)</span> は凸関数であるため，半正定値計画法が適用できる．また，<span class="math inline">\(M:=W^\top W\)</span> によりパラメータ変換をして，<span class="math inline">\(W\)</span> に関して解くことで，問題の凸性を失う代わりに次元数を削減できる．</p>
+</section>
+<section id="sec-NCA" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="sec-NCA"><span class="header-section-number">2.3.2</span> 近傍成分分析 <span class="citation" data-cites="Goldberger+2004">(NCA, <a href="#ref-Goldberger+2004" role="doc-biblioref">Goldberger et al., 2004</a>)</span></h3>
+<p>近傍成分分析 (NCA: Neighborhood Component Analysis) <span class="citation" data-cites="Goldberger+2004">(<a href="#ref-Goldberger+2004" role="doc-biblioref">Goldberger et al., 2004</a>)</span> では <span class="math inline">\(W\)</span> を学習する．</p>
+<p>類似度行列 <span class="math inline">\(W\)</span> に関して，<a href="../../../posts/2024/Kernels/Manifold.html#sec-SNE">確率的近傍埋め込み</a> でも使うモデル <span class="math display">\[
+p_{ij}^W:=\frac{\exp\left(-\lvert Wx_i-Wx_j\rvert^2\right)}{\sum_{k\neq i}\exp\left(-\lvert Wx_i-Wx_k\rvert^2\right)}
+\]</span> を考える．各 <span class="math inline">\(i\in[n]\)</span> について，<span class="math inline">\(x_i\)</span> 以外のデータから <span class="math inline">\(x_j\)</span> のラベルを <span class="math inline">\(1\)</span>-近傍分類器で正しく予測する確率が最大になるように， <span class="math display">\[
+\mathcal{L}(W):=1-\frac{1}{N}J(W),\quad J(W):=\sum_{i=1}^n\sum_{(i,j)\in E}p_{ij}^W
+\]</span> を最小化するように学習する．ただし，辺の集合 <span class="math inline">\(E\)</span> は，ラベルの同じデータを結ぶとした．</p>
+</section>
+</section>
+<section id="sec-deep-metric-learning" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="sec-deep-metric-learning"><span class="header-section-number">2.4</span> 深層距離学習</h2>
+<section id="分類に基づく目的関数" class="level3" data-number="2.4.1">
+<h3 data-number="2.4.1" class="anchored" data-anchor-id="分類に基づく目的関数"><span class="header-section-number">2.4.1</span> 分類に基づく目的関数</h3>
+<p>深層距離学習では目的関数の設定が重要である．</p>
+<p>最も初等的には，自己符号化器などで分類問題を解き，その内部表現（よく最後から２層目を用いる）での Euclid 距離を距離関数に用いる方法がある．</p>
+<p>しかし，距離の情報を学習するために，分類タスクは弱すぎるようである．</p>
+</section>
+<section id="者比較に基づく目的関数" class="level3" data-number="2.4.2">
+<h3 data-number="2.4.2" class="anchored" data-anchor-id="者比較に基づく目的関数"><span class="header-section-number">2.4.2</span> ２者比較に基づく目的関数</h3>
+<p><span class="math display">\[
+\mathcal{L}(\theta;x_i,x_j):=\delta_{y_i,y_j}d(z_i,z_j)^2+(1-\delta_{y_i,y_j})\biggr(m-d(z_i,z_j)^2\biggl)_+,\qquad z_i=f_\theta(x_i)
+\]</span> という損失関数は <strong>対照的損失</strong> (contrastive loss) <span class="citation" data-cites="Chopra+2005">(<a href="#ref-Chopra+2005" role="doc-biblioref">Chopra et al., 2005</a>)</span> と呼ばれる．</p>
+<p>この損失はラベル <span class="math inline">\(y_i,y_j\)</span> が同一のデータ <span class="math inline">\(x_i,x_j\)</span> の潜在表現の距離を近づけ，ラベルが異なるデータは <span class="math inline">\(m\)</span> 以上は話すように埋め込み <span class="math inline">\(f_\theta\)</span> を学習する．</p>
+<p>この際に用いるニューラルネットワークは，同時に２つの入力 <span class="math inline">\(x_i,x_j\)</span> をとって学習することから，<strong>双子ネットワーク</strong> (Siamese network) とも呼ばれる．</p>
+</section>
+<section id="sec-triplet-loss" class="level3" data-number="2.4.3">
+<h3 data-number="2.4.3" class="anchored" data-anchor-id="sec-triplet-loss"><span class="header-section-number">2.4.3</span> ３者比較に基づく目的関数</h3>
+<p>この方法は直ちに三子損失 (triplet loss) <span class="citation" data-cites="Schroff+2015">(<a href="#ref-Schroff+2015" role="doc-biblioref">Schroff et al., 2015</a>)</span>，<span class="math inline">\(n\)</span>-ペア損失 (<span class="math inline">\(n\)</span>-pair loss) <span class="citation" data-cites="Sohn2016">(<a href="#ref-Sohn2016" role="doc-biblioref">Sohn, 2016</a>)</span>, <span class="citation" data-cites="Oord+2018">(<a href="#ref-Oord+2018" role="doc-biblioref">Oord et al., 2018</a>)</span> に拡張された．</p>
+<p>このことにより，<span class="math inline">\(x_i,x_j\)</span> の「近さ」のスケールと「遠さ」のスケールが一致し，安定した結果が得られる．</p>
+<p>三子損失は，各データ <span class="math inline">\(x_i\)</span> に対して，「似ている」ペア <span class="math inline">\(x_i^+\)</span> と「似ていない」ペア <span class="math inline">\(x_i^-\)</span> を事前に選び， <span class="math display">\[
+\mathcal{L}(\theta;x_i,x_i^+,x_i^-):=\biggr(d_\theta(x_i,x_i^+)^2-d_\theta(x_i,x_i^-)^2+m\biggl)_+,\qquad m\in\mathbb{R}
+\]</span> と定められる．このとき，<span class="math inline">\(x_i\)</span> は参照点 (anchor) と呼ばれる．</p>
+<p>この方法は <span class="math inline">\(x_i^+,x_i^-\)</span> を選ばなければいけないが，その分拡張性に優れる．<a href="../../../posts/2024/Kernels/NCL.html">ノイズ対照学習</a> の稿も参照．</p>
+<p><span class="math inline">\(n\)</span>-ペア損失では，負のデータ <span class="math inline">\(x_i^-\)</span> をさらに増やす．これは <span class="citation" data-cites="Oord+2019">(<a href="#ref-Oord+2019" role="doc-biblioref">Oord et al., 2019</a> Contrastive Predictive Coding)</span> にて，<a href="../../../posts/2024/Kernels/NCL.html#sec-CPC">InfoMax の観点から表現学習に用いられたもの</a>と一致する．</p>
+</section>
+<section id="者比較の加速" class="level3" data-number="2.4.4">
+<h3 data-number="2.4.4" class="anchored" data-anchor-id="者比較の加速"><span class="header-section-number">2.4.4</span> ３者比較の加速</h3>
+<p>負の例 <span class="math inline">\(x_i^-\)</span> を特に情報量が高いもの <span class="citation" data-cites="Faghri+2018">(hard negatives, <a href="#ref-Faghri+2018" role="doc-biblioref">Faghri et al., 2018</a>)</span> を選ぶことで，学習を加速させることができる．</p>
+<p>これは，３者損失を提案した Google の <a href="https://en.wikipedia.org/wiki/FaceNet">FaceNet</a> <span class="citation" data-cites="Schroff+2015">(<a href="#ref-Schroff+2015" role="doc-biblioref">Schroff et al., 2015</a>)</span> で考えられた戦略である．</p>
+<p>クラスラベルが得られる場合，各クラスから代表的なデータを選んでおくことで <span class="math inline">\(O(n)\)</span> にまで加速できる <span class="citation" data-cites="Movshovitz-Attias+2017">(<a href="#ref-Movshovitz-Attias+2017" role="doc-biblioref">Movshovitz-Attias et al., 2017</a>)</span>．この代表点は固定して１つに定める必要はなく，ソフトな形で選べる <span class="citation" data-cites="Qian+2019">(<a href="#ref-Qian+2019" role="doc-biblioref">Qian et al., 2019</a>)</span>．</p>
+</section>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level1 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 終わりに</h2><div class="quarto-appendix-contents">
+
+<p>ここで扱った深層距離学習は，現代的には<a href="../../../posts/2024/Kernels/NCL.html">表現学習</a>として更なる発展を見ている．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Borgwardt+2006" class="csl-entry" role="listitem">
+Borgwardt, K., Schraudolph, N., and Vishwanathan, S. v. n. (2006). <a href="https://proceedings.neurips.cc/paper_files/paper/2006/file/e37b08dd3015330dcbb5d6663667b8b8-Paper.pdf">Fast computation of graph kernels</a>. In B. Schölkopf, J. Platt, and T. Hoffman, editors, <em>Advances in neural information processing systems</em>,Vol. 19. MIT Press.
+</div>
+<div id="ref-Chaudhuri-DasGupta2014" class="csl-entry" role="listitem">
+Chaudhuri, K., and Dasgupta, S. (2014). <a href="https://proceedings.neurips.cc/paper_files/paper/2014/file/db957c626a8cd7a27231adfbf51e20eb-Paper.pdf">Rates of convergence for nearest neighbor classification</a>. In Z. Ghahramani, M. Welling, C. Cortes, N. Lawrence, and K. Q. Weinberger, editors, <em>Advances in neural information processing systems</em>,Vol. 27. Curran Associates, Inc.
+</div>
+<div id="ref-Chopra+2005" class="csl-entry" role="listitem">
+Chopra, S., Hadsell, R., and LeCun, Y. (2005). <a href="https://doi.org/10.1109/CVPR.2005.202">Learning a similarity metric discriminatively, with application to face verification</a>. <em>2005 IEEE Computer Society Conference on Computer Vision and Pattern Recognition (CVPR’05)</em>, <em>1</em>, 539–546.
+</div>
+<div id="ref-Cleveland1979" class="csl-entry" role="listitem">
+Cleveland, W. S. (1979). <a href="https://doi.org/10.1080/01621459.1979.10481038">Robust locally weighted regression and smoothing scatterplots</a>. <em>Journal of the American Statistical Association</em>, <em>74</em>(368), 829–836.
+</div>
+<div id="ref-Cleveland-Devlin1988" class="csl-entry" role="listitem">
+Cleveland, W. S., and Devlin, S. J. (1988). <a href="https://doi.org/10.1080/01621459.1988.10478639">Locally weighted regression: An approach to regression analysis by local fitting</a>. <em>Journal of the American Statistical Association</em>, <em>83</em>(403), 596–610.
+</div>
+<div id="ref-Faghri+2018" class="csl-entry" role="listitem">
+Faghri, F., Fleet, D. J., Kiros, J. R., and Fidler, S. (2018). <a href="https://arxiv.org/abs/1707.05612">VSE++: Improving visual-semantic embeddings with hard negatives</a>.
+</div>
+<div id="ref-Gibbs1997" class="csl-entry" role="listitem">
+Gibbs, M. N. (1997). <em>Bayesian gaussian process regression and classification</em> (PhD thesis). Cambridge University. Retrieved from <a href="https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=b5a0c62c8d7cf51137bfb079947b8393c00ed169">https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=b5a0c62c8d7cf51137bfb079947b8393c00ed169</a>
+</div>
+<div id="ref-Goldberger+2004" class="csl-entry" role="listitem">
+Goldberger, J., Hinton, G. E., Roweis, S., and Salakhutdinov, R. R. (2004). <a href="https://proceedings.neurips.cc/paper_files/paper/2004/file/42fe880812925e520249e808937738d2-Paper.pdf">Neighbourhood components analysis</a>. In L. Saul, Y. Weiss, and L. Bottou, editors, <em>Advances in neural information processing systems</em>,Vol. 17. MIT Press.
+</div>
+<div id="ref-Heinonen+2016" class="csl-entry" role="listitem">
+Heinonen, M., Mannerström, H., Rousu, J., Kaski, S., and Lähdesmäki, H. (2016). <a href="https://proceedings.mlr.press/v51/heinonen16.html">Non-stationary gaussian process regression with hamiltonian monte carlo</a>. In A. Gretton and C. C. Robert, editors, <em>Proceedings of the 19th international conference on artificial intelligence and statistics</em>,Vol. 51, pages 732–740. Cadiz, Spain: PMLR.
+</div>
+<div id="ref-Jona-Lasinio+2012" class="csl-entry" role="listitem">
+Jona-Lasinio, G., Gelfand, A., and Jona-Lasinio, M. (2012). <a href="http://www.jstor.org/stable/41713483">SPATIAL ANALYSIS OF WAVE DIRECTION DATA USING WRAPPED GAUSSIAN PROCESSES</a>. <em>The Annals of Applied Statistics</em>, <em>6</em>(4), 1478–1498.
+</div>
+<div id="ref-Kriege+2020" class="csl-entry" role="listitem">
+Kriege, N. M., Johansson, F. D., and Morris, C. (2020). <a href="https://doi.org/10.1007/s41109-019-0195-3">A survey on graph kernels</a>. <em>Applied Network Science</em>, <em>5</em>(1), 6.
+</div>
+<div id="ref-Liu+2020" class="csl-entry" role="listitem">
+Liu, H., Ong, Y.-S., Shen, X., and Cai, J. (2020). <a href="https://doi.org/10.1109/TNNLS.2019.2957109">When gaussian process meets big data: A review of scalable GPs</a>. <em>IEEE Transactions on Neural Networks and Learning Systems</em>, <em>31</em>(11), 4405–4423.
+</div>
+<div id="ref-Lloyd1982" class="csl-entry" role="listitem">
+Lloyd, S. (1982). <a href="https://ieeexplore.ieee.org/document/1056489">Least squares quantization in PCM</a>. <em>IEEE Transactions on Information Theory</em>, <em>28</em>(2), 129–137.
+</div>
+<div id="ref-Lodhi+2002" class="csl-entry" role="listitem">
+Lodhi, H., Saunders, C., Shawe-Taylor, J., Cristianini, N., and Watkins, C. (2002). <a href="https://www.jmlr.org/papers/v2/lodhi02a.html">Text classification using string kernels</a>. <em>Journal of Machine Learning Research</em>, <em>2</em>, 419–444.
+</div>
+<div id="ref-Loeliger+2016" class="csl-entry" role="listitem">
+Loeliger, H.-A., Bruderer, L., Malmberg, H., Wadehn, F., and Zalmai, N. (2016). <a href="https://doi.org/10.1109/ITA.2016.7888168">On sparsity by NUV-EM, gaussian message passing, and kalman smoothing</a>. In <em>2016 information theory and applications workshop (ITA)</em>, pages 1–10.
+</div>
+<div id="ref-MacKay1994" class="csl-entry" role="listitem">
+MacKay, D. J. C. (1994). <em>Bayesian nonlinear modeling for the prediction competition</em> (No. 2),Vol. 100. American Society of Heating, Refrigerating,; Air Conditioning Engineers (ASHRAE). Retrieved from <a href="https://www.osti.gov/biblio/33309">https://www.osti.gov/biblio/33309</a>
+</div>
+<div id="ref-MacQueen1967" class="csl-entry" role="listitem">
+MacQueen, J. (1967). <a href="https://projecteuclid.org/ebooks/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fifth-Berkeley-Symposium-on-Mathematical-Statistics-and/chapter/Some-methods-for-classification-and-analysis-of-multivariate-observations/bsmsp/1200512992">Some methods for classification and analysis of multivariate observations</a>. In <em>Proceedings of the fifth berkeley symposium on mathematical statistics and probability</em>,Vol. 1, pages 281–297.
+</div>
+<div id="ref-Movshovitz-Attias+2017" class="csl-entry" role="listitem">
+Movshovitz-Attias, Y., Toshev, A., Leung, T. K., Ioffe, S., and Singh, S. (2017). <a href="https://doi.org/10.1109/ICCV.2017.47">No fuss distance metric learning using proxies</a>. In <em>2017 IEEE international conference on computer vision (ICCV)</em>, pages 360–368. Los Alamitos, CA, USA: IEEE Computer Society.
+</div>
+<div id="ref-Murphy2022" class="csl-entry" role="listitem">
+Murphy, K. P. (2022). <em><a href="https://probml.github.io/pml-book/book1.html">Probabilistic machine learning: An introduction</a></em>. MIT Press.
+</div>
+<div id="ref-Murphy2023" class="csl-entry" role="listitem">
+Murphy, K. P. (2023). <em><a href="http://probml.github.io/book2">Probabilistic machine learning: Advanced topics</a></em>. MIT Press.
+</div>
+<div id="ref-Musgrave+2020" class="csl-entry" role="listitem">
+Musgrave, K., Belongie, S., and Lim, S.-N. (2020). A metric learning reality check. In A. Vedaldi, H. Bischof, T. Brox, and J.-M. Frahm, editors, <em>Computer vision – ECCV 2020</em>, pages 681–699. Cham: Springer International Publishing.
+</div>
+<div id="ref-Nadaraya1964" class="csl-entry" role="listitem">
+Nadaraya, E. A. (1964). <a href="https://doi.org/10.1137/1109020">On estimating regression</a>. <em>Theory of Probability &amp; Its Applications</em>, <em>9</em>(1), 141–142.
+</div>
+<div id="ref-Neal1996" class="csl-entry" role="listitem">
+Neal, R. M. (1996). <em><a href="https://link.springer.com/book/10.1007/978-1-4612-0745-0">Bayesian learning for neural networks</a></em>,Vol. 118. Springer New York.
+</div>
+<div id="ref-Oord+2018" class="csl-entry" role="listitem">
+Oord, A. van den, Li, Y., Babuschkin, I., Simonyan, K., Vinyals, O., Kavukcuoglu, K., … Hassabis, D. (2018). <a href="https://proceedings.mlr.press/v80/oord18a.html">Parallel <span>W</span>ave<span>N</span>et: Fast high-fidelity speech synthesis</a>. In J. Dy and A. Krause, editors, <em>Proceedings of the 35th international conference on machine learning</em>,Vol. 80, pages 3918–3926. PMLR.
+</div>
+<div id="ref-Oord+2019" class="csl-entry" role="listitem">
+Oord, A. van den, Li, Y., and Vinyals, O. (2019). <a href="https://arxiv.org/abs/1807.03748">Representation learning with contrastive predictive coding</a>.
+</div>
+<div id="ref-Qian+2019" class="csl-entry" role="listitem">
+Qian, Q., Shang, L., Sun, B., Hu, J., Li, H., and Jin, R. (2019). <a href="https://openaccess.thecvf.com/content_ICCV_2019/html/Qian_SoftTriple_Loss_Deep_Metric_Learning_Without_Triplet_Sampling_ICCV_2019_paper.html">SoftTriple loss: Deep metric learning without triplet sampling</a>. In <em>Proceedings of the IEEE/CVF international conference on computer vision (ICCV)</em>.
+</div>
+<div id="ref-Rahimi-Recht2007" class="csl-entry" role="listitem">
+Rahimi, A., and Recht, B. (2007). <a href="https://proceedings.neurips.cc/paper_files/paper/2007/file/013a006f03dbc5392effeb8f18fda755-Paper.pdf">Random features for large-scale kernel machines</a>. In J. Platt, D. Koller, Y. Singer, and S. Roweis, editors, <em>Advances in neural information processing systems</em>,Vol. 20. Curran Associates, Inc.
+</div>
+<div id="ref-Rahimi-Recht2008" class="csl-entry" role="listitem">
+Rahimi, A., and Recht, B. (2008). <a href="https://proceedings.neurips.cc/paper_files/paper/2008/file/0efe32849d230d7f53049ddc4a4b0c60-Paper.pdf">Weighted sums of random kitchen sinks: Replacing minimization with randomization in learning</a>. In D. Koller, D. Schuurmans, Y. Bengio, and L. Bottou, editors, <em>Advances in neural information processing systems</em>,Vol. 21. Curran Associates, Inc.
+</div>
+<div id="ref-Rasmussen-Williams2006" class="csl-entry" role="listitem">
+Rasmussen, C. E., and Williams, C. K. I. (2006). <em><a href="https://direct.mit.edu/books/book/2320/Gaussian-Processes-for-Machine-Learning">Gaussian processes for machine learning</a></em>. The MIT Press.
+</div>
+<div id="ref-Remes+2017" class="csl-entry" role="listitem">
+Remes, S., Heinonen, M., and Kaski, S. (2017). <a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/c65d7bd70fe3e5e3a2f3de681edc193d-Paper.pdf">Non-stationary spectral kernels</a>. In I. Guyon, U. V. Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 30. Curran Associates, Inc.
+</div>
+<div id="ref-Savitzky-Golay1964" class="csl-entry" role="listitem">
+Savitzky, Abraham., and Golay, M. J. E. (1964). <a href="https://doi.org/10.1021/ac60214a047">Smoothing and differentiation of data by simplified least squares procedures.</a> <em>Analytical Chemistry</em>, <em>36</em>(8), 1627–1639. doi: 10.1021/ac60214a047.
+</div>
+<div id="ref-Schroff+2015" class="csl-entry" role="listitem">
+Schroff, F., Kalenichenko, D., and Philbin, J. (2015). <a href="https://openaccess.thecvf.com/content_cvpr_2015/html/Schroff_FaceNet_A_Unified_2015_CVPR_paper.html">FaceNet: A unified embedding for face recognition and clustering</a>. In <em>Proceedings of the IEEE conference on computer vision and pattern recognition (CVPR)</em>.
+</div>
+<div id="ref-Shervashidze+2011" class="csl-entry" role="listitem">
+Shervashidze, N., Schweitzer, P., Leeuwen, E. J. van, Mehlhorn, K., and Borgwardt, K. M. (2011). <a href="http://jmlr.org/papers/v12/shervashidze11a.html">Weisfeiler-lehman graph kernels</a>. <em>Journal of Machine Learning Research</em>, <em>12</em>(77), 2539–2561.
+</div>
+<div id="ref-Sohn2016" class="csl-entry" role="listitem">
+Sohn, K. (2016). <a href="https://proceedings.neurips.cc/paper_files/paper/2016/file/6b180037abbebea991d8b1232f8a8ca9-Paper.pdf">Improved deep metric learning with multi-class n-pair loss objective</a>. In D. Lee, M. Sugiyama, U. Luxburg, I. Guyon, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 29. Curran Associates, Inc.
+</div>
+<div id="ref-Sutherland-Schneider2015" class="csl-entry" role="listitem">
+Sutherland, D. J., and Schneider, J. (2015). On the error of random fourier features. In <em>Proceedings of the thirty-first conference on uncertainty in artificial intelligence</em>, pages 862–871. Arlington, Virginia, USA: AUAI Press.
+</div>
+<div id="ref-Tipping2001" class="csl-entry" role="listitem">
+Tipping, M. E. (2001). <a href="https://www.jmlr.org/papers/v1/tipping01a.html">Sparse bayesian learning and the relevance vector machine</a>. <em>Journal of Machine Learning Research</em>, <em>1</em>, 211–244.
+</div>
+<div id="ref-Watson1964" class="csl-entry" role="listitem">
+Watson, G. S. (1964). <a href="http://www.jstor.org/stable/25049340">Smooth regression analysis</a>. <em>Sankhyā: The Indian Journal of Statistics, Series A (1961-2002)</em>, <em>26</em>(4), 359–372.
+</div>
+<div id="ref-Weinberger+2005" class="csl-entry" role="listitem">
+Weinberger, Kilian Q., Blitzer, J., and Saul, L. (2005). <a href="https://proceedings.neurips.cc/paper_files/paper/2005/file/a7f592cef8b130a6967a90617db5681b-Paper.pdf">Distance metric learning for large margin nearest neighbor classification</a>. In Y. Weiss, B. Schölkopf, and J. Platt, editors, <em>Advances in neural information processing systems</em>,Vol. 18. MIT Press.
+</div>
+<div id="ref-Weinberger-Saul2009" class="csl-entry" role="listitem">
+Weinberger, Kilian Q., and Saul, L. K. (2009). <a href="http://jmlr.org/papers/v10/weinberger09a.html">Distance metric learning for large margin nearest neighbor classification</a>. <em>Journal of Machine Learning Research</em>, <em>10</em>(9), 207–244.
+</div>
+<div id="ref-Wilson-Adams2013" class="csl-entry" role="listitem">
+Wilson, A., and Adams, R. (2013). <a href="https://proceedings.mlr.press/v28/wilson13.html">Gaussian process kernels for pattern discovery and extrapolation</a>. In S. Dasgupta and D. McAllester, editors, <em>Proceedings of the 30th international conference on machine learning</em>,Vol. 28, pages 1067–1075. Atlanta, Georgia, USA: PMLR.
+</div>
+<div id="ref-Yu+2016" class="csl-entry" role="listitem">
+Yu, F. X. X., Suresh, A. T., Choromanski, K. M., Holtmann-Rice, D. N., and Kumar, S. (2016). <a href="https://proceedings.neurips.cc/paper_files/paper/2016/file/53adaf494dc89ef7196d73636eb2451b-Paper.pdf">Orthogonal random features</a>. In D. Lee, M. Sugiyama, U. Luxburg, I. Guyon, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 29. Curran Associates, Inc.
+</div>
+<div id="ref-持橋-大羽2019" class="csl-entry" role="listitem">
+持橋大地, and 大羽成征. (2019). <em><a href="https://www.kspub.co.jp/book/detail/1529267.html">ガウス過程と機械学習</a></em>. 講談社.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><span class="citation" data-cites="Murphy2022">(<a href="#ref-Murphy2022" role="doc-biblioref">Murphy, 2022, p. 565</a>)</span> 17.1節は，半正定値核のことを Mercer 核とも呼んでいる．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>RBF は <span class="citation" data-cites="持橋-大羽2019">(<a href="#ref-持橋-大羽2019" role="doc-biblioref">持橋大地 and 大羽成征, 2019, p. 68</a>)</span>，SE は <span class="citation" data-cites="Rasmussen-Williams2006">(<a href="#ref-Rasmussen-Williams2006" role="doc-biblioref">Rasmussen and Williams, 2006, p. 14</a>)</span> の用語．<span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023</a>)</span> では両方が併記されている．Gaussian kernel とも呼ばれる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>他のパラメータの入れ方もある．例えば <a href="https://gpy.readthedocs.io/en/deploy/GPy.kern.src.html#GPy.kern.src.rbf.RBF"><code>GPy</code> での実装</a> は <span class="math inline">\(\sigma^2\exp\left(-\frac{r^2}{2}\right)\)</span> を採用している．Fourier 変換や偏微分方程式論の文脈では <span class="math inline">\(\frac{1}{(4\pi t)^{d/2}}\exp\left(-\frac{r^2}{4}\right)\)</span> も良く用いられる．これは熱方程式の基本解になるためである．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="MacKay1994">(<a href="#ref-MacKay1994" role="doc-biblioref">MacKay, 1994</a>)</span>, <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996, p. 16</a>)</span> なども参照．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

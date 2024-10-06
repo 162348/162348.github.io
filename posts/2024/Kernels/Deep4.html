@@ -2,13 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.555">
+<meta name="generator" content="quarto-1.5.57">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬博文">
 
-<title>Hirofumi Shiba - 数学者のための深層学習４</title>
+<title>VAE：変分自己符号化器 – Hirofumi Shiba</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -25,7 +25,6 @@ ul.task-list li input[type="checkbox"] {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
-  margin-bottom: 0em;
 }
 .hanging-indent div.csl-entry {
   margin-left:2em;
@@ -51,7 +50,7 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
-<link href="../../../profile.jpg" rel="icon" type="image/jpeg">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -95,8 +94,39 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
 
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  .navbar-title, .menu-text {
+      font-family: "Zen Kurenaido", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <script type="text/javascript">
@@ -126,14 +156,14 @@ window.Quarto = {
 };
 </script>
 
-<link rel="stylesheet" href="../../../styles.css">
-<meta property="og:title" content="Hirofumi Shiba - 数学者のための深層学習４">
-<meta property="og:description" content="深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/profile.jpg">
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="VAE：変分自己符号化器 – Hirofumi Shiba">
+<meta property="og:description" content="変分自己符号化器 (VAE) は，データを周辺分布にもつ潜在変数モデルを変分 Bayes 推論によって学習するアルゴリズムである． 従来計算・近似が困難であった変分下界を，ニューラルネットワークによって近似するアプローチである． 学習されたベイズ潜在変数モデルからはサンプリングによって新たなデータを生成することができるため，深層生成モデルの一つに分類されることもある．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Kernels/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - 数学者のための深層学習４">
-<meta name="twitter:description" content="深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/profile.jpg">
+<meta name="twitter:title" content="VAE：変分自己符号化器 – Hirofumi Shiba">
+<meta name="twitter:description" content="変分自己符号化器 (VAE) は，データを周辺分布にもつ潜在変数モデルを変分 Bayes 推論によって学習するアルゴリズムである． 従来計算・近似が困難であった変分下界を，ニューラルネットワークによって近似するアプローチである． 学習されたベイズ潜在変数モデルからはサンプリングによって新たなデータを生成することができるため，深層生成モデルの一つに分類されることもある．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Kernels/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -150,7 +180,7 @@ window.Quarto = {
     </a>
   </div>
             <div id="quarto-search" class="" title="Search"></div>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
   <span class="navbar-toggler-icon"></span>
 </button>
           <div class="collapse navbar-collapse" id="navbarCollapse">
@@ -173,7 +203,7 @@ window.Quarto = {
   </li>  
 </ul>
           </div> <!-- /navcollapse -->
-          <div class="quarto-navbar-tools">
+            <div class="quarto-navbar-tools">
     <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
 </div>
       </div> <!-- /container-fluid -->
@@ -183,10 +213,11 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">数学者のための深層学習４</h1>
-            <p class="subtitle lead">生成モデル VAE</p>
+      <h1 class="title">VAE：変分自己符号化器</h1>
+            <p class="subtitle lead">深層生成モデル３</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Deep</div>
+                <div class="quarto-category">Sampling</div>
               </div>
                   </div>
   </div>
@@ -208,13 +239,19 @@ window.Quarto = {
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">7/29/2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      深層生成モデルの１つ VAE は，統計モデルとしては変分 Bayes 推論アルゴリズムであり，変分下界をニューラルネットワークによって近似するというアプローチである．
+      <p>変分自己符号化器 (VAE) は，データを周辺分布にもつ潜在変数モデルを変分 Bayes 推論によって学習するアルゴリズムである． 従来計算・近似が困難であった変分下界を，ニューラルネットワークによって近似するアプローチである． 学習されたベイズ潜在変数モデルからはサンプリングによって新たなデータを生成することができるため，深層生成モデルの一つに分類されることもある．</p>
     </div>
   </div>
   
@@ -223,22 +260,41 @@ window.Quarto = {
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">On this page</h2>
+    <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#確率的勾配降下法による変分ベイズ-sgvb" id="toc-確率的勾配降下法による変分ベイズ-sgvb" class="nav-link active" data-scroll-target="#確率的勾配降下法による変分ベイズ-sgvb"><span class="header-section-number">1</span> 確率的勾配降下法による変分ベイズ (SGVB)</a>
+  <li><a href="#sec-AE" id="toc-sec-AE" class="nav-link active" data-scroll-target="#sec-AE"><span class="header-section-number">1</span> 自己符号化器 (AE)</a>
   <ul class="collapse">
-  <li><a href="#sgvb-のアイデア勾配の-monte-carlo-推定" id="toc-sgvb-のアイデア勾配の-monte-carlo-推定" class="nav-link" data-scroll-target="#sgvb-のアイデア勾配の-monte-carlo-推定"><span class="header-section-number">1.1</span> SGVB のアイデア：勾配の Monte Carlo 推定</a></li>
-  <li><a href="#変分下界の復習" id="toc-変分下界の復習" class="nav-link" data-scroll-target="#変分下界の復習"><span class="header-section-number">1.2</span> 変分下界の復習</a></li>
-  <li><a href="#sgvb-推定量" id="toc-sgvb-推定量" class="nav-link" data-scroll-target="#sgvb-推定量"><span class="header-section-number">1.3</span> SGVB 推定量</a></li>
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
+  <li><a href="#nn-による-pca" id="toc-nn-による-pca" class="nav-link" data-scroll-target="#nn-による-pca"><span class="header-section-number">1.2</span> NN による PCA</a></li>
+  <li><a href="#罰則による潜在表現獲得" id="toc-罰則による潜在表現獲得" class="nav-link" data-scroll-target="#罰則による潜在表現獲得"><span class="header-section-number">1.3</span> 罰則による潜在表現獲得</a></li>
+  <li><a href="#ニューロンによるスパース表現" id="toc-ニューロンによるスパース表現" class="nav-link" data-scroll-target="#ニューロンによるスパース表現"><span class="header-section-number">1.4</span> ニューロンによるスパース表現</a></li>
+  <li><a href="#sec-denoising-autoencoder" id="toc-sec-denoising-autoencoder" class="nav-link" data-scroll-target="#sec-denoising-autoencoder"><span class="header-section-number">1.5</span> Denoising Autoencoder (DAE)</a></li>
+  <li><a href="#contractive-autoencoder-cae-rifai2011" id="toc-contractive-autoencoder-cae-rifai2011" class="nav-link" data-scroll-target="#contractive-autoencoder-cae-rifai2011"><span class="header-section-number">1.6</span> Contractive Autoencoder (CAE) <span class="citation" data-cites="Rifai+2011">(Rifai et al., 2011)</span></a></li>
+  <li><a href="#マスキングによる潜在表現獲得" id="toc-マスキングによる潜在表現獲得" class="nav-link" data-scroll-target="#マスキングによる潜在表現獲得"><span class="header-section-number">1.7</span> マスキングによる潜在表現獲得</a></li>
   </ul></li>
-  <li><a href="#sec-VAE" id="toc-sec-VAE" class="nav-link" data-scroll-target="#sec-VAE"><span class="header-section-number">2</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(Kingma &amp; Welling, 2014)</span></a>
+  <li><a href="#sec-VAE" id="toc-sec-VAE" class="nav-link" data-scroll-target="#sec-VAE"><span class="header-section-number">2</span> 変分自己符号化器 (VAE) <span class="citation" data-cites="Kingma-Welling2014">(Kingma and Welling, 2014)</span></a>
   <ul class="collapse">
-  <li><a href="#導入" id="toc-導入" class="nav-link" data-scroll-target="#導入"><span class="header-section-number">2.1</span> 導入</a></li>
-  <li><a href="#sec-VQ-VAE" id="toc-sec-VQ-VAE" class="nav-link" data-scroll-target="#sec-VQ-VAE"><span class="header-section-number">2.2</span> VQ-VAE による画像の量子化</a></li>
-  <li><a href="#wasserstein-vae-tolstikhin2018" id="toc-wasserstein-vae-tolstikhin2018" class="nav-link" data-scroll-target="#wasserstein-vae-tolstikhin2018"><span class="header-section-number">2.3</span> Wasserstein VAE <span class="citation" data-cites="Tolstikhin+2018">(Tolstikhin et al., 2018)</span></a></li>
-  <li><a href="#beta-vae-higgins2017" id="toc-beta-vae-higgins2017" class="nav-link" data-scroll-target="#beta-vae-higgins2017"><span class="header-section-number">2.4</span> beta-VAE <span class="citation" data-cites="Higgins+2017">(Higgins et al., 2017)</span></a></li>
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#エンコーダーによる表現獲得" id="toc-エンコーダーによる表現獲得" class="nav-link" data-scroll-target="#エンコーダーによる表現獲得"><span class="header-section-number">2.2</span> エンコーダーによる表現獲得</a></li>
+  <li><a href="#sec-ELBO" id="toc-sec-ELBO" class="nav-link" data-scroll-target="#sec-ELBO"><span class="header-section-number">2.3</span> デコーダーの変分ベイズ学習</a></li>
+  <li><a href="#sec-amortized-inference" id="toc-sec-amortized-inference" class="nav-link" data-scroll-target="#sec-amortized-inference"><span class="header-section-number">2.4</span> 償却推論 (amortized inference)</a></li>
+  <li><a href="#sec-SGVB" id="toc-sec-SGVB" class="nav-link" data-scroll-target="#sec-SGVB"><span class="header-section-number">2.5</span> 確率的勾配変分近似 (SGVB)</a></li>
+  <li><a href="#sec-objective" id="toc-sec-objective" class="nav-link" data-scroll-target="#sec-objective"><span class="header-section-number">2.6</span> 目的関数</a></li>
+  <li><a href="#ais-neal2001-による-elbo-近似" id="toc-ais-neal2001-による-elbo-近似" class="nav-link" data-scroll-target="#ais-neal2001-による-elbo-近似"><span class="header-section-number">2.7</span> AIS <span class="citation" data-cites="Neal2001">(Neal, 2001)</span> による ELBO 近似</a></li>
   </ul></li>
+  <li><a href="#sec-VQ-VAE" id="toc-sec-VQ-VAE" class="nav-link" data-scroll-target="#sec-VQ-VAE"><span class="header-section-number">3</span> ベクトル量子化変分自己符号化器 (VQ-VAE)</a>
+  <ul class="collapse">
+  <li><a href="#ベクトル量子化" id="toc-ベクトル量子化" class="nav-link" data-scroll-target="#ベクトル量子化"><span class="header-section-number">3.1</span> ベクトル量子化</a></li>
+  <li><a href="#sec-posterior-collapse" id="toc-sec-posterior-collapse" class="nav-link" data-scroll-target="#sec-posterior-collapse"><span class="header-section-number">3.2</span> 分布崩壊 (Posterior collapse)</a></li>
+  <li><a href="#表現学習をする-vae" id="toc-表現学習をする-vae" class="nav-link" data-scroll-target="#表現学習をする-vae"><span class="header-section-number">3.3</span> 表現学習をする VAE</a></li>
+  <li><a href="#vq-vae" id="toc-vq-vae" class="nav-link" data-scroll-target="#vq-vae"><span class="header-section-number">3.4</span> VQ-VAE</a></li>
+  <li><a href="#連続緩和" id="toc-連続緩和" class="nav-link" data-scroll-target="#連続緩和"><span class="header-section-number">3.5</span> 連続緩和</a></li>
+  <li><a href="#vq-vae-2-razavi2019" id="toc-vq-vae-2-razavi2019" class="nav-link" data-scroll-target="#vq-vae-2-razavi2019"><span class="header-section-number">3.6</span> VQ-VAE-2 <span class="citation" data-cites="Razavi+2019">(Razavi et al., 2019)</span></a></li>
+  <li><a href="#codebook-collapse" id="toc-codebook-collapse" class="nav-link" data-scroll-target="#codebook-collapse"><span class="header-section-number">3.7</span> Codebook collapse</a></li>
+  <li><a href="#gan-との比較" id="toc-gan-との比較" class="nav-link" data-scroll-target="#gan-との比較"><span class="header-section-number">3.8</span> GAN との比較</a></li>
+  </ul></li>
+  
   </ul>
 </nav>
     </div>
@@ -251,192 +307,575 @@ window.Quarto = {
 
 <div class="hidden">
 <p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-$$ %%% 汎用コード列
-<p>%%% 演算子 </p>
-%%% 線型代数学
-<p>%%% 複素解析学 %%% 集合と位相 </p>
-<p>%%% 形式言語理論 %%% Graph Theory </p>
-%%% 多様体 %%% 代数 %%% 代数的位相幾何学 %%% 微分幾何学
-%%% 函数解析
-%%% 積分論
-<p>%%% Fourier解析 %%% 数値解析 </p>
-%%% 確率論
-<p>%%% 情報理論 %%% 量子論 %%% 最適化 %%% 数理ファイナンス </p>
-<p>%%% 偏微分方程式 %%% 常微分方程式 %%% 統計力学 %%% 解析力学 </p>
-%%% 統計的因果推論 %%% 応用統計学 %%% 数理統計
-<p>%%% 計量経済学 </p>
-%%% 無限次元統計模型の理論
-<p>%%% Banach Lattices </p>
-<p>%%% 圏 %代数の圏 %Metric space &amp; Contraction maps %確率空間とMarkov核の圏 %Sober space &amp; continuous map %Category of open subsets %Category of sheave %Category of presheave, PSh(C)=[C^op,set]のこと %Convergence spaceの圏 %一様空間と一様連続写像の圏 %フレームとフレームの射 %その反対圏 %滑らかな多様体の圏 %Quiverの圏 </p>
-%%% SMC
-%%% 括弧類
-<p>%%% 予約語 </p>
-<p>%%% 略記 </p>
-<p>%%% 矢印類 $$</p>
+<p>$$</p>
+<p>$$</p>
 </div>
-<section id="確率的勾配降下法による変分ベイズ-sgvb" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="確率的勾配降下法による変分ベイズ-sgvb"><span class="header-section-number">1</span> 確率的勾配降下法による変分ベイズ (SGVB)</h2>
-<p>変分自己符号化器 (Variational Auto-encoder) の説明に入る前に，変分ベイズ法において勾配を用いた最適化を実行するための汎用手法である <strong>SGVB (Stochastic Gradient Variational Bayes)</strong> について説明する．</p>
-<p>VAE は元々この SGVB という要素技術とセットで提案された <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>．</p>
-<p>変分近似をする分布族 <span class="math inline">\(\{q_\phi\}\)</span> としてニューラルネットを用いた場合が，VAE であり，広く SGVB は，一般の連続な潜在変数を持った（有向）グラフィカルモデルに適用できる．</p>
-<section id="sgvb-のアイデア勾配の-monte-carlo-推定" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="sgvb-のアイデア勾配の-monte-carlo-推定"><span class="header-section-number">1.1</span> SGVB のアイデア：勾配の Monte Carlo 推定</h3>
-<p><a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> 同様，生成モデリングは，潜在空間 <span class="math inline">\(Z\)</span> で条件付けた際の分布 <span class="math inline">\(p(x|z)\)</span> をモデリングすることに等しい．GAN は <span class="math inline">\(p(x|z)\)</span> を明示的に評価することを回避することで複雑な生成モデリングを達成していた．</p>
-<p>一方で，（周辺）尤度の評価を完全に回避せずとも，<a href="../../../posts/2024/Computation/VI3.html">変分 Bayes 法</a> によるアプローチが可能である．<span class="math inline">\(p(x|z)\)</span> に分布族 <span class="math inline">\(q_\phi(x|z)\)</span> を導入し，真の分布 <span class="math inline">\(p\)</span> との KL-距離を最小にする <span class="math inline">\(\phi\in\Phi\)</span> を選ぶのである．</p>
-<p>変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 <span class="math inline">\(\{q_\phi\}\)</span> を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>そこで，一般の分布族 <span class="math inline">\(\{q_\phi\}\)</span> に対して勾配情報を用いた最適化が実施できるように，変分下界 <span class="math inline">\(F(p_\theta,q_\phi)\)</span> 対する Monte Carlo 推定量を開発するのである．これが SGVB 推定量である．</p>
+<section id="sec-AE" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="sec-AE"><span class="header-section-number">1</span> 自己符号化器 (AE)</h2>
+<section id="はじめに" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
+<p>主成分分析 (PCA) とは，データを線型変換により低次元の線型空間に変換することで，データの良い要約を得ようとする多変量解析手法である．</p>
+<p>この手法をカーネル法により非線型化することで，データの隠れた構造をよりよく表現することができる <span class="citation" data-cites="Lawrence2005">(<a href="#ref-Lawrence2005" role="doc-biblioref">Lawrence, 2005</a>)</span>．全く同様にニューラルネットワークを使って PCA を非線型化することもでき <span class="citation" data-cites="Cottrell-Munro1988">(<a href="#ref-Cottrell-Munro1988" role="doc-biblioref">Cottrell and Munro, 1988</a>)</span>，これが <strong>自己符号化器</strong> と呼ばれるアーキテクチャである．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>自己符号化器は，VAE と対比する場合には <strong>決定論的</strong> 自己符号化器 (deterministic autoencoder) とも呼ばれる．</p>
+<div class="callout callout-style-simple callout-important no-icon callout-titled" title="AE と VAE の違い">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+AE と VAE の違い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>エンコーダー <span class="math inline">\(q\)</span> は VAE では確率核であるが，AE では決定論的な関数である</strong>．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
+<li>訓練時の目的関数が違う．AE では復元誤差のみであるが，VAE では潜在表現が事前に設定した分布 <span class="math inline">\(p(z)dz=\mathrm{N}(0,I_d)\)</span> と近いことを要請する KL-分離度の項が追加される．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></li>
+</ol>
+</div>
+</div>
+<p>その結果，AE は基本的には生成モデルとしての使い方は出来ない．事前分布からのサンプル <span class="math inline">\(Z\sim\mathrm{N}(0,I_d)\)</span> は全く想定されていない．</p>
+<p>一方で，データ内の画像の復元は AE の方が上手であり，<span class="math inline">\(\beta\)</span>-VAE の <span class="math inline">\(\beta\)</span> が大きいほど画像にはもやがかかるようになる．</p>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../posts/2024/Kernels/VAE_files/figure-html/fig-reconstruction-output-1.png" class="img-fluid figure-img"></p>
+<figcaption>テストデータ</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../posts/2024/Kernels/VAE_files/figure-html/fig-reconstruction-output-2.png" class="img-fluid figure-img"></p>
+<figcaption><a href="../../../posts/2024/Kernels/VAE.html">VAE による復元</a></figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
 </section>
-<section id="変分下界の復習" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="変分下界の復習"><span class="header-section-number">1.2</span> 変分下界の復習</h3>
-<p>データ <span class="math inline">\(X\)</span> の生成過程に，モデル <span class="math inline">\(p_\theta(z)p_\theta(x|z)\)</span> を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度 <span class="math display">\[
+<section id="nn-による-pca" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="nn-による-pca"><span class="header-section-number">1.2</span> NN による PCA</h3>
+<p>そもそも PCA は，３層からなる自己符号化器の自乗復元誤差の最小化と（学習された基底が正規直交化されていないことを除いて）等価になる <span class="citation" data-cites="Bourlard-Kamp1988">(<a href="#ref-Bourlard-Kamp1988" role="doc-biblioref">Bourlard and Kamp, 1988</a>)</span>, <span class="citation" data-cites="Baldi-Hornik1989">(<a href="#ref-Baldi-Hornik1989" role="doc-biblioref">Baldi and Hornik, 1989</a>)</span>, <span class="citation" data-cites="Karhunen-Joutsensalo1995">(<a href="#ref-Karhunen-Joutsensalo1995" role="doc-biblioref">Karhunen and Joutsensalo, 1995</a>)</span>．</p>
+<p>しかし，３層のままでは非線型な活性化を加えても非線型な次元削減が出来ない <span class="citation" data-cites="Bourlard-Kamp1988">(<a href="#ref-Bourlard-Kamp1988" role="doc-biblioref">Bourlard and Kamp, 1988</a>)</span> が，４層以上では話が違い，PCA の真の非線型化による拡張になっている <span class="citation" data-cites="Japkowicz+2000">(<a href="#ref-Japkowicz+2000" role="doc-biblioref">Japkowicz et al., 2000</a>)</span>．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/AE.png" class="img-fluid figure-img"></p>
+<figcaption>５層の自己符号化器の例 from <span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 635</a>)</span></figcaption>
+</figure>
+</div>
+<p>しかしこれにより目的関数は２次関数とは限らず，凸最適化の範疇を逸脱するので，大域的最適解が必ず見つかるなどの理論保証ができる世界からは逸脱してしまう．</p>
+</section>
+<section id="罰則による潜在表現獲得" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="罰則による潜在表現獲得"><span class="header-section-number">1.3</span> 罰則による潜在表現獲得</h3>
+<p>上述の NN は砂時計型をしており，中央の中間層を細くすることで低次元の潜在表現を獲得しようとするものである．</p>
+<p>このようにアーキテクチャによって潜在表現獲得を制御するのではなく，明示的に目的関数に含めることで潜在表現をすることができる．</p>
+<p>例えば，元の目的関数 <span class="math inline">\(E\)</span> に対して LASSO 様の罰則項 <span class="math display">\[
+\widetilde{E}(w)=E(w)+\lambda\sum_{k=1}^K\lvert z_k\rvert
+\]</span> を加えることで，スパースな潜在表現の獲得を促すことが考えられる．この正則化項を activity regularization という．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+</section>
+<section id="ニューロンによるスパース表現" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="ニューロンによるスパース表現"><span class="header-section-number">1.4</span> ニューロンによるスパース表現</h3>
+<p>罰則を課す代わりに，rectifying neuron <span class="math inline">\(f(x)=x\lor0\)</span> を用いることも，スパースな潜在表現を獲得することにつながる <span class="citation" data-cites="Glorot+2011">(<a href="#ref-Glorot+2011" role="doc-biblioref">Glorot et al., 2011</a>)</span>．</p>
+<p>このように獲得された潜在表現は，<span class="math inline">\(l^1\)</span>-罰則による場合よりも，「常にゼロ」になる素子が少ない．このことは脳の活動により近い <span class="citation" data-cites="Beyeler+2019">(<a href="#ref-Beyeler+2019" role="doc-biblioref">Beyeler, 2019</a>)</span> ため，好ましいと考えられている．</p>
+</section>
+<section id="sec-denoising-autoencoder" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="sec-denoising-autoencoder"><span class="header-section-number">1.5</span> Denoising Autoencoder (DAE)</h3>
+<p>データベクトル <span class="math inline">\(x_n\)</span> にノイズを加えたもの <span class="math inline">\(\widetilde{x}_n\)</span> を元のデータに復元することを <span class="math display">\[
+E(w)=\sum_{n=1}^N\|y_w(\widetilde{x}_n)-x_n\|^2
+\]</span> などの目的関数で学習することで，ノイズにロバストな潜在表現を獲得することができる．</p>
+<p>これは <strong>denoising autoencoder</strong> (DAE) <span class="citation" data-cites="Vincent+2008">(<a href="#ref-Vincent+2008" role="doc-biblioref">Vincent et al., 2008</a>)</span>, <span class="citation" data-cites="Vincent+2010">(<a href="#ref-Vincent+2010" role="doc-biblioref">Vincent et al., 2010</a>)</span> として提案され，直ちにある<a href="../../../posts/2024/Samplers/EBM.html">エネルギーベースモデル</a>をスコアマッチングにより推定していることと等価であること <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> が自覚された．</p>
+<p><span class="citation" data-cites="Vincent+2008">(<a href="#ref-Vincent+2008" role="doc-biblioref">Vincent et al., 2008</a>)</span> の問題意識は，<a href="../../../posts/2024/Kernels/Deep.html#sec-pretraining-using-AE">深層モデルの初期値を設定する層ごとの教師なし事前学習がなぜ成功しているか？</a> にあった．その結果，この denoising autoencoder のような目的関数が，深層モデルの学習を成功させるような初期値を与えることに成功していた要因であることを示唆している．</p>
+<p>DAE の成功は，これがスコアベクトル場を学習しているためだと言える． <span class="math display">\[
+\widetilde{x_i}=x_i+\sigma\epsilon\qquad\epsilon\sim\mathrm{N}_1(0,1)
+\]</span> によってノイズを印加し， <span class="math display">\[
+\ell(x,r(\widetilde{x}_i))=\|r(\widetilde{x})-x\|_2^2
+\]</span> を損失関数として DAE を学習したとすると，一定の条件の下で <span class="math display">\[
+r(\widetilde{x})-x\approx\nabla\log p(x)\qquad(\sigma\to0)
+\]</span> が成り立つという．すなわち，少し摂動が与えられたデータが与えられても，データの真の多様体上に射影して（ノイズを除去して）これを返すことができる．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+</section>
+<section id="contractive-autoencoder-cae-rifai2011" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="contractive-autoencoder-cae-rifai2011"><span class="header-section-number">1.6</span> Contractive Autoencoder (CAE) <span class="citation" data-cites="Rifai+2011">(<a href="#ref-Rifai+2011" role="doc-biblioref">Rifai et al., 2011</a>)</span></h3>
+<p>元の目的関数 <span class="math inline">\(E\)</span> に対して，エンコーダー <span class="math inline">\(f\)</span> の Jacobian の Frobenius ノルムに対して罰則を課すことを考える： <span class="math display">\[
+\widetilde{E}(w)=E(w)+\lambda\|J_f(x)\|_2
+\]</span> これにより，エンコーダー <span class="math inline">\(f\)</span> は Jacobian が縮小的になるものが学習されるため，データがなす部分多様体から外れた入力に対してこれを部分多様体内に押し込める形の <span class="math inline">\(f\)</span> が学習される．</p>
+<p>これを<strong>縮小的自己符号化器</strong>という．<span class="math inline">\(J_f\)</span> を計算するために，訓練は減速される．</p>
+</section>
+<section id="マスキングによる潜在表現獲得" class="level3" data-number="1.7">
+<h3 data-number="1.7" class="anchored" data-anchor-id="マスキングによる潜在表現獲得"><span class="header-section-number">1.7</span> マスキングによる潜在表現獲得</h3>
+<p>BERT <span class="citation" data-cites="Devlin+2019">(<a href="#ref-Devlin+2019" role="doc-biblioref">Devlin et al., 2019</a>)</span> はランダムにデータを脱落させ（マスキング），これを予測することで言語に対する極めて豊かな潜在表現を獲得した．</p>
+<p><strong>masked autoencoder</strong> <span class="citation" data-cites="He+2022">(<a href="#ref-He+2022" role="doc-biblioref">K. He et al., 2022</a>)</span> では，ノイズ印加の代わりに，データの脱落を行って AE を訓練する．これが現状の SOTA である．</p>
+<p>この方法は <a href="../../../posts/2024/Kernels/Deep2.html#sec-ViT">ViT</a> の事前訓練として使われる．言語と違って画像ではより多くの部分を脱落させることで，より豊かな潜在表現を獲得することができる．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p>するとマスキングがほとんどデータの軽量化になっており，大規模なトランスフォーマーの事前訓練としてよく選択される．この場合，デコーダーはエンコーダーより軽量な非対称な構造をしている場合が多い．</p>
+<p>加えて，ひとたび訓練が終わればデコーダーは取り外し，種々のタスクに対して調整されたデコーダーを改めて訓練して使われることが多い．</p>
+</section>
+</section>
+<section id="sec-VAE" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-VAE"><span class="header-section-number">2</span> 変分自己符号化器 (VAE) <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span></h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="VAE.png" class="img-fluid figure-img"></p>
+<figcaption>Samples from VQ-VAE-2 Taken from Figure 6 <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019, p. 8</a>)</span></figcaption>
+</figure>
+</div>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>VAE (Variational Auto-Encoder) <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span>, <span class="citation" data-cites="Rezende+2014">(<a href="#ref-Rezende+2014" role="doc-biblioref">Rezende et al., 2014</a>)</span> も GAN と同じく，深層生成モデル <span class="math inline">\(p_\theta\)</span> にもう１つの深層ニューラルネットワーク <span class="math inline">\(q_\phi\)</span> を対置する．</p>
+<p>一方でこのニューラルネット <span class="math inline">\(q_\phi\)</span> は GAN のように判別をするのではなく，近似推論によってデータ生成分布（の拡張分布）を <span class="math inline">\(q_\phi(x,z)p(z)\)</span> の形で再構成しようとする <strong>認識モデル</strong> (recognition model) である．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+<p>このスキームを変分ベイズの文脈では償却推論 <a href="#sec-amortized-inference" class="quarto-xref">2.4</a> ともいう．<span class="math inline">\(q_\phi\)</span> を <strong>エンコーダー</strong>，<span class="math inline">\(p\)</span> を <strong>事前分布</strong> ともいう．</p>
+</section>
+<section id="エンコーダーによる表現獲得" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="エンコーダーによる表現獲得"><span class="header-section-number">2.2</span> エンコーダーによる表現獲得</h3>
+<p>すなわち，VAE ではエンコーダーは（少なくとも形式的な意味で）「推論」するように設計された自己符号化器である．この際のベイズ推論は変分推論によって達成されるが，reparametrization trick によって <span class="math inline">\(q_\phi\)</span> の変分推論をデコーダー <span class="math inline">\(p_\phi\)</span> と同時に SGD によって実行できる点が革新的である．</p>
+<p>エンコーダー <span class="math inline">\(q_\phi\)</span> は <span class="math display">\[
+q_\phi(x,z)\,dz=\mathrm{N}\biggr(\mu_\phi(z),\mathrm{diag}_\phi(\sigma^2(z))\biggl)
+\]</span> という形を仮定し，平均 <span class="math inline">\(\mu_\phi\)</span> と分散 <span class="math inline">\(\sigma^2_\phi\)</span> の関数形をニューラルネットワークで表現する．</p>
+<p>一方でデコーダー <span class="math inline">\(p_\phi(z,x)\)</span> はこの潜在表現からデータを再構成することを目指し，ひとたび学習されれば <span class="math inline">\(p(z)p_\phi(z,x)\)</span> の形でデータ生成ができるというわけである．</p>
+<p>学習は深層生成モデル <span class="math inline">\(p_\theta\)</span> のデータとの乖離度の最小化と，データで条件づけた潜在変数 <span class="math inline">\(Z\)</span> の事後分布 <span class="math inline">\(q_\phi\)</span> の近似推論器とを，確率勾配降下法によって同時に実行する．</p>
+<p>VAE 自体は拡散モデルの登場以降，画像生成モデルとしては下火になったが，エンコーダー <span class="math inline">\(q_\phi\)</span> は Sora <span class="citation" data-cites="Brooks+2024">(<a href="#ref-Brooks+2024" role="doc-biblioref">Brooks et al., 2024</a>)</span> における動画データの圧縮表現の学習など，その他の下流タスクの構成要素としても用いられる（VQ-VAE <a href="#sec-VQ-VAE" class="quarto-xref">3</a> も参照）．</p>
+</section>
+<section id="sec-ELBO" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-ELBO"><span class="header-section-number">2.3</span> デコーダーの変分ベイズ学習</h3>
+<p>データ <span class="math inline">\(X\)</span> の生成過程 <span class="math inline">\(Z\to X\)</span> に，モデル <span class="math inline">\(p_\theta(z)p_\theta(x|z)\)</span> を考える．これがニューラルネットワークによるモデルであるとすると，周辺尤度 <span class="math display">\[
 p_\theta(x)=\int_\mathcal{Z}p_\theta(z)p_\theta(x|z)\,dz
-\]</span> や事後分布 <span class="math inline">\(p_\theta(z|x)\)</span> の評価は容易でない．</p>
-<p>そこで，<span class="math inline">\(p_\theta(z|x)\)</span> に対して，認識モデル <span class="math inline">\(\{q_\phi(z|x)\}_{\phi\in\Phi}\)</span> を導入する．VAE <a href="#sec-VAE" class="quarto-xref">2</a> では，これもニューラルネットワークとし，<span class="math inline">\((\theta,\phi)\in\Theta\times\Phi\)</span> を同時に SGD により学習することを考える．</p>
-<p>潜在変数 <span class="math inline">\(Z\)</span> を情報源と見て，<span class="math inline">\(q_\theta(z|x)\)</span> を <strong>符号化器</strong> (encoder) と呼び，<span class="math inline">\(p_\theta(x|z)\)</span> を <strong>復号器</strong> (decoder) とも呼ぶ．</p>
-<p>このとき，対数周辺尤度の変分下界は次のように表せるのであった：<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> <span class="math display">\[
+\]</span> の評価は容易でない．</p>
+<p>このとき，対数周辺尤度は次のように下から評価できるのであった：<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a> <span class="math display">\[
 \begin{align*}
     \log p_\theta(x)&amp;=\log\int_\mathcal{Z}p_\theta(x,z)\,dz\\
     &amp;=\log\int_\mathcal{Z}q_\phi(z)\frac{p_\theta(x,z)}{q_\phi(z)}\,dz\\
-    &amp;\ge\int_\mathcal{Z}q_\phi(z)\log\frac{q_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
-    &amp;=-\mathop{\mathrm{KL}}(q_\phi,p_\theta)+\int_\mathcal{Z}q_\phi(z)\log p_\theta(x|z)\,dz\\
-    &amp;=:F(\theta,\phi;x)
+    &amp;\ge\int_\mathcal{Z}q_\phi(z)\log\frac{p_\theta(x|z)p_\theta(z)}{q_\phi(z)}\,dz\\
+    &amp;=-\operatorname{KL}(q_\phi,p_\theta)+\int_\mathcal{Z}q_\phi(z)\log p_\theta(x|z)\,dz\\
+    &amp;=:F(\theta,\phi)
 \end{align*}
 \]</span></p>
-<p>この <span class="math inline">\(F\)</span> を <span class="math inline">\(\theta,\phi\)</span> に関して逐次的に最大化するのが変分 Bayes である．これを実行するために <span class="math inline">\(q_\phi\)</span> に平均場近似などをするのが旧来手法であるが，これ以上の近似をせずとも，<span class="math inline">\(F\)</span> の勾配の推定量を用いて，<span class="math inline">\(p_\theta,q_\phi\)</span> を同時に学習することが出来るというのである．</p>
+<p>この <span class="math inline">\(F\)</span> を <strong>変分下界</strong> （機械学習では <strong>ELBO</strong>）といい，<span class="math inline">\(\theta,\phi\)</span> に関して逐次的に最大化する（＝<span class="math inline">\(\operatorname{KL}(q,p)\)</span> を最小化する）ことによって，<span class="math inline">\(\log p_\theta\)</span> を直接評価することなく最大化する <span class="math inline">\(\theta\)</span> を見つけるのが変分 Bayes の枠組みである．</p>
+<p>これを一般のモデルについて実行するためには <span class="math inline">\(q_\phi\)</span> に平均場近似などの追加の仮定や <span class="math inline">\(E\)</span>-ステップの近似が必要であるが，ここでは <span class="math inline">\(q_\phi\)</span> は NN からなる認識モデルとし，<span class="math inline">\(F\)</span> の勾配 <span class="math inline">\(D_\phi F\)</span> の推定量を用いて，<span class="math inline">\(p_\theta,q_\phi\)</span> を同時に学習することが出来るというのである．</p>
 </section>
-<section id="sgvb-推定量" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sgvb-推定量"><span class="header-section-number">1.3</span> SGVB 推定量</h3>
-<p>例えば <span class="math inline">\(F\)</span> を <span class="math inline">\(\phi\)</span> に関して勾配情報から最大化する際に，勾配 <span class="math inline">\(D_\phi F\)</span> の Monte Carlo 推定量が利用できる．しかし，単に <span class="math inline">\(q_\phi(z|x)\)</span> からのサンプルを用いた crude Monte Carlo では，この推定量の分散は非常に大きい <span class="citation" data-cites="Paisley+2012">(<a href="#ref-Paisley+2012" role="doc-biblioref">Paisley et al., 2012</a>)</span>．</p>
-<p>これを <strong>重点サンプリングの考え方により解決した</strong> のが <span class="math inline">\(D_\phi F,D_\theta F\)</span> に対する SGVB 推定量である．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span> では reparameterization trick と呼んでいる．</p>
+<section id="sec-amortized-inference" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="sec-amortized-inference"><span class="header-section-number">2.4</span> 償却推論 (amortized inference)</h3>
+<p>データ <span class="math inline">\(x_1,\cdots,x_n\)</span> が互いに独立で，潜在変数 <span class="math inline">\(z_1,\cdots,z_n\)</span> も同じ数だけ用意し，互いに独立であるとする．実際，VAE では <span class="math inline">\(z\sim\mathrm{N}_n(\mu,\Sigma)\)</span> とし，<span class="math inline">\(\Sigma\)</span> は対角行列とする．</p>
+<p>このとき，変分下界は <span id="eq-F"><span class="math display">\[
+F(\theta,\phi)=\sum_{i=1}^n\int_\mathcal{Z}q_\phi(z_i)\log\frac{p_\theta(x_i|z)p_\theta(z_i)}{q_\phi(z_i)}\,dz_i
+\tag{1}\]</span></span> と表せる．さらに <span class="math inline">\(p_\theta(x_i|z)=p_\theta(x_i|z_i)\)</span> と仮定すると， <span class="math display">\[
+q_\phi(z_i)=p(z_i|x_i)=\frac{p(x_i|z_i)p(z_i)}{p(x_i)}
+\]</span> と取った場合が <span class="math inline">\(F\)</span> を最大化する．</p>
+<p><strong>償却推論</strong> <span class="citation" data-cites="Gershman-Goodman2014">(<a href="#ref-Gershman-Goodman2014" role="doc-biblioref">Gershman and Goodman, 2014</a>)</span>, <span class="citation" data-cites="Rezende+2014">(<a href="#ref-Rezende+2014" role="doc-biblioref">Rezende et al., 2014</a>)</span> では，<span class="math inline">\(i\in[n]\)</span> ごとにフィッティングするのではなく，確率核 <span class="math inline">\(p(x_i,z_i)\,dz_i\)</span> を <span class="math inline">\(i\in[n]\)</span> に依らずに単一のニューラルネットワーク <span class="math inline">\(q_\phi\)</span> でモデリングする確率的変分推論法をいう．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+<p><span class="math inline">\(i\in[n]\)</span> ごとにデータを説明するのではなく，データセット全体にフィットする <span class="math inline">\(q_\phi\)</span> を得ることを考える．このコストを払えば，新たなデータが到着した際も極めて安価な限界費用で推論を更新できる，ということに基づく命名である．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+<p>VAE では，EM アルゴリズムのように <span class="math inline">\(\theta,\phi\)</span> を交互に更新していくわけではなく，両方 NN であることを利用して同時に SGD によって最適化する．換言すれば，EM アルゴリズムの様に本当にデータを最もよく説明する変分推論を実行したいという様な目的関数にはなっておらず，あくまで生成と表現学習が目的である．</p>
+</section>
+<section id="sec-SGVB" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="sec-SGVB"><span class="header-section-number">2.5</span> 確率的勾配変分近似 (SGVB)</h3>
+<!-- 
+VAE [@Kingma-Welling2014] の特に革新的な点は，エンコーダー $q_\phi$ を変分推論と確率的勾配降下法によって効率的に学習するアルゴリズムを提案したことにある．
+
+これは **SGVB (Stochastic Gradient Variational Bayes)** と呼ばれ，VAE に限らず極めて一般の変分ベイズ推論の設定において，データセットの一部のみで計算した推定量のみを用いて効率的に最適化を実行するための汎用的技法である．
+
+### SGVB のアイデア：勾配の Monte Carlo 推定
+
+[GAN](Deep3.qmd) 同様，生成モデリングは，潜在空間 $Z$ で条件付けた際の分布 $p(x|z)$ をモデリングすることに等しい．GAN は $p(x|z)$ を明示的に評価することを回避することで複雑な生成モデリングを達成していた．
+
+一方で，（周辺）尤度の評価を完全に回避せずとも，[変分 Bayes 法](../Computation/VI3.qmd) によるアプローチが可能である．$p(x|z)$ に分布族 $q_\phi(x|z)$ を導入し，真の分布 $p$ との KL-距離を最小にする $\phi\in\Phi$ を選ぶのである．
+
+変分 Bayes ではこれを解析的に実行する必要があった．そのため，分布族 $\{q_\phi\}$ を指数分布族や共役分布族に限るか，平均場近似を用いるか，などの強い仮定が必要で，これが複雑な生成モデリングを妨げていた．
+
+そこで，一般の分布族 $\{q_\phi\}$ に対して勾配情報を用いた最適化が実施できるように，変分下界 $F(p_\theta,q_\phi)$ 対する Monte Carlo 推定量を開発するのである．これが SGVB 推定量である．
+
+
+
+### SGVB 推定量 -->
+<p>式 (<a href="#eq-F" class="quarto-xref">1</a>) はデータ点ごとに <span id="eq-F2"><span class="math display">\[
+F(\theta,\phi)=\sum_{i=1}^n\int_\mathcal{Z}q_\phi(z_i)\log p_\theta(x_i|z_i)\,dz_i-\operatorname{KL}(q_\phi,p_\theta)
+\tag{2}\]</span></span> と表示できる．事前分布 <span class="math inline">\(p_\theta\)</span> もエンコーダー <span class="math inline">\(q_\phi\)</span> も正規分布族としたので，第二項は簡単に計算できる： <span class="math display">\[
+\operatorname{KL}\biggr(q_\phi(z_i|x_i),p_\theta(z_i)\biggl)=\frac{1}{2}\sum_{j=1}^m\biggr(1+\log\sigma^2_j(x_i)-\mu^2_j(x_i)-\sigma^2_j(x_i)\biggl).
+\]</span></p>
+<p>そこで第１項が問題である．勾配 <span class="math inline">\(D_\phi F,D_\theta F\)</span> 自体は計算不可能でも，不偏な推定量は得られないだろうか？</p>
+<p>しかも，単に <span class="math inline">\(q_\phi(z|x)\)</span> からのサンプルを用いた crude Monte Carlo <span class="math display">\[
+\int_\mathcal{Z}q_\phi(z_i|x_i)\log p_\theta(x_i|z_i)\,dz_i\approx\frac{1}{N}\sum_{n=1}^N\log p_\theta(x_i|z_i^{(n)})
+\]</span> では，分散が非常に大きくなってしまう <span class="citation" data-cites="Paisley+2012">(<a href="#ref-Paisley+2012" role="doc-biblioref">Paisley et al., 2012</a>)</span> ため，効率的な不偏推定量である必要もある．また，<span class="math inline">\(\theta\)</span> に関する勾配は数値的に計算できても，ここから <span class="math inline">\(D_\phi F\)</span> を得ることが困難である．</p>
+<p>これを <strong>重点サンプリングの考え方により解決した</strong> のが <span class="math inline">\(D_\phi F,D_\theta F\)</span> に対する SGVB 推定量である．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a> <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma and Welling, 2014</a>)</span> では reparameterization trick と呼んでいる．</p>
+<p>なお，この重点サンプリング法を，より効率的な SIS や <a href="../../../posts/Surveys/SMCSamplers.html#sec-AIS">AIS</a> に変えることも多く提案されている <span class="citation" data-cites="Thin+2021">(<a href="#ref-Thin+2021" role="doc-biblioref">Thin et al., 2021</a>)</span>．</p>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="一般的な設定での SGVB 推定量">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+一般的な設定での SGVB 推定量
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
 <p>ある分布 <span class="math inline">\(P\in\mathcal{P}(E)\)</span> と可微分同相 <span class="math inline">\(g_\phi:E\times\mathcal{X}\to\mathcal{Z}\)</span> であって <span class="math display">\[
 g_\phi(\epsilon,x)\sim q_\phi(z,x)\quad(\epsilon\sim P)
-\]</span> を満たすものを見つけることができて，この <span class="math inline">\(P\)</span> を提案分布とする重点サンプリング推定量 <span class="math display">\[
+\]</span> を満たすものを見つけることができるとき，この <span class="math inline">\(P\)</span> を提案分布とする重点サンプリング推定量 <span class="math display">\[
 \begin{align*}
     \operatorname{E}_{q_\phi}[f(Z)]&amp;=\operatorname{E}_{P}[f(g_\phi(\epsilon,x))]\\
     &amp;\simeq\frac{1}{M}\sum_{i=1}^Mf(g_\phi(\epsilon^i,x))
 \end{align*}
 \]</span> により，Monte Carlo 推定量の分散を減らすことができる．<span class="math inline">\(f=F\)</span> と取ることで SGVB 推定量を得る．</p>
-<p>さらに，<span class="math inline">\(\mathcal{Z}\)</span> 上のモデル <span class="math inline">\(q_\phi(z),p_\theta(z)\)</span> とが <span class="math inline">\(d\)</span>-次元の正規分布であった場合， <span class="math display">\[
--\mathop{\mathrm{KL}}(q_\phi,p_\theta)=\frac{1}{2}\sum_{j=1}^d\biggr(1+\log(\sigma_j^2)-\mu_j^2-\sigma_j^2\biggl)
-\]</span> と解析的に解けるので，結局 Monte Carlo 近似が必要なのは，再構成誤差を表す <span class="math display">\[
-\int_\mathcal{Z}q_\phi(z)\log p_\theta(x|z)\,dz
-\]</span> の部分だけである．</p>
-<p>このような理由で，<span class="math inline">\(q_\phi(z),p_\theta(z)\)</span> は典型的には正規分布としてモデリングされる．</p>
-</section>
-</section>
-<section id="sec-VAE" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="sec-VAE"><span class="header-section-number">2</span> VAE <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span></h2>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="VAE.png" class="img-fluid figure-img"></p>
-<figcaption>Samples from a VQ-VAE Taken from Figure 6 <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019, p. 8</a>)</span></figcaption>
-</figure>
 </div>
-<section id="導入" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="導入"><span class="header-section-number">2.1</span> 導入</h3>
-<p>Variational Auto-encoder <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>, <span class="citation" data-cites="Rezende+2014">(<a href="#ref-Rezende+2014" role="doc-biblioref">Rezende et al., 2014</a>)</span> も GAN と同じく，深層生成モデル <span class="math inline">\(p_\theta\)</span> にもう１つの深層ニューラルネットワーク <span class="math inline">\(q_\phi\)</span> を対置するが，このニューラルネット <span class="math inline">\(q_\phi\)</span> は GAN のように判別をするのではなく，近似推論によってデータ生成源を再構成しようとする <strong>認識モデル</strong> (recognition model) である．<span class="math inline">\(q_\phi\)</span> はエンコーダーとも呼ばれる．</p>
-<p>この深層生成モデル <span class="math inline">\(p_\theta\)</span> と近似推論器 <span class="math inline">\(q_\phi\)</span> とを，同時に確率勾配降下法によって学習する <span class="citation" data-cites="Kingma-Welling2019">(<a href="#ref-Kingma-Welling2019" role="doc-biblioref">Kingma &amp; Welling, 2019</a>)</span>．</p>
-<p>VAE のエンコーダー <span class="math inline">\(q_\phi\)</span> は動画データの圧縮表現の学習 <span class="citation" data-cites="Brooks+2024">(<a href="#ref-Brooks+2024" role="doc-biblioref">Brooks et al., 2024</a>)</span> など，その他の生成モデルの構成要素としても用いられる．</p>
+</div>
+</div>
+<p>エンコーダー <span class="math inline">\(q_\phi\)</span> から直接サンプル <span class="math inline">\(z_i\)</span> を得るわけではなく， <span class="math display">\[
+z_i=\sigma_\phi(x_i)\epsilon+\mu_\phi(x_i),\qquad\epsilon\sim\mathrm{N}_1(0,1)
+\]</span> によって Monte Carlo サンプルを得れば，これはサンプリングと <span class="math inline">\(\phi\)</span> に関する微分が分離されている．</p>
+<p>加えて，元の方法よりも Monte Carlo 分散が低減される．</p>
 </section>
-<section id="sec-VQ-VAE" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="sec-VQ-VAE"><span class="header-section-number">2.2</span> VQ-VAE による画像の量子化</h3>
-<p>VAE は画像データの生成にも応用されており，その際のデータ圧縮の技術（連続データである画像を離散化するので，<strong>ベクトル量子化</strong> と呼ばれる）だけが取り出され，DALL-E <span class="citation" data-cites="Ramesh+2021">(<a href="#ref-Ramesh+2021" role="doc-biblioref">Ramesh et al., 2021</a>)</span> など，モデルの構成要素としても利用されている．</p>
-<section id="vq-vae" class="level4" data-number="2.2.1">
-<h4 data-number="2.2.1" class="anchored" data-anchor-id="vq-vae"><span class="header-section-number">2.2.1</span> VQ-VAE</h4>
-<p>VQ-VAE <span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span>, <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019</a>)</span> は，自己符号化器の中間表現に <a href="../../../posts/2024/Computation/VI.html#sec-history">ベクトル量子化</a> を施し，JPEG <span class="citation" data-cites="Wallace1992">(<a href="#ref-Wallace1992" role="doc-biblioref">Wallace, 1992</a>)</span> のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．</p>
-<p>実際，元データの 30 分の 1 以下のサイズで学習を行い，最終的にデコーダーを用いて殆ど歪みなく再構成できるという．</p>
+<section id="sec-objective" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="sec-objective"><span class="header-section-number">2.6</span> 目的関数</h3>
+<p>以上を総じて，目的関数は <span class="math display">\[
+\mathcal{L}=\sum_{i=1}^n\left(\operatorname{KL}\biggr(q_\phi(z_i|x_i),p_\theta(z_i)\biggl)+\frac{1}{N}\sum_{n=1}^N\log p_\theta(x_i|z_i^{(n)})\right)
+\]</span> となる．Monte Carlo サンプルは <span class="math inline">\(N=1\)</span> が採用され，SGD と組み合わせるとこの設定が良い効率を与えるという．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="訓練過程">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+訓練過程
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>データをエンコーダーを前方向に伝播させ，<span class="math inline">\(\mu,\sigma\)</span> の値を得て，そこからサンプルする．</li>
+<li>この Monte Carlo サンプルをデコーダーに入れて伝播させ，変分下界 <span class="math inline">\(F\)</span>（の推定量）を評価する．</li>
+<li>自動微分により <span class="math inline">\(\theta,\phi\)</span> に関する <span class="math inline">\(\mathcal{L}\)</span> の勾配を計算する．</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="ais-neal2001-による-elbo-近似" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="ais-neal2001-による-elbo-近似"><span class="header-section-number">2.7</span> AIS <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> による ELBO 近似</h3>
+<section id="はじめに-2" class="level4" data-number="2.7.1">
+<h4 data-number="2.7.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">2.7.1</span> はじめに</h4>
+<p>AIS の提案分布に拡散過程の時間反転を用いた場合，効率的で可微分な ELBO の AIS 推定量が得られる <span class="citation" data-cites="Doucet+2022">(<a href="#ref-Doucet+2022" role="doc-biblioref">Doucet et al., 2022</a>)</span>．</p>
+<p>拡散過程の時間反転の学習には SGM <span class="citation" data-cites="Song+2019">(<a href="#ref-Song+2019" role="doc-biblioref">Song et al., 2019</a>)</span> を用いることができる．</p>
+</section>
+<section id="ais-のアイデア" class="level4" data-number="2.7.2">
+<h4 data-number="2.7.2" class="anchored" data-anchor-id="ais-のアイデア"><span class="header-section-number">2.7.2</span> AIS のアイデア</h4>
+<p><a href="../../../posts/Surveys/SMCSamplers.html#sec-AIS">焼きなまし重点サンプリング</a> (AIS: Annealed Importance Sampling) では，目標分布 <span class="math inline">\(\pi\)</span> に至る列 <span class="math inline">\(\pi_0,\cdots,\pi_p=\pi\)</span> が得られており，<span class="math inline">\(\pi_0\)</span> からのサンプリングは可能である場合の重点サンプリング法のテクニックである．</p>
+<p>具体的には，拡張された空間 <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上の目標分布 <span class="math display">\[
+\pi_p\otimes P_p'\otimes\cdots\otimes P_1'
+\]</span> に対して <span class="math inline">\(\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p\)</span> を提案分布に用いたとして荷重荷重を計算する．特に <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> では <span class="math inline">\(P_i'\)</span> として <span class="math display">\[
+P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i)
+\]</span> を満たす後ろ向き核 <span class="math inline">\(P_i^{-1}\)</span> を用いており，この場合の重点荷重は次の表示を持つ：<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a> <span class="math display">\[
+w(X_{1:p}):=\frac{\pi_p(X_p)}{\pi_{p-1}(X_{p})}\frac{\pi_{p-1}(X_{p-1})}{\pi_{p-2}(X_{p-1})}\cdots\frac{\pi_2(X_2)}{\pi_1(X_2)}\frac{\pi_1(X_1)}{\pi_0(X_1)}
+\]</span></p>
+<p>すなわち，AIS では <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上で重点サンプリングを行い，<span class="math inline">\(x_p\)</span> の成分のみに注目することで周辺分布では <span class="math inline">\(\pi_p\)</span> に対する効率的な重点サンプリングが実現される，という手法であるが，<u>その分効率が落ちている</u> <span class="citation" data-cites="Doucet+2022">(<a href="#ref-Doucet+2022" role="doc-biblioref">Doucet et al., 2022</a>)</span>．</p>
+<p>例えば目標分布 <span class="math inline">\(\pi_p\)</span> からのシミュレーションが実は可能で，<span class="math inline">\(P_i\equiv\pi_p\)</span> と取れる場合，重点サンプリングは正確に行えるが，AIP は迂回した分 <span class="math display">\[
+\mathrm{V}[\log w(X_{1:p})]=\sum_{i=1}^p\mathrm{V}\left[\log\frac{\pi_i(X_i)}{\pi_{i-1}(X_i)}\right]&gt;0
+\]</span> という分散が発生してしまう．</p>
+<p>または，ある <span class="math inline">\(\pi_p\)</span> に収束する MCMC 核 <span class="math inline">\(P\)</span> に関して <span class="math inline">\(P_i\equiv P\)</span> と取った場合，もし比 <span class="math display">\[
+\frac{\pi_p(X_p)}{\pi_0P_1\cdots P_p(X_0)}
+\]</span> が計算できたならば，十分 <span class="math inline">\(p&gt;0\)</span> を大きく取ることで極めて効率的な重点サンプリングが可能になるが，AIS では <span class="math inline">\(w\)</span> の分散が大きくなってしまう．</p>
+<p>実は，分散を最小にする <span class="math inline">\(\mathcal{X}^{p+1}\)</span> 上での提案分布は，後ろ向き確率核 <span class="math inline">\(P_i^{-1}\)</span> ではなく，提案分布 <span class="math inline">\(Q:=\pi_0\otimes P_1\otimes P_2\otimes\cdots\otimes P_p\)</span> の時間反転が与える <span class="citation" data-cites="DelMoral+2006">(<a href="#ref-DelMoral+2006" role="doc-biblioref">Del&nbsp;Moral et al., 2006</a>)</span>．</p>
+</section>
+<section id="非一様-langevin-過程を用いるもの" class="level4" data-number="2.7.3">
+<h4 data-number="2.7.3" class="anchored" data-anchor-id="非一様-langevin-過程を用いるもの"><span class="header-section-number">2.7.3</span> 非一様 Langevin 過程を用いるもの</h4>
+<p>連続な架橋 <span class="math inline">\((\pi_t)_{t\in[0,p]}\)</span> を取り， <span class="math display">\[
+dX_t=\nabla\log\pi_t(X_t)\,dt+\sqrt{2}\,dB_t,\qquad X_0\sim\pi_0,
+\]</span> を連続時間極限とするような離散化 <span class="math display">\[
+P_k(x_{k-1},dx_k):=\mathrm{N}_d\biggr(x_{k-1}+\delta\nabla\log\pi_k(x_{k-1}),2\delta I_d\biggl),\qquad\delta&gt;0,
+\]</span> を考える．これは <span class="citation" data-cites="Heng+2020">(<a href="#ref-Heng+2020" role="doc-biblioref">Heng et al., 2020</a>)</span>, <span class="citation" data-cites="Wu+2020">(<a href="#ref-Wu+2020" role="doc-biblioref">Wu et al., 2020</a>)</span>, <span class="citation" data-cites="Thin+2021">(<a href="#ref-Thin+2021" role="doc-biblioref">Thin et al., 2021</a>)</span> などで扱われている．この過程が時刻 <span class="math inline">\(p\)</span> において <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> とどれほど乖離があるかの知見は，模擬アニーリングに対する数理解析の下で蓄積されている <span class="citation" data-cites="Fournier-Tardif2021">(<a href="#ref-Fournier-Tardif2021" role="doc-biblioref">Fournier and Tardif, 2021</a>)</span>, <span class="citation" data-cites="Tang+2024">(<a href="#ref-Tang+2024" role="doc-biblioref">Tang et al., 2024</a>)</span>．</p>
+<p>この時間反転は <span class="citation" data-cites="Haussmann-Pardoux1986">(<a href="#ref-Haussmann-Pardoux1986" role="doc-biblioref">Haussmann and Pardoux, 1986</a>)</span> により導かれている： <span class="math display">\[
+d\overline{X}_t=\biggr(-\nabla\pi_{T-t}(\overline{X}_t)+2\nabla\log q_{T-t}(\overline{X}_t)\biggl)\,dt+\sqrt{2}d\overline{B}_t,\qquad\overline{X}_0\sim q_T,
+\]</span> ただし，<span class="math inline">\(q_t\)</span> は <span class="math inline">\((X_t)\)</span> の周辺分布とした．</p>
+</section>
+</section>
+</section>
+<section id="sec-VQ-VAE" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-VQ-VAE"><span class="header-section-number">3</span> ベクトル量子化変分自己符号化器 (VQ-VAE)</h2>
+<p>VQ-VAE は，VAE を特に表現学習に用いるために，潜在表現層を離散変数とした変種である．この際の潜在表現は符号帳 (codebook) とも呼ばれる．</p>
+<p>加えて，<span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span> では，事後分布 <span class="math inline">\(q_\phi(z|x)\)</span> が事前分布 <span class="math inline">\(p(z)\)</span> に十分近くない場合には，事前分布を使ってサンプルを生成するのではなく，<span class="math inline">\(q_\phi(z|x)\)</span> を改めて Pixel-CNN などを用いて推論してそこからサンプルを得ることを提案している．</p>
+<p><span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span> では CNN が使われていたが，近年はトランスフォーマーによるデコーダーが用いられることも多い．</p>
+<section id="ベクトル量子化" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="ベクトル量子化"><span class="header-section-number">3.1</span> ベクトル量子化</h3>
+<p>一般に，画像・音声・動画などの複雑なデータに対しては，背後の構造をよく掴んだ低次元な潜在表現を得ることを重要なステップとして含むため，データの潜在表現を得る汎用手法は価値が高い．このようなタスクを <strong>表現学習</strong> という <span class="citation" data-cites="Bengio+2013">(<a href="#ref-Bengio+2013" role="doc-biblioref">Bengio, Courville, et al., 2013</a>)</span>．</p>
+<p>VAE の主な応用先に画像データがある．その際は，デコーダーを通じた画像生成モデルとして用いるだけでなく，エンコーダーを用いてデータ圧縮をすることも重要な用途である <span class="citation" data-cites="Balle+2017">(<a href="#ref-Balle+2017" role="doc-biblioref">Ballé et al., 2017</a>)</span>．</p>
+<p>その際，潜在空間を離散空間にすることで，連続データである画像を離散化することができる．これを <a href="../../../posts/2024/Computation/VI.html#sec-history">ベクトル量子化</a> と結びつけたのが VQ-VAE である．ベクトル量子化は DALL-E <span class="citation" data-cites="Ramesh+2021">(<a href="#ref-Ramesh+2021" role="doc-biblioref">Ramesh et al., 2021</a>)</span> など，より大きな画像生成モデルの構成要素としても利用される．</p>
+</section>
+<section id="sec-posterior-collapse" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-posterior-collapse"><span class="header-section-number">3.2</span> 分布崩壊 (Posterior collapse)</h3>
+<p>VAE を表現学習に使う際の最大の問題は <strong>分布崩壊</strong> である <span class="citation" data-cites="He+2019">(<a href="#ref-He+2019" role="doc-biblioref">J. He et al., 2019</a>)</span>．これはデコーダーが強力すぎる場合，ほとんどデコーダー層のみでデータの生成に成功してしまい，潜在表現が十分組織されないまま最適化が完了され，潜在表現が縮退してしまうことをいう</p>
+<p>VQ-VAE は潜在表現を離散変数にすることでこれが解決できるとし，連続潜在変数による VAE とデータの復元力を変えず，同時に良い潜在表現も獲得できるという．</p>
+<p>実際，<span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span> が，言語が離散的であることに首肯するならば，人間は言表によって画像や動画の概要を掴めるように，画像や動画の有効な潜在表現は離散変数で十分であるはずという議論は十分説得的である．</p>
+</section>
+<section id="表現学習をする-vae" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="表現学習をする-vae"><span class="header-section-number">3.3</span> 表現学習をする VAE</h3>
+<section id="sec-beta-VAE" class="level4" data-number="3.3.1">
+<h4 data-number="3.3.1" class="anchored" data-anchor-id="sec-beta-VAE"><span class="header-section-number">3.3.1</span> <span class="math inline">\(\beta\)</span>-VAE <span class="citation" data-cites="Higgins+2017">(<a href="#ref-Higgins+2017" role="doc-biblioref">Higgins et al., 2017</a>)</span></h4>
+<p>変分下界 (<a href="#eq-F2" class="quarto-xref">2</a>) の KL 乖離度の項に新たなハイパーパラメータ <span class="math inline">\(\beta&gt;0\)</span> を追加する： <span class="math display">\[
+\int_\mathcal{Z}q_\phi(z_i)\log p_\theta(x_i|z_i)\,dz_i-\beta\operatorname{KL}(q_\phi,p_\theta).
+\]</span> <span class="math inline">\(\beta=0\)</span> の場合が決定論的な AE，<span class="math inline">\(\beta=1\)</span> の場合が元々の VAE に当たる．</p>
+<p>この <span class="math inline">\(\beta\)</span> を適切なスケジュールで <span class="math inline">\(0\)</span> から <span class="math inline">\(1\)</span> に段階的に引き上げることによって，分布崩壊が防げる．これを <strong>KL アニーリング</strong> という <span class="citation" data-cites="Bowman+2016">(<a href="#ref-Bowman+2016" role="doc-biblioref">Bowman et al., 2016</a>)</span>．</p>
+<p>一般に <span class="math inline">\(\beta\)</span> は潜在表現の圧縮度合いを意味しており，<span class="math inline">\(\beta&lt;1\)</span> では画像の復元が得意になり，<span class="math inline">\(\beta&gt;1\)</span> ではデータの圧縮が得意になる <span class="citation" data-cites="Higgins+2017">(<a href="#ref-Higgins+2017" role="doc-biblioref">Higgins et al., 2017</a>)</span>．</p>
+<p>特に，データの潜在表現の <strong>disentanglement</strong> が得意になるとして，表現学習に重要な応用を持つ <span class="citation" data-cites="Locatello+2019">(<a href="#ref-Locatello+2019" role="doc-biblioref">Locatello et al., 2019</a>)</span>．</p>
+</section>
+<section id="variational-lossy-autoencoder-chen2017" class="level4" data-number="3.3.2">
+<h4 data-number="3.3.2" class="anchored" data-anchor-id="variational-lossy-autoencoder-chen2017"><span class="header-section-number">3.3.2</span> Variational Lossy Autoencoder <span class="citation" data-cites="Chen+2017">(<a href="#ref-Chen+2017" role="doc-biblioref">Chen et al., 2017</a>)</span></h4>
+<p>デコーダー <span class="math inline">\(p(x|z)\)</span> と事前分布 <span class="math inline">\(p(x)\)</span> を自己回帰モデルにし，VAE のスキームを純粋なエンコーダー <span class="math inline">\(q(z|x)\)</span> の訓練に用いた．</p>
+<p>その際，用いる自己回帰モデルの予測性能の強さを制御することで，どのような潜在表現を生成するかの制御が可能になることを論じている <span class="citation" data-cites="Chen+2017">(<a href="#ref-Chen+2017" role="doc-biblioref">Chen et al., 2017</a>)</span>．</p>
+</section>
+</section>
+<section id="vq-vae" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="vq-vae"><span class="header-section-number">3.4</span> VQ-VAE</h3>
+<p>VQ-VAE <span class="citation" data-cites="vandenOord+2017">(<a href="#ref-vandenOord+2017" role="doc-biblioref">van&nbsp;den&nbsp;Oord et al., 2017</a>)</span>, VQ-VAE-2 <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019</a>)</span> は，自己符号化器の中間表現に <a href="../../../posts/2024/Computation/VI.html#sec-history">ベクトル量子化</a> を施し，JPEG <span class="citation" data-cites="Wallace1992">(<a href="#ref-Wallace1992" role="doc-biblioref">Wallace, 1992</a>)</span> のような画像データの圧縮を行うことで，不要な情報のモデリングを回避している．</p>
+<p>すなわち，エンコーダーの出力 <span class="math inline">\(z\in\mathbb{R}^{H\times W\times K}\)</span> は最終的に符号帳 <span class="math inline">\(\{e_k\}_{k=1}^K\subset\mathbb{R}^L\)</span> と見比べて最近傍点の符号 <span class="math inline">\(k\in[K]\)</span> のみが記録される．デコーダーには符号帳の要素 <span class="math inline">\(\{e_k\}_{k=1}^K\)</span> のみが入力される．これにより，デコーダーに対して元データの 30 分の 1 以下のサイズで学習を行うことができるのも美点である．</p>
+<p>符号帳も同時に学習され，そのための項が目的関数に追加される．</p>
+<p>一つの技術的な難点に，離散化のステップが途中に含まれるために勾配の計算が困難になることがあるが，stright-through 推定量 <span class="citation" data-cites="Bengio+2013SSE">(<a href="#ref-Bengio+2013SSE" role="doc-biblioref">Bengio, Léonard, et al., 2013</a>)</span> の利用によって解決している．</p>
 <p>GAN は元データのうち，尤度が低い部分が無視され，サンプルの多様性が失われがちであったが，VQ-VAE はこの問題を解決している．また，GAN にはないようなモデル評価の指標が複数提案されている．</p>
 </section>
-<section id="連続緩和" class="level4" data-number="2.2.2">
-<h4 data-number="2.2.2" class="anchored" data-anchor-id="連続緩和"><span class="header-section-number">2.2.2</span> 連続緩和</h4>
-<p>質的変数のサンプリングにおいて，Gumbel 分布を提案分布として重点サンプリングを行うことが有効である．この reparametrization trick を Gumbel Max Trick <span class="citation" data-cites="Jang+2017">(<a href="#ref-Jang+2017" role="doc-biblioref">Jang et al., 2017</a>)</span> という．</p>
-<p>Concrete (Continuous Relaxatino of Discrete) <span class="citation" data-cites="Maddison+2017">(<a href="#ref-Maddison+2017" role="doc-biblioref">Maddison et al., 2017</a>)</span> はこれを連続分布に拡張し，reparametrization trick に応用したものである．</p>
-<p>これらの手法は VAE や <a href="https://openai.com/research/dall-e">DALL-E</a> <span class="citation" data-cites="Ramesh+2021">(<a href="#ref-Ramesh+2021" role="doc-biblioref">Ramesh et al., 2021</a>)</span> の訓練にも応用されている．</p>
+<section id="連続緩和" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="連続緩和"><span class="header-section-number">3.5</span> 連続緩和</h3>
+<p>VQ-VAE ではコードブックへの対応はハードな帰属をしている．すなわち，全ての出力はどれか１つのエントリー <span class="math inline">\(e_k\)</span> を選んで <span class="math inline">\(k\)</span> のみが記録されるが，これをソフトな帰属に変更し，連続な表現を許すことが考えられる．<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a></p>
+<p>この際には，元々の reparametrization trick <a href="#sec-SGVB" class="quarto-xref">2.5</a> が離散変数には直ちに一般化できないところが，新たな方法が見つかり<strong>引き続き勾配による最適化が可能</strong>という美点もある．</p>
+<p>標準正規分布 <span class="math inline">\(\mathrm{N}(0,1)\)</span> の代わりに，質的変数のサンプリングにおいて，Gumbel 分布を提案分布として用いることが有効であり，この reparametrization trick を Gumbel Max Trick <span class="citation" data-cites="Maddison+2014">(<a href="#ref-Maddison+2014" role="doc-biblioref">Chris J. Maddison et al., 2014</a>)</span>, <span class="citation" data-cites="Jang+2017">(<a href="#ref-Jang+2017" role="doc-biblioref">Jang et al., 2017</a>)</span> という．</p>
+<p>Concrete (Continuous Relaxatino of Discrete) <span class="citation" data-cites="Maddison+2017">(<a href="#ref-Maddison+2017" role="doc-biblioref">Chris J. Maddison et al., 2017</a>)</span> はこれを連続分布に拡張し，reparametrization trick に応用したものである．</p>
+<p>これらの手法は VAE だけでなく，<a href="https://openai.com/research/dall-e">DALL-E</a> <span class="citation" data-cites="Ramesh+2021">(<a href="#ref-Ramesh+2021" role="doc-biblioref">Ramesh et al., 2021</a>)</span> の訓練にも応用されている．</p>
 </section>
-<section id="codebook-collapse" class="level4" data-number="2.2.3">
-<h4 data-number="2.2.3" class="anchored" data-anchor-id="codebook-collapse"><span class="header-section-number">2.2.3</span> Codebook collapse</h4>
+<section id="vq-vae-2-razavi2019" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="vq-vae-2-razavi2019"><span class="header-section-number">3.6</span> VQ-VAE-2 <span class="citation" data-cites="Razavi+2019">(<a href="#ref-Razavi+2019" role="doc-biblioref">Razavi et al., 2019</a>)</span></h3>
+<p>VQ-VAE-2 は，VQ-VAE から潜在空間に階層構造を持たせた，エンコード・デコードを各２回以上繰り返したものである．</p>
+</section>
+<section id="codebook-collapse" class="level3" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="codebook-collapse"><span class="header-section-number">3.7</span> Codebook collapse</h3>
 <p>VQ-VAE は符号帳 (codebook) に冗長性が生まれ，符号帳の一部が使われなくなるという問題がある．これを解決するためには，符号帳への対応を softmax 関数を用いて軟化することが dVAE <span class="citation" data-cites="Ramesh+2021">(<a href="#ref-Ramesh+2021" role="doc-biblioref">Ramesh et al., 2021</a>)</span> として考えられている．</p>
 <p>しかしこの dVAE も codebook collapse から完全に解放されるわけではない．これは softmax 関数の性質によると考えられ，実際，Dirichlet 事前分布を導入した Bayes モデルによって緩和される <span class="citation" data-cites="Baykal+2023">(<a href="#ref-Baykal+2023" role="doc-biblioref">Baykal et al., 2023</a>)</span>．</p>
-<p>このような技術を <strong>エビデンス付き深層学習</strong> (EDL: Evidential Deep Learning) <span class="citation" data-cites="Sensoy+2018">(<a href="#ref-Sensoy+2018" role="doc-biblioref">Sensoy et al., 2018</a>)</span>, <span class="citation" data-cites="Amini+2020">(<a href="#ref-Amini+2020" role="doc-biblioref">Amini et al., 2020</a>)</span> という．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>このような技術を <strong>エビデンス付き深層学習</strong> (EDL: Evidential Deep Learning) <span class="citation" data-cites="Sensoy+2018">(<a href="#ref-Sensoy+2018" role="doc-biblioref">Sensoy et al., 2018</a>)</span>, <span class="citation" data-cites="Amini+2020">(<a href="#ref-Amini+2020" role="doc-biblioref">Amini et al., 2020</a>)</span> という．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a></p>
 </section>
-</section>
-<section id="wasserstein-vae-tolstikhin2018" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="wasserstein-vae-tolstikhin2018"><span class="header-section-number">2.3</span> Wasserstein VAE <span class="citation" data-cites="Tolstikhin+2018">(<a href="#ref-Tolstikhin+2018" role="doc-biblioref">Tolstikhin et al., 2018</a>)</span></h3>
+<section id="gan-との比較" class="level3" data-number="3.8">
+<h3 data-number="3.8" class="anchored" data-anchor-id="gan-との比較"><span class="header-section-number">3.8</span> GAN との比較</h3>
 <p>VAE は GAN よりも画像生成時の解像度が劣るという問題がある．</p>
+<section id="wasserstein-vae-tolstikhin2018" class="level4" data-number="3.8.1">
+<h4 data-number="3.8.1" class="anchored" data-anchor-id="wasserstein-vae-tolstikhin2018"><span class="header-section-number">3.8.1</span> Wasserstein VAE <span class="citation" data-cites="Tolstikhin+2018">(<a href="#ref-Tolstikhin+2018" role="doc-biblioref">Tolstikhin et al., 2018</a>)</span></h4>
 <p>これを，目的関数を Wasserstein 距離に基づいて再定式化することで解決できるというのが Wasserstein Auto-encoder <span class="citation" data-cites="Tolstikhin+2018">(<a href="#ref-Tolstikhin+2018" role="doc-biblioref">Tolstikhin et al., 2018</a>)</span> である．</p>
 </section>
-<section id="beta-vae-higgins2017" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="beta-vae-higgins2017"><span class="header-section-number">2.4</span> beta-VAE <span class="citation" data-cites="Higgins+2017">(<a href="#ref-Higgins+2017" role="doc-biblioref">Higgins et al., 2017</a>)</span></h3>
-<p>VAE を画像の因子表現学習に用いる際に，解釈可能性を担保する教師なし学習手法である．</p>
-
-
-
+<section id="vq-gan-esser2021" class="level4" data-number="3.8.2">
+<h4 data-number="3.8.2" class="anchored" data-anchor-id="vq-gan-esser2021"><span class="header-section-number">3.8.2</span> VQ-GAN <span class="citation" data-cites="Esser2021">(<a href="#ref-Esser2021" role="doc-biblioref">Esser et al., 2021</a>)</span></h4>
+<p>一方で，目的関数に <span class="math inline">\(L^2\)</span>-損失を用いている点自体が難点であるとして，ベクトル量子化の考え方を GAN に移植した VQ-GAN が提案された．</p>
+<p>VQ-GAN では潜在空間上の事前分布の学習にトランスフォーマーが用いられた．なお，この次回作が生成を VAE 内の潜在空間で行うものを <a href="../../../posts/2024/Samplers/Diffusion.html#sec-idea">潜在拡散モデル (latent diffusion model)</a> <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span> であり，Stable Diffusion の元となっている．</p>
+<p>一方，VIM (Vector-quantized Image Modeling) <span class="citation" data-cites="Yu+2022VIM">(<a href="#ref-Yu+2022VIM" role="doc-biblioref">Yu et al., 2022</a>)</span> では，VAE でも GAN でもなく，エンコーダーもデコーダーもトランスフォーマーにすることで更なる精度が出ることが報告されている．</p>
 </section>
 </section>
+</section>
 
 
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+
+<div id="quarto-appendix" class="default"><section id="参考文献" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 参考文献</h2><div class="quarto-appendix-contents">
+
+<p>決定論的な自己符号化器の解説は <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop and Bishop, 2024</a>)</span> 19.1 節に詳しい．</p>
+<p>AE と VAE を比較した実験は，<a href="https://github.com/probml/pyprobml/blob/master/notebooks/book2/21/celeba_vae_ae_comparison.ipynb">こちら</a> の <span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023</a>)</span> の Jupyeter Notebook で見れる．</p>
+<p>VAE の簡単な実装は次の稿も参照：</p>
+<div class="article-card-container">
+    <div class="article-card">
+        <a href="https://162348.github.io/posts/2024/Kernels/VAE.html" target="_blank">
+            <img src="https://162348.github.io/posts/2024/Kernels/VAE_files/figure-html/fig-reconstruction-output-1.png" alt="Article Image" class="article-image">
+            <div class="article-content">
+                <h3 class="article-title anchored">VAE：変分自己符号化器</h3>
+                <p class="article-description">PyTorch によるハンズオン</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-Amini+2020" class="csl-entry" role="listitem">
-Amini, A., Schwarting, W., Soleimany, A., &amp; Rus, D. (2020). <em>Deep evidential regression</em>. <a href="https://arxiv.org/abs/1910.02600">https://arxiv.org/abs/1910.02600</a>
+Amini, A., Schwarting, W., Soleimany, A., and Rus, D. (2020). <a href="https://arxiv.org/abs/1910.02600">Deep evidential regression</a>.
+</div>
+<div id="ref-Baldi-Hornik1989" class="csl-entry" role="listitem">
+Baldi, P., and Hornik, K. (1989). <a href="https://www.sciencedirect.com/science/article/pii/0893608089900142">Neural networks and principal component analysis: Learning from examples without local minima</a>. <em>Neural Networks</em>, <em>2</em>(1), 53–58.
+</div>
+<div id="ref-Balle+2017" class="csl-entry" role="listitem">
+Ballé, J., Laparra, V., and Simoncelli, E. P. (2017). <a href="https://openreview.net/forum?id=rJxdQ3jeg">End-to-end optimized image compression</a>. In <em>International conference on learning representations</em>.
 </div>
 <div id="ref-Baykal+2023" class="csl-entry" role="listitem">
-Baykal, G., Kandemir, M., &amp; Unal, G. (2023). <em>EdVAE: Mitigating codebook collapse with evidential discrete variational autoencoders</em>. <a href="https://arxiv.org/abs/2310.05718">https://arxiv.org/abs/2310.05718</a>
+Baykal, G., Kandemir, M., and Unal, G. (2023). <a href="https://arxiv.org/abs/2310.05718">EdVAE: Mitigating codebook collapse with evidential discrete variational autoencoders</a>.
+</div>
+<div id="ref-Bengio+2013" class="csl-entry" role="listitem">
+Bengio, Y., Courville, A., and Vincent, P. (2013). <a href="https://doi.org/10.1109/TPAMI.2013.50">Representation learning: A review and new perspectives</a>. <em>IEEE Trans. Pattern Anal. Mach. Intell.</em>, <em>35</em>(8), 1798–1828.
+</div>
+<div id="ref-Bengio+2013SSE" class="csl-entry" role="listitem">
+Bengio, Y., Léonard, N., and Courville, A. (2013). <a href="https://arxiv.org/abs/1308.3432">Estimating or propagating gradients through stochastic neurons for conditional computation</a>.
+</div>
+<div id="ref-Beyeler+2019" class="csl-entry" role="listitem">
+Beyeler, E. L. A. C., Michael AND Rounds. (2019). <a href="https://doi.org/10.1371/journal.pcbi.1006908">Neural correlates of sparse coding and dimensionality reduction</a>. <em>PLOS Computational Biology</em>, <em>15</em>(6), 1–33.
+</div>
+<div id="ref-Bishop-Bishop2024" class="csl-entry" role="listitem">
+Bishop, C. M., and Bishop, H. (2024). <em><a href="https://link.springer.com/book/10.1007/978-3-031-45468-4">Deep learning: Foundations and concepts</a></em>. Springer Cham.
+</div>
+<div id="ref-Bourlard-Kamp1988" class="csl-entry" role="listitem">
+Bourlard, H., and Kamp, Y. (1988). <a href="https://doi.org/10.1007/BF00332918">Auto-association by multilayer perceptrons and singular value decomposition</a>. <em>Biological Cybernetics</em>, <em>59</em>(4), 291–294.
+</div>
+<div id="ref-Bowman+2016" class="csl-entry" role="listitem">
+Bowman, S. R., Vilnis, L., Vinyals, O., Dai, A., Jozefowicz, R., and Bengio, S. (2016). <a href="https://doi.org/10.18653/v1/K16-1002">Generating sentences from a continuous space</a>. In S. Riezler and Y. Goldberg, editors, <em>Proceedings of the 20th <span>SIGNLL</span> conference on computational natural language learning</em>, pages 10–21. Berlin, Germany: Association for Computational Linguistics.
 </div>
 <div id="ref-Brooks+2024" class="csl-entry" role="listitem">
-Brooks, T., Peebles, B., Holmes, C., DePue, W., Guo, Y., Jing, L., Schnurr, D., Taylor, J., Luhman, T., Luhman, E., Ng, C. W. Y., Wang, R., &amp; Ramesh, A. (2024). <em>Video generation models as world simulators</em>. OpenAI. <a href="https://openai.com/research/video-generation-models-as-world-simulators">https://openai.com/research/video-generation-models-as-world-simulators</a>
+Brooks, T., Peebles, B., Holmes, C., DePue, W., Guo, Y., Jing, L., … Ramesh, A. (2024). <em>Video generation models as world simulators</em>. OpenAI. Retrieved from <a href="https://openai.com/research/video-generation-models-as-world-simulators">https://openai.com/research/video-generation-models-as-world-simulators</a>
+</div>
+<div id="ref-Chen+2017" class="csl-entry" role="listitem">
+Chen, X., Kingma, D. P., Salimans, T., Duan, Y., Dhariwal, P., Schulman, J., … Abbeel, P. (2017). <a href="https://openreview.net/forum?id=BysvGP5ee"><span>Variational Lossy Autoencoder</span></a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Cottrell-Munro1988" class="csl-entry" role="listitem">
+Cottrell, G. W., and Munro, P. (1988). <a href="https://www.spiedigitallibrary.org/conference-proceedings-of-spie/1001/1/Principal-Components-Analysis-Of-Images-Via-Back-Propagation/10.1117/12.969060.short">Principal component analysis of images via back propagation</a>. In <em>Proceedings of SPIE visual communications and image processings</em>,Vol. 1001, pages 1070–1076.
+</div>
+<div id="ref-DelMoral+2006" class="csl-entry" role="listitem">
+Del&nbsp;Moral, P., Doucet, A., and Jasra, A. (2006). <a href="https://www.jstor.org/stable/3879283"><span>Sequential Monte Carlo Samplers</span></a>. <em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <em>68</em>(3), 411–436.
+</div>
+<div id="ref-Devlin+2019" class="csl-entry" role="listitem">
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. (2019). <a href="https://aclanthology.org/N19-1423/">BERT: Pre-training of deep bidirectional transformers for language understanding</a>. In <em>Proceedings of the 2019 conference of the north american chapter of the association for computational linguistics: Human language technologies</em>,Vol. 1, pages 4171–4186.
+</div>
+<div id="ref-Doucet+2022" class="csl-entry" role="listitem">
+Doucet, A., Grathwohl, W. S., Matthews, A. G. D. G., and Strathmann, H. (2022). <a href="https://openreview.net/forum?id=9cU2iW3bz0">Score-based diffusion meets annealed importance sampling</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Esser2021" class="csl-entry" role="listitem">
+Esser, P., Rombach, R., and Ommer, B. (2021). Taming transformers for high-resolution image synthesis. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 12873–12883.
+</div>
+<div id="ref-Fournier-Tardif2021" class="csl-entry" role="listitem">
+Fournier, N., and Tardif, C. (2021). <a href="https://doi.org/10.1016/j.jfa.2021.109086">On the simulated annealing in rd</a>. <em>Journal of Functional Analysis</em>, <em>281</em>(5), 109086.
+</div>
+<div id="ref-Gershman-Goodman2014" class="csl-entry" role="listitem">
+Gershman, S., and Goodman, N. (2014). <a href="https://escholarship.org/uc/item/34j1h7k5"><span class="nocase">Amortized Inference in Probabilistic Reasoning</span></a>. In <em>Proceedings of the annual meating of the cognitive science society</em>,Vol. 36.
 </div>
 <div id="ref-Geyer1996" class="csl-entry" role="listitem">
-Geyer, C. (1996). <em>Markov chain monte carlo in practice</em> (W. R. Gilks, S. Richardson, &amp; D. Spiegelhalter, Eds.; pp. 241–258). Chapman; Hall. <a href="https://www.taylorfrancis.com/books/mono/10.1201/b14835/markov-chain-monte-carlo-practice-david-spiegelhalter-gilks-richardson">https://www.taylorfrancis.com/books/mono/10.1201/b14835/markov-chain-monte-carlo-practice-david-spiegelhalter-gilks-richardson</a>
+Geyer, C. (1996). <a href="https://www.taylorfrancis.com/books/mono/10.1201/b14835/markov-chain-monte-carlo-practice-david-spiegelhalter-gilks-richardson">Markov chain monte carlo in practice</a>. In W. R. Gilks, S. Richardson, and D. Spiegelhalter, editors, pages 241–258. Chapman; Hall.
+</div>
+<div id="ref-Glorot+2011" class="csl-entry" role="listitem">
+Glorot, X., Bordes, A., and Bengio, Y. (2011). <a href="https://proceedings.mlr.press/v15/glorot11a.html">Deep sparse rectifier neural networks</a>. In G. Gordon, D. Dunson, and M. Dudík, editors, <em>Proceedings of the fourteenth international conference on artificial intelligence and statistics</em>,Vol. 15, pages 315–323. Fort Lauderdale, FL, USA: PMLR.
+</div>
+<div id="ref-Habermann+2024" class="csl-entry" role="listitem">
+Habermann, D., Schmitt, M., Kühmichel, L., Bulling, A., Radev, S. T., and Bürkner, P.-C. (2024). <a href="https://arxiv.org/abs/2408.13230">Amortized bayesian multilevel models</a>.
+</div>
+<div id="ref-Haussmann-Pardoux1986" class="csl-entry" role="listitem">
+Haussmann, U. G., and Pardoux, E. (1986). <a href="https://doi.org/10.1214/aop/1176992362"><span class="nocase">Time Reversal of Diffusions</span></a>. <em>The Annals of Probability</em>, <em>14</em>(4), 1188–1205.
+</div>
+<div id="ref-He+2019" class="csl-entry" role="listitem">
+He, J., Spokoyny, D., Neubig, G., and Berg-Kirkpatrick, T. (2019). <a href="https://arxiv.org/abs/1901.05534">Lagging inference networks and posterior collapse in variational autoencoders</a>. In.
+</div>
+<div id="ref-He+2022" class="csl-entry" role="listitem">
+He, K., Chen, X., Xie, S., Li, Y., Dollár, P., and Girshick, R. (2022). Masked autoencoders are scalable vision learners. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 16000–16009.
+</div>
+<div id="ref-Heng+2020" class="csl-entry" role="listitem">
+Heng, J., Bishop, A. N., Deligiannidis, G., and Doucet, A. (2020). <a href="https://doi.org/10.1214/19-AOS1914">Controlled sequential monte carlo</a>. <em>The Annals of Statistics</em>, <em>48</em>(5), 2904–2929.
 </div>
 <div id="ref-Higgins+2017" class="csl-entry" role="listitem">
-Higgins, I., Matthey, L., Pal, A., Burgess, C., Glorot, X., Botvinick, M., Mohamed, S., &amp; Lerchner, A. (2017). Beta-<span>VAE</span>: Learning basic visual concepts with a constrained variational framework. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=Sy2fzU9gl">https://openreview.net/forum?id=Sy2fzU9gl</a>
+Higgins, I., Matthey, L., Pal, A., Burgess, C., Glorot, X., Botvinick, M., … Lerchner, A. (2017). <a href="https://openreview.net/forum?id=Sy2fzU9gl">Beta-<span>VAE</span>: Learning basic visual concepts with a constrained variational framework</a>. In <em>International conference on learning representations</em>.
 </div>
 <div id="ref-Jang+2017" class="csl-entry" role="listitem">
-Jang, E., Gu, S., &amp; Poole, B. (2017). Categorical reparameterization with gumbel-softmax. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=rkE3y85ee">https://openreview.net/forum?id=rkE3y85ee</a>
+Jang, E., Gu, S., and Poole, B. (2017). <a href="https://openreview.net/forum?id=rkE3y85ee">Categorical reparameterization with gumbel-softmax</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Japkowicz+2000" class="csl-entry" role="listitem">
+Japkowicz, N., Hanson, S. J., and Gluck, M. A. (2000). <a href="https://doi.org/10.1162/089976600300015691">Nonlinear autoassociation is not equivalent to PCA</a>. <em>Neural Computation</em>, <em>12</em>(3), 531–545.
+</div>
+<div id="ref-Karhunen-Joutsensalo1995" class="csl-entry" role="listitem">
+Karhunen, J., and Joutsensalo, J. (1995). <a href="https://doi.org/10.1016/0893-6080(94)00098-7">Generalizations of principal component analysis, optimization problems, and neural networks</a>. <em>Neural Networks</em>, <em>8</em>(4), 549–562.
 </div>
 <div id="ref-Kingma-Welling2014" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2014). Auto-encoding variational bayes. <em>International Conference on Learning Representations</em>, <em>2</em>. <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">https://openreview.net/forum?id=33X9fd2-9FyZd</a>
+Kingma, D., and Welling, M. (2014). <a href="https://openreview.net/forum?id=33X9fd2-9FyZd">Auto-encoding variational bayes</a>. In <em>International conference on learning representations</em>,Vol. 2.
 </div>
 <div id="ref-Kingma-Welling2019" class="csl-entry" role="listitem">
-Kingma, D. P., &amp; Welling, M. (2019). An introduction to variational autoencoders. <em>Foundations and Treands in Machine Learning</em>, <em>12</em>(4), 307–392. <a href="https://www.nowpublishers.com/article/Details/MAL-056">https://www.nowpublishers.com/article/Details/MAL-056</a>
+Kingma, D., and Welling, M. (2019). <a href="https://www.nowpublishers.com/article/Details/MAL-056">An introduction to variational autoencoders</a>. <em>Foundations and Treands in Machine Learning</em>, <em>12</em>(4), 307–392.
+</div>
+<div id="ref-Lawrence2005" class="csl-entry" role="listitem">
+Lawrence, N. (2005). <a href="http://jmlr.org/papers/v6/lawrence05a.html">Probabilistic non-linear principal component analysis with gaussian process latent variable models</a>. <em>Journal of Machine Learning Research</em>, <em>6</em>(60), 1783–1816.
+</div>
+<div id="ref-Locatello+2019" class="csl-entry" role="listitem">
+Locatello, F., Bauer, S., Lučić, M., Rätsch, G., Gelly, S., Schölkopf, B., and Bachem, O. F. (2019). <a href="http://proceedings.mlr.press/v97/locatello19a.html">Challenging common assumptions in the unsupervised learning of disentangled representations</a>. In <em>International conference on machine learning</em>.
 </div>
 <div id="ref-Maddison+2017" class="csl-entry" role="listitem">
-Maddison, C. J., Mnih, A., &amp; Teh, Y. W. (2017). The concrete distribution: A continuous relaxation of discrete random variables. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=S1jE5L5gl">https://openreview.net/forum?id=S1jE5L5gl</a>
+Maddison, Chris J., Mnih, A., and Teh, Y. W. (2017). <a href="https://openreview.net/forum?id=S1jE5L5gl">The concrete distribution: A continuous relaxation of discrete random variables</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Maddison+2014" class="csl-entry" role="listitem">
+Maddison, Chris J., Tarlow, D., and Minka, T. (2014). <a href="https://proceedings.neurips.cc/paper_files/paper/2014/file/309fee4e541e51de2e41f21bebb342aa-Paper.pdf">Asampling</a>. In Z. Ghahramani, M. Welling, C. Cortes, N. Lawrence, and K. Q. Weinberger, editors, <em>Advances in neural information processing systems</em>,Vol. 27. Curran Associates, Inc.
+</div>
+<div id="ref-Murphy2023" class="csl-entry" role="listitem">
+Murphy, K. P. (2023). <em><a href="http://probml.github.io/book2">Probabilistic machine learning: Advanced topics</a></em>. MIT Press.
+</div>
+<div id="ref-Neal2001" class="csl-entry" role="listitem">
+Neal, R. M. (2001). <a href="https://doi.org/10.1023/A:1008923215028">A<span>nnealed Importance Sampling</span></a>. <em>Statistics and Computing</em>, <em>11</em>, 125–139.
 </div>
 <div id="ref-Paisley+2012" class="csl-entry" role="listitem">
-Paisley, J., Blei, D. M., &amp; Jordan, M. I. (2012). Variational bayesian inference with stochastic search. <em>Proceedings of the 29th International Conference on Machine Learning</em>, 1363–1370. <a href="https://dl.acm.org/doi/10.5555/3042573.3042748">https://dl.acm.org/doi/10.5555/3042573.3042748</a>
+Paisley, J., Blei, D. M., and Jordan, M. I. (2012). <a href="https://dl.acm.org/doi/10.5555/3042573.3042748">Variational bayesian inference with stochastic search</a>. In <em>Proceedings of the 29th international conference on machine learning</em>, pages 1363–1370.
 </div>
 <div id="ref-Ramesh+2021" class="csl-entry" role="listitem">
-Ramesh, A., Pavlov, M., Goh, G., Gray, S., Voss, C., Radford, A., Chen, M., &amp; Sutskever, I. (2021). Zero-shot text-to-image generation. In M. Meila &amp; T. Zhang (Eds.), <em>Proceedings of the 38th international conference on machine learning</em> (Vol. 139, pp. 8821–8831). PMLR. <a href="https://proceedings.mlr.press/v139/ramesh21a.html">https://proceedings.mlr.press/v139/ramesh21a.html</a>
+Ramesh, A., Pavlov, M., Goh, G., Gray, S., Voss, C., Radford, A., … Sutskever, I. (2021). <a href="https://proceedings.mlr.press/v139/ramesh21a.html">Zero-shot text-to-image generation</a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 8821–8831. PMLR.
 </div>
 <div id="ref-Razavi+2019" class="csl-entry" role="listitem">
-Razavi, A., van&nbsp;den&nbsp;Oord, A., &amp; Vinyals, O. (2019). Generating diverse high-fidelity images with VQ-VAE-2. <em>Advances in Neural Information Processing Systems</em>, <em>32</em>. <a href="https://papers.nips.cc/paper_files/paper/2019/hash/5f8e2fa1718d1bbcadf1cd9c7a54fb8c-Abstract.html">https://papers.nips.cc/paper_files/paper/2019/hash/5f8e2fa1718d1bbcadf1cd9c7a54fb8c-Abstract.html</a>
+Razavi, A., van&nbsp;den&nbsp;Oord, A., and Vinyals, O. (2019). <a href="https://papers.nips.cc/paper_files/paper/2019/hash/5f8e2fa1718d1bbcadf1cd9c7a54fb8c-Abstract.html">Generating diverse high-fidelity images with VQ-VAE-2</a>. In <em>Advances in neural information processing systems</em>,Vol. 32.
 </div>
 <div id="ref-Rezende+2014" class="csl-entry" role="listitem">
-Rezende, D. J., Mohamed, S., &amp; Wierstra, D. (2014). Approximate inference in deep generative models. <em>Proceedings of the 31st International Conference on Machine Learning</em>, <em>32</em>, 1278–1286. <a href="https://proceedings.mlr.press/v32/rezende14.html">https://proceedings.mlr.press/v32/rezende14.html</a>
+Rezende, D. J., Mohamed, S., and Wierstra, D. (2014). <a href="https://proceedings.mlr.press/v32/rezende14.html">Approximate inference in deep generative models</a>. In <em>Proceedings of the 31st international conference on machine learning</em>,Vol. 32, pages 1278–1286.
+</div>
+<div id="ref-Rifai+2011" class="csl-entry" role="listitem">
+Rifai, S., Vincent, P., Muller, X., Glorot, X., and Bengio, Y. (2011). Contractive auto-encoders: Explicit invariance during feature extraction. In <em>Proceedings of the 28th international conference on international conference on machine learning</em>, pages 833–840. Madison, WI, USA: Omnipress.
 </div>
 <div id="ref-Robert-Casella2004" class="csl-entry" role="listitem">
-Robert, C. P., &amp; Casella, G. (2004). <em>Monte carlo statistical methods</em> (2nd ed.). Springer New York.
+Robert, C. P., and Casella, G. (2004). <em>Monte carlo statistical methods</em>. Springer New York.
+</div>
+<div id="ref-Rombach+2022" class="csl-entry" role="listitem">
+Rombach, R., Blattmann, A., Lorenz, D., Esser, P., and Ommer, B. (2022). <a href="https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html">High-resolution image systhesis with latent diffusion models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 10684–10695.
 </div>
 <div id="ref-Sensoy+2018" class="csl-entry" role="listitem">
-Sensoy, M., Kaplan, L., &amp; Kandemir, M. (2018). Evidential deep learning to quantify classification uncertainty. In S. Bengio, H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, &amp; R. Garnett (Eds.), <em>Advances in neural information processing systems</em> (Vol. 31). Curran Associates, Inc. <a href="https://proceedings.neurips.cc/paper_files/paper/2018/file/a981f2b708044d6fb4a71a1463242520-Paper.pdf">https://proceedings.neurips.cc/paper_files/paper/2018/file/a981f2b708044d6fb4a71a1463242520-Paper.pdf</a>
+Sensoy, M., Kaplan, L., and Kandemir, M. (2018). <a href="https://proceedings.neurips.cc/paper_files/paper/2018/file/a981f2b708044d6fb4a71a1463242520-Paper.pdf">Evidential deep learning to quantify classification uncertainty</a>. In S. Bengio, H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 31. Curran Associates, Inc.
+</div>
+<div id="ref-Song+2019" class="csl-entry" role="listitem">
+Song, Y., Garg, S., Shi, J., and Ermon, S. (2019). <a href="https://arxiv.org/abs/1905.07088"><span class="nocase">Sliced Score Matching: A Scalable Approach to Density and Score Estimation</span></a>. In.
+</div>
+<div id="ref-Tang+2024" class="csl-entry" role="listitem">
+Tang, W., Wu, Y., and Zhou, X. (2024). <a href="https://doi.org/10.3934/naco.2024015"><span class="nocase">Discrete-Time Simulated Annealing: A Convergence Analysis via the Eyring-Kramers Law</span></a>. <em>Numerical Algebra, Control and Optimization</em>.
+</div>
+<div id="ref-Thin+2021" class="csl-entry" role="listitem">
+Thin, A., Kotelevskii, N., Doucet, A., Durmus, A., Moulines, E., and Panov, M. (2021). <a href="https://proceedings.mlr.press/v139/thin21a.html">Monte carlo variational auto-encoders</a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 10247–10257. PMLR.
 </div>
 <div id="ref-Tolstikhin+2018" class="csl-entry" role="listitem">
-Tolstikhin, I., Bousquet, O., Gelly, S., &amp; Schoelkopf, B. (2018). Wasserstein auto-encoders. <em>International Conference on Learning Representations</em>. <a href="https://openreview.net/forum?id=HkL7n1-0b">https://openreview.net/forum?id=HkL7n1-0b</a>
+Tolstikhin, I., Bousquet, O., Gelly, S., and Schoelkopf, B. (2018). <a href="https://openreview.net/forum?id=HkL7n1-0b">Wasserstein auto-encoders</a>. In <em>International conference on learning representations</em>.
 </div>
 <div id="ref-vandenOord+2017" class="csl-entry" role="listitem">
-van&nbsp;den&nbsp;Oord, A., Vinyals, O., &amp; Kavukcuoglu, K. (2017). Neural discrete representation learning. <em>Advances in Neural Information Processing Systems</em>, <em>30</em>. <a href="https://papers.nips.cc/paper_files/paper/2017/hash/7a98af17e63a0ac09ce2e96d03992fbc-Abstract.html">https://papers.nips.cc/paper_files/paper/2017/hash/7a98af17e63a0ac09ce2e96d03992fbc-Abstract.html</a>
+van&nbsp;den&nbsp;Oord, A., Vinyals, O., and Kavukcuoglu, K. (2017). <a href="https://papers.nips.cc/paper_files/paper/2017/hash/7a98af17e63a0ac09ce2e96d03992fbc-Abstract.html">Neural discrete representation learning</a>. In <em>Advances in neural information processing systems</em>,Vol. 30.
+</div>
+<div id="ref-Vincent2011" class="csl-entry" role="listitem">
+Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/A-Connection-Between-Score-Matching-and-Denoising">A connection between score matching and denoising autoencoders</a>. <em>Neural Computation</em>, <em>23</em>(7), 1661–1674.
+</div>
+<div id="ref-Vincent+2008" class="csl-entry" role="listitem">
+Vincent, P., Larochelle, H., Bengio, Y., and Manzagol, P.-A. (2008). <a href="https://doi.org/10.1145/1390156.1390294">Extracting and composing robust features with denoising autoencoders</a>. In <em>Proceedings of the 25th international conference on machine learning</em>, pages 1096–1103. New York, NY, USA: Association for Computing Machinery.
+</div>
+<div id="ref-Vincent+2010" class="csl-entry" role="listitem">
+Vincent, P., Larochelle, H., Lajoie, I., Bengio, Y., and Manzagol, P.-A. (2010). <a href="http://jmlr.org/papers/v11/vincent10a.html">Stacked denoising autoencoders: Learning useful representations in a deep network with a local denoising criterion</a>. <em>Journal of Machine Learning Research</em>, <em>11</em>(110), 3371–3408.
 </div>
 <div id="ref-Wallace1992" class="csl-entry" role="listitem">
-Wallace, G. K. (1992). The JPEG still picture compression standard. <em>IEEE Transactions on Consumer Electronics</em>, <em>38</em>, 1. <a href="https://ieeexplore.ieee.org/document/125072">https://ieeexplore.ieee.org/document/125072</a>
+Wallace, G. K. (1992). <a href="https://ieeexplore.ieee.org/document/125072">The JPEG still picture compression standard</a>. In <em>IEEE transactions on consumer electronics</em>,Vol. 38, page 1.
+</div>
+<div id="ref-Wu+2020" class="csl-entry" role="listitem">
+Wu, H., Köhler, J., and Noe, F. (2020). <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/41d80bfc327ef980528426fc810a6d7a-Paper.pdf"><span>Stochastic Normalizing Flows</span></a>. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, <em>Advances in neural information processing systems</em>,Vol. 33, pages 5933–5944. Curran Associates, Inc.
+</div>
+<div id="ref-Yu+2022VIM" class="csl-entry" role="listitem">
+Yu, J., Li, X., Koh, J. Y., Zhang, H., Pang, R., Qin, J., … Wu, Y. (2022). <a href="https://openreview.net/forum?id=pfNyExj7z2">Vector-quantized image modeling with improved <span>VQGAN</span></a>. In <em>International conference on learning representations</em>.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>なお，平均場近似も極めて困難な解析的計算を必要とする <span class="citation" data-cites="Kingma-Welling2014">(<a href="#ref-Kingma-Welling2014" role="doc-biblioref">Kingma &amp; Welling, 2014</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p><a href="../../../posts/2024/Computation/VI3.html#sec-ELBO">前稿</a> も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>最適化の文脈において，目的関数の評価が困難であるとき，Monte Carlo 推定量でこれを代替する際，重点サンプリングを用いると良いことは従来提案されている <span class="citation" data-cites="Geyer1996">(<a href="#ref-Geyer1996" role="doc-biblioref">Geyer, 1996</a>)</span>．<span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert &amp; Casella, 2004, p. 203</a>)</span> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><a href="https://deepsquare.jp/2020/12/deep-evidential-regression/">Present Square 記事</a>，<a href="https://gigazine.net/news/20201130-neural-network-trust/">GIGAZINE 記事</a> もある．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>auto-associative NN ともいう <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop and Bishop, 2024, p. 563</a>)</span>．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>VAE では正規分布族の２つのパラメータ <span class="math inline">\(\operatorname{E}[Z|X],\mathrm{V}[Z|X]\)</span> をいずれもモデリングするが，AE では前者のみをモデリングする．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>この項に係数 <span class="math inline">\(\beta\)</span> をつけたものを <span class="math inline">\(\beta\)</span>-VAE と言い，<span class="math inline">\(\beta=0.5\)</span> とすると，AE と VAE の中間的な性格を持つようになる．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 681</a>)</span> 20.3.4も参照．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 681</a>)</span> 20.3.2も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>BERT では文章の 15% であるが，ViT では 75% 近くがマスキングされるという <span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop and Bishop, 2024, p. 568</a>)</span>．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><span class="citation" data-cites="Kingma-Welling2019">(<a href="#ref-Kingma-Welling2019" role="doc-biblioref">Kingma and Welling, 2019, p. 321</a>)</span> の用語に倣った．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><a href="../../../posts/2024/Computation/VI3.html#sec-ELBO">変分ベイズの稿</a> も参照．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p><span class="citation" data-cites="Habermann+2024">(<a href="#ref-Habermann+2024" role="doc-biblioref">Habermann et al., 2024</a>)</span>，そして <span class="citation" data-cites="Murphy2023">(<a href="#ref-Murphy2023" role="doc-biblioref">Murphy, 2023, p. 438</a>)</span> 10.1.5 節も参照．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p><span class="citation" data-cites="Habermann+2024">(<a href="#ref-Habermann+2024" role="doc-biblioref">Habermann et al., 2024</a>)</span> はベイズ階層モデルの推定を議論しているが，この特徴は MCMC と比べて美点になると論じている．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>最適化の文脈において，目的関数の評価が困難であるとき，Monte Carlo 推定量でこれを代替する際，重点サンプリングを用いると良いことは従来提案されている <span class="citation" data-cites="Geyer1996">(<a href="#ref-Geyer1996" role="doc-biblioref">Geyer, 1996</a>)</span>．<span class="citation" data-cites="Robert-Casella2004">(<a href="#ref-Robert-Casella2004" role="doc-biblioref">Robert and Casella, 2004, p. 203</a>)</span> も参照．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="Bishop-Bishop2024">(<a href="#ref-Bishop-Bishop2024" role="doc-biblioref">Bishop and Bishop, 2024, p. 576</a>)</span> も参照．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn13"><p>ただし，<span class="math inline">\(P_i^{-1}\)</span> とは，<span class="math display">\[ P_i(x_{i-1},x_i)\pi_{i-1}(x_i-1)=\pi_i(x_i)P_i^{-1}(x_{i-1},x_i) \]</span> で定まる確率核とした．<span class="math inline">\(\otimes\)</span> の記法は<a href="../../../static/Notations.html#kernels">こちら</a>も参照．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn14"><p><a href="../../../posts/2024/Computation/VI.html"><span class="math inline">\(k\)</span>-平均クラスタリング</a> のソフトとハードに似ている．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn15"><p><a href="https://deepsquare.jp/2020/12/deep-evidential-regression/">Present Square 記事</a>，<a href="https://gigazine.net/news/20201130-neural-network-trust/">GIGAZINE 記事</a> もある．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
@@ -474,18 +913,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }
     return false;
   }
-  const clipboard = new window.ClipboardJS('.code-copy-button', {
-    text: function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
-    }
-  });
-  clipboard.on('success', function(e) {
+  const onCopySuccess = function(e) {
     // button target
     const button = e.trigger;
     // don't keep focus
@@ -517,7 +945,29 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }, 1000);
     // clear code selection
     e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
   });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
     var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
     var mailtoRegex = new RegExp(/^mailto:/);
       var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
@@ -525,7 +975,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
     }
     // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
     for (var i=0; i<links.length; i++) {
       const link = links[i];
       if (!isInternal(link.href)) {

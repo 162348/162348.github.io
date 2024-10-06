@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬博文">
+
+<title>拡散模型 – Hirofumi Shiba</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-diffusion-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-diffusion-listing'] = new List('listing-diffusion-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  .navbar-title, .menu-text {
+      font-family: "Zen Kurenaido", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="拡散模型 – Hirofumi Shiba">
+<meta property="og:description" content="拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Samplers/Files/DDPM_outputs.png">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta property="og:image:height" content="1261">
+<meta property="og:image:width" content="1221">
+<meta name="twitter:title" content="拡散模型 – Hirofumi Shiba">
+<meta name="twitter:description" content="拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Samplers/Files/DDPM_outputs.png">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:image-height" content="1261">
+<meta name="twitter:image-width" content="1221">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">拡散模型</h1>
+            <p class="subtitle lead">深層生成モデル６</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Deep</div>
+                <div class="quarto-category">Process</div>
+                <div class="quarto-category">Sampling</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬博文 </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">2/14/2024</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">8/23/2024</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#sec-DDPM" id="toc-sec-DDPM" class="nav-link active" data-scroll-target="#sec-DDPM"><span class="header-section-number">1</span> デノイジング拡散模型 (DDPM)</a>
+  <ul class="collapse">
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
+  <li><a href="#sec-DDPM-encoder" id="toc-sec-DDPM-encoder" class="nav-link" data-scroll-target="#sec-DDPM-encoder"><span class="header-section-number">1.2</span> エンコーダーの設定</a></li>
+  <li><a href="#デコーダーの設定" id="toc-デコーダーの設定" class="nav-link" data-scroll-target="#デコーダーの設定"><span class="header-section-number">1.3</span> デコーダーの設定</a></li>
+  <li><a href="#sec-DDPM-implementation" id="toc-sec-DDPM-implementation" class="nav-link" data-scroll-target="#sec-DDPM-implementation"><span class="header-section-number">1.4</span> DDPM の実装</a></li>
+  <li><a href="#訓練" id="toc-訓練" class="nav-link" data-scroll-target="#訓練"><span class="header-section-number">1.5</span> 訓練</a></li>
+  <li><a href="#sec-DDPM-proxy-objective" id="toc-sec-DDPM-proxy-objective" class="nav-link" data-scroll-target="#sec-DDPM-proxy-objective"><span class="header-section-number">1.6</span> 代理目標</a></li>
+  <li><a href="#sec-VDM" id="toc-sec-VDM" class="nav-link" data-scroll-target="#sec-VDM"><span class="header-section-number">1.7</span> 最尤推定</a></li>
+  </ul></li>
+  <li><a href="#sec-SGM" id="toc-sec-SGM" class="nav-link" data-scroll-target="#sec-SGM"><span class="header-section-number">2</span> スコアベースの生成模型 (SGM)</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#sgm-の課題" id="toc-sgm-の課題" class="nav-link" data-scroll-target="#sgm-の課題"><span class="header-section-number">2.2</span> SGM の課題</a></li>
+  <li><a href="#sec-score-network" id="toc-sec-score-network" class="nav-link" data-scroll-target="#sec-score-network"><span class="header-section-number">2.3</span> デノイジングによる解決</a></li>
+  <li><a href="#目的関数" id="toc-目的関数" class="nav-link" data-scroll-target="#目的関数"><span class="header-section-number">2.4</span> 目的関数</a></li>
+  <li><a href="#ddpm-との対応" id="toc-ddpm-との対応" class="nav-link" data-scroll-target="#ddpm-との対応"><span class="header-section-number">2.5</span> DDPM との対応</a></li>
+  <li><a href="#sec-MLE-in-SGM" id="toc-sec-MLE-in-SGM" class="nav-link" data-scroll-target="#sec-MLE-in-SGM"><span class="header-section-number">2.6</span> 最尤推定</a></li>
+  </ul></li>
+  <li><a href="#連続時間極限" id="toc-連続時間極限" class="nav-link" data-scroll-target="#連続時間極限"><span class="header-section-number">3</span> 連続時間極限</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-2" id="toc-はじめに-2" class="nav-link" data-scroll-target="#はじめに-2"><span class="header-section-number">3.1</span> はじめに</a></li>
+  <li><a href="#sec-forward-diffusion" id="toc-sec-forward-diffusion" class="nav-link" data-scroll-target="#sec-forward-diffusion"><span class="header-section-number">3.2</span> 前向き拡散過程</a></li>
+  <li><a href="#後ろ向き拡散" id="toc-後ろ向き拡散" class="nav-link" data-scroll-target="#後ろ向き拡散"><span class="header-section-number">3.3</span> 後ろ向き拡散</a></li>
+  <li><a href="#等価な輸送を定める確定的ダイナミクス" id="toc-等価な輸送を定める確定的ダイナミクス" class="nav-link" data-scroll-target="#等価な輸送を定める確定的ダイナミクス"><span class="header-section-number">3.4</span> 等価な輸送を定める確定的ダイナミクス</a></li>
+  <li><a href="#sec-probability-flow-ODE" id="toc-sec-probability-flow-ODE" class="nav-link" data-scroll-target="#sec-probability-flow-ODE"><span class="header-section-number">3.5</span> 後ろ向き ODE</a></li>
+  </ul></li>
+  <li><a href="#応用" id="toc-応用" class="nav-link" data-scroll-target="#応用"><span class="header-section-number">4</span> 応用</a>
+  <ul class="collapse">
+  <li><a href="#sec-acceleration" id="toc-sec-acceleration" class="nav-link" data-scroll-target="#sec-acceleration"><span class="header-section-number">4.1</span> サンプリング加速法</a></li>
+  <li><a href="#拡散モデルの例" id="toc-拡散モデルの例" class="nav-link" data-scroll-target="#拡散モデルの例"><span class="header-section-number">4.2</span> 拡散モデルの例</a></li>
+  </ul></li>
+  
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="関連ページ" class="level3 unnumbered unlisted">
+<h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
+<div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1728218523727" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
+<a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Samplers/Files/linear/output.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ニューラル常微分方程式
+</h5>
+<div class="card-subtitle listing-subtitle">
+シミュレーションなしの拡散モデルとしての連続正規化流
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1728218523727" data-listing-date-modified-sort="1724716800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
+<a href="../../../posts/2024/Samplers/NF3.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Samplers/Files/RFDiff.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+フローベース模型による条件付き生成
+</h5>
+<div class="card-subtitle listing-subtitle">
+誘導からフローマッチングへ
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722556800000" data-listing-file-modified-sort="1728218523562" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="15" data-listing-word-count-sort="2810">
+<a href="../../../posts/2024/Samplers/DDPM.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="DDPM_files/figure-html/fig-encoding-output-1.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散模型の実装
+</h5>
+<div class="card-subtitle listing-subtitle">
+<code>PyTorch</code>によるハンズオン
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-02
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="3" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723161600000" data-listing-file-modified-sort="1728218523562" data-listing-date-modified-sort="1723248000000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
+<a href="../../../posts/2024/Samplers/DiscreteDiffusion.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Samplers/Files/best.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+離散空間上のフローベース模型
+</h5>
+<div class="card-subtitle listing-subtitle">
+位相構造を取り入れた次世代の構造生成へ
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-09
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="sec-DDPM" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="sec-DDPM"><span class="header-section-number">1</span> デノイジング拡散模型 (DDPM)</h2>
+<section id="はじめに" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
+<p>拡散モデルによる画像生成は，初め <span class="citation" data-cites="Dickstein+2015">(<a href="#ref-Dickstein+2015" role="doc-biblioref">Sohl-Dickstein et al., 2015</a>)</span> で提案され，<span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> で DDPM (Denoising Diffusion Probabilistic Model) として拡張された．</p>
+<!-- ^[VideoGPT の論文 [@Yan+2021] や，DALL-E2 の論文 [@Ramesh+2022]，GLIDE の論文 [@Nichol+2022] でも引用されている．] -->
+<!-- [VAE](../Kernels/Deep4.qmd), [EBM](EBM.qmd), [正規化流](NF.qmd) はいずれもノイズからデータの分布までの変換を学ぼうとするが，拡散模型のアイデアは，**データをノイズにする方向の方が圧倒的に簡単である**ことを利用する． -->
+<p>DDPM では訓練データを，完全な Gauss 分布になるような変換を拡散過程によって行う．これを複数段階に分けて実行し，エンコーダー <span class="math display">\[
+Q(x_0,-)=\int\cdots\int Q^1(x_0,dx_1)\cdots Q^T(x_{T-1},-)=\mathrm{N}_d(0,I_d)
+\]</span> を得る．</p>
+<p>続いて，この逆過程 <span class="math inline">\(p_\theta(x_t,x_{t-1})\)</span> を VAE 様の方法で変分推論により学習しようというのである．</p>
+<p>この方法は，Langevin サンプラーをデータ分布に誘導するスコア場を，種々のノイズレベル <span class="math inline">\(\sigma_t&gt;0\)</span> で <a href="../../../posts/2024/Samplers/EBM.html#sec-SM">スコアマッチング</a> により学習し，アニーリングをした Langevin サンプラーによりサンプリングをしていることに等価になる．</p>
+<p>この SGM (Score-based Generative Model) としての見方（第 <a href="#sec-SGM" class="quarto-xref">2</a> 節）からは，サンプリングに特化した <a href="../../../posts/2024/Samplers/EBM.html">EBM</a> ともみなせる．</p>
+<p>この２つの見方はノイズスケジュールの違いを除いて等価な目的関数を定める <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．また，違う SDE が定める異なる拡散課程を用いて，ノイズ分布をデータ分布に輸送しているともみれる <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span>．現状２つの定式化は完全に等価とみなされ，単に <strong>拡散模型</strong> と言った場合 DDPM と SGM の双方を指す．</p>
+<p>拡散模型は現在，連続時間ベースのフローベースモデルとして，<a href="../../../posts/2024/Samplers/NF1.html">連続時間正規化流 (CNF)</a> と同一の枠組みで捉えられる <span class="citation" data-cites="Albergo+2023">(<a href="#ref-Albergo+2023" role="doc-biblioref">Albergo et al., 2023</a>)</span>．</p>
+</section>
+<section id="sec-DDPM-encoder" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="sec-DDPM-encoder"><span class="header-section-number">1.2</span> エンコーダーの設定</h3>
+<p>前述の通り，DDPM はエンコーダー <span class="math inline">\(q\)</span> とデコーダー <span class="math inline">\(p_\theta\)</span> がそれぞれ複数層からなるような，階層的 VAE ともみなせる．</p>
+<!-- 加えて，隠れ層は全て入力 $x_0$ と同じ次元 $d$ で作る点は，正規化流にも似ている（可逆とは限らないが）． -->
+<p>ただし潜在空間上の事前分布は <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> で固定し，エンコーダー <span class="math inline">\(q\)</span> は <span class="math display">\[
+Q(x_0,dx_T)=q(x_0,x_T)\,dx_T=\mathrm{N}_d(0,I_d)
+\]</span> を満たすように，ノイズスケジュール <span class="math inline">\(\{\beta_t\}\)</span> の自由度のみをハイパーパラメータとして残して <span class="math display">\[
+Q^t(x_{t-1},dx_t):=\mathrm{N}_d\left(\sqrt{1-\beta_t}x_{t-1},\beta_tI_d\right),\qquad\beta_t\in(0,1),
+\]</span> で固定し，学習すべきパラメータは入れない．</p>
+<p>このとき <span class="math display">\[
+Q^{1:t}(x_0,dx_t)=\mathrm{N}_d\left(\sqrt{\alpha_t}x_0,(1-\alpha_t)I_d\right),\qquad\alpha_t:=\prod_{s=1}^t(1-\beta_s),
+\]</span> であり，後述の通り，これは OU 過程をシミュレーションしていることにあたる（第 <a href="#sec-forward-diffusion" class="quarto-xref">3.2</a> 節）．</p>
+</section>
+<section id="デコーダーの設定" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="デコーダーの設定"><span class="header-section-number">1.3</span> デコーダーの設定</h3>
+<p>核 <span class="math inline">\(Q^t(x_{t-1},dx_t)\)</span> の逆 <span class="math display">\[
+q(x_{t-1}|x_t)\,dx_{t-1}dx_t=Q^t(x_{t-1},dx_t)\,dx_{t-1}
+\]</span> を考えたい．この際，<span class="math inline">\(x_0\)</span> で条件づけると，次のような表示を得る：</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math display">\[
+q(x_{t-1}|x_t,x_0)\,dx_{t-1}=\mathrm{N}_d\left(\widetilde{\mu}_t(x_t,x_0),\widetilde{\beta}_tI_d\right).
+\]</span> ただし，<span class="math inline">\(\widetilde{\mu}_t,\widetilde{\beta}_t\)</span> は次のように定めた： <span class="math display">\[
+\widetilde{\mu}_t(x_t,x_0):=\frac{(1-\alpha_{t-1})\sqrt{1-\beta_t}x_t+\sqrt{\alpha_{t-1}}\beta_tx_0}{1-\alpha_t},\qquad\widetilde{\beta}_t:=\frac{1-\alpha_{t-1}}{1-\alpha_t}\beta_t.
+\]</span></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+証明
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Bayes の定理から， <span class="math display">\[\begin{align*}
+    q\biggr(x_{t-1},(x_t,x_0)\biggl)&amp;=\frac{q(x_t|x_{t-1},x_0)q(x_{t-1}|x_0)}{q(x_t|x_0)}\\
+    &amp;=\frac{q(x_t|x_{t-1})q(x_{t-1}|x_0)}{q(x_t|x_0)}.
+\end{align*}\]</span></p>
+<p>いま， <span class="math display">\[
+q(x_t|x_{t-1})=\frac{1}{(2\pi\beta_t)^{d/2}}\exp\left(-\frac{\lvert x_t-\sqrt{1-\beta_t}x_{t-1}\rvert^2}{2\beta_t}\right)
+\]</span> <span class="math display">\[
+q(x_{t-1}|x_0)=\frac{1}{(2\pi(1-\alpha_{t-1}))^{d/2}}\exp\left(-\frac{\lvert x_{t-1}-\sqrt{\alpha_{t-1}}x_0\rvert^2}{2(1-\alpha_{t-1})}\right)
+\]</span> <span class="math display">\[
+q(x_t|x_0)=\frac{1}{(2\pi(1-\alpha_t))^{d/2}}\exp\left(-\frac{\lvert x_t-\sqrt{\alpha_t}x_0\rvert^2}{2(1-\alpha_t)}\right)
+\]</span> であるから，これを代入して結論を得る．</p>
+</div>
+</div>
+</div>
+<p>このことに基づいて， <span id="eq-decoder-model"><span class="math display">\[
+P^t_\theta(x_t,dx_{t-1})=\mathrm{N}_d\biggr(\mu_\theta(x_t,t),\Sigma_\theta(x_t,t)\biggl),\qquad\Sigma_\theta(x_t,t):=\sigma_t^2I_d,
+\tag{1}\]</span></span> とモデリングする．</p>
+<p>総じて，データ分布を <span id="eq-decoder-model"><span class="math display">\[
+p_\theta(x_0)\,dx_0:=\int_{\mathbb{R}^{dT}}p(x_T)P^T_\theta(x_T,dx_{T-1})\cdots P^1_\theta(x_1,dx_0)dx_T
+\tag{2}\]</span></span> としてモデリングすることになる．ただし，<span class="math inline">\(p(x_T)\,dx_T=\mathrm{N}_d(0,I_d)\)</span>．</p>
+</section>
+<section id="sec-DDPM-implementation" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="sec-DDPM-implementation"><span class="header-section-number">1.4</span> DDPM の実装</h3>
+<p>DDPM <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> では，平均のモデリングにのみパラメータを入れて，分散は <span class="math display">\[
+\Sigma_\theta(x_t,t):=\sigma_t^2I_d,\qquad\sigma^2_t\in\{\beta_t,\widetilde{\beta}_t\}
+\]</span> としてしまう．</p>
+<p><span class="math inline">\(\beta_t\)</span> の選択は Taylor 展開を通じた一次近似として正当化されるが，これにもニューラルネットワークを導入してより高次な近似をし，精度を上げる方法が <span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span> で議論されている（第 <a href="#sec-acceleration-sequential" class="quarto-xref">4.1.2</a> 節）．</p>
+<p>加えて，<span class="math inline">\(x_t,x_0\)</span> で条件付けた <span class="math inline">\(x_{t-1}\)</span> の平均 <span class="math inline">\(\widetilde{\mu}_t(x_t,x_0)\)</span> は， <span class="math display">\[
+x_t=\sqrt{\alpha_t}x_0+\sqrt{1-\alpha_t}\epsilon_t\quad\Leftrightarrow\quad x_0=\frac{1}{\sqrt{\alpha_t}}x_t-\frac{\sqrt{1-\alpha_t}}{\sqrt{\alpha_t}}\epsilon_t,\qquad\epsilon_t\sim\mathrm{N}_d(0,I_d)
+\]</span> を通じてパラメータ変換を施スト <span class="math display">\[\begin{align*}
+    \widetilde{\mu}_t(x_t,\epsilon_t)&amp;=\frac{1}{\sqrt{1-\beta_t}}\left(\frac{1-\alpha_{t-1}}{1-\alpha_t}(1-\beta_t)x_t+\frac{\beta_t}{1-\alpha_t}x_t-\frac{\beta_t}{\sqrt{1-\alpha_t}}\epsilon_t\right)\\
+    &amp;=\frac{1}{\sqrt{1-\beta_t}}\left(x_t-\frac{\beta_t}{\sqrt{1-\alpha_t}}\epsilon_t\right)
+\end{align*}\]</span> を得る．</p>
+<p>従って，<span class="math inline">\(x_t\)</span> から <span class="math inline">\(x_{t-1}\)</span> を予測する代わりに，<span class="math inline">\(x_t\)</span> から「どれくらいデノイジングするか？」を代わりに予測することもできる．すなわち， <span class="math display">\[
+\widetilde{\mu}_\theta(x_t,t)=\frac{1}{\sqrt{1-\beta_t}}\left(x_t-\frac{\beta_t}{\sqrt{1-\alpha_t}}\widetilde{\epsilon}_\theta(x_t,t)\right)
+\]</span> というパラメータ変換により，<span class="math inline">\(\widetilde{\mu}_t(x_t,t)\)</span> の代わりに <span class="math inline">\(\widetilde{\epsilon}_\theta(x_t,t)\)</span> を予測する．</p>
+<p>また <span class="math inline">\(x_t\)</span> は常に <span class="math inline">\(d\)</span> 次元で一定であるため，アーキテクチャは <span class="math inline">\(U\)</span>-net や ConvNet などが用いられる．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/DDPM_outputs.png" class="img-fluid figure-img"></p>
+<figcaption>DDPM の出力の例．画像をタップしてコードを見る</figcaption>
+</figure>
+</div>
+</section>
+<section id="訓練" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="訓練"><span class="header-section-number">1.5</span> 訓練</h3>
+<p>このモデルの対数尤度 (<a href="#eq-decoder-model" class="quarto-xref">2</a>) は <span class="math inline">\(\mathbb{R}^{dT}\)</span> 上の積分を含む．そこで VAE 同様，最初の選択が変分推論となる．</p>
+<p>次のように <span class="math inline">\(\mathcal{L}(\theta,q)\)</span> によって下から評価できる：</p>
+<p><span class="math display">\[\begin{align*}
+    \log p_\theta(x_0)&amp;=\log\int_{\mathbb{R}^{dT}}p_\theta(x_{0:T})\,dx_{1:T}\\
+    &amp;=\log\left(\int_{\mathbb{R}^{dT}}\frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}q(x_{1:T}|x_0)\,dx_{1:T}\right)\\
+    &amp;\ge\int_{\mathbb{R}^{dT}}\log\left(p(x_T)\prod_{t=1}^T\frac{p_\theta(x_{t-1}|x_t)}{q(x_t|x_{t-1})}\right)q(x_{1:T}|x_0)\,dx_{1:T}\\
+    &amp;=:\mathcal{L}(\theta,q).
+\end{align*}\]</span></p>
+<p>ただし，<span class="math inline">\(\mathcal{L}(\theta,q)\)</span> は次のように変形できる：</p>
+<p><span class="math display">\[\begin{align*}
+    \mathcal{L}(\theta,q)&amp;=-\operatorname{KL}\biggr(q(x_T|x_0),p(x_T)\biggl)\\
+    &amp;\qquad-\sum_{t=2}^T\int_{\mathbb{R}^d}\operatorname{KL}\biggr(q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)\biggl)q(x_t|x_0)\,dx_t\\
+    &amp;\qquad+\int_{\mathbb{R}^d}\log p_\theta(x_0|x_1)q(x_1|x_0)\,dx_1\\
+    &amp;=:\mathcal{L}_1(q)+\mathcal{L}_2(\theta,q)+\mathcal{L}_3(\theta,q).
+\end{align*}\]</span></p>
+<p>この式は <a href="../../../posts/2024/Kernels/Deep4.html#sec-ELBO">VAE の変分下界</a> から，KL 乖離度の項が <span class="math inline">\(T-1\)</span> 個増えた形になっている．</p>
+<p>この変分下界 <span class="math inline">\(\mathcal{L}(\theta,q)\)</span> の無限次元変数 <span class="math inline">\(q\)</span> の方は，<span class="math inline">\(x\)</span> からスタートするエンコーダー過程 <a href="#sec-DDPM-encoder" class="quarto-xref">1.2</a> の確率核に固定してしまう．</p>
+<p>すると，第二項 <span class="math inline">\(\mathcal{L}_2(\theta)\)</span> に登場する密度は全て正規密度であるため，解析的に計算できる： <span class="math display">\[
+\operatorname{KL}\biggr(q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)\biggl)=\frac{\lvert\widetilde{\mu}_t(x_t,x_0)-\mu_\theta(x_t,t)\rvert^2}{2\beta_t}.
+\]</span> 第三項 <span class="math inline">\(\mathcal{L}_3(\theta)\)</span> は <span class="math inline">\(q(x_1|x_0)\,dx_1=\mathrm{N}_d(\sqrt{1-\beta_1}x_0,\beta_1I_d)\)</span> からのサンプルにより Monte Carlo 近似できる．</p>
+</section>
+<section id="sec-DDPM-proxy-objective" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="sec-DDPM-proxy-objective"><span class="header-section-number">1.6</span> 代理目標</h3>
+<p>DDPM <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> では，<span class="math inline">\(\widetilde{\mu}_\theta(x_t,t)\)</span> の代わりに，<span class="math inline">\(\widetilde{\epsilon}_\theta(x_t,t)\)</span> を予測するのであった（第 <a href="#sec-DDPM-implementation" class="quarto-xref">1.4</a> 節）．</p>
+<p>この際，第三項は次の変更を受ける： <span class="math display">\[
+\operatorname{KL}\biggr(q(x_{t-1}|x_t,x_0),p_\theta(x_{t-1}|x_t)\biggl)=\frac{\beta_t}{2(1-\alpha_t)(1-\beta_t)}\biggl|\widetilde{\epsilon}_\theta\biggr(\sqrt{\alpha_t}x_0+\sqrt{1-\alpha_t}\epsilon_t,t\biggl)-\epsilon_t\biggr|^2+\mathrm{const.}
+\]</span> 第二項も全く同じ表記になり，<span class="math inline">\(t=1\)</span> の場合に当たるから，総じて <span class="math display">\[
+\mathcal{L}(\theta)=-\sum_{t=1}^T\frac{\beta_t}{2(1-\alpha_t)(1-\beta_t)}\biggl|\widetilde{\epsilon}_\theta\biggr(\sqrt{\alpha_t}x_0+\sqrt{1-\alpha_t}\epsilon_t,t\biggl)-\epsilon_t\biggr|^2+\mathrm{const.}
+\]</span></p>
+<p>しかし，DDPM <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> では，正確な変分推論を実行するのではなく，この係数を全て <span class="math inline">\(1\)</span> にした <span class="math display">\[
+\mathcal{L}'=\lvert\epsilon_\tau-\widetilde{\epsilon}_\theta(X_\tau,\tau)\rvert^2,\qquad X_\tau=\sqrt{\alpha_\tau}X_0+\sqrt{1-\alpha_\tau}\epsilon_\tau,\tau\sim\mathrm{U}([T]),X_0\sim p(x_0)\,dx_0,\epsilon_\tau\sim\mathrm{N}_d(0,I_d),
+\]</span> を代理目標として用いた．ただし，<span class="math inline">\(p(x_0)\,dx_0\)</span> はデータ分布である．</p>
+<p>これは純粋に，時刻 <span class="math inline">\(t\)</span> までに実際に印加されるノイズ <span class="math inline">\(\epsilon_t\)</span> とモデルが予測するノイズ <span class="math inline">\(\widetilde{\epsilon}_\theta\)</span> の二乗差を最小化することに等しい．</p>
+<p>この目的関数の変更は，<span class="math inline">\(t\)</span> が小さい場合の誤差を小さく評価し，<span class="math inline">\(t\)</span> が大きい場合の誤差を大きく評価するため，大きい <span class="math inline">\(t\)</span> でのデノイジングというより難しいタスクを強調して学習する効果を持つという <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>．</p>
+<p><span class="citation" data-cites="Choi+2022">(<a href="#ref-Choi+2022" role="doc-biblioref">Choi et al., 2022</a>)</span> この代理目標の議論をさらに進めている．またこのような代理目標は，データ拡張の下では真の ELBO と一致する <span class="citation" data-cites="Kingma-Gao2023">(<a href="#ref-Kingma-Gao2023" role="doc-biblioref">D. Kingma and Gao, 2023</a>)</span> ため，全く無根拠な変更というわけではない．</p>
+</section>
+<section id="sec-VDM" class="level3" data-number="1.7">
+<h3 data-number="1.7" class="anchored" data-anchor-id="sec-VDM"><span class="header-section-number">1.7</span> 最尤推定</h3>
+<p>VDM (Variational Diffusion Model) <span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">D. P. Kingma et al., 2021</a>)</span> では正確に <span class="math inline">\(\mathcal{L}(\theta)\)</span> を最小化することで最尤推定を実行する．</p>
+<p>この方法では DDPM では固定されていたノイズスケジュール <span class="math inline">\(\widetilde{\beta}_t\)</span> の真の変分推論が実行できる．</p>
+<p><span class="math display">\[
+Q^{1:t}(x_0,dx_t)=\mathrm{N}_d\biggr(\sqrt{\alpha_t}x_0,(1-\alpha_t)I_d\biggl)
+\]</span> の変数 <span class="math inline">\(\alpha_t\)</span> をパラメータ変換した SNR (Signal-to-Noise Ratio) <span class="math display">\[
+R(t)=\frac{\alpha_t}{1-\alpha_t}=:e^{-\gamma_\phi(t)}
+\]</span> に注目し，<span class="math inline">\(\gamma_\phi\)</span> をニューラルネットワークでモデリングする．</p>
+<p>この <span class="math inline">\(R(t)\)</span> を用いれば，正確な目的関数 <span class="math inline">\(\mathcal{L}(\theta)\)</span> はより簡単な表示を持つことを発見した <span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">D. P. Kingma et al., 2021</a>)</span> は，さらにこれを訓練する際に QMC によるより分散の小さい Monte Carlo 推定量を用いることで，DDPM と同じくらい効率的に最尤推定が実行できることを示した．</p>
+<p><span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">D. P. Kingma et al., 2021</a>)</span>, <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span> は無限層の VAE という DDPM の観点からの貢献であるが，SDE の観点からの最尤推定法を <span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021</a>)</span>, <span class="citation" data-cites="Vahdat+2021">(<a href="#ref-Vahdat+2021" role="doc-biblioref">Vahdat et al., 2021</a>)</span> が提案している（第 <a href="#sec-MLE-in-SGM" class="quarto-xref">2.6</a> 節）．</p>
+</section>
+</section>
+<section id="sec-SGM" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-SGM"><span class="header-section-number">2</span> スコアベースの生成模型 (SGM)</h2>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>スコアマッチングはもともと，<a href="../../../posts/2024/Samplers/EBM.html#sec-SM">エネルギーベースモデル (EBM)</a> の学習手法として <span class="citation" data-cites="Hyvarinen2005">(<a href="#ref-Hyvarinen2005" role="doc-biblioref">Hyvärinen, 2005</a>)</span> により提案された．</p>
+<p>そもそも EBM も優秀な生成モデルとして知られている <span class="citation" data-cites="Du-Mordatch2019">(<a href="#ref-Du-Mordatch2019" role="doc-biblioref">Du and Mordatch, 2019</a>)</span>, <span class="citation" data-cites="Gao+2020">(<a href="#ref-Gao+2020" role="doc-biblioref">Gao et al., 2020</a>)</span> が，スコアマッチングによるスコアの学習はもっと直接的に生成モデルを定める：</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>スコア（または Stein <span class="citation" data-cites="Liu+2016">(<a href="#ref-Liu+2016" role="doc-biblioref">Liu et al., 2016</a>)</span> / <span class="citation" data-cites="Hyvarinen2005">(<a href="#ref-Hyvarinen2005" role="doc-biblioref">Hyvärinen, 2005</a>)</span> スコア）と呼ばれるベクトル場 <span class="math display">\[
+\nabla_x\log p(x)
+\]</span> 自体を学習できれば，これが駆動する OU 過程を用いて <span class="math inline">\(p(x)\)</span> からサンプリングを行うことが出来る．</p>
+</div>
+</div>
+</div>
+<p>これが <strong>SGM (Score-based Generative Model)</strong> <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span> のアイデアであった．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>このアイデアは既存の <a href="../../../posts/2024/Samplers/EBM.html#sec-DSM">DSM (Denoising Score Matching)</a> の改良とも見れる．</p>
+<p>DSM はデータに印加するノイズ <span class="math inline">\(\sigma&gt;0\)</span> が強いほど推定が安定するが，推定対象であるノイズが印加されたスコアは元のデータ分布から乖離してしまうというトレードオフがあった．これをアニーリングによって解決する方法とも見れる．</p>
+</section>
+<section id="sgm-の課題" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sgm-の課題"><span class="header-section-number">2.2</span> SGM の課題</h3>
+<p>しかしこのスキームの課題は，<span class="math inline">\(\nabla_x\log p(x)\)</span> の値は <span class="math inline">\(p\)</span> を一意的に定めないということである．</p>
+<p>例えば， <span class="math display">\[
+p=\pi p_0+(1-\pi)p_1,\qquad\pi\in(0,1)
+\]</span> という関係があり，<span class="math inline">\(p_0,p_1\)</span> の台が互いに素であったとき，<span class="math inline">\(\nabla_x\log p\)</span> からは <span class="math inline">\(\pi\in(0,1)\)</span> を定めるための情報が完全に消えてしまう．</p>
+<p>すなわち，データが下図のように部分多様体上にのみ台を持つ場合は，モデルが識別可能でない．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../../../docs/posts/2024/Samplers/SM_files/figure-html/fig-learned-score-output-1.png" class="img-fluid figure-img"></p>
+<figcaption><a href="../../../posts/2024/Samplers/EBM1.html">スコアマッチングの例：データが青，学習されたスコア場が緑．</a></figcaption>
+</figure>
+</div>
+<p>これにより間違ったスコアが学習され，多峰性を持ってしまった場合，OU 過程によるサンプリングが失敗する <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span>．</p>
+<p>従って，各ノイズレベル <span class="math inline">\(\sigma\)</span> に対応したスコア場を学習し，Langevin サンプラーをノイズが大きく分布が単純な領域からスタートさせ，徐々にデータ分布に近づけて収束を促す（アニーリング）．</p>
+<p>すると SGM は，最初の発想は全く違えど，最終的に得られるモデルは，DDPM と等価になる．</p>
+</section>
+<section id="sec-score-network" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-score-network"><span class="header-section-number">2.3</span> デノイジングによる解決</h3>
+<p>SGM <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span>, <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Y. Song and Ermon, 2020</a>)</span> ではデータにさまざまな強度 <span class="math inline">\(\sigma\)</span> の Gauss ノイズを印加したもののスコア場を，スコアマッチングで学習することを考える．</p>
+<p>ノイズレベル <span class="math inline">\(\sigma\)</span> も入力に含めることで，単一のニューラルネットワーク <span class="math inline">\(s_\theta(x,\sigma)\)</span> で学習をする．このアーキテクチャを <strong>NCSN (Noise Conditional Score Network)</strong> <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span> または単に <strong>スコアネットワーク</strong> <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Y. Song and Ermon, 2020</a>)</span> という．</p>
+<p>ノイズを印加することは，Gauss 核との畳み込みにより分布を軟化していくことに相当し，アニーリングと同じ効果を持つ．</p>
+<p>その結果，<span class="math inline">\(\sigma\)</span> が十分大きい際は多峰性が消失してスコアマッチングが正確になる．加えて MCMC によるサンプリングも容易になる．</p>
+<p>はじめ，OU 過程を十分に大きい <span class="math inline">\(\sigma&gt;0\)</span> に対応するスコアで駆動させ，徐々に <span class="math inline">\(\sigma\to0\)</span> としていくことで，データ分布からサンプリングすることを目指す．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+</section>
+<section id="目的関数" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="目的関数"><span class="header-section-number">2.4</span> 目的関数</h3>
+<!-- この「データにノイズを印加して学びやすくし，徐々にノイズを除去していく」というアイデアは拡散模型のそれに他ならず，スコアマッチングと拡散模型が邂逅するのは時間の問題だったと言えるだろう． -->
+<p>スコアのスケール <span class="math inline">\(\sigma\)</span> の Gauss ノイズにより軟化したデータのスコア場を <span class="math inline">\(s_\theta(x,\sigma)\)</span> と表し，<a href="../../../posts/2024/Samplers/EBM.html##sec-DSM">デノイジングスコアマッチング</a> (DNS) の目的関数の列を考える：<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> <span class="math display">\[
+\mathcal{L}(\theta;\sigma)=\frac{1}{2}\operatorname{E}\left[\left\|s_\theta(\widetilde{X},\sigma)+\frac{\widetilde{X}-X}{\sigma^2}\right\|^2_2\right].
+\]</span></p>
+<p>この DNS 目的関数の，ある等比数列 <span class="math inline">\(\sigma_1&gt;\cdots&gt;\sigma_T&gt;0\)</span> に関する線型和 <span id="eq-SGM-objective"><span class="math display">\[
+\mathcal{L}(\theta;\sigma_{1:T})=\sum_{t=1}^T\lambda_t\mathcal{L}(\theta;\sigma_t),\qquad\lambda_t&gt;0,
+\tag{3}\]</span></span> を最終的な目的関数とする．</p>
+<p>数列 <span class="math inline">\((\sigma_i)\)</span> の設定の仕方，<span class="math inline">\(\sigma_1\)</span> をどこまで大きくすれば良いか，などは <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Y. Song and Ermon, 2020</a>)</span> の理論解析を参照．ステップ数 <span class="math inline">\(T\)</span> は大きければ大きいほどよい．</p>
+</section>
+<section id="ddpm-との対応" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="ddpm-との対応"><span class="header-section-number">2.5</span> DDPM との対応</h3>
+<p>この SGM の目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) は，ノイズスケジュール <span class="math inline">\(\lambda_t\)</span> が異なるのみで DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> と同じ目的関数となっている <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>, <span class="citation" data-cites="Huang+2021">(<a href="#ref-Huang+2021" role="doc-biblioref">Huang et al., 2021</a>)</span>．</p>
+<p>実際， <span class="math display">\[
+\mathcal{L}(\theta;\sigma_t^2)=\operatorname{E}\left[\frac{\lambda_\tau}{\sigma_\tau^2}\lvert\epsilon_\tau-\widetilde{\epsilon}_\theta(X_\tau,\tau)\rvert^2\right]
+\]</span> と表せるから，ハイパーパラメータ <span class="math inline">\(\lambda_t\)</span> を <span class="math inline">\(\lambda_t=\sigma_t^2\)</span> と取ることで，DDPM の代理目的関数 <a href="#sec-DDPM-proxy-objective" class="quarto-xref">1.6</a> に一致する．</p>
+</section>
+<section id="sec-MLE-in-SGM" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="sec-MLE-in-SGM"><span class="header-section-number">2.6</span> 最尤推定</h3>
+<p>近似が入っている DDPM の訓練目標と対応していることから判るように，スコアマッチングは正確な最尤推定を実行していない．</p>
+<p>かといって，正確な変分推論 <a href="#sec-VDM" class="quarto-xref">1.7</a> を実行するのは高くつく．</p>
+<p><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021</a>)</span> はスコアマッチングと同じくらい効率的な最尤推定法が，目的関数 (<a href="#eq-SGM-objective" class="quarto-xref">3</a>) の重みづけ <span class="math inline">\((\lambda_t)\)</span> を特定の値 <strong>likelihood weighting</strong> にとることで得られることを示している．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/Song+(2021).png" class="img-fluid figure-img"></p>
+<figcaption><span class="citation" data-cites="Song+2021NeurIPS">(<a href="#ref-Song+2021NeurIPS" role="doc-biblioref">Y. Song, Durkan, et al., 2021, p. 5</a>)</span></figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="連続時間極限" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="連続時間極限"><span class="header-section-number">3</span> 連続時間極限</h2>
+<section id="はじめに-2" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">3.1</span> はじめに</h3>
+<p>DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> と SGM <a href="#sec-SGM" class="quarto-xref">2</a> は，いずれも OU 過程とその時間反転の離散化として統一的に理解できる．</p>
+<p>この連続時間極限に関する知見が，モデルのデザインに関して示唆を与えてくれる <span class="citation" data-cites="Tzen-Raginsky2019">(<a href="#ref-Tzen-Raginsky2019" role="doc-biblioref">Tzen and Raginsky, 2019</a>)</span>, <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span>．</p>
+<p>タイムステップ <span class="math inline">\(t\)</span> の取り方は適応的にできるし，<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> SDE (<a href="#eq-OU" class="quarto-xref">4</a>) と等価な輸送を定める ODE を考え，サンプリングを加速することも考えられる．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+</section>
+<section id="sec-forward-diffusion" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-forward-diffusion"><span class="header-section-number">3.2</span> 前向き拡散過程</h3>
+<p>データ分布を正規分布に還元する際に DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> で用いた拡散過程は，パラメータ <span class="math inline">\(\beta(t)\)</span> を持った <span class="math inline">\(0\)</span> に回帰的な OU 過程である <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021, p. 5</a>)</span>： <span id="eq-OU"><span class="math display">\[
+dX_t=-\frac{\beta(t)}{2}X_tdt+\sqrt{\beta(t)}dB_t,\qquad\beta\left(\frac{t}{T}\right)=T\beta_t.
+\tag{4}\]</span></span></p>
+<p>これを <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span> では <strong>分散保存過程</strong> (variance-preserving process) と呼んでいる．</p>
+<p>一方で，SGM <a href="#sec-SGM" class="quarto-xref">2</a> では <span class="math display">\[
+dX_t=\sqrt{\frac{d }{d t}\sigma(t)^2}dB_t
+\]</span> で定まる拡散過程を用いる．これを <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a>)</span> では <strong>分散爆発過程</strong> (variance-exploding process) と呼んでいる．</p>
+</section>
+<section id="後ろ向き拡散" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="後ろ向き拡散"><span class="header-section-number">3.3</span> 後ろ向き拡散</h3>
+<p><span class="citation" data-cites="Anderson1982">(<a href="#ref-Anderson1982" role="doc-biblioref">Anderson, 1982</a>)</span> によると，一般に <span class="math display">\[
+dX_t=f_t(X_t)\,dt+\sigma_t\,dB_t
+\]</span> という <a href="../../../posts/2024/Samplers/DD1.html">SDE の時間反転</a> は， <span class="math display">\[
+dY_t=\biggr(f_t(Y_t)-\sigma_t^2\nabla_x\log q_t(Y_t)\biggl)\,dt+\sigma_t\,dB_{-t}
+\]</span> が定める．ここにスコア場 <span class="math inline">\(\nabla_x\log q_t\)</span> が出てくるのである．</p>
+<p>特に，OU 過程 (<a href="#eq-OU" class="quarto-xref">4</a>) の時間反転は <span class="math display">\[
+dY_t=\biggr(-\frac{\beta_t}{2}Y_t-\beta_t\nabla_{x}\log q_t(Y_t)\biggl)\,dt+\sqrt{\beta_t}\,dB_{-t}
+\]</span> と表せる．</p>
+<p>このスコア関数 <span class="math inline">\(\nabla_x\log q_t(X_t)\)</span> を DSM によって推定した <span class="math display">\[
+dY_t=-\frac{\beta_t}{2}\biggr(Y_t+2s_\theta(Y_t,t)\biggl)\,dt+\sqrt{\beta_t}\,dB_{-t}
+\]</span> でデータ分布からサンプリングすることができるのである．なお，拡散過程のサンプリングは難しい問題であり，最も直接的には Euler-Maruyama 離散化を通じれば良い．</p>
+</section>
+<section id="等価な輸送を定める確定的ダイナミクス" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="等価な輸送を定める確定的ダイナミクス"><span class="header-section-number">3.4</span> 等価な輸送を定める確定的ダイナミクス</h3>
+<p>代わりに ODE <span class="math display">\[
+\frac{d x_t}{d t}=f(x,t)-\frac{g(t)^2}{2}\nabla_x\log p_t(x)
+\]</span> で定まる確定的ダイナミクス <span class="math inline">\(\{x_t\}\)</span> を用いても，同様にデータ分布は <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> に還元される．</p>
+<p>これを <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song, Sohl-Dickstein, et al., 2021</a> Sec D.3)</span> は probability flow ODE と呼ぶ．</p>
+</section>
+<section id="sec-probability-flow-ODE" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="sec-probability-flow-ODE"><span class="header-section-number">3.5</span> 後ろ向き ODE</h3>
+<p>この ODE を推定した <span class="math display">\[
+\frac{d y_t}{d t}=f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)
+\]</span> を Euler 法，またはより高次な Heun 法などによって逆から解くことができる <span class="citation" data-cites="Karras+2022">(<a href="#ref-Karras+2022" role="doc-biblioref">Karras et al., 2022</a>)</span>．</p>
+<p>これは<a href="../../../posts/2024/Samplers/NF.html#sec-CNF">連続時間正規化流</a>，特に Neural ODE と等価なモデリングをすることになる．</p>
+<p>実は SDE は <span class="math display">\[
+dY_t=\biggr(f(y,t)-\frac{g(t)^2}{2}s_\theta(y_t,t)\biggl)-\frac{\beta_t}{2}s_\theta(y_t,t)dt+\sqrt{\beta_t}\,dB_t
+\]</span> と，上記の確率的フロー ODE に OU 過程の項を加えた形になっており，ODE によるアプローチはこの追加の OU 過程項を消去することに等しい．</p>
+</section>
+</section>
+<section id="応用" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="応用"><span class="header-section-number">4</span> 応用</h2>
+<section id="sec-acceleration" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="sec-acceleration"><span class="header-section-number">4.1</span> サンプリング加速法</h3>
+<p>ODE を用いることで拡散模型のサンプリング速度が向上する．<span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span> も参照．</p>
+<section id="sec-DDIM" class="level4" data-number="4.1.1">
+<h4 data-number="4.1.1" class="anchored" data-anchor-id="sec-DDIM"><span class="header-section-number">4.1.1</span> Denoising Diffusion Implicit Model (DDIM) <span class="citation" data-cites="JiamingSong+2021">(<a href="#ref-JiamingSong+2021" role="doc-biblioref">J. Song et al., 2021</a>)</span></h4>
+<p>DDIM <span class="citation" data-cites="JiamingSong+2021">(<a href="#ref-JiamingSong+2021" role="doc-biblioref">J. Song et al., 2021</a>)</span> は，スタート地点 <span class="math inline">\(x_0\)</span> に条件付けられた確率核 <span id="eq-DDIM"><span class="math display">\[
+q_\sigma(x_{t-1}|x_t,x_0)\,dx_{t-1}=\mathrm{N}\biggr(\sqrt{\alpha_{t-1}}x_0+\sqrt{1-\alpha_{t-1}-\sigma_t^2}\frac{x_t-\sqrt{\alpha_t}x_0}{\sqrt{1-\alpha_t}},\sigma_t^2I_d\biggl)
+\tag{5}\]</span></span> を考える．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a> これを <span class="math inline">\(x_0\)</span> に関して積分すると元の確率核 <span class="math inline">\(q_\sigma(x_{t-1}|x_t)\)</span> を得る．</p>
+<p><span class="math inline">\(\sigma_t\)</span> は任意としており， <span class="math display">\[
+\sigma_t=\sqrt{\frac{1-\alpha_{t-1}}{1-\alpha_t}}\sqrt{1-\frac{\alpha_t}{\alpha_{t-1}}}
+\]</span> と取った場合，<span class="math inline">\(q_\sigma(x_{t-1}|x_t,x_0)\)</span> は <span class="math inline">\(x_0\)</span> にもはや依らず，DDPM の設定を回復する．</p>
+<p><span class="math inline">\(q_\sigma(x_{t-1}|x_t,x_0)\)</span> の時間反転は次のように与えられる： <span class="math display">\[
+p_\theta(x_{t-1}|x_t)\,dx_{t-1}=\mathrm{N}\biggr(\sqrt{\alpha_{t-1}}\widehat{x}_0+\sqrt{1-\alpha_{t-1}-\sigma_t^2}\frac{x_t-\sqrt{\alpha_t}\widehat{x}_0}{\sqrt{1-\alpha_t}},\sigma_t^2I_d\biggl).
+\]</span></p>
+<p>ただし，<span class="math inline">\(x_0\)</span> は事前にはわからないから，これをニューラルネットワークによりモデリングするとする： <span class="math display">\[
+\widehat{x}_0=\frac{x_t-\sqrt{1-\alpha_t}\epsilon_\theta(x_t,t)}{\sqrt{\alpha_t}}.
+\]</span></p>
+<p>すると，この際の目的関数は DDPM と全く変わらない．すなわち，既存の DDPM の訓練は特別な <span class="math inline">\(\sigma_t\)</span> に関する DDIM (<a href="#eq-DDIM" class="quarto-xref">5</a>) の訓練とみなせるのである．</p>
+<p><span class="math inline">\(\sigma_t\)</span> が自由となると，<span class="math inline">\(\sigma_t\equiv0\)</span> と取っても良いはずである．この場合，サンプリングの過程は確定的になる．</p>
+<p>総じて，すでに訓練された DDPM の <span class="math inline">\(\epsilon_\theta(x_t,t)\)</span> があれば，この <span class="math inline">\(\sigma_t\equiv0\)</span> の場合のサンプリング過程を採用すれば，DDPM <a href="#sec-DDPM" class="quarto-xref">1</a> より 10 倍から 50 倍速いサンプリングが実現できる．</p>
+</section>
+<section id="sec-acceleration-sequential" class="level4" data-number="4.1.2">
+<h4 data-number="4.1.2" class="anchored" data-anchor-id="sec-acceleration-sequential"><span class="header-section-number">4.1.2</span> 逐次サンプリング問題としての解決</h4>
+<p>デコーダーに用いるモデル (<a href="#eq-decoder-model" class="quarto-xref">2</a>) の表現力を上げることで，ステップサイズを大きくしてもサンプリングの性能を悪化させないようにできる．</p>
+<p><span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span> は <span class="math inline">\(\Sigma_\theta(x_t,t)\)</span> もニューラルネットワークで学習することで，サンプリングのステップサイズを大きくしてもサンプルの質を保つことができると報告している．</p>
+<p><span class="citation" data-cites="Kingma+2021">(<a href="#ref-Kingma+2021" role="doc-biblioref">D. P. Kingma et al., 2021</a>)</span> も，ノイズスケジュールも学習しようとしている点で似ている．</p>
+<p><span class="citation" data-cites="Gao+2021">(<a href="#ref-Gao+2021" role="doc-biblioref">Gao et al., 2021</a>)</span> は，ノイズ分布からデータ分布までのアニーリング列を，EBM の列として捉えてフィッティングをしている．同様のスキームで，<span class="citation" data-cites="Xiao+2021">(<a href="#ref-Xiao+2021" role="doc-biblioref">Xiao et al., 2022</a>)</span> は GAN を用いている．</p>
+</section>
+<section id="蒸留" class="level4" data-number="4.1.3">
+<h4 data-number="4.1.3" class="anchored" data-anchor-id="蒸留"><span class="header-section-number">4.1.3</span> 蒸留</h4>
+<p><span class="citation" data-cites="Salimans-Ho2022">(<a href="#ref-Salimans-Ho2022" role="doc-biblioref">Salimans and Ho, 2022</a>)</span> は Progressive Distillation と呼ばれる拡散過程の蒸留手法を提案している．</p>
+<p>学習済みの拡散モデル（<span class="citation" data-cites="Salimans-Ho2022">(<a href="#ref-Salimans-Ho2022" role="doc-biblioref">Salimans and Ho, 2022</a>)</span> では DDIM）から，徐々にステップ数を減らした蒸留モデルを作成していく．</p>
+</section>
+<section id="潜在拡散模型-ldm-rombach2022" class="level4" data-number="4.1.4">
+<h4 data-number="4.1.4" class="anchored" data-anchor-id="潜在拡散模型-ldm-rombach2022"><span class="header-section-number">4.1.4</span> 潜在拡散模型 (LDM) <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span></h4>
+<p>まず画像データを VAE などで学習した潜在空間に変換し，その上で拡散模型でモデリングをする．</p>
+<p>Latent Score-based Generative Model (LSGM) <span class="citation" data-cites="Vahdat+2021">(<a href="#ref-Vahdat+2021" role="doc-biblioref">Vahdat et al., 2021</a>)</span> では，VAE と拡散模型を同時に訓練することを考えている．</p>
+<p>この手法は，潜在表現さえ適切に見つければ，複数のドメインのデータを同時に扱えるという美点がある．</p>
+<p>また，<span class="citation" data-cites="Pandey+2022">(<a href="#ref-Pandey+2022" role="doc-biblioref">Pandey et al., 2022</a>)</span> では，まず VAE による生成モデルと作成し，その精度が足りない最終的な出力を高画質にするステップにのみ拡散模型を用いるスキームを提案している．</p>
+</section>
+<section id="sde-から-ode-へ-deis" class="level4" data-number="4.1.5">
+<h4 data-number="4.1.5" class="anchored" data-anchor-id="sde-から-ode-へ-deis"><span class="header-section-number">4.1.5</span> SDE から ODE へ (DEIS)</h4>
+<p>DEIS (Diffusion Exponential Integrator Sampler) <span class="citation" data-cites="Zhang-Chen2023">(<a href="#ref-Zhang-Chen2023" role="doc-biblioref">Zhang and Chen, 2023</a>)</span> では，付随する ODE <a href="#sec-probability-flow-ODE" class="quarto-xref">3.5</a> を Euler 法ではなく指数積分法で解くことで，離散化誤差を低減しつつサンプリングを加速する．</p>
+</section>
+</section>
+<section id="拡散モデルの例" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="拡散モデルの例"><span class="header-section-number">4.2</span> 拡散モデルの例</h3>
+<section id="adm-dhariwal-nichol2021" class="level4" data-number="4.2.1">
+<h4 data-number="4.2.1" class="anchored" data-anchor-id="adm-dhariwal-nichol2021"><span class="header-section-number">4.2.1</span> ADM <span class="citation" data-cites="Dhariwal-Nichol2021">(<a href="#ref-Dhariwal-Nichol2021" role="doc-biblioref">Dhariwal and Nichol, 2021</a>)</span></h4>
+<p>ADM (Ablated Diffusion Model) <span class="citation" data-cites="Dhariwal-Nichol2021">(<a href="#ref-Dhariwal-Nichol2021" role="doc-biblioref">Dhariwal and Nichol, 2021</a>)</span> と <a href="../../../posts/2024/Samplers/NF3.html#sec-CG">分類器による誘導</a> は ImageNet データの判別において当時の最先端であった BigGAN <span class="citation" data-cites="Brock+2019">(<a href="#ref-Brock+2019" role="doc-biblioref">Brock et al., 2019</a>)</span> の性能を凌駕した．</p>
+<p>そのアーキテクチャには <a href="../../../posts/2024/Kernels/Deep.html#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> が用いられた．</p>
+</section>
+<section id="glide-nichol2022" class="level4" data-number="4.2.2">
+<h4 data-number="4.2.2" class="anchored" data-anchor-id="glide-nichol2022"><span class="header-section-number">4.2.2</span> GLIDE <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span></h4>
+<p>OpenAI の <a href="https://github.com/openai/glide-text2im">GLIDE</a> (Guided Language to Image Diffusion for Generation and Editing) <span class="citation" data-cites="Nichol+2022">(<a href="#ref-Nichol+2022" role="doc-biblioref">Nichol et al., 2022</a>)</span> は，<a href="https://openai.com/research/clip">CLIP</a> (Contrastive Language-Image Pre-training) というトランスフォーマーベースの対照学習による画像テキスト同時表現学習器と組み合わされた，テキスト誘導付き拡散モデルである．</p>
+</section>
+<section id="imagen-saharia2022" class="level4" data-number="4.2.3">
+<h4 data-number="4.2.3" class="anchored" data-anchor-id="imagen-saharia2022"><span class="header-section-number">4.2.3</span> Imagen <span class="citation" data-cites="Saharia+2022">(<a href="#ref-Saharia+2022" role="doc-biblioref">Saharia, Chan, Saxena, et al., 2022</a>)</span></h4>
+<p>Google も <a href="https://imagen.research.google/">Imagen</a> <span class="citation" data-cites="Saharia+2022">(<a href="#ref-Saharia+2022" role="doc-biblioref">Saharia, Chan, Saxena, et al., 2022</a>)</span> という <a href="../../../posts/2024/Samplers/NF3.html#sec-CascadedGeneration">Cascaded Generation</a> <span class="citation" data-cites="Ho+2022">(<a href="#ref-Ho+2022" role="doc-biblioref">Ho et al., 2022</a>)</span> に基づいた誘導付き拡散モデルを開発している．</p>
+<p>T5-XXL <span class="citation" data-cites="Raffel+2020">(<a href="#ref-Raffel+2020" role="doc-biblioref">Raffel et al., 2020</a>)</span> に基づく言語モデルを通じて言語と画像を同等の潜在空間にのせ，U-Net アーキテクチャを持った VDM <a href="#sec-VDM" class="quarto-xref">1.7</a> でモデリングすることで，高精度な text-to-image を実現している．</p>
+<p>Palette <span class="citation" data-cites="Saharia+2022SIGGRAPH">(<a href="#ref-Saharia+2022SIGGRAPH" role="doc-biblioref">Saharia, Chan, Chang, et al., 2022</a>)</span> は同様の仕組みで image-to-image を実現している．</p>
+<!-- [@Yang+2023-Diff] は動画生成に応用している． -->
+</section>
+<section id="潜在拡散模型" class="level4" data-number="4.2.4">
+<h4 data-number="4.2.4" class="anchored" data-anchor-id="潜在拡散模型"><span class="header-section-number">4.2.4</span> 潜在拡散模型</h4>
+<p><a href="../../../posts/2024/Kernels/Deep4.html">VAE</a> や <a href="../../../posts/2024/Kernels/Deep3.html">GAN</a> と違い，１つのニューラルネットワークしか用いないため，学習が安定しやすい．</p>
+<p>一方で，生成時には逆変換を何度も繰り返す必要があるため，計算量が大きい．これを回避するために，生成を VAE 内の潜在空間で行うものを <strong>潜在拡散モデル</strong> (latent diffusion model) <span class="citation" data-cites="Rombach+2022">(<a href="#ref-Rombach+2022" role="doc-biblioref">Rombach et al., 2022</a>)</span> という．これが <a href="https://ja.stability.ai/stable-diffusion">Stable Diffusion</a> の元となっている．</p>
+</section>
+<section id="トランスフォーマーとの邂逅" class="level4" data-number="4.2.5">
+<h4 data-number="4.2.5" class="anchored" data-anchor-id="トランスフォーマーとの邂逅"><span class="header-section-number">4.2.5</span> トランスフォーマーとの邂逅</h4>
+<p>並列化が容易であり，スケーラブルな手法であるため，トランスフォーマーと組み合わせて画像と動画の生成に使われる．</p>
+<p>潜在拡散モデルで <a href="../../../posts/2024/Kernels/Deep.html#sec-U-net">U-Net</a> <span class="citation" data-cites="Ronneberger+2015">(<a href="#ref-Ronneberger+2015" role="doc-biblioref">Ronneberger et al., 2015</a>)</span> を用いていたところをトランスフォーマーに置換した <strong>拡散トランスフォーマー</strong> (DiT: Diffusion Transformer) <span class="citation" data-cites="Peebles-Xie2023">(<a href="#ref-Peebles-Xie2023" role="doc-biblioref">Peebles and Xie, 2023</a>)</span> が発表された．</p>
+<p>その後，確率的補間 によって DiT を改良した SiT (Scalable Interpolant Transformer) <span class="citation" data-cites="Ma+2024">(<a href="#ref-Ma+2024" role="doc-biblioref">Ma et al., 2024</a>)</span> が発表された．</p>
+</section>
+<section id="discrete-denoising-diffusion-probabilistic-models-d3pm-austin2021" class="level4" data-number="4.2.6">
+<h4 data-number="4.2.6" class="anchored" data-anchor-id="discrete-denoising-diffusion-probabilistic-models-d3pm-austin2021"><span class="header-section-number">4.2.6</span> <a href="../../../posts/2024/Samplers/DiscreteDiffusion.html#sec-D3PM">Discrete Denoising Diffusion Probabilistic Models (D3PM)</a> <span class="citation" data-cites="Austin+2021">(<a href="#ref-Austin+2021" role="doc-biblioref">Austin et al., 2021</a>)</span></h4>
+<p>Imagen にように言語を連続な潜在空間に埋め込む他に，直接離散空間上にも拡散模型を用いる事ができる．</p>
+<p>実はこのように設計された拡散模型は，BERT <span class="citation" data-cites="Lewis+2020-BART">(<a href="#ref-Lewis+2020-BART" role="doc-biblioref">Lewis et al., 2020</a>)</span> などのマスク付き言語モデルと等価になる．</p>
+<p>MaskGIT (Masked Generative Image Transformer) <span class="citation" data-cites="Chang+2022">(<a href="#ref-Chang+2022" role="doc-biblioref">Chang et al., 2022</a>)</span> はこの枠組みに，画像をベクトル量子化して載せる．</p>
+</section>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="参考文献" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 参考文献</h2><div class="quarto-appendix-contents">
+
+<p><a href="https://github.com/diff-usion/Awesome-Diffusion-Models"><code>Awesome-Diffusion-Models</code></a>，<a href="https://scorebasedgenerativemodeling.github.io/">What’s the score?</a>．</p>
+<p>良いサーベイには次がある：<span class="citation" data-cites="Luo2022">(<a href="#ref-Luo2022" role="doc-biblioref">Luo, 2022</a>)</span>，<span class="citation" data-cites="McAllester2023">(<a href="#ref-McAllester2023" role="doc-biblioref">McAllester, 2023</a>)</span>．古くからあり，すでに出版されているものには，<span class="citation" data-cites="Yang+2023">(<a href="#ref-Yang+2023" role="doc-biblioref">Yang et al., 2023</a>)</span>, <span class="citation" data-cites="Cao+2024">(<a href="#ref-Cao+2024" role="doc-biblioref">Cao et al., 2024</a>)</span>．</p>
+<p>CVPR のチュートリアルが <span class="citation" data-cites="Kreis+2022">(<a href="#ref-Kreis+2022" role="doc-biblioref">Kreis et al., 2022</a>)</span>, <span class="citation" data-cites="Song+2023Tutorial">(<a href="#ref-Song+2023Tutorial" role="doc-biblioref">J. Song et al., 2023</a>)</span>．Web サイトには <span class="citation" data-cites="Dieleman2023">(<a href="#ref-Dieleman2023" role="doc-biblioref">Dieleman, 2023</a>)</span>，<span class="citation" data-cites="Yuan2024">(<a href="#ref-Yuan2024" role="doc-biblioref">Yuan, 2024</a>)</span>，<span class="citation" data-cites="Duan2023">(<a href="#ref-Duan2023" role="doc-biblioref">Duan, 2023</a>)</span>，<span class="citation" data-cites="Das2024">(<a href="#ref-Das2024" role="doc-biblioref">Das, 2024</a>)</span>．</p>
+<p>また，入門的な内容が <span class="citation" data-cites="Nakkiran+2024">(<a href="#ref-Nakkiran+2024" role="doc-biblioref">Nakkiran et al., 2024</a>)</span> で扱われている．</p>
+<p>拡散モデルのサンプリングを加速する手法に関する論文には <span class="citation" data-cites="Nichol-Dhariwal2021">(<a href="#ref-Nichol-Dhariwal2021" role="doc-biblioref">Nichol and Dhariwal, 2021</a>)</span>, <span class="citation" data-cites="Croitoru+2023">(<a href="#ref-Croitoru+2023" role="doc-biblioref">Croitoru et al., 2023</a>)</span> など．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Albergo+2023" class="csl-entry" role="listitem">
+Albergo, M. S., Boffi, N. M., and Vanden-Eijnden, E. (2023). <a href="https://arxiv.org/abs/2303.08797"><span class="nocase">Stochastic Interpolants: A Unifying Framework for Flows and Diffusions</span></a>.
+</div>
+<div id="ref-Anderson1982" class="csl-entry" role="listitem">
+Anderson, B. D. O. (1982). <a href="https://doi.org/10.1016/0304-4149(82)90051-5">Reverse-time diffusion equation models</a>. <em>Stochastic Processes and Their Applications</em>, <em>12</em>(3), 313–326.
+</div>
+<div id="ref-Austin+2021" class="csl-entry" role="listitem">
+Austin, J., Johnson, D. D., Ho, J., Tarlow, D., and Berg, R. van den. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/958c530554f78bcd8e97125b70e6973d-Paper.pdf">Structured denoising diffusion models in discrete state-spaces</a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 17981–17993. Curran Associates, Inc.
+</div>
+<div id="ref-Brock+2019" class="csl-entry" role="listitem">
+Brock, A., Donahue, J., and Simonyan, K. (2019). <a href="https://arxiv.org/abs/1809.11096">Large scale GAN training for high fidelity natural image synthesis</a>.
+</div>
+<div id="ref-Cao+2024" class="csl-entry" role="listitem">
+Cao, H., Tan, C., Gao, Z., Xu, Y., Chen, G., Heng, P.-A., and Li, S. Z. (2024). <a href="https://doi.org/10.1109/TKDE.2024.3361474">A survey on generative diffusion models</a>. <em>IEEE Transactions on Knowledge and Data Engineering</em>, <em>36</em>(7), 2814–2830.
+</div>
+<div id="ref-Chang+2022" class="csl-entry" role="listitem">
+Chang, H., Zhang, H., Jiang, L., Liu, C., and Freeman, W. T. (2022). MaskGIT: Masked generative image transformer. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 11315–11325.
+</div>
+<div id="ref-Choi+2022" class="csl-entry" role="listitem">
+Choi, J., Lee, J., Shin, C., Kim, S., Kim, H., and Yoon, S. (2022). <a href="https://doi.org/10.1109/CVPR52688.2022.01118">Perception prioritized training of diffusion models</a>. In <em>2022 IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 11462–11471.
+</div>
+<div id="ref-Croitoru+2023" class="csl-entry" role="listitem">
+Croitoru, F., Hondru, V., Ionescu, R., and Shah, M. (2023). <a href="https://doi.org/10.1109/TPAMI.2023.3261988">Diffusion models in vision: A survey</a>. <em>IEEE Transactions on Pattern Analysis &amp;Amp; Machine Intelligence</em>, <em>45</em>(09), 10850–10869.
+</div>
+<div id="ref-Das2024" class="csl-entry" role="listitem">
+Das, A. (2024). <a href="https://iclr-blogposts.github.io/2024/blog/diffusion-theory-from-scratch/">Building diffusion model’s theory from ground up</a>. In <em>ICLR blogposts 2024</em>.
+</div>
+<div id="ref-Dhariwal-Nichol2021" class="csl-entry" role="listitem">
+Dhariwal, P., and Nichol, A. Q. (2021). <a href="https://openreview.net/forum?id=AAWuCvzaVt">Diffusion models beat <span>GAN</span>s on image synthesis</a>. In A. Beygelzimer, Y. Dauphin, P. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Dieleman2023" class="csl-entry" role="listitem">
+Dieleman, S. (2023). <em><a href="">Perspectives on diffusion</a></em>.
+</div>
+<div id="ref-Du-Mordatch2019" class="csl-entry" role="listitem">
+Du, Y., and Mordatch, I. (2019). <a href="https://proceedings.neurips.cc/paper_files/paper/2019/file/378a063b8fdb1db941e34f4bde584c7d-Paper.pdf"><span class="nocase">Implicit Generation and Modeling with Energy Based Models</span></a>. In H. Wallach, H. Larochelle, A. Beygelzimer, F. dAlché-Buc, E. Fox, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 32. Curran Associates, Inc.
+</div>
+<div id="ref-Duan2023" class="csl-entry" role="listitem">
+Duan, T. (2023). <em><a href="">Diffusion models from scratch</a></em>.
+</div>
+<div id="ref-Gao+2020" class="csl-entry" role="listitem">
+Gao, R., Nijkamp, E., Kingma, D. P., Xu, Z., Dai, A. M., and Wu, Y. N. (2020). <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Gao_Flow_Contrastive_Estimation_of_Energy-Based_Models_CVPR_2020_paper">Flow contrastive estimation of energy-based models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>.
+</div>
+<div id="ref-Gao+2021" class="csl-entry" role="listitem">
+Gao, R., Song, Y., Poole, B., Wu, Y. N., and Kingma, D. P. (2021). <a href="https://openreview.net/forum?id=v_1Soh8QUNc">Learning energy-based models by diffusion recovery likelihood</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Ho+2020" class="csl-entry" role="listitem">
+Ho, J., Jain, A., and Abbeel, P. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html"><span>Denoising Diffusion Probabilistic Models</span></a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
+</div>
+<div id="ref-Ho+2022" class="csl-entry" role="listitem">
+Ho, J., Saharia, C., Chan, W., Fleet, D. J., Norouzi, M., and Salimans, T. (2022). <a href="http://jmlr.org/papers/v23/21-0635.html">Cascaded diffusion models for high fidelity image generation</a>. <em>Journal of Machine Learning Research</em>, <em>23</em>(47), 1–33.
+</div>
+<div id="ref-Huang+2021" class="csl-entry" role="listitem">
+Huang, C.-W., Lim, J. H., and Courville, A. (2021). <a href="https://openreview.net/forum?id=bXehDYUjjXi"><span class="nocase">A Variational Perspective on Diffusion-Based Generative Models and Score Matching</span></a>. In A. Beygelzimer, Y. Dauphin, P. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Hyvarinen2005" class="csl-entry" role="listitem">
+Hyvärinen, A. (2005). <a href="https://jmlr.org/papers/v6/hyvarinen05a.html">Estimation of non-normalized statistical models by score matching</a>. <em>Journal of Machine Learning Research</em>, <em>6</em>(24), 695–709.
+</div>
+<div id="ref-Karras+2022" class="csl-entry" role="listitem">
+Karras, T., Aittala, M., Aila, T., and Laine, S. (2022). <a href="https://openreview.net/forum?id=k7FuTOWMOc7">Elucidating the design space of diffusion-based generative models</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Kingma+2021" class="csl-entry" role="listitem">
+Kingma, D. P., Salimans, T., Poole, B., and Ho, J. (2021). <a href="https://proceedings.neurips.cc/paper/2021/hash/b578f2a52a0229873fefc2a4b06377fa-Abstract.html">Variational diffusion models</a>. In <em>Proceedings of the 35th international conference on neural information processing systems</em>. Red Hook, NY, USA: Curran Associates Inc.
+</div>
+<div id="ref-Kingma-Gao2023" class="csl-entry" role="listitem">
+Kingma, D., and Gao, R. (2023). <a href="https://proceedings.neurips.cc/paper_files/paper/2023/file/ce79fbf9baef726645bc2337abb0ade2-Paper-Conference.pdf">Understanding diffusion objectives as the ELBO with simple data augmentation</a>. In A. Oh, T. Naumann, A. Globerson, K. Saenko, M. Hardt, and S. Levine, editors, <em>Advances in neural information processing systems</em>,Vol. 36, pages 65484–65516. Curran Associates, Inc.
+</div>
+<div id="ref-Kirkpartick+1983" class="csl-entry" role="listitem">
+Kirkpartick, S., Gelatt, C. D., and Vecchi, M. P. (1983). Optimization by simulated annealing. <em>Science</em>, <em>220</em>(4598), 671–680.
+</div>
+<div id="ref-Kreis+2022" class="csl-entry" role="listitem">
+Kreis, K., Gao, R., and Vahdat, A. (2022). <em><a href="https://cvpr2022-tutorial-diffusion-models.github.io/">Denoising diffusion-based generative modeling: Foundations and applications</a></em>.
+</div>
+<div id="ref-Lewis+2020-BART" class="csl-entry" role="listitem">
+Lewis, M., Liu, Y., Goyal, N., Ghazvininejad, M., Mohamed, A., Levy, O., … Zettlemoyer, L. (2020). <a href="https://doi.org/10.18653/v1/2020.acl-main.703"><span>BART</span>: Denoising sequence-to-sequence pre-training for natural language generation, translation, and comprehension</a>. In D. Jurafsky, J. Chai, N. Schluter, and J. Tetreault, editors, <em>Proceedings of the 58th annual meeting of the association for computational linguistics</em>, pages 7871–7880. Online: Association for Computational Linguistics.
+</div>
+<div id="ref-Liu+2016" class="csl-entry" role="listitem">
+Liu, Q., Lee, J., and Jordan, M. (2016). <a href="https://proceedings.mlr.press/v48/liub16.html">A kernelized stein discrepancy for goodness-of-fit tests</a>. In M. F. Balcan and K. Q. Weinberger, editors, <em>Proceedings of the 33rd international conference on machine learning</em>,Vol. 48, pages 276–284. New York, New York, USA: PMLR.
+</div>
+<div id="ref-Luo2022" class="csl-entry" role="listitem">
+Luo, C. (2022). <a href="https://arxiv.org/abs/2208.11970">Understanding diffusion models: A unified perspective</a>.
+</div>
+<div id="ref-Ma+2024" class="csl-entry" role="listitem">
+Ma, N., Goldstein, M., Albergo, M. S., Boffi, N. M., Vanden-Eijnden, E., and Xie, S. (2024). <a href="https://arxiv.org/abs/2401.08740">SiT: Exploring flow and diffusion-based generative models with scalable interpolant transformers</a>.
+</div>
+<div id="ref-McAllester2023" class="csl-entry" role="listitem">
+McAllester, D. (2023). <a href="https://arxiv.org/abs/2301.11108">On the mathematics of diffusion models</a>.
+</div>
+<div id="ref-Nakkiran+2024" class="csl-entry" role="listitem">
+Nakkiran, P., Bradley, A., Zhou, H., and Advani, M. (2024). <a href="https://arxiv.org/abs/2406.08929">Step-by-step diffusion: An elementary tutorial</a>.
+</div>
+<div id="ref-Neal2001" class="csl-entry" role="listitem">
+Neal, R. M. (2001). <a href="https://doi.org/10.1023/A:1008923215028">A<span>nnealed Importance Sampling</span></a>. <em>Statistics and Computing</em>, <em>11</em>, 125–139.
+</div>
+<div id="ref-Nichol-Dhariwal2021" class="csl-entry" role="listitem">
+Nichol, A. Q., and Dhariwal, P. (2021). <a href="https://proceedings.mlr.press/v139/nichol21a.html"><span>Improved Denoising Diffusion Probabilistic Models</span></a>. In M. Meila and T. Zhang, editors, <em>Proceedings of the 38th international conference on machine learning</em>,Vol. 139, pages 8162–8171. PMLR.
+</div>
+<div id="ref-Nichol+2022" class="csl-entry" role="listitem">
+Nichol, A. Q., Dhariwal, P., Ramesh, A., Shyam, P., Mishkin, P., Mcgrew, B., … Chen, M. (2022). <a href="https://proceedings.mlr.press/v162/nichol22a.html"><span>GLIDE</span>: Towards photorealistic image generation and editing with text-guided diffusion models</a>. In K. Chaudhuri, S. Jegelka, L. Song, C. Szepesvari, G. Niu, and S. Sabato, editors, <em>Proceedings of the 39th international conference on machine learning</em>,Vol. 162, pages 16784–16804. PMLR.
+</div>
+<div id="ref-Pandey+2022" class="csl-entry" role="listitem">
+Pandey, K., Mukherjee, A., Rai, P., and Kumar, A. (2022). <a href="https://openreview.net/forum?id=ygoNPRiLxw">Diffuse<span>VAE</span>: Efficient, controllable and high-fidelity generation from low-dimensional latents</a>. <em>Transactions on Machine Learning Research</em>.
+</div>
+<div id="ref-Peebles-Xie2023" class="csl-entry" role="listitem">
+Peebles, W., and Xie, S. (2023). <a href="https://openaccess.thecvf.com/content/ICCV2023/html/Peebles_Scalable_Diffusion_Models_with_Transformers_ICCV_2023_paper.html">Scalable diffusion models with transformers</a>. In <em>Proceedings of the IEEE/CVF international conference on computer vision (ICCV)</em>, pages 4195–4205.
+</div>
+<div id="ref-Raffel+2020" class="csl-entry" role="listitem">
+Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., … Liu, P. J. (2020). Exploring the limits of transfer learning with a unified text-to-text transformer. <em>J. Mach. Learn. Res.</em>, <em>21</em>(1).
+</div>
+<div id="ref-Rombach+2022" class="csl-entry" role="listitem">
+Rombach, R., Blattmann, A., Lorenz, D., Esser, P., and Ommer, B. (2022). <a href="https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html">High-resolution image systhesis with latent diffusion models</a>. In <em>Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (CVPR)</em>, pages 10684–10695.
+</div>
+<div id="ref-Ronneberger+2015" class="csl-entry" role="listitem">
+Ronneberger, O., Fischer, P., and Brox, T. (2015). <a href="https://link.springer.com/chapter/10.1007/978-3-319-24574-4_28">U-net: Convolutional networks for biomedical image segmentation</a>. In N. Navab, J. Hornegger, W. M. Wells, and A. F. Frangi, editors, <em>Medical image computing and computer-assisted intervention – MICCAI 2015</em>, pages 234–241. Cham: Springer International Publishing.
+</div>
+<div id="ref-Saharia+2022SIGGRAPH" class="csl-entry" role="listitem">
+Saharia, C., Chan, W., Chang, H., Lee, C. A., Ho, J., Salimans, T., … Norouzi, M. (2022). <a href="https://openreview.net/forum?id=FPGs276lUeq"><span class="nocase">Palette: Image-to-Image Diffusion Models</span></a>.
+</div>
+<div id="ref-Saharia+2022" class="csl-entry" role="listitem">
+Saharia, C., Chan, W., Saxena, S., Li, L., Whang, J., Denton, E., … Norouzi, M. (2022). <a href="https://openreview.net/forum?id=08Yk-n5l2Al">Photorealistic text-to-image diffusion models with deep language understanding</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
+</div>
+<div id="ref-Salimans-Ho2021" class="csl-entry" role="listitem">
+Salimans, T., and Ho, J. (2021). <a href="https://openreview.net/forum?id=9AS-TF2jRNb">Should <span>EBM</span>s model the energy or the score?</a> In <em>Energy based models workshop - ICLR 2021</em>.
+</div>
+<div id="ref-Salimans-Ho2022" class="csl-entry" role="listitem">
+Salimans, T., and Ho, J. (2022). <a href="https://openreview.net/forum?id=TIdIXIpzhoI">Progressive distillation for fast sampling of diffusion models</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Dickstein+2015" class="csl-entry" role="listitem">
+Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., and Ganguli, S. (2015). <a href="https://proceedings.mlr.press/v37/sohl-dickstein15.html"><span class="nocase">Deep Unsupervised Learning using Nonequilibrium Thermodynamics</span></a>. In F. Bach and D. Blei, editors, <em>Proceedings of the 32nd international conference on machine learning</em>,Vol. 37, pages 2256–2265. Lille, France: PMLR.
+</div>
+<div id="ref-JiamingSong+2021" class="csl-entry" role="listitem">
+Song, J., Meng, C., and Ermon, S. (2021). <a href="https://openreview.net/forum?id=St1giarCHLP">Denoising diffusion implicit models</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Song+2023Tutorial" class="csl-entry" role="listitem">
+Song, J., Meng, C., and Vahdat, A. (2023). <em><a href="https://cvpr.thecvf.com/virtual/2023/tutorial/18546">Denoising diffusion models: A generative learning big bang</a></em>.
+</div>
+<div id="ref-Song+2021NeurIPS" class="csl-entry" role="listitem">
+Song, Y., Durkan, C., Murray, I., and Ermon, S. (2021). <a href="https://proceedings.neurips.cc/paper/2021/hash/0a9fdbb17feb6ccb7ec405cfb85222c4-Abstract.html"><span class="nocase">Maximum Likelihood Training of Score-Based Diffusion Models</span></a>. In <em>Advances in neural information processing systems</em>,Vol. 34.
+</div>
+<div id="ref-Song-Ermon2019" class="csl-entry" role="listitem">
+Song, Y., and Ermon, S. (2019). <a href="https://proceedings.neurips.cc/paper_files/paper/2019/file/3001ef257407d5a371a96dcd947c7d93-Paper.pdf"><span class="nocase">Generative Modeling by Estimating Gradients of the Data Distribution</span></a>. In H. Wallach, H. Larochelle, A. Beygelzimer, F. dAlché-Buc, E. Fox, and R. Garnett, editors, <em>Advances in neural information processing systems</em>,Vol. 32. Curran Associates, Inc.
+</div>
+<div id="ref-Song-Ermon2020" class="csl-entry" role="listitem">
+Song, Y., and Ermon, S. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/92c3b916311a5517d9290576e3ea37ad-Abstract.html"><span class="nocase">Improved Techniques for Training Score-Based Generative Models</span></a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
+</div>
+<div id="ref-Song+2021ICLR" class="csl-entry" role="listitem">
+Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., and Poole, B. (2021). <a href="https://openreview.net/forum?id=PxTIG12RRHS"><span class="nocase">Score-Based Generative Modeling through Stochastic Differential Equations</span></a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Tzen-Raginsky2019" class="csl-entry" role="listitem">
+Tzen, B., and Raginsky, M. (2019). <a href="https://arxiv.org/abs/1905.09883"><span class="nocase">Neural Stochastic Differential Equations: Deep Latent Gaussian Models in the Diffusion Limit</span></a>.
+</div>
+<div id="ref-Vahdat+2021" class="csl-entry" role="listitem">
+Vahdat, A., Kreis, K., and Kautz, J. (2021). <a href="https://proceedings.neurips.cc/paper_files/paper/2021/file/5dca4c6b9e244d24a30b4c45601d9720-Paper.pdf"><span class="nocase">Score-based Generative Modeling in Latent Space</span></a>. In M. Ranzato, A. Beygelzimer, Y. Dauphin, P. S. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>,Vol. 34, pages 11287–11302. Curran Associates, Inc.
+</div>
+<div id="ref-Xiao+2021" class="csl-entry" role="listitem">
+Xiao, Z., Kreis, K., and Vahdat, A. (2022). <a href="https://openreview.net/forum?id=JprM0p-q0Co">Tackling the generative learning trilemma with denoising diffusion <span>GAN</span>s</a>. In <em>International conference on learning representations</em>.
+</div>
+<div id="ref-Yang+2023" class="csl-entry" role="listitem">
+Yang, L., Zhang, Z., Song, Y., Hong, S., Xu, R., Zhao, Y., … Yang, M.-H. (2023). <a href="https://doi.org/10.1145/3626235">Diffusion models: A comprehensive survey of methods and applications</a>. <em>ACM Comput. Surv.</em>, <em>56</em>(4).
+</div>
+<div id="ref-Yuan2024" class="csl-entry" role="listitem">
+Yuan, C. (2024). <em><a href="">Diffusion models from scratch, from a new theoretical perspective</a></em>.
+</div>
+<div id="ref-Zhang-Chen2023" class="csl-entry" role="listitem">
+Zhang, Q., and Chen, Y. (2023). <a href="https://openreview.net/forum?id=Loek7hfb46P">Fast sampling of diffusion models with exponential integrator</a>. In <em>The eleventh international conference on learning representations</em>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>エネルギー関数とスコア関数，どっちを学習の中心に据えるかについては <span class="citation" data-cites="Salimans-Ho2021">(<a href="#ref-Salimans-Ho2021" role="doc-biblioref">Salimans and Ho, 2021</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>“Our sampling strategy is inspired by simulated annealing <span class="citation" data-cites="Kirkpartick+1983">(<a href="#ref-Kirkpartick+1983" role="doc-biblioref">Kirkpartick et al., 1983</a>)</span>, <span class="citation" data-cites="Neal2001">(<a href="#ref-Neal2001" role="doc-biblioref">Neal, 2001</a>)</span> which heuristically improves optimization for multimodal landscapes.” <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019, p. 2</a>)</span> より．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>DNS も SSM も使用可能であるが，ここでは Langevin サンプラーのアニーリングのために，ノイズが印加されたベクトル場 <span class="math inline">\(s_\theta(x,\sigma)\)</span> の学習が必要であるため，DNS の選択が自然である <span class="citation" data-cites="Song-Ermon2019">(<a href="#ref-Song-Ermon2019" role="doc-biblioref">Y. Song and Ermon, 2019</a>)</span>．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>これが可能であることは <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020, p. 8</a>)</span> でも触れられている．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>ちょうど，<a href="../../../posts/2024/Samplers/NF1.html">Neural ODE</a> がタイムステップの取り方を適応的にしてくれたように．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>ちょうど，<a href="../../../posts/2024/Slides/ZigZagSampler.html">MCMC がベクトル場に関する決定論的なフローで効率化させられる</a>ように．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p><span class="citation" data-cites="JiamingSong+2021">(<a href="#ref-JiamingSong+2021" role="doc-biblioref">J. Song et al., 2021</a>)</span> 内では <span class="math inline">\(q_\sigma(x_t|x_{t-1},x_0)\)</span> の形を与えていないが，Bayes の定理を通じてわかる：<span class="math display">\[q_\sigma(x_t|x_{t-1},x_0)=\frac{q_\sigma(x_{t-1}|x_t,x_0)q_\sigma(x_t|x_0)}{q_\sigma(x_{t-1}|x_0)}.\]</span><a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

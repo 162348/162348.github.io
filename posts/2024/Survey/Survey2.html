@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬博文">
+
+<title>ベイズデータ解析２ – Hirofumi Shiba</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
+<script src="../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-survey .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-survey'] = new List('listing-lst-survey', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  .navbar-title, .menu-text {
+      font-family: "Zen Kurenaido", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="ベイズデータ解析２ – Hirofumi Shiba">
+<meta property="og:description" content="人間を対象にする介入の研究では，介入の前後で変化があったかが争点となる．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Survey/Files/ATE.svg">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta name="twitter:title" content="ベイズデータ解析２ – Hirofumi Shiba">
+<meta name="twitter:description" content="人間を対象にする介入の研究では，介入の前後で変化があったかが争点となる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Survey/Files/ATE.svg">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../../blog.html"> 
+<span class="menu-text">Blog</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Sessions.html"> 
+<span class="menu-text">Sessions</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Japanese.html"> 
+<span class="menu-text">自己紹介</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">ベイズデータ解析２</h1>
+            <p class="subtitle lead">平均処置効果の推定とセミパラメトリック法</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Statistics</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬博文 </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">9/23/2024</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">9/29/2024</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  <div>
+    <div class="abstract">
+      <div class="block-title">概要</div>
+      <p>人間を対象にする介入の研究では，介入の前後で変化があったかが争点となる．</p>
+    </div>
+  </div>
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a>
+  <ul class="collapse">
+  <li><a href="#概観" id="toc-概観" class="nav-link" data-scroll-target="#概観"><span class="header-section-number">1.1</span> 概観</a></li>
+  <li><a href="#経済学における因果推論の歴史" id="toc-経済学における因果推論の歴史" class="nav-link" data-scroll-target="#経済学における因果推論の歴史"><span class="header-section-number">1.2</span> 経済学における因果推論の歴史</a></li>
+  <li><a href="#計量経済学における信頼性革命" id="toc-計量経済学における信頼性革命" class="nav-link" data-scroll-target="#計量経済学における信頼性革命"><span class="header-section-number">1.3</span> 計量経済学における信頼性革命</a></li>
+  <li><a href="#媒介分析" id="toc-媒介分析" class="nav-link" data-scroll-target="#媒介分析"><span class="header-section-number">1.4</span> 媒介分析</a></li>
+  </ul></li>
+  <li><a href="#交絡調整法" id="toc-交絡調整法" class="nav-link" data-scroll-target="#交絡調整法"><span class="header-section-number">2</span> 交絡調整法</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#操作変数法" id="toc-操作変数法" class="nav-link" data-scroll-target="#操作変数法"><span class="header-section-number">2.2</span> 操作変数法</a></li>
+  <li><a href="#回帰非連続デザイン" id="toc-回帰非連続デザイン" class="nav-link" data-scroll-target="#回帰非連続デザイン"><span class="header-section-number">2.3</span> 回帰非連続デザイン</a></li>
+  <li><a href="#差の差法" id="toc-差の差法" class="nav-link" data-scroll-target="#差の差法"><span class="header-section-number">2.4</span> 差の差法</a></li>
+  <li><a href="#周辺構造モデル" id="toc-周辺構造モデル" class="nav-link" data-scroll-target="#周辺構造モデル"><span class="header-section-number">2.5</span> 周辺構造モデル</a></li>
+  <li><a href="#g-推定" id="toc-g-推定" class="nav-link" data-scroll-target="#g-推定"><span class="header-section-number">2.6</span> <span class="math inline">\(G\)</span>-推定</a></li>
+  </ul></li>
+  <li><a href="#モデルフリー推定手法" id="toc-モデルフリー推定手法" class="nav-link" data-scroll-target="#モデルフリー推定手法"><span class="header-section-number">3</span> モデルフリー推定手法</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-2" id="toc-はじめに-2" class="nav-link" data-scroll-target="#はじめに-2"><span class="header-section-number">3.1</span> はじめに</a></li>
+  <li><a href="#共通の枠組み" id="toc-共通の枠組み" class="nav-link" data-scroll-target="#共通の枠組み"><span class="header-section-number">3.2</span> 共通の枠組み</a></li>
+  <li><a href="#sec-M-estimator" id="toc-sec-M-estimator" class="nav-link" data-scroll-target="#sec-M-estimator"><span class="header-section-number">3.3</span> <span class="math inline">\(M\)</span>-推定量</a></li>
+  <li><a href="#一般化推定方程式" id="toc-一般化推定方程式" class="nav-link" data-scroll-target="#一般化推定方程式"><span class="header-section-number">3.4</span> 一般化推定方程式</a></li>
+  <li><a href="#経験尤度法" id="toc-経験尤度法" class="nav-link" data-scroll-target="#経験尤度法"><span class="header-section-number">3.5</span> 経験尤度法</a></li>
+  </ul></li>
+  
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<section id="関連記事" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Bayesian,Statistics" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="516">
+<a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/BayesANOVA.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析１
+</h5>
+<div class="card-subtitle listing-subtitle">
+分散分析
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-23
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Bayesian,Statistics" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/Horvitz-Thompson.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析３
+</h5>
+<div class="card-subtitle listing-subtitle">
+標本調査データと欠測データの扱い
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-24
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Bayesian,Statistics" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1728218524199" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/DataIntegration.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析４
+</h5>
+<div class="card-subtitle listing-subtitle">
+アンケートデータとデータ統合
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-24
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+</section>
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<section id="概観" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="概観"><span class="header-section-number">1.1</span> 概観</h3>
+<p>現代の因果推論は平均処置効果 (ATE) <span class="math display">\[
+\tau:=\operatorname{E}[Y_i^1]-\operatorname{E}[Y_i^0]
+\]</span> と関連する推定対象 (estimand / target parameter) に集中している．</p>
+<section id="潜在結果モデル" class="level4" data-number="1.1.1">
+<h4 data-number="1.1.1" class="anchored" data-anchor-id="潜在結果モデル"><span class="header-section-number">1.1.1</span> 潜在結果モデル</h4>
+<p>このように <strong>因果効果</strong> と呼ばれる推定対象を設定し，良い実験計画を構築してこれを推定するという枠組みは <span class="citation" data-cites="Neyman-23">(<a href="#ref-Neyman-23" role="doc-biblioref">Neyman et al., 1990</a>)</span> から始まるもので，<span class="citation" data-cites="Rubin1974-Causal">(<a href="#ref-Rubin1974-Causal" role="doc-biblioref">Rubin, 1974</a>)</span> の因果モデルや <strong>潜在結果モデル</strong> (potential outcome model)，または <strong>反実仮想モデル</strong> (counterfactual model) とも呼ばれる．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="潜在結果モデルを用いた因果推論">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+潜在結果モデルを用いた因果推論
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>潜在結果モデルは特定の介入の因果効果を推定する枠組みであり，十分に考慮された実験計画が必要であるが，それにより不必要なモデリングの議論を避けることができる．</p>
+<p>このために，極めて多くの人間を対象とする科学分野で潜在結果モデルが用いられている．</p>
+<ul>
+<li>計量経済学</li>
+<li>医学・疫学・生物統計学</li>
+<li>社会学 <span class="citation" data-cites="Morgan-Winship2014">(<a href="#ref-Morgan-Winship2014" role="doc-biblioref">Morgan and Winship, 2014</a>)</span></li>
+</ul>
+</div>
+</div>
+<p>この方法では，ランダム化された実験，あるいは欠測メカニズムが推定しやすいように工夫された「擬似実験」を行なうことで，ほとんどモデリングの議論を表に出さずとも ATE やその他の実験科学者が設定する量を不偏推定可能にする，というアプローチをとる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>最終的に ATE の推定においては，各個体 <span class="math inline">\(i\in[n]\)</span> に対して処置を行った場合の結果 <span class="math inline">\(Y_i^1\)</span> と行わなかった場合の結果 <span class="math inline">\(Y_i^0\)</span> とのいずれかは必ず欠測するということである．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>端的に言えば，統計学のサンプリング論と科学の実験計画論との邂逅である <span class="citation" data-cites="Ding2024">(<a href="#ref-Ding2024" role="doc-biblioref">Ding, 2024</a>)</span>．</p>
+</section>
+<section id="構造的因果モデル" class="level4" data-number="1.1.2">
+<h4 data-number="1.1.2" class="anchored" data-anchor-id="構造的因果モデル"><span class="header-section-number">1.1.2</span> 構造的因果モデル</h4>
+<p>しかし他の多くの科学では実験的介入が難しかったり，実験計画だけでは背後の交絡要因が統制しきれない状況がある．</p>
+<p>またはそもそも，科学的な興味の対象が「因果効果」だけでなくデータの背後にある「モデル」にもある場合も多い．</p>
+<p>このような場合には，変数同士の関係を丁寧にモデリングし，加えて識別可能性を確保するなどの理論的な配慮が欠かせない．</p>
+<p>これを可能にするのが <strong>構造的因果モデル</strong> (SCM: Structural Causal Model) またはノンパラメトリック構造方程式モデルの枠組みである <span class="citation" data-cites="Bongers+2021">(<a href="#ref-Bongers+2021" role="doc-biblioref">Bongers et al., 2021</a>)</span>．</p>
+<p>多くはグラフィカルモデルと計算機的な方法を組み合わせることで，推定可能な高次元モデルを構築する．このモデルに対する「変換」として，介入操作と因果効果を定義する．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="構造的因果モデルを用いた因果推論">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+構造的因果モデルを用いた因果推論
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>自然を対象にする科学分野を中心として，介入できない状況下での因果推論が構造的因果モデルの枠組みで行われる．</p>
+<ul>
+<li>地球科学 <span class="citation" data-cites="Runge2023">(<a href="#ref-Runge2023" role="doc-biblioref">Runge et al., 2023</a>)</span></li>
+<li>機械学習：エキスパートシステム <span class="citation" data-cites="Pearl88-IntelligentSystem">(<a href="#ref-Pearl88-IntelligentSystem" role="doc-biblioref">Pearl, 1988</a>)</span>，継続学習 <span class="citation" data-cites="Cui-Athey2022">(<a href="#ref-Cui-Athey2022" role="doc-biblioref">Cui and Athey, 2022</a>)</span>，反実仮想機械学習 <span class="citation" data-cites="Huber2023">(<a href="#ref-Huber2023" role="doc-biblioref">M. Huber, 2023</a>)</span></li>
+<li>医学・疫学・生物統計学：標的学習 (targeted learning) <span class="citation" data-cites="vanderLaan-Rose11-TargetedLearning">(<a href="#ref-vanderLaan-Rose11-TargetedLearning" role="doc-biblioref">Laan and Rose, 2011</a>)</span></li>
+</ul>
+<p>モデリングが必要不可欠であるため，計算的にも困難な問題となる．それゆえ計算機科学や機械学習の分野で盛んに研究されている．</p>
+</div>
+</div>
+</section>
+<section id="まとめ" class="level4" data-number="1.1.3">
+<h4 data-number="1.1.3" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">1.1.3</span> まとめ</h4>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li><u>潜在結果アプローチ</u>：実験を行うことでモデリングを回避する．</li>
+<li><u>構造的因果モデル</u>：モデリングを行い，モデルの変換として因果効果を定義する．特定の条件下 <span class="citation" data-cites="Rubin1980">(<a href="#ref-Rubin1980" role="doc-biblioref">Rubin, 1980</a>)</span> で離散変数に実験処置介入を行った場合として，潜在結果アプローチを含むとも見れる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></li>
+</ul>
+</div>
+</div>
+</div>
+<p>歴史的には，どちらかというと構造的因果モデル → 潜在結果モデルという順に注目された．</p>
+<p>この現象は特に経済学で顕著に起こった．Cowles 委員会のイニシアティブの下で，初めは構造的なアプローチを取っていた経済学が，実験事実との乖離が激しいことの自覚から，実験と統計的推論を取り入れるように生まれ変わった現象は <strong>信頼性革命</strong> と呼ばれている．</p>
+<p>本章では以降，各分野における因果推論の歴史を議論する．</p>
+</section>
+</section>
+<section id="経済学における因果推論の歴史" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="経済学における因果推論の歴史"><span class="header-section-number">1.2</span> 経済学における因果推論の歴史</h3>
+<p>経済学において，<span class="citation" data-cites="Haavelmo1943">(<a href="#ref-Haavelmo1943" role="doc-biblioref">Haavelmo, 1943</a>)</span> は「構造推定」の枠組みで政策介入の因果効果を推定しようとした．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>構造推定では「同時方程式」により統計モデルを定義するが，その際には識別可能性が問題になる．</p>
+<p>当時の計算資源では十分な推定を実行することができず，加えて，マクロなモデルに対する「介入」の定義を正しく与えていなかった <span class="citation" data-cites="Lucas1976">(<a href="#ref-Lucas1976" role="doc-biblioref">Lucas, 1976</a>)</span>．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<p>時代が下ると，このアプローチでの経済学は大きな批判に晒され，より実験的なアプローチを採用するように変化を余儀なくされた．これが信頼性革命である．</p>
+</section>
+<section id="計量経済学における信頼性革命" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="計量経済学における信頼性革命"><span class="header-section-number">1.3</span> 計量経済学における信頼性革命</h3>
+<p><span class="citation" data-cites="Leamer1983">(<a href="#ref-Leamer1983" role="doc-biblioref">Leamer, 1983</a>)</span> は計量経済学の手法と古典的な実験科学とを比較し，計量経済学の信頼性は感度解析とロバストを取り入れることによって（のみ）回復されるだろうと論じた．</p>
+<p><span class="citation" data-cites="LaLonde1986">(<a href="#ref-LaLonde1986" role="doc-biblioref">LaLonde, 1986</a>)</span> は職業訓練の効果に関する観察研究と実験研究の結果が大きく異なることを示し，当時の計量経済学が抱えていた体質に抜本的改革を迫った．</p>
+<p><span class="citation" data-cites="Leamer1983">(<a href="#ref-Leamer1983" role="doc-biblioref">Leamer, 1983</a>)</span> が「よく計画された実験を超える統計的手法など出てこないかもしれない」と論じていた通り，その後の信頼性革命は主に実験計画を改善することと擬似ランダム化の適切な取り扱いによって達成された <span class="citation" data-cites="Angrist-Pischke2010">(<a href="#ref-Angrist-Pischke2010" role="doc-biblioref">Angrist and Pischke, 2010</a>)</span>．</p>
+<p>そのキーワードは「自然実験」や「擬似実験」と呼ばれており，サーベイ手法での「擬似ランダム化」アプローチに相当する．<a href="../../../posts/2024/Survey/Survey3.html">擬似ランダム化については次稿も参照</a>．</p>
+</section>
+<section id="媒介分析" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="媒介分析"><span class="header-section-number">1.4</span> 媒介分析</h3>
+<p><strong>媒介分析</strong> (mediation analysis) <span class="citation" data-cites="Robins-Greenland1992">(<a href="#ref-Robins-Greenland1992" role="doc-biblioref">J. M. Robins and Greenland, 1992</a>)</span> においては，因果の流れが複数あり得る場合に，媒介因子 <span class="math inline">\(Z\)</span> を経由した <strong>間接効果</strong> の量を総合効果の中から識別することを目標とする．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/Mediation.svg" class="img-fluid figure-img"></p>
+<figcaption>媒介変数 <span class="math inline">\(Z\)</span> を表す図式</figcaption>
+</figure>
+</div>
+<p>一方でモデリングに基づいた方法も可能である <span class="citation" data-cites="Pearl2012">(<a href="#ref-Pearl2012" role="doc-biblioref">Pearl, 2012</a>)</span>, <span class="citation" data-cites="Nguyen+2021">(<a href="#ref-Nguyen+2021" role="doc-biblioref">Nguyen et al., 2021</a>)</span>．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p>はじめ社会学や社会心理学においてはモデルによる媒介分析が試みられていた <span class="citation" data-cites="Alwin-Hauser1975">(<a href="#ref-Alwin-Hauser1975" role="doc-biblioref">Alwin and Hauser, 1975</a>)</span>, <span class="citation" data-cites="Baron-Kenny1986">(<a href="#ref-Baron-Kenny1986" role="doc-biblioref">Baron and Kenny, 1986</a>)</span>．</p>
+</section>
+</section>
+<section id="交絡調整法" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="交絡調整法"><span class="header-section-number">2</span> 交絡調整法</h2>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>因果推論において，実験計画による工夫に限界がある際は，条件 <span id="eq-unconfoundedness"><span class="math display">\[
+(Y^0_i,Y^1_i)\perp\!\!\!\perp A_i|X_i
+\tag{1}\]</span></span> を満たす共変量 <span class="math inline">\(X_i\)</span> の特定を目指す．</p>
+<p>この <span class="math inline">\(X_i\)</span> を <strong>交絡因子</strong> (cofounders) といい，条件 (<a href="#eq-unconfoundedness" class="quarto-xref">1</a>) を <strong>非交絡性</strong> (unconfoundedness) または <strong>無視可能性</strong> (ignorability) という．</p>
+</section>
+<section id="操作変数法" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="操作変数法"><span class="header-section-number">2.2</span> 操作変数法</h3>
+<p><strong>操作変数</strong> (instrumental variable) とは，処置変数（または説明変数）をよく予測するような補助変数であり，補助変数と処置変数の間の関係を推定することで擬似的に層別サンプリングが行われたとみなせるようなものである．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+<p>未観測の交絡因子が予期される場合でも，操作変数が利用可能である場合はこれを調整することができる．</p>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="計量経済学的な説明^[[Section 12.5 @Hansen2022 p.335] も参照．]">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+計量経済学的な説明<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a>
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>回帰モデル <span class="math display">\[
+Y=X_1^\top\beta_1+X_2^\top\beta_2+\epsilon
+\]</span> において，<span class="math inline">\(X_1\)</span> は外生性を持つが，<span class="math inline">\(X_2\)</span> は内生性を持ってしまうとする： <span class="math display">\[
+\operatorname{E}[X_1\epsilon]=0,\quad\operatorname{E}[X_2\epsilon]\ne0.
+\]</span> このとき，次の３条件を満たす <span class="math inline">\(X\)</span> と同次元の <span class="math inline">\(Z\)</span> を操作変数という：</p>
+<ol type="1">
+<li>外生性：<span class="math inline">\(\operatorname{E}[Z\epsilon]=0\)</span>．</li>
+<li>多重線型性の非存在：<span class="math inline">\(\operatorname{rank}\operatorname{E}[ZZ^\top]&gt;0\)</span>．</li>
+<li>関連性：<span class="math inline">\(\operatorname{rank}\operatorname{E}[ZX^\top]=\operatorname{rank}\operatorname{E}[X]\)</span>．</li>
+</ol>
+<p>操作変数 <span class="math inline">\(Z_2\)</span> を <span class="math inline">\(X_2\)</span> の代わりに説明変数に用いることで内生性の問題が除去される．このため <span class="math inline">\(Z_2\)</span> は <strong>排除されていた外生変数</strong> (excluded exogenous variable) ともいう．</p>
+</div>
+</div>
+</div>
+<p>操作変数が存在するとき，遵守者の平均処置効果，すなわち <strong>局所平均処置効果</strong> (LATE: Local Average Treatment Effect) が識別可能になる <span class="citation" data-cites="Imbens-Angrist94-LATE">(<a href="#ref-Imbens-Angrist94-LATE" role="doc-biblioref">Imbens and Angrist, 1994</a>)</span>．</p>
+</section>
+<section id="回帰非連続デザイン" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="回帰非連続デザイン"><span class="header-section-number">2.3</span> 回帰非連続デザイン</h3>
+<p><a href="https://ja.wikipedia.org/wiki/回帰不連続デザイン"><strong>回帰不連続デザイン</strong></a> (RDD: Regression Discontinuity Design) では，割り当ての閾値の近傍では擬似ランダム化が行われていると仮定できる状況において，閾値の近傍に位置した部分標本を用いて，その部分標本での処置効果を推定する．</p>
+</section>
+<section id="差の差法" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="差の差法"><span class="header-section-number">2.4</span> 差の差法</h3>
+<p><a href="https://ja.wikipedia.org/wiki/差分の差分法"><strong>差分の差法</strong></a> (DID: Difference-in-Differences) は，被曝群と比較群それぞれの処置前後の差分に現れる差分を，処置効果の近似とみなす方法である．</p>
+<p>被曝群と比較群をマッチングすることで共変量を統制することが期待されるが，処置の有無と関係を持つ未統制の共変量の調整が問題となる <span class="citation" data-cites="Bertrand+2004">(<a href="#ref-Bertrand+2004" role="doc-biblioref">Bertrand et al., 2004</a>)</span>．</p>
+</section>
+<section id="周辺構造モデル" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="周辺構造モデル"><span class="header-section-number">2.5</span> 周辺構造モデル</h3>
+<p>周辺構造モデルは平均処置効果をパラメータに持つモデルであり <span class="citation" data-cites="Robins2000">(<a href="#ref-Robins2000" role="doc-biblioref">J. M. Robins, 2000</a>)</span>，潜在結果変数の（周辺）平均構造をモデリングする： <span class="math display">\[
+g(\operatorname{E}[Y^a_i|L_i])=\psi_0+\psi_1a+\psi_2L_i+\psi_3L_ia.
+\]</span></p>
+<p>統計ソフトの充実によりよく使われるようになったが，後述の構造的ネストモデルと <span class="math inline">\(G\)</span>-推定の方が一般的であり，より効率的である <span class="citation" data-cites="Vamsteelandt-Joffe2014">(<a href="#ref-Vamsteelandt-Joffe2014" role="doc-biblioref">Vansteelandt and Joffe, 2014</a>)</span>．</p>
+</section>
+<section id="g-推定" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="g-推定"><span class="header-section-number">2.6</span> <span class="math inline">\(G\)</span>-推定</h3>
+<p><span class="math inline">\(G\)</span>-推定 <span class="citation" data-cites="Robins+2000">(<a href="#ref-Robins+2000" role="doc-biblioref">J. M. Robins et al., 2000</a>)</span> は不服従など処置変数 <span class="math inline">\(D\)</span> に依存した交絡を調整するために，構造的平均モデル，パラメトリック <span class="math inline">\(G\)</span>-公式 <span class="citation" data-cites="Robins1986">(<a href="#ref-Robins1986" role="doc-biblioref">J. Robins, 1986</a>)</span>，構造的ネストモデル (structural nested model) <span class="citation" data-cites="Robins+1992">(<a href="#ref-Robins+1992" role="doc-biblioref">J. M. Robins et al., 1992</a>)</span> と同時に提案された．</p>
+<p><strong>構造的平均モデル</strong> (SMM: Structural Mean Model) では，リンク関数 <span class="math inline">\(g\)</span> の自由度を残して <span class="math display">\[
+g(\operatorname{E}[Y^a|L=l,A=a])-g(\operatorname{E}[Y^0|L=l,A=a])=\gamma^*(l,a;\psi^*)
+\]</span> により処置 <span class="math inline">\(A=a\)</span> の平均因果効果にパラメトリックな仮定をおく．</p>
+</section>
+</section>
+<section id="モデルフリー推定手法" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="モデルフリー推定手法"><span class="header-section-number">3</span> モデルフリー推定手法</h2>
+<section id="はじめに-2" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">3.1</span> はじめに</h3>
+<p>疫学では一般化推定方程式，計量経済学では一般化モーメント法など，モデルを全面に押し出さずに推定目標を定義し，これを推定する手法が用いられる．</p>
+<p>このように関心のある母数以外の <strong>局外母数</strong> (nuisance parameter) にはモデルを明示的に想定しない手法を <strong>セミパラメトリック法</strong> (semi-parametric method) という．</p>
+<p>このような手法では，興味のあるパラメータがはっきりしているため，それ以外のモデルの仮定にはひとまず興味がなく，誤特定の下でも効率的な推論ができるロバスト性が重視される．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+</section>
+<section id="共通の枠組み" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="共通の枠組み"><span class="header-section-number">3.2</span> 共通の枠組み</h3>
+<p>ある関数 <span class="math inline">\(g\)</span> に関して， <span id="eq-GMM"><span class="math display">\[
+\operatorname{E}[g(\beta,X,Y)]=0
+\tag{2}\]</span></span> によって推定対象 <span class="math inline">\(\beta\)</span> を特徴付ける場面は多い．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+<p>条件 (<a href="#eq-GMM" class="quarto-xref">2</a>) によって推定対象 <span class="math inline">\(\beta\)</span> が定義されているとき，標本上の対応する方程式 <span id="eq-EstimatingEquation"><span class="math display">\[
+\frac{1}{n}\sum_{i=1}^ng(\beta,X_i,Y_i)=0
+\tag{3}\]</span></span> の解として推定量を構成することが自然な発想になる．</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="名前一覧">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+名前一覧
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>数理統計学・頑健統計では極値点として定義される <span class="math inline">\(M\)</span>-推定量（第 <a href="#sec-M-estimator" class="quarto-xref">3.3</a> 節）と区別して <strong><span class="math inline">\(Z\)</span>-推定量</strong> とも呼ばれる <span class="citation" data-cites="vanderVaart1998">(<a href="#ref-vanderVaart1998" role="doc-biblioref">van&nbsp;der&nbsp;Vaart, 1998</a>)</span>．</li>
+<li>疫学では <span class="math inline">\(g\)</span> を <strong>推定関数</strong> <span class="citation" data-cites="Godambe1997">(<a href="#ref-Godambe1997" role="doc-biblioref">Godambe, 1997</a>)</span>，式 (<a href="#eq-GMM" class="quarto-xref">2</a>) を推定関数の <strong>不偏性</strong>，式 (<a href="#eq-EstimatingEquation" class="quarto-xref">3</a>) を <strong>推定方程式</strong> という．</li>
+<li>計量経済学では <strong>一般化モーメント法</strong> (GMM: Generalized Method of Moments) <span class="citation" data-cites="Hansen82-GMM">(<a href="#ref-Hansen82-GMM" role="doc-biblioref">L. P. Hansen, 1982</a>)</span> として知られる．式 (<a href="#eq-EstimatingEquation" class="quarto-xref">3</a>) を <strong>モーメント方程式</strong> という．主に構造方程式モデルの推定に用いられた．</li>
+</ul>
+</div>
+</div>
+<p>特に一般化モーメント法は，モデルの議論を伴わないリサーチクエスチョンに応えるために格好の枠組みである．</p>
+<p>例えば線型回帰係数に対する OLS 推定量は <span class="math inline">\(g(\beta,X)=X(Y-X^\top\beta)\)</span> によって定まる一般化モーメント推定量である．</p>
+<p>操作変数推定量は <span class="math inline">\(g(\beta,X,Y,Z)=Z(Y-X^\top\beta)\)</span> によって定まる一般化モーメント推定量である．</p>
+<p>このような推定量はモデルに依存しない方法を与える上に，漸近論の観点で好ましい性質を持つ <span class="citation" data-cites="Hansen82-GMM">(<a href="#ref-Hansen82-GMM" role="doc-biblioref">L. P. Hansen, 1982</a>)</span>．</p>
+</section>
+<section id="sec-M-estimator" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-M-estimator"><span class="header-section-number">3.3</span> <span class="math inline">\(M\)</span>-推定量</h3>
+<p>最尤推定量のように，特定の目的関数 <span class="math display">\[
+M_n(\theta):=\frac{1}{n}\sum_{i=1}^nm_\theta(X_i)
+\]</span> を最大化する点として定義される推定量 <span class="math inline">\(\widehat{\theta}\)</span> は <strong><span class="math inline">\(M\)</span>-推定量</strong> と呼ばれる．</p>
+<p>同時に最尤推定量は，スコア関数の零点としても特徴付けられる <span class="citation" data-cites="Cramer1946">(<a href="#ref-Cramer1946" role="doc-biblioref">Carmer, 1946</a>)</span>．</p>
+<p>大変大雑把に言えば，モーメント法 → 最尤推定量 → <span class="math inline">\(Z\)</span>-推定量という歴史的な流れがある <span class="citation" data-cites="LeCam1952">(<a href="#ref-LeCam1952" role="doc-biblioref">Le&nbsp;Cam, 1952</a>)</span>．</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="名前一覧">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+名前一覧
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>頑健統計において <span class="math inline">\(M\)</span>-推定量 <span class="citation" data-cites="Huber1964">(<a href="#ref-Huber1964" role="doc-biblioref">P. J. Huber, 1964</a>)</span> と呼ばれる．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></li>
+<li>数理統計において最小コントラスト推定量 <span class="citation" data-cites="Pfanzagl1969">(<a href="#ref-Pfanzagl1969" role="doc-biblioref">Pfanzagl, 1969</a>)</span> と呼ばれる．</li>
+</ul>
+</div>
+</div>
+<p>頑健統計に起源を持つように，<span class="math inline">\(M\)</span>-推定量，一般に <span class="math inline">\(Z\)</span>-推定量は極めて安定して一致性と漸近正規性をもつ．</p>
+<p>推定方程式 (<a href="#eq-EstimatingEquation" class="quarto-xref">3</a>) を近似的に解いても大丈夫だし，推定関数の不偏性 (<a href="#eq-GMM" class="quarto-xref">2</a>) が漸近的にしか成り立たなくてもほとんど問題がない．</p>
+</section>
+<section id="一般化推定方程式" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="一般化推定方程式"><span class="header-section-number">3.4</span> 一般化推定方程式</h3>
+<p>一般化推定方程式は，一般化線型モデル <span class="citation" data-cites="Nelder-Wedderburn72-GLM">(<a href="#ref-Nelder-Wedderburn72-GLM" role="doc-biblioref">Nelder and Wedderburn, 1972</a>)</span> における，擬似スコア <span class="math display">\[
+U(Y_j,\beta|X_j)=(\partial_\beta\mu(X_j^\top\beta))^\top V_i^{-1}(Y_i-\mu(X_i^\top\beta))
+\]</span> を推定関数に用いた一般化モーメント法である．</p>
+<p><span class="math inline">\(U\)</span> を擬似スコアと呼んだのは，誤差の分散 <span class="math inline">\(V_i\)</span> はモデルの仮定により定まるわけではなく，主に推定効率のために「作業仮設として」設定されたものであるためである．</p>
+<p>実際，正規化した <span class="math inline">\(V_i\)</span> は作業相関係数⾏列ともいう．<span class="math inline">\(V_i\)</span> を代入した尤度を <strong>擬似尤度</strong> (quasi-likelihood) <span class="citation" data-cites="Wedderburn1974">(<a href="#ref-Wedderburn1974" role="doc-biblioref">Wedderburn, 1974</a>)</span> という．</p>
+<p>この方法では，真の誤差分布が相関を持つようなものであった場合でも，平均構造 <span class="math inline">\(\mu\)</span> の特定にさえ成功すれば，<span class="math inline">\(\beta\)</span> に関して不偏推定を可能にする．ある種の最尤推定の迂回路である．</p>
+<p><span class="math inline">\(V_i\)</span> の特定に成功した場合は，セミパラメトリック最適な推定量を与える．</p>
+<p>二次のモーメントに関しても関心がある場合は，混合効果モデルなどを通じたモデル化が必要になる．詳しくは <a href="../../../posts/2024/Computation/brms.html">この稿</a> を参照．</p>
+</section>
+<section id="経験尤度法" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="経験尤度法"><span class="header-section-number">3.5</span> 経験尤度法</h3>
+<p>データ <span class="math inline">\(\{x_i\}_{i=1}^n\subset\mathbb{R}^d\)</span> に関する <strong>経験尤度</strong> (empirical likelihood) <span class="citation" data-cites="Owen1988">(<a href="#ref-Owen1988" role="doc-biblioref">Owen, 1988</a>)</span> とは，分布関数の汎函数 <span class="math display">\[
+L(F):=\prod_{i=1}^nF(X_i)-F(X_i-)=\prod_{i=1}^n\operatorname{P}[X=x_i]
+\]</span> をいう．</p>
+<p>この観点から，経験分布関数 <span class="math inline">\(F_n\)</span> は経験尤度を最大にするノンパラメトリック推定量である．</p>
+<p>最尤法はモデルの全ての母数を特定化しない限り実行できないが，経験尤度の最大化ならば可能である．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
+<p><span class="math display">\[
+\sum_{i=1}^np_ig(x_i,\theta)=0
+\]</span> を満たす中で経験尤度を最大化する <span class="math inline">\(\theta\)</span> を <strong>最大経験尤度推定量</strong> (MELE: maximum empirical likelihood estimator) <span class="citation" data-cites="Qin-Lawless1994">(<a href="#ref-Qin-Lawless1994" role="doc-biblioref">Qin and Lawless, 1994</a>)</span> という．</p>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="文献案内" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献案内</h2><div class="quarto-appendix-contents">
+
+
+
+
+
+
+</div></section><section id="ベイズ推定" class="level3 appendix" data-number="4.1"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4.1</span> ベイズ推定</h2><div class="quarto-appendix-contents">
+
+<p>平均処置効果のベイズ推定は初めから <span class="citation" data-cites="Rubin1978">(<a href="#ref-Rubin1978" role="doc-biblioref">Rubin, 1978</a>)</span> により考えられていた．</p>
+<p>近年のレビューには <span class="citation" data-cites="Li+2023-BayesianCausalInference">(<a href="#ref-Li+2023-BayesianCausalInference" role="doc-biblioref">Li et al., 2023</a>)</span> がある．</p>
+<blockquote class="blockquote">
+<p>First and most importantly, by enabling imputation of all missing potential outcomes, the Bayesian paradigm provides a unified inferential framework for any causal estimand. <span class="citation" data-cites="Li+2023-BayesianCausalInference">(<a href="#ref-Li+2023-BayesianCausalInference" role="doc-biblioref">Li et al., 2023, p. 18</a>)</span></p>
+</blockquote>
+<p>頻度論的な因果推論手法は特にモデルフリーな感覚があり，応用分野に浸透しきっている．モデリングの必要性を感じにくいこともあり，ベイズ的な方法が出遅れたままの感がある．</p>
+<p>ベイズ手法の成功事例には <span class="citation" data-cites="Dorie+2019">(<a href="#ref-Dorie+2019" role="doc-biblioref">Dorie et al., 2019</a>)</span> がある．ここでは，2016 年の Atlantic Causal Inference Conference のデータ解析コンペティションで，BART (Bayesian Additive Regression Trees) に基づく手法が優勝したことが考察されている．</p>
+<blockquote class="blockquote">
+<p>In general, Bayesian nonparametrics offers both the flexibility of modern machine learning algorithms and the statistically-principled uncertainty quantification of Bayesian inference. <span class="citation" data-cites="Linero-Antonelli2023">(<a href="#ref-Linero-Antonelli2023" role="doc-biblioref">Linero and Antonelli, 2023</a>)</span></p>
+</blockquote>
+</div></section><section id="計量経済学" class="level3 appendix" data-number="4.2"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4.2</span> 計量経済学</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="川口-澤田2024">(<a href="#ref-川口-澤田2024" role="doc-biblioref">川口康平 and 澤田真行, 2024</a>)</span> は日本語の文献であるが，最新の手法も含めた潜在結果モデルの因果推論手法を，計量経済学の構造推定の文脈から切り離して紹介しており，計量経済学に限らず広い聴衆にリーチすべき内容になっている．<a href="https://github.com/keisemi/EconometriciansGuide_CausalInference">GitHub サポートページはこちら</a>．</p>
+</div></section><section id="生物統計学" class="level3 appendix" data-number="4.3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4.3</span> 生物統計学</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="Hernan-Robins2020">(<a href="#ref-Hernan-Robins2020" role="doc-biblioref">Hernán and Robins, 2020</a>)</span> は 2024 年 reviesed 版も <a href="https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/">無料で公開されている</a>．</p>
+</div></section><section id="社会科学" class="level3 appendix" data-number="4.4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4.4</span> 社会科学</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="Morgan-Winship2014">(<a href="#ref-Morgan-Winship2014" role="doc-biblioref">Morgan and Winship, 2014</a>)</span> は社会学の本である．４章で媒介解析を扱うと同時に，第５章では Rubin の周辺構造モデルも扱っている．</p>
+<p><span class="citation" data-cites="Brand+2023">(<a href="#ref-Brand+2023" role="doc-biblioref">Brand et al., 2023</a>)</span> は社会学に力点が置かれているが，因果推論手法一般について極めて良い概観を与える読みやすいレビューである．</p>
+</div></section><section id="統計学" class="level3 appendix" data-number="4.5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4.5</span> 統計学</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="Rosenbaum2023">(<a href="#ref-Rosenbaum2023" role="doc-biblioref">Rosenbaum, 2023</a>)</span> は統計学の本である．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Alwin-Hauser1975" class="csl-entry" role="listitem">
+Alwin, D. F., and Hauser, R. M. (1975). <a href="http://www.jstor.org/stable/2094445">The decomposition of effects in path analysis</a>. <em>American Sociological Review</em>, <em>40</em>(1), 37–47.
+</div>
+<div id="ref-Angrist-Pischke2010" class="csl-entry" role="listitem">
+Angrist, J. D., and Pischke, J.-S. (2010). <a href="http://www.jstor.org/stable/25703496">The credibility revolution in empirical economics: How better research design is taking the con out of econometrics</a>. <em>The Journal of Economic Perspectives</em>, <em>24</em>(2), 3–30.
+</div>
+<div id="ref-Baron-Kenny1986" class="csl-entry" role="listitem">
+Baron, R. M., and Kenny, D. A. (1986). <a href="https://doi.org/10.1037/0022-3514.51.6.1173">The moderator–mediator variable distinction in social psychological research: Conceptual, strategic, and statistical considerations</a>. <em>Journal of Personality and Social Psychology</em>, <em>51</em>(6), 1173–1182.
+</div>
+<div id="ref-Bertrand+2004" class="csl-entry" role="listitem">
+Bertrand, M., Duflo, E., and Mullainathan, S. (2004). <a href="https://doi.org/10.1162/003355304772839588"><span>How Much Should We Trust Differences-In-Differences Estimates?*</span></a>. <em>The Quarterly Journal of Economics</em>, <em>119</em>(1), 249–275.
+</div>
+<div id="ref-Bongers+2021" class="csl-entry" role="listitem">
+Bongers, S., Forré, P., Peters, J., and Mooij, J. M. (2021). <a href="https://doi.org/10.1214/21-AOS2064">Foundations of structural causal models with cycles and latent variables</a>. <em>The Annals of Statistics</em>, <em>49</em>(5), 2885–2915.
+</div>
+<div id="ref-Brand+2023" class="csl-entry" role="listitem">
+Brand, J. E., Zhou, X., and Xie, Y. (2023). <a href="https://doi.org/10.1146/annurev-soc-030420-015345">Recent developments in causal inference and machine learning</a>. <em>Annual Review of Sociology</em>, <em>49</em>(Volume 49, 2023), 81–110. Journal Article.
+</div>
+<div id="ref-Cramer1946" class="csl-entry" role="listitem">
+Carmer, H. (1946). <em>Mathematical methods of statistics</em>. Princeton University Press.
+</div>
+<div id="ref-Cui-Athey2022" class="csl-entry" role="listitem">
+Cui, P., and Athey, S. (2022). <a href="https://doi.org/10.1038/s42256-022-00445-z">Stable learning establishes some common ground between causal inference and machine learning</a>. <em>Nature Machine Intelligence</em>, <em>4</em>(2), 110–115.
+</div>
+<div id="ref-Ding2024" class="csl-entry" role="listitem">
+Ding, P. (2024). <em><a href="https://doi.org/10.1201/9781003484080"><span class="nocase">A First Course in Causal Inference</span></a></em>. Chapman; Hall/CRC.
+</div>
+<div id="ref-Dorie+2019" class="csl-entry" role="listitem">
+Dorie, V., Hill, J., Shalit, U., Scott, M., and Cervone, D. (2019). <a href="https://www.jstor.org/stable/26771031">Automated versus do-it-yourself methods for causal inference: Lessons learned from a data analysis competition</a>. <em>Statistical Science</em>, <em>34</em>(1), pp. 43–68.
+</div>
+<div id="ref-Godambe1997" class="csl-entry" role="listitem">
+Godambe, V. P. (1997). <a href="http://www.jstor.org/stable/4356005">Estimating functions: A synthesis of least squares and maximum likelihood methods</a>. <em>Lecture Notes-Monograph Series</em>, <em>32</em>, 5–15.
+</div>
+<div id="ref-Haavelmo1943" class="csl-entry" role="listitem">
+Haavelmo, T. (1943). <a href="http://www.jstor.org/stable/1905714">The statistical implications of a system of simultaneous equations</a>. <em>Econometrica</em>, <em>11</em>(1), 1–12.
+</div>
+<div id="ref-Hansen2022" class="csl-entry" role="listitem">
+Hansen, B. E. (2022). <em>Econometrics</em>. Princeton University Press.
+</div>
+<div id="ref-Hansen82-GMM" class="csl-entry" role="listitem">
+Hansen, L. P. (1982). Large sample properties of generalized method of moments estimators. <em>Econometrica</em>, <em>50</em>(4), 1029–1054.
+</div>
+<div id="ref-Heckman2010" class="csl-entry" role="listitem">
+Heckman, J. J. (2010). <a href="http://www.jstor.org/stable/20778729">Building bridges between structural and program evaluation approaches to evaluating policy</a>. <em>Journal of Economic Literature</em>, <em>48</em>(2), 356–398.
+</div>
+<div id="ref-Hernan-Robins2020" class="csl-entry" role="listitem">
+Hernán, M. A., and Robins, J. M. (2020). <em><a href=""><span>Causal Inference: What If</span></a></em>. Boca Raton: Chapman &amp; Hall/CRC.
+</div>
+<div id="ref-Holland86-Review" class="csl-entry" role="listitem">
+Holland, P. W. (1986). Statistics and causal inference. <em>Journal of the American Statistical Association</em>, <em>81</em>(396), 945–960.
+</div>
+<div id="ref-Huber2023" class="csl-entry" role="listitem">
+Huber, M. (2023). <em><a href="https://mitpress.mit.edu/9780262545914/causal-analysis/"><span class="nocase">Causal Analysis: Impact Evaluation and Causal Machine Learning with Applications in R</span></a></em>. MIT Press.
+</div>
+<div id="ref-Huber1964" class="csl-entry" role="listitem">
+Huber, P. J. (1964). <a href="https://doi.org/10.1214/aoms/1177703732"><span class="nocase">Robust Estimation of a Location Parameter</span></a>. <em>The Annals of Mathematical Statistics</em>, <em>35</em>(1), 73–101.
+</div>
+<div id="ref-Huber1981" class="csl-entry" role="listitem">
+Huber, P. J. (1981). <em><a href="https://onlinelibrary.wiley.com/doi/book/10.1002/0471725250">Robust statistics</a></em>. John Wiley &amp; Sons.
+</div>
+<div id="ref-Imbens-Angrist94-LATE" class="csl-entry" role="listitem">
+Imbens, G. W., and Angrist, J. D. (1994). Identification and estimation of local average treatment effects. <em>Econometrica</em>, <em>62</em>(2), 467–475.
+</div>
+<div id="ref-vanderLaan-Rose11-TargetedLearning" class="csl-entry" role="listitem">
+Laan, M. J. van der, and Rose, S. (2011). <em><a href="https://doi.org/10.1007/978-1-4419-9782-1"><span class="nocase">Targeted Learning: Causal Inference for Observational and Experimental Data</span></a></em>. Springer New York.
+</div>
+<div id="ref-LaLonde1986" class="csl-entry" role="listitem">
+LaLonde, R. J. (1986). <a href="http://www.jstor.org/stable/1806062">Evaluating the econometric evaluations of training programs with experimental data</a>. <em>The American Economic Review</em>, <em>76</em>(4), 604–620.
+</div>
+<div id="ref-LeCam1952" class="csl-entry" role="listitem">
+Le&nbsp;Cam, L. M. (1952). <em>On some asymptotic properties of maximum likelihood estimates and related bayes’ estimates</em> (PhD thesis). UC Berkeley. Retrieved from <a href="https://math.berkeley.edu/publications/some-asymptotic-properties-maximum-likelihood-estimates-and-related-bayes-estimates">https://math.berkeley.edu/publications/some-asymptotic-properties-maximum-likelihood-estimates-and-related-bayes-estimates</a>
+</div>
+<div id="ref-Leamer1983" class="csl-entry" role="listitem">
+Leamer, E. E. (1983). <a href="http://www.jstor.org/stable/1803924">Let’s take the con out of econometrics</a>. <em>The American Economic Review</em>, <em>73</em>(1), 31–43.
+</div>
+<div id="ref-Li+2023-BayesianCausalInference" class="csl-entry" role="listitem">
+Li, F., Ding, P., and Mealli, F. (2023). <a href="https://doi.org/10.1098/rsta.2022.0153">Bayesian causal inference: A critical review</a>. <em>Philosophical Transactions of the Royal Society A: Mathematical Physical and Engineering Sciences</em>, <em>381</em>(2247).
+</div>
+<div id="ref-Linero-Antonelli2023" class="csl-entry" role="listitem">
+Linero, A. R., and Antonelli, J. L. (2023). <a href="https://wires.onlinelibrary.wiley.com/doi/full/10.1002/wics.1583">The how and why of bayesian nonparametric causal inference</a>. <em>WIREs Computational Statistics</em>, <em>15</em>(1), e1583.
+</div>
+<div id="ref-Lucas1976" class="csl-entry" role="listitem">
+Lucas, R. E. (1976). <a href="https://doi.org/10.1016/S0167-2231(76)80003-6">Econometric policy evaluation: A critique</a>. <em>Carnegie-Rochester Conference Series on Public Policy</em>, <em>1</em>, 19–46.
+</div>
+<div id="ref-Morgan-Winship2014" class="csl-entry" role="listitem">
+Morgan, S. L., and Winship, C. (2014). <em><a href=""><span class="nocase">Counterfactuals and Causal Inference</span></a></em>. Cambridge University Press.
+</div>
+<div id="ref-Nelder-Wedderburn72-GLM" class="csl-entry" role="listitem">
+Nelder, J. A., and Wedderburn, R. W. M. (1972). Generalized linear models. <em>Journal of the Royal Statistical Society, Series A (General)</em>, <em>135</em>(3), 370–384.
+</div>
+<div id="ref-Neyman-23" class="csl-entry" role="listitem">
+Neyman, J., Dabrowska, D. M., and Speed, T. P. (1990). <a href="https://doi.org/10.1214/ss/1177012031"><span class="nocase">On the Application of Probability Theory to Agricultural Experiments. Essay on Principles. Section 9</span></a>. <em>Statistical Science</em>, <em>5</em>(4), 465–472.
+</div>
+<div id="ref-Nguyen+2021" class="csl-entry" role="listitem">
+Nguyen, T. Q., Schmid, I., and Stuart, E. A. (2021). <a href="https://doi.org/10.1037/met0000299">Clarifying causal mediation analysis for the applied researcher: Defining effects based on what we want to learn</a>. <em>Psychological Methods</em>, <em>26</em>(2), 255–271.
+</div>
+<div id="ref-Owen1988" class="csl-entry" role="listitem">
+Owen, A. B. (1988). <a href="https://doi.org/10.1093/biomet/75.2.237"><span class="nocase">Empirical likelihood ratio confidence intervals for a single functional</span></a>. <em>Biometrika</em>, <em>75</em>(2), 237–249.
+</div>
+<div id="ref-Pearl88-IntelligentSystem" class="csl-entry" role="listitem">
+Pearl, J. (1988). <em>Probabilistic reasoning in intelligent systems</em>. Morgan Kaufmann.
+</div>
+<div id="ref-Pearl2012" class="csl-entry" role="listitem">
+Pearl, J. (2012). <a href="https://doi.org/10.1002/9781119945710.ch12">The mediation formula: A guide to the assessment of causal pathways in nonlinear models</a>. In <em>Causality</em>, pages 151–179. John Wiley &amp; Sons, Ltd.
+</div>
+<div id="ref-Pearl2015" class="csl-entry" role="listitem">
+Pearl, J. (2015). <a href="https://doi.org/10.1017/S0266466614000231">TRYGVE HAAVELMO AND THE EMERGENCE OF CAUSAL CALCULUS</a>. <em>Econometric Theory</em>, <em>31</em>(1), 152–179.
+</div>
+<div id="ref-Pfanzagl1969" class="csl-entry" role="listitem">
+Pfanzagl, J. (1969). <a href="https://doi.org/10.1007/BF02613654">On the measurability and consistency of minimum contrast estimates</a>. <em>Metrika</em>, <em>14</em>(1), 249–272.
+</div>
+<div id="ref-Qin-Lawless1994" class="csl-entry" role="listitem">
+Qin, J., and Lawless, J. (1994). <a href="https://doi.org/10.1214/aos/1176325370"><span class="nocase">Empirical Likelihood and General Estimating Equations</span></a>. <em>The Annals of Statistics</em>, <em>22</em>(1), 300–325.
+</div>
+<div id="ref-Robins1986" class="csl-entry" role="listitem">
+Robins, J. (1986). <a href="https://doi.org/10.1016/0270-0255(86)90088-6">A new approach to causal inference in mortality studies with a sustained exposure period—application to control of the healthy worker survivor effect</a>. <em>Mathematical Modelling</em>, <em>7</em>(9), 1393–1512.
+</div>
+<div id="ref-Robins2000" class="csl-entry" role="listitem">
+Robins, J. M. (2000). Marginal structural models versus structural nested models as tools for causal inference. In M. E. Halloran and D. Berry, editors, <em>Statistical models in epidemiology, the environment, and clinical trials</em>, pages 95–133. New York, NY: Springer New York.
+</div>
+<div id="ref-Robins-Greenland1992" class="csl-entry" role="listitem">
+Robins, J. M., and Greenland, S. (1992). <a href="https://journals.lww.com/epidem/fulltext/1992/03000/identifiability_and_exchangeability_for_direct_and.13.aspx">Identifiability and exchangeability for direct and indirect effects</a>. <em>Epidemiology</em>, <em>3</em>(2).
+</div>
+<div id="ref-Robins+2000" class="csl-entry" role="listitem">
+Robins, J. M., Hernán, M. Á., and Brumback, B. (2000). <a href="https://journals.lww.com/epidem/fulltext/2000/09000/marginal_structural_models_and_causal_inference_in.11.aspx">Marginal structural models and causal inference in epidemiology</a>. <em>Epidemiology</em>, <em>11</em>(5).
+</div>
+<div id="ref-Robins+1992" class="csl-entry" role="listitem">
+Robins, J. M., Mark, S. D., and Newey, W. K. (1992). <a href="http://www.jstor.org/stable/2532304">Estimating exposure effects by modelling the expectation of exposure conditional on confounders</a>. <em>Biometrics</em>, <em>48</em>(2), 479–495.
+</div>
+<div id="ref-Rosenbaum2023" class="csl-entry" role="listitem">
+Rosenbaum, P. R. (2023). <em><a href="">Causal inference</a></em>. MIT Press.
+</div>
+<div id="ref-Rubin1974-Causal" class="csl-entry" role="listitem">
+Rubin, D. B. (1974). <a href="https://psycnet.apa.org/doi/10.1037/h0037350">Estimating causal effects of treatments in randomized and nonrandomized studies</a>. <em>Journal of Educational Psychology</em>, <em>66</em>(5), 688–701.
+</div>
+<div id="ref-Rubin1978" class="csl-entry" role="listitem">
+Rubin, D. B. (1978). <a href="http://www.jstor.org/stable/2958688">Bayesian inference for causal effects: The role of randomization</a>. <em>The Annals of Statistics</em>, <em>6</em>(1), 34–58.
+</div>
+<div id="ref-Rubin1980" class="csl-entry" role="listitem">
+Rubin, D. B. (1980). <a href="http://www.jstor.org/stable/2287653">Randomization analysis of experimental data: The fisher randomization test comment</a>. <em>Journal of the American Statistical Association</em>, <em>75</em>(371), 591–593.
+</div>
+<div id="ref-Runge2023" class="csl-entry" role="listitem">
+Runge, J., Gerhardus, A., Varando, G., Eyring, V., and Camps-Valls, G. (2023). <a href="https://doi.org/10.1038/s43017-023-00431-y">Causal inference for time series</a>. <em>Nature Reviews Earth &amp; Environment</em>, <em>4</em>(7), 487–505.
+</div>
+<div id="ref-Fujii+2022" class="csl-entry" role="listitem">
+Ryosuke Fujii, Y. T., Shuntaro Sato, and Suzuki, K. (2022). <a href="https://doi.org/10.1080/15592294.2021.1959736">DNA methylation as a mediator of associations between the environment and chronic diseases: A scoping review on application of mediation analysis</a>. <em>Epigenetics</em>, <em>17</em>(7), 759–785.
+</div>
+<div id="ref-vanderVaart1998" class="csl-entry" role="listitem">
+van&nbsp;der&nbsp;Vaart, A. (1998). <em><a href="https://doi.org/10.1017/CBO9780511802256">Asymptotic statistics</a></em>. Cambridge University Press.
+</div>
+<div id="ref-Vamsteelandt-Joffe2014" class="csl-entry" role="listitem">
+Vansteelandt, S., and Joffe, M. (2014). <a href="https://doi.org/10.1214/14-STS493"><span class="nocase">Structural Nested Models and G-estimation: The Partially Realized Promise</span></a>. <em>Statistical Science</em>, <em>29</em>(4), 707–731.
+</div>
+<div id="ref-Wedderburn1974" class="csl-entry" role="listitem">
+Wedderburn, R. W. M. (1974). <a href="http://www.jstor.org/stable/2334725">Quasi-likelihood functions, generalized linear models, and the gauss-newton method</a>. <em>Biometrika</em>, <em>61</em>(3), 439–447.
+</div>
+<div id="ref-黒木学2016" class="csl-entry" role="listitem">
+学. (2016). <a href="https://doi.org/10.20742/pbsj.44.0_124">R-6-2 構造的因果モデルから潜在反応モデルへ</a>. <em>日本行動計量学会大会抄録集</em>, <em>44</em>, 124–125.
+</div>
+<div id="ref-川口-澤田2024" class="csl-entry" role="listitem">
+川口康平, and 澤田真行. (2024). <em><a href="">因果推論の計量経済学</a></em>. 日本評論社.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>科学的な興味の対象は多くの場合モデル全体ではなく，特定の１つのパラメータであり，そのような場合は実験計画を工夫することでモデルに関係なく推定可能になるという発想は <span class="citation" data-cites="Heckman2010">(<a href="#ref-Heckman2010" role="doc-biblioref">Heckman, 2010</a>)</span> により “Marschak’s Maxim” と呼ばれる．詳しくは <span class="citation" data-cites="vanderLaan-Rose11-TargetedLearning">(<a href="#ref-vanderLaan-Rose11-TargetedLearning" role="doc-biblioref">Laan and Rose, 2011</a>)</span> のPearl による foreword も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>因果推論の根本問題 <span class="citation" data-cites="Holland86-Review">(<a href="#ref-Holland86-Review" role="doc-biblioref">Holland, 1986</a>)</span> とも呼ばれる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><span class="citation" data-cites="黒木学2016">(<a href="#ref-黒木学2016" role="doc-biblioref">学, 2016</a>)</span> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><span class="citation" data-cites="川口-澤田2024">(<a href="#ref-川口-澤田2024" role="doc-biblioref">川口康平 and 澤田真行, 2024</a>)</span>, <span class="citation" data-cites="Pearl2015">(<a href="#ref-Pearl2015" role="doc-biblioref">Pearl, 2015</a>)</span> も参照．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>詳しくは <a href="https://ja.wikipedia.org/wiki/ルーカス批判">ルーカス批判 (Wikipedia)</a> も参照．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="vanderLaan-Rose11-TargetedLearning">(<a href="#ref-vanderLaan-Rose11-TargetedLearning" role="doc-biblioref">Laan and Rose, 2011</a>)</span> の Pearl による Foreword も参照．<span class="citation" data-cites="Fujii+2022">(<a href="#ref-Fujii+2022" role="doc-biblioref">Ryosuke Fujii and Suzuki, 2022</a>)</span> の <a href="https://shuntaros.github.io/mediation-analysis-DNA-methylation/method.html">オンラインページ</a>も参照．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>ただし当然結果に依存してはいけない．<span class="citation" data-cites="Imbens-Angrist94-LATE">(Section 2 <a href="#ref-Imbens-Angrist94-LATE" role="doc-biblioref">Imbens and Angrist, 1994, p. 468</a>)</span> や <span class="citation" data-cites="Hernan-Robins2020">(Section 3.1 <a href="#ref-Hernan-Robins2020" role="doc-biblioref">Hernán and Robins, 2020, p. 28</a>)</span> も参照．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Hansen2022">(Section 12.5 <a href="#ref-Hansen2022" role="doc-biblioref">B. E. Hansen, 2022, p. 335</a>)</span> も参照．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p>それゆえ最尤法やベイズ法のように，一旦はモデルの想定が必要な手法が忌避されるところがある．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p><span class="math inline">\(X,Y\)</span> を任意の定数とした際に，<span class="math inline">\(\beta\)</span> に関して一意な解を持つとき，モーメント条件は <strong>識別可能</strong> であるという．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>他には <span class="math inline">\(L\)</span>-, <span class="math inline">\(R\)</span>-推定量があった <span class="citation" data-cites="Huber1981">(Section 3.2 <a href="#ref-Huber1981" role="doc-biblioref">P. J. Huber, 1981, p. 43</a>)</span>．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p>一般化推定方程式のように，作業的な値を代入して得る尤度は <strong>擬似尤度</strong> (quasi-likelihood) という．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          trigger: 'click',
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          positionFixed: true,
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<script src="https://giscus.app/client.js" data-repo="162348/162348.github.io" data-repo-id="R_kgDOKlfKYQ" data-category="Announcements" data-category-id="DIC_kwDOKlfKYc4CgDmb" data-mapping="pathname" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="en" crossorigin="anonymous" data-loading="lazy" async="">
+</script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
