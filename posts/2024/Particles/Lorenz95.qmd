@@ -10,7 +10,7 @@ bibliography:
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-image: Files/lorenz96_animation.gif
+image: Files/navier_stokes_animation.gif
 abstract-title: 概要
 abstract: |
     Lorenz' 63, Lorenz' 96 とはそれぞれ [@Lorenz1963], [@Lorenz1995] によって導入された大気モデルである．
@@ -108,13 +108,13 @@ plot(p)
 
 ![Lorenz 96 Model](Files/lorenz96_animation.gif)
 
-::: {.callout-important title="ODE ソルバーの選択" collapse="true" icon="false"}
+::: {.callout-important title="ODE ソルバーの選択" icon="false"}
 
 `CoupledODEs` のデフォルトのソルバーは
 
 > [Tsit5 - Tsitouras 5/4 Runge-Kutta method. (free 4th order interpolant).](https://docs.sciml.ai/DiffEqDocs/latest/solvers/ode_solve/)
 
-である．次のようにカスタマイズもできる
+である [@Tsitouras2011]．次のようにカスタマイズもできる
 
 ```julia
 using OrdinaryDiffEq: Vern9 # accessing the ODE solvers
@@ -139,7 +139,7 @@ Y[end]
 
 ### モデル定義
 
-$M^n$ を $n$-次元可微分多様体，$v:M\times\R_+\to\R^n$ を $M$ 上のベクトル場とする．$v$ に関する非圧縮・粘性 Navier-Stokes 方程式は次のように表せる [@Evans2010 p.6]：
+$M^n$ を $n$-次元可微分多様体，$v:M\times\R_+\to\R^n$ を $M$ 上のベクトル場とする．$v$ に関する非圧縮・粘性 Navier-Stokes 方程式は次のように表せる [@Temam1995], [@Evans2010 p.6]：
 
 $$
 \partial_tv-\nu\Lap v+v\cdot\nabla v=f-\nabla p,\qquad\nu>0,
@@ -147,28 +147,75 @@ $$
 $$
 \div v=0,\quad\int_M v_j(x,-)\,dx=0\quad(j\in[n]),\quad v(x,0)=:u(x).
 $$
-$\nu>0$ を **粘性** (viscosity) 係数，$p:M\times\R_+\to\R$ を **圧力** (pressure) という．$f$ は時間一定の外力である．
+$\nu>0$ を **粘性** (viscosity) 係数，$p:M\times\R_+\to\R$ を **圧力** (pressure) という．$f$ は時間一定の外力である．^[上述の方程式は，係数を正規化した場合とも，正規化した関数に関する方程式とも解釈できる．後者の解釈では，$\nu^{-1}$ は Reynolds 数に対応する．]
 
 ### 数値解法
 
-$v$ を数値的に得るためには **射影法** (projection method) [@Chorin1967], [@Chorin1968] を用いる．
+::: {.callout-tip appearance="simple" icon="false" title="周期的境界条件"}
 
-この方法では Holmholtz の射影作用素 $P$ が用いられる．
+$M^n=:\Om$ を $\R^n$ の領域とし，周期的な境界条件
+$$
+v(x+Le_i,t)=v(x,t),\qquad(x,t)\in M^n\times\R_+
+$$
+を考える．ただし，$e_i$ は $\R^n$ の標準基底ベクトルである．
+
+この設定の下では数学的に理想的な取り扱いができる．物理的には例えばトーラス上の流体を考えていることに相当する．
+
+:::
+
+$v$ を数値的に得るためには [**射影法**](https://en.wikipedia.org/wiki/Projection_method_(fluid_dynamics)) (projection method) [@Chorin1967], [@Chorin1968] を用いる．
+
+この方法では Helmholtz-Hodge の射影作用素 $P$ が用いられる．
 
 これは
 $$
 \dd{v}{t}+\nu Av+B(v,v)=P(f),\qquad v(0)=u
 $$ {#eq-projected-navier-stokes}
-という ODE への帰着を可能にする．ただし，
+という（無限次元空間 $v\in V'$ 上の） ODE への帰着を可能にする．ただし，
 $$
 B(v,w):=\frac{1}{2}P(v\cdot\nabla w)+\frac{1}{2}P(w\cdot\nabla v).
 $$
 
 あとは ODE ([-@eq-projected-navier-stokes]) をソルバーで解くのである．
 
+### 数学的詳細^[本小節は [Section 2 @Temam1995] を参考にしている．]
+
+$H^m(\Om)\subset L^2(\Om)$ を $m$ 階までの導関数が全て $L^2(\Om)$ に属する関数からなる Sobolev 空間とする．
+
+$H_p^m(\Om)$ を $H_\loc^m(\R^n)$ の部分空間のうち，$\Om$ 上で周期的なものとすると，次の表示を持つ：
+$$
+H_p^m(\Om)=\Brace{u=\sum_{k\in\bZ^n}c_ke^{2i\pi k\cdot x/L}\,\middle|\,\ov{c}_k=c_{-k},\sum_{k\in\bZ^n}\abs{k}^{2m}\abs{c_k}^2<\infty}.
+$$
+$\dot{H}_p^m(\Om)$ を $H_p^m(\Om)$ のうち $c_0=0$ を満たすものの部分空間とする．上の表示をもとにして，任意の $m\in\R$ について $\dot{H}^m_p(\Om)$ が定まる．
+
+$$
+V:=\Brace{u\in H^1_p(\Om)\,\middle|\,\div u=0\,\on\R^n},\qquad H:=\Brace{u\in H^0_p(\Om)\,\middle|\,\div u=0\,\on\R^n}
+$$
+について $V\subset H\subset V^*$ が成り立つ．
+
+以上の設定では，$A:V\iso V^*$ は同型，$B:V\times V\mono V^*$ は連続な双線型作用素になる．
+
+$P$ は Helmholtz 射影と呼ばれ，$V^*$ 上への射影を与える．^[[@Tsai2018 p.16] も参照．]
+
+### Galerkin 近似
+
+$A$ の固有関数を $(w_i)$ とし，最初の $m$ 個の固有関数が定める空間上への射影を $P_m$ とし，
+$$
+\dd{v_m}{t}+\nu Av_m+P_mB(v_m)=P_mf,\qquad t>0,v_m(0)=P_mv_0.
+$$
+を解く．この $v_m$ を $v$ の **Galerkin 近似** という [@Temam1995 p.109]．
+
+こうして得る有限次元空間上の ODE はまだ [**硬い方程式**](https://ja.wikipedia.org/wiki/硬い方程式) であり，例えば指数的な有限差分を取る [@Cox-Matthews2002] などの処置が必要である．
+
+[Section 5 @Kantas+2014] はデータ同化の文脈でこれを解いている．
+
 ### シミュレーション
 
 `IncompressibleNavierStokes.jl` ([GitHub](https://github.com/agdestein/IncompressibleNavierStokes.jl) / [Docs](https://agdestein.github.io/IncompressibleNavierStokes.jl/dev/)) パッケージを用いて，非圧縮 Navier-Stokes 方程式を解くことができる．
+
+[Rayleigh-Bénard 対流](https://en.wikipedia.org/wiki/Rayleigh%E2%80%93B%C3%A9nard_convection) 問題を実行するサンプルコードが提示されている．
+
+Rayleigh-Bénard 対流は二次元空間を下から加熱した際の流体の対流で，[Bénard 細胞](https://ja.wikipedia.org/wiki/%E3%83%99%E3%83%8A%E3%83%BC%E3%83%AB%E3%83%BB%E3%82%BB%E3%83%AB) と呼ばれる散逸構造が現れるはずである．
 
 ```{julia}
 #| eval: false
@@ -212,6 +259,61 @@ solve_unsteady(;
 ```
 
 ![](Files/temperature.gif)
+
+[`solve_unsteady()`](https://agdestein.github.io/IncompressibleNavierStokes.jl/dev/manual/solver#Solvers-2) 関数は `method = RKMethods.RK44(; T = eltype(ustart[1])),` がデフォルトである．
+
+`RK44` は 4 次の Runge-Kutta 法である．４次の Runge-Kutta 法は圧力に懸念があることを除いて，速度場の解法としては悪くない性能を示すようである [@Sanderse-Koren2012]．
+
+例えば非一様な風が障害物に当たる場合のシミュレーション例では，圧力も２次まで計算する `RK44P2()` を用いている．
+
+```{julia}
+#| eval: false
+using IncompressibleNavierStokes
+
+n = 40
+x = LinRange(0.0, 10.0, 5n + 1), LinRange(-2.0, 2.0, 2n + 1)
+plotgrid(x...; figure = (; size = (600, 300)))
+
+inflow(dim, x, y, t) = sinpi(sinpi(t / 6) / 6 + (dim == 1) / 2)
+boundary_conditions = ((DirichletBC(inflow), PressureBC()), (PressureBC(), PressureBC()))
+
+xc, yc = 2.0, 0.0 # Disk center
+D = 1.0           # Disk diameter
+δ = 0.11          # Disk thickness
+C = 0.2           # Thrust coefficient
+c = C / (D * δ)   # Normalize
+inside(x, y) = abs(x - xc) ≤ δ / 2 && abs(y - yc) ≤ D / 2
+bodyforce(dim, x, y, t) = -c * (dim == 1) * inside(x, y)
+
+setup = Setup(; x, Re = 100.0, boundary_conditions, bodyforce, issteadybodyforce = true);
+
+ustart = velocityfield(setup, (dim, x, y) -> inflow(dim, x, y, 0.0))
+
+state, outputs = solve_unsteady(;
+    setup,
+    ustart,
+    tlims = (0.0, 12.0),
+    method = RKMethods.RK44P2(),
+    Δt = 0.05,
+    processors = (
+        anim = animator(;
+            setup,
+            path = "navier_stokes_animation.mp4",
+            fieldname = :vorticity,
+            colorrange = (-0.3, 0.5),
+            size = (600, 300),
+            colormap = :bam,
+            nupdate = 5,
+        ),
+        log = timelogger(; nupdate = 24),
+    ),
+);
+
+```
+
+![](Files/navier_stokes_animation.gif)
+
+blade の両端で過度が生じていることがわかる．
 
 ## 文献紹介 {.appendix}
 

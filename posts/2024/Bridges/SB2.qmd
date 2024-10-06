@@ -1,0 +1,108 @@
+---
+title: "雑音除去拡散サンプラー"
+subtitle: "拡散モデルによるベイズ計算"
+author: "司馬 博文"
+date: 8/3/2024
+date-modified: 10/6/2024
+categories: [Sampling, Process]
+image: Files/unnormalized_target.svg
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: 拡散模型はノイズからデータ分布まで到達するフローを生成する拡散過程を，データをノイズにする拡散過程の時間反転として学習する方法である．大規模なニューラルネットワークを用いて学習した場合，画像と動画に関しては 2024 年時点で最良の性能を誇る．このような拡散模型の考え方はサンプリングにも用いることができる．
+listing: 
+    -   id: diffusion-listing
+        type: grid
+        sort: false
+        contents:
+            - "SB1.qmd"
+            - "../Samplers/NF1.qmd"
+            - "../Samplers/DD1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+### 関連ページ {.unnumbered .unlisted}
+
+::: {#diffusion-listing}
+:::
+
+## 雑音除去拡散によるサンプリング (DDGS) {#sec-DDGS}
+
+### はじめに
+
+正規化定数が不明な分布
+$$
+p(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
+$$
+に対しても使える汎用サンプラーを考える．
+
+DDPS では $p(x|y)\propt g(y|x)p_0(x)$ の状況を考えており，$p,g$ からのサンプルが必要であった．
+
+特定の $y$ に特化したモデリングというより償却推論であり，ベイズ事後分布からのサンプリングなどの設定では必ずしも良い性能を示さない（[誘導](../Samplers/NF3.qmd) などの技術はある）．
+
+[@Vargas-Grathwohl-Doucet2023] は以上の２点を克服するサンプラーを提案した．まずは SB ではなく OU 過程を通じて議論し，次節 [-@sec-DSB-GS] で SB を考える．
+
+### $h$-変換としての表示
+
+雑音除去拡散
+$$
+dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
+$$
+とは $p$ から始めた OU 過程
+$$
+dX_t=-\frac{1}{2}X_t\,dt+dB_t,\qquad X_0\sim p(x),
+$$
+の $[0,T]$ 上での時間反転なのであった．ドリフト項 $\nabla_x\log p_t(x_t)$ をスコアマッチングにより学習することが不可能な設定であるため，この項が消えるような変数変換を考える．
+
+まず，OU 過程 $(X_t)$ を定常分布 $X_0\sim\rN_d(0,I_d)$ から始めた場合の分布を $\bM$ とする．$\bM$ の時間反転 $(Z_t)$ は全く同様の表示を持つ：
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d).
+$$
+
+この過程の $\bM$ の下での $h$-変換は，
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+\nabla_z\log h_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim p_T(x_T),
+$$
+$$
+h_t(x_t):=\int_\cX\Phi(x_0)m_{T|T-t}(x_0|x_t)\,dx_0,\qquad \Phi(x_0):=\frac{p(x_0)}{\phi_d(x_0;0,I_d)}
+$$
+と表せる．
+
+ただし $m$ は時間反転 $(Z_t)$ の遷移密度とした．
+
+この表示に対するパラメトリックな近似
+$$
+dZ_t=-\frac{1}{2}Z_t\,dt+u^\theta_{T-t}(Z_t)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
+$$
+の分布を $\bQ^\theta$ で表し，$\KL(\bP,\bQ^\theta)$ を最小化する，とすると雑音除去拡散の学習と全く同じことを繰り返している．$\bP$ からのサンプル，従って $p$ からのサンプルを必要としてしまうので不適．
+
+そこで，この逆 KL 乖離度を考える．
+
+### 逆 KL-乖離度の最適制御
+
+$h$-変換をした理由は，$\KL(\bQ^\theta,\bP)$ ならば計算できる点にある．
+
+$$
+\L(\theta):=\KL(\bQ^\theta,\bP)=\E_{\bQ^\theta}\Square{\frac{1}{2}\int^T_0\norm{u^\theta_{T-t}(Z_t)}^2\,dt-\log\Phi(Z_T)}
+$$
+については，$\log\Phi(Z_T)$ には $\theta$ が出現しないため，第一項のみに集中すれば良い．
+
+そうすると，これは KL 最適制御問題として解くことができる．
+
+これが DDGS [@Vargas-Grathwohl-Doucet2023] である．
+
+## 文献紹介 {.appendix}
+
+### DDS の現状 {.appendix}
+
+MCMC, SMC そして ABC の代替手法ともくされているが，理論が未発達である．
+
+例えば [@DeBortoli2022] などの既存の理論は，スコア関数の推定誤差の言葉で収束を論じており，この推定誤差は実践上では確認が難しいものであると言える [@Heng+2024]．
+
+加えて，拡散模型は確率的局所化の考え方と関係が深いことが知られており，近似メッセージ伝搬を取り入れることで，定量的な収束保証をつけることもできる [@Montanari-Wu2024]．
