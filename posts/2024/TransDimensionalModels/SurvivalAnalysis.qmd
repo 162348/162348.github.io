@@ -1,9 +1,9 @@
 ---
 title: "生存時間解析"
 subtitle: "生存曲線のベイズ階層モデルによる外挿"
-author: "司馬 博文"
+author: "司馬博文"
 date: 9/12/2024
-date-modified: 9/12/2024
+date-modified: 10/7/2024
 categories: [Bayesian, MCMC, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -12,7 +12,10 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-    医療技術評価における生存解析では，打ち切りデータを最もよく外挿できるハザードモデルが探索される．これを polyhazard model で実行するためのベイズ階層モデルとモデル平均法を紹介する．
+    生存時間解析の代表的なモデルを概観する．
+    特に医療技術評価への応用では，打ち切りデータを最もよく外挿できるハザードモデルが探索され，ベイズ推定が有効な方法としてよく選択される．
+    本稿では特に表現力の高い競合リスクモデルとして polyhazard model を紹介し，ベイズ推定の困難さを議論する．
+    次稿ではこのモデルを Zig-Zag サンプラーでベイズ推定する方法を紹介する．
 image: Images/Polyhazard.png
 listing: 
     -   id: lst-zigzag
@@ -24,7 +27,30 @@ listing:
             - "../Process/PureJump.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-listing
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "SurvivalAnalysis1.qmd"
+        date-format: iso
+        fields: [title,image,subtitle]
+    -   id: lst-listing1
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "SurvivalAnalysis1.qmd"
+        date-format: iso
+        fields: [title,image,subtitle]
 ---
+
+## 次稿 {.unlisted .unnumbered}
+
+::: {#lst-listing1}
+:::
 
 {{< include ../../../assets/_preamble.qmd >}}
 
@@ -32,21 +58,47 @@ listing:
 
 ### はじめに
 
-[医療経済学](https://ja.wikipedia.org/wiki/医療経済学) などにおいて，[**医療技術評価**](https://ja.wikipedia.org/wiki/医療技術評価) (HTA: Health Technology Assessment) では，新たな医療技術を臨床試験で評価し，リスクやコストを勘案して新技術の既存法との効果や安全性を評価・比較する決定理論的な枠組みである．
+[医療経済学](https://ja.wikipedia.org/wiki/医療経済学) などにおける [**医療技術評価**](https://ja.wikipedia.org/wiki/医療技術評価) (HTA: Health Technology Assessment) とは，新たな医療技術を臨床試験で評価し，リスクやコストを勘案して新技術の既存法との効果や安全性を評価・比較する **決定理論的な枠組み** である．
 
-この枠組みでは，例えば次のような平均の計算が必要になる：
+この枠組みでは非負確率変数 $Y$ に対して，例えば次のような平均の計算が必要になる：
 $$
 \E[Y]=\int^\infty_0S_Y(y)\,dy,\qquad S_Y(y):=\P[Y\ge y].
 $$ {#eq-HTA}
 
-このとき，$Y$ は被験者のイベントまでの時間 (time-to-event) を表す確率変数で，$S_Y$ は $Y$ の **生存（割合）関数** といい，分布関数 $F_Y$ と次の関係を持つ：
+医療技術評価の文脈において $Y$ は被験者のイベントまでの時間 (time-to-event) を表す確率変数で，$S_Y$ は $Y$ の **生存（割合）関数** といい，$Y$ の分布関数 $F_Y$ と次の関係を持つ：
 $$
 S_Y(y)=1-F_Y(y).
 $$
 
-### 古典的生存時間解析
+平均 ([-@eq-HTA]) を計算するためには，観測の打ち切りを乗り越えて $S_Y$ を $\cointerval{0,\infty}$ 全域で推定する必要があり，そのためにはベイズ手法が有望視されている（第 [-@sec-modern-survival-analysis] 節）．
 
-#### ノンパラメトリック法
+### 生存時間解析とは {#sec-survival-analysis-introduction}
+
+イベントまでの時間 $Y$ の生存関数 $S_Y$ を推定する問題は **生存時間解析** (survival analysis) または信頼性解析として知られ，ほとんど統計学の起源と同時に始まる長い歴史を持つ．^[[@武冨-山本2023] は Halley の生命表や Daniel Bernoulli の競合リスク解析の例を挙げている．生命表については [ベイズ計算の稿](../../2023/Surveys/BayesianComp.qmd#sec-Graunt) も参照．]
+
+共変量 $X$ の生存時間 $Y$ への影響を調べる際には，生存関数 $S_Y$ の代わりに **ハザード関数** （または瞬間故障率，死亡率）
+$$
+h(y):=\frac{f(y)}{S(t)}=-\dd{\log S(y)}{t},\qquad f(y)=F'(y)=-S'(y),
+$$
+もモデリングの対象になる．ただし $f$ は $Y$ の確率密度関数とした．
+
+ハザード関数 $h$ は，被験者の生存割合が $S(y)$ である段階での，次の単位時間でのイベント発生率を表す．ハザード関数が判れば，生存関数は
+$$
+S(y)=\exp\paren{-\int^y_0h(t)\,dt}
+$$
+によって復元される．
+
+さらに究極の目標として，生存時間 $Y$ に影響を与える共変量 $X$ の成分を特定することがある．この際に用いるモデルを **競合リスクモデル** という（第 [-@sec-competing-risk-analysis] 節）．
+
+競合する $K$ 個のリスク要因がそれぞれハザード $h_1,\cdots,h_K$ を持つとき，イベント発生時刻 $Y$ のハザードは和
+$$
+h_Y(y)=\sum_{j=1}^Kh_j(y)
+$$
+で与えられる．これを **多ハザード模型 (Polyhazard model)**（第 [-@sec-polyhazard-model] 節），$h_i$ を **原因別ハザード** という．
+
+### 生存関数推定
+
+#### 欠測の問題
 
 生存時間解析における最大の問題は観測の **打ち切り** (censoring) である．
 
@@ -54,33 +106,62 @@ $$
 
 そこで，５割生存時間 (MST: Median Survival Time) を代わりに推定対象としたり，ある打ち切り時刻 $T>0$ までの区間のみに限って $S:[0,T]\to[0,1]$ を推定することが考えられた．
 
+#### パラメトリックモデル {#sec-parametrics}
+
+$S_Y$ をパラメトリックな分布族の中から推定することが考えられる．
+
+この場合，形状母数 $\nu>0$ によってハザード関数の増加・減少を柔軟にモデリングできる [Weibull 分布](https://ja.wikipedia.org/wiki/ワイブル分布) $\rW(\nu,\al)$ または [@Rosin-Rammler1933] の分布
+$$
+f(x;\nu,\al)=\frac{\nu}{\al}\paren{\frac{x}{\al}}^{\nu-1}\exp\paren{-\paren{\frac{x}{\al}}^\nu}1_{\Brace{x>0}},\qquad\al>0,\nu>0,
+$$
+$$
+h(t)=\frac{\nu}{\alpha}\paren{\frac{t}{\al}}^{\nu-1}1_{\Brace{t>0}}
+$$
+をはじめとして，Gamma 分布，対数正規分布，対数ロジスティック分布分布，パレート分布など，極値分布の指数変換様の分布族が用いられる．
+
+#### ノンパラメトリックモデル
+
 これには [@Kaplan-Meier1958] や [@Cutler-Ederer1958] の方法が古来より有名である．
 
-#### セミパラメトリック法
+### 回帰
+
+#### ハザードの回帰
 
 生存時間解析の主な目的は，生存曲線の正確な描画というより，生存時間を決定する要因の特定にある．
 
 [@Cox72-RegressionModelsLifeTables] はベースとなる生存関数 $S_0$ (baseline survival curve) を局外母数として，$S$ と $S_0$ の関係をパラメトリックにモデリングする．
 
-より正確には，モデルはハザード関数
-$$
-h(y):=\frac{f(y)}{S(t)}=-\dd{\log S(y)}{t},\qquad f(y)=F'(y),
-$$
-に関して考察される．ただし $f$ は $Y$ の確率密度関数とした．この $h$ を，ベース $h_0$ からの比を
+より正確には，ハザード関数 $h$ のベース $h_0$ からの比の対数を，線型な予測子
 $$
 \log \frac{h(y)}{h_0(y)}=X^\top\beta+\ep
 $$
-としてモデリングする．
+によってモデリングする．
 
-ハザード関数 $h$ は，被験者の生存割合が $S(y)$ である段階での，次の単位時間でのイベント発生率を表す．
+一般にハザードの比を
+$$
+h(y|x)=h_0(y)c(X^\top\beta)
+$$
+とモデリングするものを **乗法的ハザードモデル** といい，特に $c=\exp$ と取った場合を Cox の **比例ハザードモデル** (Cox's proportional hazard model) とも呼ばれる．
 
-ハザード関数の比がモデリングされることから，このモデルは Cox の **比例ハザードモデル** (Cox's proportional hazard model) とも呼ばれる．
+この方法は，打ち切りデータへの対処が簡便になることが美点である．
 
-この方法は，打ち切りデータへの対処も可能になることが美点である．
+#### 生存時間の回帰
 
-### 生存曲線推定
+生存時間 $Y$ の対数を直接
+$$
+\log Y=\mu+\beta^\top X+\ep
+$$
+によってモデリングする方法は **加速故障時間モデル** (AFT: Accelerated Failure Time Model) [@Wei1992] と呼ばれる．
 
-一方で，医療行為の社会的な影響も考える HTA の目標を達成するためには，式 ([-@eq-HTA]) のような量を計算する必要がある．
+このモデルはハザード関数に，$h_0$ を $x=0$ の場合のハザード関数として
+$$
+h(y|x)=e^{-\beta^\top x}h_0(ye^{-\beta^\top x}),
+$$
+という乗法的な仮定をおいていることに相当する．
+
+### 生存関数推定再論 {#sec-modern-survival-analysis}
+
+一方で医療行為の社会的な影響も考える HTA の目標を達成するためには，式 ([-@eq-HTA]) のような量を計算する必要がある．
 
 そのためには，生存曲線の推定と同時に打ち切り時点以降の外挿もできるようなモデルを考える必要があるが，Kaplan-Meier 法などのノンパラメトリック法は（現状）この用途には用いることができない．
 
@@ -92,7 +173,7 @@ $$
 
 polyhazard model のような階層モデルを効率的にベイズ推定・モデル平均化ができるような MCMC 法が開発されることは，このモデル検証の手続きを自動化したり，より手軽にするために非常に重要である．
 
-### Polyhazard Model
+### 多ハザードモデルの表現力 {#sec-polyhazard-model}
 
 Polyhazard model もハザード関数をモデリングするが，
 $$
@@ -100,7 +181,7 @@ h_Y(y)=\sum_{j=1}^Kh_j(y)
 $$
 という形でモデリングし，個々の $h_j$ にパラメトリックな仮定をおく．
 
-仮に $h_j$ として，位置母数 $\mu>0$ と形状母数 $\nu>0$ を持つ Weibull 分布 $\mathrm{W}(\nu,\mu)$ のハザード関数
+仮に $h_j$ として，形状母数 $\nu>0$ と位置母数 $\mu:=\al^{-\nu}>0$ を持つ Weibull 分布 $\mathrm{W}(\nu,\mu)$ のハザード関数^[位置母数 $\mu:=\al^{-\nu}>0$ の変換により第 [-@sec-parametrics] 節のハザード関数と見た目が異なることに注意．]
 $$
 h_{\rW}(y):=\mu\nu y^{\nu-1}
 $$
@@ -112,21 +193,13 @@ $$
 
 ![[@Hardcastle+2024 p.5] より．](Images/Polyhazard.png)
 
-#### モデル詳細 {#sec-polyhazard-model}
-
-位置母数 $\mu_k\;(k\in[K])$ には更なる階層構造
-$$
-\log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j}
-$$ {#eq-mu}
-を考える．ただし，$\gamma_{k,j}\in2$ は共変量 $x_j$ が $k\in[K]$ 番目の部分モデルに参加するかどうかを決める指示変数とする．
-
-以降，$\theta_k=(\nu_k,\mu_k)$ も併せて，$(K,\gamma,\theta)$ を本モデルのパラメータとする．
+### 競合リスク解析 {#sec-competing-risk-analysis}
 
 #### モデルの解釈
 
 polyhazard モデルでは各 $h_k$ の前に係数がついていない点には注意が必要である．
 
-各 $h_k$ は実在の「ハザードメカニズム」を表しており，各被験者は同時に $K$ 個のリスクに晒されているというモデルである．
+各 $h_k$ は実在の原因のハザードを表しており，各被験者は同時に $K$ 個のリスクに晒されているというモデルである（第 [-@sec-survival-analysis-introduction] 節）．
 
 このようなモデルを **競合リスクモデル** (competing risk model) ともいう．
 
@@ -140,11 +213,65 @@ polyhazard モデルでは各 $h_k$ の前に係数がついていない点に�
 
 さらに発展的なモデルにはマルチステートモデルもある [@齋藤-室谷2023], [@齋藤-室谷2024]．
 
-### Polyhazard モデルのベイズ推論
+### ベイズ階層多ハザードモデル
 
-第 [-@sec-polyhazard-model] 節で述べたモデルの推定は HTA で多く試みられている．
+[@Hardcastle+2024] では HTA への応用を念頭に，完全なベイズ階層多ハザードモデルの推定を試みている．ここではそのモデルの詳細を紹介する．
+
+#### 第１階層
+
+各個別要因 $k\in[K]$ の形状母数 $\nu_k$ と位置母数 $\mu_k$ に階層構造
+$$
+\log(\nu_k)=\al_k\sim\rN(0,\sigma_\al^2)
+$$ {#eq-nu}
+$$
+\log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j},\qquad\beta_{k,0}\sim\rN(0,\sigma_{\beta_0}^2)
+$$ {#eq-mu}
+を考える．ただし，$\gamma_{k,j}\in2$ は共変量 $x_j$ が $k\in[K]$ 番目の部分モデルに参加するかどうかを決める指示変数とする．
+
+残っているパラメータ $\beta_{k,j}\;(j\in[p])$ には
+$$
+\beta_{k,j}\sim(1-\om)\delta_0+\om\operatorname{N}(0,\sigma_\beta^2)
+$$
+と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
+
+以降，$\theta_k=(\nu_k,\mu_k)$ とし，$(K,\gamma,\theta)$ を本モデルのパラメータとする．
+
+#### 第二階層
+
+$\sigma_\alpha^2=2,\sigma_{\beta_0}^2=5$ は固定してしまうと，$\phi:=(\om,\sigma_\beta)$ がハイパーパラメータとして残っている．これには
+$$
+\om\sim\Beta(a,b)
+$$
+$$
+\sigma_\beta\sim\operatorname{HalfCauchy}(0,1)
+$$
+という事前分布をおく．
+
+前者はモデルのサイズについて Beta-二項分布を仮定することに等価である [3.1 節 @Ley-Steel2009]．後者は [@Gelman2006], [@Polson-Scott2012] の推奨の通りである．
+
+#### $\mathcal{P}(E)$ 上の事前分布 {#sec-prior-of-PX}
+
+実はまだ第一階層のパラメータが残っている．ハザードの数 $K$ と $h_k$ の関数形をどうするかである．
+
+ここでは Weibull 分布 $\rW(\nu,\mu)$ と対数ロジスティック分布 $\rLL(\nu,\mu)$ の２つ
+$$
+D=\{\rW(\nu,\mu),\rLL(\nu,\mu)\}
+$$
+から等確率で
+$$
+K\sim\Pois_{>0}(\xi)
+$$
+個選ぶこととする．
+
+ハイパーパラメータ $\xi$ については，[@Hardcastle+2024] では $\xi=2$ としている．この根拠は
+$$
+\P[K>4]\approx0.061
+$$
+であることとしている．
 
 #### 部分的な階層モデル
+
+元々部分的に階層化された多ハザードモデルは広く考えられていた．
 
 [@Demiris+2015] は $K\in\{1,2,3,4\}$ の poly-Weibull モデルを推定し，その適合具合を比較した．
 
@@ -158,97 +285,49 @@ polyhazard モデルでは各 $h_k$ の前に係数がついていない点に�
 
 しかし，そのモデルは $K=2$ の Weibull 分布族にのみ限っていた．
 
-#### ベイズ階層モデル
+## PDMP によるベイズ競合リスク分析
 
-[@Hardcastle+2024] では完全なベイズ階層モデルの推定を試みている．ここではそのモデルの詳細を紹介する．
+[@Hardcastle+2024] では完全なベイズ階層 polyhazard モデルに対するサンプラーを Zig-Zag サンプラーに基づいて構成している．ここではこれを紹介する．
 
-$\theta_k=(\nu_k,\mu_k)\;(k\in[K])$ に関しては，
-$$
-\log(\nu_k)=\al_k\sim\rN(0,\sigma_\al^2)
-$$
-$$
-\log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j}\tag{2}
-$$
-$$
-\beta_{k,0}\sim\rN(0,\sigma_{\beta_0}^2)
-$$
-とし，$\sigma_\alpha^2=2,\sigma_{\beta_0}^2=5$ は固定してしまう．加えて，
-$$
-\beta_{k,j}\sim(1-\om)\delta_0+\om\operatorname{N}(0,\sigma_\beta^2)
-$$
-と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
+### 課題
 
-ここで $\phi=(\om,\sigma_\beta)$ がハイパーパラメータとして残っている．これには
-$$
-\om\sim\Beta(a,b)
-$$
-$$
-\sigma_\beta\sim\operatorname{HalfCauchy}(0,1)
-$$
-という事前分布をおく．
+完全なベイズ階層多ハザードモデルが考えられていなかったことは，次の３つの問題によると考えられる：
 
-前者はモデルのサイズについて Beta-二項分布を仮定することに等価である [3.1 節 @Ley-Steel2009]．後者は [@Gelman2006], [@Polson-Scott2012] の推奨の通りである．
+::: {.callout-tip appearance="simple" icon="false" title="Zig-Zag サンプラーが挑む課題"}
 
-#### $\mathcal{P}(E)$ 上の事前分布 {#sec-prior-of-PX}
+1. [次元の変化 (trans-dimensionality)]{.underline}
 
-実はまだパラメータが残っている．$h_k$ の関数形をどうするかである．
+  ラベル $k\in[K]$ が変わる毎に共変量の数が違い，従って $\beta_k$ の次元が変わる．従ってサンプラーは，次元の異なる空間の間を往復する必要がある．
 
-ここでは，Weibull 分布 $\rW(\nu,\mu)$ と対数ロジスティック分布 $\rLL(\nu,\mu)$ の２つ
-$$
-D=\{\rW(\nu,\mu),\rLL(\nu,\mu)\}
-$$
-から，一様に
-$$
-K\sim\Pois_{>0}(\xi)
-$$
-個選ぶこととする．ただし，[@Hardcastle+2024] では $\xi=2$ とする．この根拠は
-$$
-\P[K>4]\approx0.061
-$$
-であることとしている．
+2. [尤度の変化]{.underline}
 
-## PDMP によるサンプリング
+  加えて関数空間上にも事前分布をおいているため，$h_k$ の関数形も途中で変わる（第 [-@sec-prior-of-PX] 節）．これに伴い，サンプリングするべき尤度の形も変わってしまう．
 
-[@Hardcastle+2024] では完全なベイズ polyhazard モデルに対するサンプラーを構成している．ここではこれを紹介する．
+3. [識別不可能性]{.underline}
 
-### ２つの問題
+  このモデルは潜在的な $K$ 個のリスクを仮定しており，全てに同等な同等な仮定をおいているため当然識別不可能である．その上事後分布が $K!$ 個の峰を持つ対称性を持ってしまう．このことは MCMC の収束を遅くする上に，最終的に得られる推定量を変に平均化してしまう恐れがある．
 
-#### Trans-dimensionality
+:::
 
-ラベル $k\in[K]$ が変わる毎に共変量の数が違い，従って $\beta_k$ の次元は違う．
-
-従って MCMC は，次元の異なる空間の間を往復する必要がある．
-
-#### 尤度の変化
-
-加えて $h_k$ の関数形も途中で変わる（第 [-@sec-prior-of-PX] 節）．
-
-これに伴い，サンプリングするべき尤度の形も変わってしまう．
-
-#### 識別不可能性
-
-このモデルは潜在的な $K$ 個のリスクを仮定しており，当然識別不可能である．
-
-そしてこの $K$ 個のリスクは互いに対称な役割を果たしているため，事後分布は $K!$ 個の峰を持つ対称性を持ってしまう．
-
-このことは MCMC の収束を遅くする上に，最終的に得られる推定量を変に平均化してしまう恐れがある．
-
-#### 従来法
-
-従来の Gibbs サンプラーによる方法も，No-U-Turn sampler による方法も，trans-dimensionality と尤度の変化に簡単には対処できない．
+そこで局外母数 $(K,D,\gamma,\phi)$ と推定対象 $\theta\in\R^{2K+\abs{\gamma}_1}$ のサンプリングに，多峰性分布につよい Zig-Zag サンプラーを用いる．
 
 ### $\theta$ の Zig-Zag サンプリング
 
-$(K,D,\gamma,\phi)$ を固定した下での $\theta\in\R^{2K+\abs{\gamma}_1}$ のサンプリングには，多峰性分布につよい Zig-Zag サンプラーを用いる．
-
-#### Zig-Zag サンプラーについて {.unnumbered .unlisted}
+Zig-Zag サンプラーについては次の記事も参照：
 
 ::: {#lst-zigzag}
 :::
 
-モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] を，Concave-Convex PDMP [@Sutton-Fearnhead2023] で修正して用いる．
+モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] を Concave-Convex PDMP [@Sutton-Fearnhead2023] で修正して用いる．
+
+続きは次稿参照：
+
+::: {#lst-listing}
+:::
 
 ## 文献紹介 {.appendix}
+
+生存時間解析について [@武冨-山本2023] は網羅的で入門的な日本語文献である．
 
 [@西川正子2008] は競合リスクモデルに焦点を当てた日本語文献である．[@齋藤-室谷2023], [@齋藤-室谷2024] はマルチステートモデルも扱っている．[@森満2016] は医学者による説明が与えられている．
 

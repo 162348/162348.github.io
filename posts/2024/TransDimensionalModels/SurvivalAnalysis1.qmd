@@ -1,0 +1,137 @@
+---
+title: "ベイズ階層多ハザードモデル"
+subtitle: "Zig-Zag サンプラーによる大規模推定"
+author: "司馬 博文"
+date: 9/12/2024
+date-modified: 10/7/2024
+categories: [Bayesian, MCMC, Statistics]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    医療技術評価における生存解析では，打ち切りデータを最もよく外挿できるハザードモデルが探索される．これを polyhazard model で実行するためのベイズ階層モデルとモデル平均法を紹介する．
+image: Images/Polyhazard.png
+listing: 
+    -   id: lst-zigzag
+        type: grid
+        sort: false
+        contents:
+            - "../Process/ZigZag.qmd"
+            - "../Stat/ZigZagSubsampling.qmd"
+            - "../Process/PureJump.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-listing
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "SurvivalAnalysis.qmd"
+        date-format: iso
+        fields: [title,image,subtitle]
+---
+
+## 前稿 {.unlisted .unnumbered}
+
+::: {#lst-listing}
+:::
+
+Zig-Zag サンプラーについては次の記事も参照：
+
+::: {#lst-zigzag}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## ベイズ階層多ハザードモデル
+
+### 多ハザードモデルの表現力 {#sec-polyhazard-model}
+
+Polyhazard model もハザード関数をモデリングするが，
+$$
+h_Y(y)=\sum_{j=1}^Kh_j(y)
+$$
+という形でモデリングし，個々の $h_j$ にパラメトリックな仮定をおく．
+
+仮に $h_j$ として，形状母数 $\nu>0$ と位置母数 $\mu:=\al^{-\nu}>0$ を持つ Weibull 分布 $\mathrm{W}(\nu,\mu)$ のハザード関数
+$$
+h_{\rW}(y):=\mu\nu y^{\nu-1}
+$$
+と対数ロジスティック分布 $\mathrm{LL}(\nu,\mu)$ のハザード関数
+$$
+h_{\rLL}(y):=\frac{\paren{\frac{\nu}{\mu}}\paren{\frac{y}{\mu}}^{\nu-1}}{1+\paren{\frac{y}{\mu}}^\nu}
+$$
+の２つのみを考えたとしても，複数のパラメトリックモデルを足し合わせることで驚異的な表現力を達成することができる．
+
+![[@Hardcastle+2024 p.5] より．](Images/Polyhazard.png)
+
+### ベイズ階層多ハザードモデル
+
+[@Hardcastle+2024] では HTA への応用を念頭に，完全なベイズ階層多ハザードモデルの推定を試みている．
+
+#### 第１階層
+
+各個別要因 $k\in[K]$ の形状母数 $\nu_k$ と位置母数 $\mu_k$ に階層構造
+$$
+\log(\nu_k)=\al_k\sim\rN(0,\sigma_\al^2)
+$$ {#eq-nu}
+$$
+\log(\mu_k)=\beta_{k,0}+\sum_{j\in\Brace{j\in[p]\mid\gamma_{kj}=1}}x_j\beta_{k,j},\qquad\beta_{k,0}\sim\rN(0,\sigma_{\beta_0}^2)
+$$ {#eq-mu}
+を考える．ただし，$\gamma_{k,j}\in2$ は共変量 $x_j$ が $k\in[K]$ 番目の部分モデルに参加するかどうかを決める指示変数とする．
+
+残っているパラメータ $\beta_{k,j}\;(j\in[p])$ には
+$$
+\beta_{k,j}\sim(1-\om)\delta_0+\om\operatorname{N}(0,\sigma_\beta^2)
+$$
+と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
+
+以降，$\theta_k=(\nu_k,\mu_k)$ とし，$(K,\gamma,\theta)$ を本モデルのパラメータとする．
+
+#### 第二階層
+
+$\sigma_\alpha^2=2,\sigma_{\beta_0}^2=5$ は固定してしまうと，$\phi:=(\om,\sigma_\beta)$ がハイパーパラメータとして残っている．これには
+$$
+\om\sim\Beta(a,b)
+$$
+$$
+\sigma_\beta\sim\operatorname{HalfCauchy}(0,1)
+$$
+という事前分布をおく．
+
+前者はモデルのサイズについて Beta-二項分布を仮定することに等価である [3.1 節 @Ley-Steel2009]．後者は [@Gelman2006], [@Polson-Scott2012] の推奨の通りである．
+
+#### $\mathcal{P}(E)$ 上の事前分布 {#sec-prior-of-PX}
+
+実はまだ第一階層のパラメータが残っている．ハザードの数 $K$ と $h_k$ の関数形をどうするかである．
+
+ここでは Weibull 分布 $\rW(\nu,\mu)$ と対数ロジスティック分布 $\rLL(\nu,\mu)$ の２つ
+$$
+D=\{\rW(\nu,\mu),\rLL(\nu,\mu)\}
+$$
+から等確率で
+$$
+K\sim\Pois_{>0}(\xi)
+$$
+個選ぶこととする．
+
+ハイパーパラメータ $\xi$ については，[@Hardcastle+2024] では $\xi=2$ としている．この根拠は
+$$
+\P[K>4]\approx0.061
+$$
+であることとしている．
+
+## PDMP によるベイズ競合リスク分析
+
+### $\theta$ の Zig-Zag サンプリング
+
+
+
+モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] を Concave-Convex PDMP [@Sutton-Fearnhead2023] で修正して用いる．
+
+## 文献紹介 {.appendix}
+
