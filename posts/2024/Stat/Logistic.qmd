@@ -3,12 +3,13 @@ title: "大規模な不均衡データに対するロジスティック回帰（
 subtitle: "離散時間 MCMC から連続時間 MCMC へ"
 author: "司馬博文"
 date: 7/12/2024
-date-modified: 7/18/2024
+date-modified: 10/7/2024
 image: Logistic_WhiteBackground.svg
-categories: [Bayesian, Computation, Python, MCMC, Statistics]
+categories: [Bayesian, Computation, Julia, MCMC, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: ロジットモデルやプロビットモデルの事後分布からのサンプリングには，その混合構造を利用したデータ拡張による Gibbs サンプラーが考案されている．しかし，このような Gibbs サンプラーは不明な理由で極めて収束が遅くなることがよく見られ，そのうちの１つのパターンが **大規模な不均衡データ** である．この記事では，この現象がなぜ起こるかに関する考察を与え，次稿で代替手法として Zig-Zag サンプラーがうまくいくことをみる．
@@ -25,102 +26,193 @@ listing:
             - "Logistic2.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-listing2
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "../TransDimensionalModels/IdealPoint.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-listing3
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "../Julia/MALAwithJulia.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## ロジットモデルのベイズ推定
+## 二項回帰モデル
 
-応答変数 $Y\in\L(\Om;2)$ は，説明変数 $X\in\L(\Om;\R^p)$ の関数であるとして，係数 $\xi\in\L(\Om;\R^p)$ をロジスティック回帰モデル
+### はじめに
+
+独立標本 $[n]:=\{1,\cdots,n\}$ 上に，２値データ $y_i\in\{0,1\}=2$ が観測されているとする．$y_i$ は例えば症状の有無などのように，２つのカテゴリーのみを持つデータである．
+
+$x_i\in\R^p$ を $p$ 次元の実ベクトルとし，これを説明変数として $y_i$ をよく予測するモデルを作りたいとする．
+
+予測確率を最大限上げることよりも，$x_i$ の $p$ 個の成分のうちどの成分が $y_i$ に影響を与えているかを知りたい場合，機械学習的な方法よりも，モデルを立てて推定する統計的な方法が適している [@Breiman2001DM]
+
+よく使われる統計モデルは，$y_i=1$ となる確率を予測するという **二項回帰モデル** (binary regression model) である：
 $$
-\P[Y=1\mi X,\xi]=g^{-1}(X^\top\xi)=\frac{\exp(X^\top\xi)}{1+\exp(X^\top\xi)}
+\P[Y=1|X=x]=F(\xi^\top x).
+$$ {#eq-br-model}
+
+ただし，$F$ は分布関数とする．
+
+これは $Y\sim\Ber(\mu)$ というモデルの平均パラメータ $\mu$ に対して，リンク関数 $G:=F^{-1}$ を通じて線型予測をする **一般化線型モデル** の一種である．
+
+::: {.callout-tip appearance="simple" icon="false" title="二項モデルの尤度"}
+
+尤度は次のように表せる：
+$$
+p(\{x_i,y_i\}|\xi)=\prod_{i=1}^n\Paren{y_iF(\xi^\top x_i)+(1-y_i)\paren{1-F(\xi^\top x_i)}}.
+$$
+
+仮に $y_i\in\{\pm1\}$ であった場合は，次のような簡単な表記もできる：
+$$
+p(\{x_i,y_i\}|\xi)=\prod_{i=1}^nF(y_i\xi^\top x_i).
+$$
+
+:::
+
+### 潜在変数モデルとしての解釈
+
+二項回帰模型 ([-@eq-br-model]) は，$F$ を分布関数にもつ誤差項 $\ep$ を通じて，
+$$
+Y=1_{\Brace{Y^*>0}},\qquad Y^*=\xi^\top X+\ep,\;\ep\sim F,
+$$ {#eq-br-model-latent}
+によって $Y$ が観測されていると解釈することもできる．
+
+この解釈は計量経済学において **二項選択モデル** とも呼ばれる [@Hansen2022 p.804]．
+
+この $Y^*$ という潜在変数を考慮することはベイズ計算上も大変有意義である．
+
+$(\xi,Y^*)$ 上の拡張されたパラメータ空間上で事後分布推定をし，その後 $\xi$ 上の周辺分布を求める方法は **データ拡張** と呼ばれる．
+
+問題の次元を上げているため一見非効率に思えるが，式 ([-@eq-br-model-latent]) が人間にとって読みやすいように，その分条件付き確率の構造が単純になっており，Gibbs サンプラーの構成が可能になる．
+
+### ロジットモデル
+
+$F$ を標準ロジスティック分布関数
+$$
+F(x)=\frac{1}{1+e^{-x}},\qquad G(x)=F^{-1}(x)=\log\frac{x}{1-x},
+$$
+と取った場合，$G$ を [ロジット](https://ja.wikipedia.org/wiki/ロジット)，このモデルは **ロジットモデル** と呼ばれる：
+$$
+\P[Y=1\mi X=x]=F(\xi^\top x)=\frac{\exp(\xi^\top x)}{1+\exp(\xi^\top x)}.
 $$ {#eq-the-model}
-を通じて定める．ただし，
-$$
-g(x):=\log\frac{x}{1-x}
-$$
-は [**ロジット関数**](https://ja.wikipedia.org/wiki/ロジット)，$g^{-1}$ は **ロジスティック関数** という．^[$x$ が確率を表すとき $\frac{x}{1-x}$ という量はオッズともいい，それゆえ $p$ のロジットは対数オッズ比ともいう．]
 
-このパラメータ $\xi$ をベイス推定することを考える．即ち，データ $\{(y^i,x^i)\}_{i=1}^n\subset2\times\R^p$ と事前分布 $p_0(\xi)d\xi\in\cP(\R^p)$ を通じて，事後分布
+ロジット $G(\mu)$ は $\mu$ の [**対数オッズ**](https://ja.wikipedia.org/wiki/オッズ) ともいい，ロジットモデルは対数オッズに線型モデルをおいているとも解釈される．
+
+このとき，$e^0=1$ であることを利用すれば尤度は次のように表示できる：
 $$
-\pi(\xi)\propt p_0(\xi)\prod_{i=1}^n\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}=e^{-U(\xi)}
+p(\{x_i,y_i\}|\xi)=\prod_{i=1}^n\frac{\exp(y_i\xi^\top x_i)}{1+\exp(\xi^\top x_i)}.
 $$
-を計算することを考える．ただし，
+
+::: {.callout-caution title="[@Rasch1960] のモデル" icon="false"}
+
+$$
+\P[Y=1\mi X=x,B=b,A=a]=F(ax-b)=\Paren{1+e^{b-ax}}^{-1}
+$$
+とした場合を **２母数応答モデル** (2PLM: two-parameter logistic model) という．
+
+このようなモデルは項目反応理論で考えられる．
+
+ロジットモデルとの違いは，$x$ も所与ではなく推定するパラメータである点である．$x$ を能力パラメータ，$a$ を項目識別パラメータ，$b$ を難易度パラメータなどという．詳しくは次稿参照：
+
+::: {#lst-listing2}
+:::
+
+:::
+
+## ロジットモデルのベイズ推定法
+
+### はじめに
+
+ロジットモデルは比較的単純であるが，多くの深い性質を持っている．
+
+まず $p\ll n$ の仮定が満たされない場合，最尤推定量はバイアスを持つ [@Sur-Candes2019]．
+
+比例的高次元極限では従来の漸近論は成り立たず，尤度比検定も実行不可能になる．
+
+このように $p$ の数が大きい場合などはベイズ推論が志向される理由がある [@Firth1993], [@Gelman+2008]．
+
+### ロジットモデルの事後分布
+
+ロジットモデルではパラメータ $\xi$ をベイズ推定することを考える．
+
+即ち，データ $\{(y_i,x_i)\}_{i=1}^n\subset2\times\R^p$ と事前分布 $p(\xi)d\xi\in\cP(\R^p)$ を通じて，事後分布
 \begin{align*}
-    U(\xi)&:=-\log p_0(\xi)-\sum_{i=1}^n\log\paren{\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}}\\
-    &=:U_0(\xi)+U_1(\xi)
+  p(\xi|\{y_i,x_i\})&\propt p(\xi)p(\{y_i,x_i\}_{i=1}^n|\xi)\\
+  &= p(\xi)\prod_{i=1}^n\frac{\exp(y_i(x_i)^\top\xi)}{1+\exp((x_i)^\top\xi)}=:e^{-U(\xi)}
 \end{align*}
-と定めた．
+を計算することを考える．
 
-## ロジットモデルの事後分布サンプラー
+事後分布は正規化定数を除いて
+$$
+p(\xi|\{y_i,x_i\})\propt e^{-U(\xi)}
+$$
+と得られたことになる．
 
-ロジットリンクによる変換が複雑であるため，ロジスティック回帰は（完全な）ベイズ推定を実行することが難しいモデルとして知られてきた．
+$U$ は **ポテンシャル** と呼び，次のように表せる：
+\begin{align*}
+    U(\xi)&:=-\log p_0(\xi)-\sum_{i=1}^n\log\paren{\frac{\exp(y_i(x_i)^\top\xi)}{1+\exp((x_i)^\top\xi)}}\\
+    &=:U_0(\xi)+U_1(\xi).
+\end{align*}
 
-一方で，リンク関数 $g$ を標準正規分布 $\rN(0,1)$ の分布関数の逆関数に取り替えた [プロビットモデル](https://ja.wikipedia.org/wiki/プロビット) は，Gaussian data augmentation [@Albert-Chib1993] と呼ばれるデータ拡張に基づく Gibbs サンプラーが早くから提案されており，これにより効率的なベイズ推論が可能となっていた．
+### ロジットモデルの事後分布サンプラー
 
-プロビットモデルはロジットモデルに似ており，実用上はただ裾の重さが違うのみであると言って良い [@BDA p.407]．そのこともあり，プロビットモデルのベイズ推論は計量経済学や政治科学で広く使われている手法となったが，ロジットモデルのベイズ推論の応用は遅れた [@Polson+2013]．
+ロジットリンク $G$ による変換が複雑であるため，ロジスティック回帰は（完全な）ベイズ推定を実行することが難しいモデルとして知られてきた．
 
-しかし実は，ロジットモデルの事後分布 $\pi$ も正規分布の Pólya-Gamma 混合として表すことができ，データ拡張によって効率的な Gibbs サンプラーを構成することができる [@Polson+2013]．現在ではこのデータ拡張 Gibbs サンプラーが，標準的な事後分布サンプラーとなっている．
+一方でリンク関数 $g$ を標準正規分布 $\rN(0,1)$ の分布関数 $\Phi$ の逆関数に取り替えた [プロビットモデル](https://ja.wikipedia.org/wiki/プロビット) にはデータ拡張に基づく Gibbs サンプラーが早くから提案されており [@Albert-Chib1993]，これにより効率的なベイズ推論が可能となっていた．
 
-## Gibbs サンプラーの課題：不均衡データ
+プロビットモデルはロジットモデルに極めて似ており，ただ裾の重さが違うのみであると言って良い [@BDA p.407]．そのこともあり，プロビットモデルのベイズ推論は計量経済学や政治科学で広く使われている手法となったが，ロジットモデルのベイズ推論の応用は遅れていた [@Polson+2013]．
 
-データもモデルも大規模になっていく現代では，このようなデータ拡張に基づく Gibbs サンプラーは，特定の条件が揃うと極めて収束が遅くなる場面が少なくないことが明らかになってきている．
+しかし実はロジットモデルの事後分布 $\pi$ も正規分布の Pólya-Gamma 混合として表すことができ，データ拡張によって効率的な Gibbs サンプラーを構成することができる [@Polson+2013]．現在ではこのデータ拡張 Gibbs サンプラーが，標準的な事後分布サンプラーとなっている．
 
-そのうちの１つのパターンが大規模な **不均衡データ** [@Johndrow+2019]，すなわち，特定のラベルが極めて稀少なカテゴリカルデータである．このようなデータに対しては，プロビットモデルやロジットモデルに限らず，ほとんど全てのデータ拡張に基づく Gibbs サンプラーが低速化することが報告されている：
+### Gibbs サンプラーの課題：不均衡データ
+
+データもモデルも大規模になっていく現代では，このようなデータ拡張に基づく Gibbs サンプラーは特定の条件が揃うと極めて収束が遅くなる場面が少なくないことが明らかになってきている．
+
+そのうちの１つのパターンが大規模な **不均衡データ** [@Johndrow+2019]，すなわち，特定のラベルが極めて稀少なカテゴリカルデータである．
+
+このようなデータに対しては，プロビットモデルやロジットモデルに限らず，ほとんど全てのデータ拡張に基づく Gibbs サンプラーが低速化することが報告されている：
 
 > We have found that this behavior occurs routinely, essentially regardless of the type and complexity of the statistical model, if the data are large and imbalanced. [@Johndrow+2019 p.1395]
 
-## 実験：不均衡データでの収束鈍化
+### 実験：不均衡データでの収束鈍化
 
-ここでは問題を簡単にし，カテゴリーが２つの場合，即ち２値のスパースデータ $y^i\in2=\{0,1\}$ の場合を考える．
-
-この下で，
+$p=1$ 次元のプロビットモデル
 $$
-\sum_{i=1}^n y^i\,\bigg|\,n\sim\Bin(n,g^{-1}(\theta)),\qquad\theta\sim\rN(0,B),
+\sum_{i=1}^n y_i\,\bigg|\,(n,\theta)\sim\Bin(n,F(\theta)),\qquad\theta\sim\rN_1(0,B),B=100,
 $$
-すなわち，モデル ([-@eq-the-model]) において
+しかも説明変数なしの切片項のみの状況を考える：
 $$
-p=1,\qquad X=1,\qquad p_0(\xi)d\xi=\rN(a,B),
-$$
-とした，説明変数なしの切片項のみでの回帰分析の場合を考える．この場合，ポテンシャルは次のように表される：
-$$
--U(\xi)=\xi\sum_{i=1}^ny^i-n\log(1+e^{\xi})-\frac{(\xi-a)^2}{2B}-\frac{1}{2}\log2\pi B.
+x_i\equiv1,\qquad p_0(\xi)d\xi=\rN(a,B),\qquad a=0,
 $$
 
-ここまで単純化した設定でも，前述の Gibbs サンプラーの収束鈍化が見られることを検証する．ここでは
+この場合，ポテンシャルは次のように表される：
+$$
+-U(\xi)=\xi\sum_{i=1}^ny_i-n\log(1+e^{\xi})-\frac{(\xi-a)^2}{2B}-\frac{1}{2}\log2\pi B.
+$$
 
-```{julia}
-#| output: false
-(a,B) = (0,100.0)
-```
+ここまで単純化した設定でも，観測 $y_i$ のカテゴリが不均衡ならば，前述の Gibbs サンプラーの収束鈍化が見られることを検証する：
+$$
+\sum_{i=1}^ny_i=1.
+$$
 
-そして
-$$
-\sum_{i=1}^ny^i=1
-$$
-を保ちながら $n\to\infty$ として実験するが，[@Johndrow+2019] では，
-$$
-\sum_{i=1}^ny^i\ll n
-$$
-である大規模不均衡データである限り，$(a,B)$ の値に依らず同様の結果が得られることが報告されている．
-
-::: {.callout-important title="実装の詳細" collapse="true" icon="false"}
+::: {.callout-important title="展開してコードを見る" collapse="true" icon="false"}
 
 Metropolis-Hastings 法は，Turing Institute による Julia の `AdvancedMH.jl` パッケージなどを通じて実装することができる：
 
-```{=html}
-<div class="article-card-container">
-    <div class="article-card">
-        <a href="https://162348.github.io/posts/2024/Julia/MALAwithJulia.html" target="_blank">
-            <img src="https://162348.github.io/posts/2024/Julia/AdaptiveMCMC.svg" alt="Article Image" class="article-image">
-            <div class="article-content">
-                <h3 class="article-title">Metropolis-Hastings サンプラー</h3>
-                <p class="article-description">Julia と Turing エコシステムを用いて</p>
-            </div>
-        </a>
-    </div>
-</div>
-```
+::: {#lst-listing3}
+:::
 
 ```{julia}
 using AdvancedMH
@@ -131,6 +223,8 @@ using StructArrays
 using LinearAlgebra
 using LogDensityProblems
 using LogDensityProblemsAD
+
+(a,B) = (0,100.0)
 
 # Define the components of a basic model.
 struct LogTargetDensity_Logistic
@@ -408,20 +502,29 @@ PG サンプラーは MH 法に比べ恐ろしいほどに時間がかかる．�
 
 ```{julia}
 #| code-fold: true
+#| echo: false
 plot(p_Metropolis, p_PolyaGamma, layout=(1,2), #background_color = "#F0F1EB"
 )
 #savefig("Logistic_WhiteBackground.svg")
 ```
 
-## 理論：収束鈍化の理由
+### 理論：収束鈍化の理由
 
-前節の設定の下で，計算複雑性のオーダーが，Metropolis 法では最悪で $(\log n)^3$ であるのに対し，Gibbs サンプラーでは最高でも $n^{3/2}(\log n)^{2.5}$ のオーダーになることが [@Johndrow+2019] で示されている．
+前節の $p=1$ の不均衡プロビットモデルの下での計算複雑性のオーダーは，
+
+* Metropolis 法では最悪で $(\log n)^3$
+* Gibbs サンプラーでは最高でも $n^{3/2}(\log n)^{2.5}$
+
+になることが示されている [Section 4 @Johndrow+2019]．
 
 その理由は，提案分布と対象分布のズレに由来することも [@Johndrow+2019] は明らかにしている．
 
-$\sum_{i=1}^ny^i$ の値を固定して $n\to\infty$ の極限を取った場合，事後分布は次のように，負方向にスライドしながら，幅が狭まっていく．その幅の縮小レートは $n^{-1/2}$ ではなく，約 $(\log n)^{-1}$ になる．
+$\sum_{i=1}^ny_i$ の値を固定して $n\to\infty$ の極限を取った場合，事後分布は次のように負方向にスライドしながら，幅が狭まっていく．
+
+その幅の縮小レートは $n^{-1/2}$ ではなく，約 $(\log n)^{-1}$ になる．
 
 ```{julia}
+#| echo: false
 using StatsPlots
 using LaTeXStrings
 
@@ -436,9 +539,10 @@ plot(
 )
 ```
 
-一方で，提案分布は $\xi_t$ をモードとした場合，$\xi_{t+1}$ もモードの周りに幅 $\frac{(\log n)^{3/2}}{n^{1/2}}$ で集中してしまう．すなわち，提案のステップサイズが事後分布のスケールに比べて極めて小さくなってしまう．
+一方で提案分布は $\xi_t$ をモードとした場合，$\xi_{t+1}$ もモードの周りに幅 $\frac{(\log n)^{3/2}}{n^{1/2}}$ で集中してしまう．すなわち，提案のステップサイズが事後分布のスケールに比べて極めて小さくなってしまう．
 
 ```{julia}
+#| echo: false
 plot(
     plot(PGChain[1], title=L"n=10", color="#78C2AD"),
     plot(PGChain[2], title=L"n=100", color="#78C2AD"),
@@ -452,13 +556,21 @@ plot(
 
 MH 法でサンプルした事後分布に比べて，より鋭くなっていることがわかるだろう（$y$ 軸のスケールに注目）．
 
-これにより，分布の十分な探索が阻害され，サンプル間の自己相関が高くなってしまうという問題が起こるようである．
+Gibbs サンプラーではステップサイズがあまりに小さくなってしまい，分布の十分な探索が阻害され，サンプル間の自己相関が高くなってしまうという問題が起こるようである．
 
-## 比例的高次元では MAP にバイアスが残る
-
-ロジスティック回帰において，$p\ll n$ が満たされない設定下では，最尤推定量（MAP 推定量）がバイアスを持つ [@Sur-Candes2019]．
+## Zig-Zag サンプラーによる解決
 
 後編に続く：
 
 ::: {#lst-listing}
 :::
+
+## 文献紹介 {.appendix}
+
+ロジスティック回帰やプロビット回帰などの２項回帰モデルは，広くベイズ計算手法のベンチマークとして用いられるモデルである [@Chopin-Ridgway2017]．
+
+二項回帰モデルにおいて観測 $y_{i}$ の値が激しく偏っていた場合，Gibbs サンプラーの収束に問題が起きることは [@Johndrow+2019] が指摘している．
+
+そもそも中規模のデータセットでは Gibbs サンプラーは乱歩 MH などの汎用手法と比べてほとんど同等の性能であることが [@Chopin-Ridgway2017] の数値実験で確認されている．
+
+この問題が Zig-Zag サンプラーを用いれば，重点荷重＋ミニバッチサブサンプリングのアイデアで比較的簡単に解決できることが [@Sen+2020] で実証された．
