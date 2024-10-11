@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬博文">
 
-<title>Hirofumi Shiba - デノイジング・ディフュージョン・サンプラー</title>
+<title>Hirofumi Shiba - 拡散モデルによる事後分布サンプリング</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -88,34 +88,6 @@ div.csl-indent {
   }
 }</script>
 <script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-diffusion-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-diffusion-listing'] = new List('listing-diffusion-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  
 
   window.document.addEventListener("DOMContentLoaded", function (_event) {
     const listingTargetEl = window.document.querySelector('#listing-SB-listing .list');
@@ -328,11 +300,11 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - デノイジング・ディフュージョン・サンプラー">
+<meta property="og:title" content="Hirofumi Shiba - 拡散モデルによる事後分布サンプリング">
 <meta property="og:description" content="拡散モデルから始まるフロー学習手法は，画像と動画に関して 2024 年時点で最良の性能を誇る． これは統計的に言えば事後分布からの近似的サンプリングを実行していることに相当する． 近似的ではなく，正確に２つの分布を補間するような拡散過程を推定するためには Schrödinger 橋がある． Schrödinger 橋については 次稿 に譲るとし，本稿ではサンプラーとしての拡散モデルを復習する．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Bridges/assets/profile.jpg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - デノイジング・ディフュージョン・サンプラー">
+<meta name="twitter:title" content="Hirofumi Shiba - 拡散モデルによる事後分布サンプリング">
 <meta name="twitter:description" content="拡散モデルから始まるフロー学習手法は，画像と動画に関して 2024 年時点で最良の性能を誇る． これは統計的に言えば事後分布からの近似的サンプリングを実行していることに相当する． 近似的ではなく，正確に２つの分布を補間するような拡散過程を推定するためには Schrödinger 橋がある． Schrödinger 橋については 次稿 に譲るとし，本稿ではサンプラーとしての拡散モデルを復習する．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Bridges/assets/profile.jpg">
 <meta name="twitter:creator" content="@ano2math5">
@@ -384,8 +356,8 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">デノイジング・ディフュージョン・サンプラー</h1>
-            <p class="subtitle lead">サンプラーとしての拡散モデル</p>
+      <h1 class="title">拡散モデルによる事後分布サンプリング</h1>
+            <p class="subtitle lead">Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Process</div>
                 <div class="quarto-category">Sampling</div>
@@ -414,7 +386,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">10/06/2024</p>
+        <p class="date-modified">10/11/2024</p>
       </div>
     </div>
       
@@ -435,7 +407,7 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#sec-DDPM" id="toc-sec-DDPM" class="nav-link active" data-scroll-target="#sec-DDPM"><span class="header-section-number">1</span> 雑音除去拡散 (DDPM)</a>
+  <li><a href="#sec-DDPM" id="toc-sec-DDPM" class="nav-link active" data-scroll-target="#sec-DDPM"><span class="header-section-number">1</span> 雑音除去拡散 (DD: Denoising Diffusion)</a>
   <ul class="collapse">
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
   <li><a href="#雑音除去拡散-dd-の定義" id="toc-雑音除去拡散-dd-の定義" class="nav-link" data-scroll-target="#雑音除去拡散-dd-の定義"><span class="header-section-number">1.2</span> 雑音除去拡散 (DD) の定義</a></li>
@@ -443,6 +415,7 @@ window.Quarto = {
   <li><a href="#近似ベイズ計算への応用" id="toc-近似ベイズ計算への応用" class="nav-link" data-scroll-target="#近似ベイズ計算への応用"><span class="header-section-number">1.4</span> 近似ベイズ計算への応用</a></li>
   <li><a href="#逆問題への応用" id="toc-逆問題への応用" class="nav-link" data-scroll-target="#逆問題への応用"><span class="header-section-number">1.5</span> 逆問題への応用</a></li>
   </ul></li>
+  <li><a href="#雑音除去-markov-モデル" id="toc-雑音除去-markov-モデル" class="nav-link" data-scroll-target="#雑音除去-markov-モデル"><span class="header-section-number">2</span> 雑音除去 Markov モデル</a></li>
   </ul>
 </nav>
     </div>
@@ -455,9 +428,122 @@ window.Quarto = {
 
 <section id="関連記事一覧" class="level2 unnumbered unlisted">
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事一覧">関連記事一覧</h2>
-<div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
+<div id="listing-SB-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848139" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728631027086" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="239">
+<a href="../../../posts/2024/Bridges/TransportMethods.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Bridges/Files/ode_animation.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+分布道の学習としての生成モデリング
+</h5>
+<div class="card-subtitle listing-subtitle">
+Denoising Diffusion から Schrödinger Bridge へ
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728626593197" data-listing-date-modified-sort="1728572400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="222">
+<a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Bridges/Files/SB.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散モデルからシュレディンガー橋へ
+</h5>
+<div class="card-subtitle listing-subtitle">
+Iterative Proportional Fitting アルゴリズムについて
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Sampling,Process" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728216059771" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Bridges/Files/sde_animation.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+雑音除去拡散サンプラー
+</h5>
+<div class="card-subtitle listing-subtitle">
+デノイジング・ディフュージョンによるベイズ計算
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+</section>
+<section id="sec-DDPM" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="sec-DDPM"><span class="header-section-number">1</span> 雑音除去拡散 (DD: Denoising Diffusion)</h2>
+<section id="はじめに" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
+<p>潜在空間 <span class="math inline">\(\mathcal{X}\)</span> 上の事前分布 <span class="math inline">\(p(x)dx\)</span> と，尤度が確率核 <span class="math inline">\(P:\mathcal{X}\to\mathcal{Y}\)</span> <span class="math display">\[
+P(x,dy)=p(y|x)\,dy
+\]</span> の形で与えられているとする．</p>
+<p>この際の事後分布 <span class="math display">\[
+p(x|y)=\frac{g(y|x)\mu(x)}{\int_\mathcal{X}g(y|x)\mu(x)\,dx}
+\]</span> を償却的に学習しサンプリングするためには，<span class="math inline">\(p(x|y)\)</span> から開始する Langevin 拡散の時間反転をシミュレーションする <a href="../../../posts/2024/Samplers/Diffusion.html">拡散模型</a> (DDPM / SGM) の方法が使える．</p>
+<p>Langevin 拡散の時間反転は <strong>雑音除去拡散</strong> (DD: Denoising Diffusion) とも呼ばれ，拡散模型は正しい DD を学習すること・高速な DD のシミュレーション法を開発することが主眼である．</p>
+<p>償却的に学習するため，一度モデルが訓練されれば，種々の <span class="math inline">\(y\in\mathcal{Y}\)</span> に対応できる．例えば <span class="math inline">\(x\)</span> が画像，<span class="math inline">\(y\)</span> がクラスラベルなどの場合では，<span class="math inline">\(p(x|y)\)</span> からのサンプリングは <strong>条件付き生成</strong> とも呼ばれる．これについては次稿参照：</p>
+<div id="listing-lst-embedding2" class="listing quarto-float quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848002" data-listing-date-modified-sort="1724338800000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
+<a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/DDPM_outputs.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散模型
+</h5>
+<div class="card-subtitle listing-subtitle">
+深層生成モデル６
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848139" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -479,7 +565,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1727007848140" data-listing-date-modified-sort="1724684400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
+<div class="g-col-1" data-index="2" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1723215600000" data-listing-file-modified-sort="1727007848140" data-listing-date-modified-sort="1724684400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
 <a href="../../../posts/2024/Samplers/NF3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -501,93 +587,32 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Process,Sampling" data-listing-date-sort="1724598000000" data-listing-file-modified-sort="1728281474321" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
-<a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="../../../posts/2024/Samplers/Files/DSM.svg" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-雑音除去過程
-</h5>
-<div class="card-subtitle listing-subtitle">
-Ornstein-Uhlenbeck 過程の時間反転
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-26
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
 </div>
 <div class="listing-no-matching d-none">
 No matching items
 </div>
 </div>
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-</section>
-<section id="sec-DDPM" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="sec-DDPM"><span class="header-section-number">1</span> 雑音除去拡散 (DDPM)</h2>
-<section id="はじめに" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
-<p>潜在空間 <span class="math inline">\(\mathcal{X}\)</span> 上の事前分布 <span class="math inline">\(\mu\)</span> と，尤度が確率核 <span class="math inline">\(\mathcal{X}\to\mathcal{Y}\)</span> <span class="math display">\[
-x\mapsto g(y|x)\,dy
-\]</span> の形で与えられているとする．</p>
-<p>この際の事後分布 <span class="math display">\[
-p(x|y)=\frac{g(y|x)\mu(x)}{\int_\mathcal{X}g(y|x)\mu(x)\,dx}
-\]</span> を償却的に学習し，サンプリングするためには <a href="../../../posts/2024/Samplers/Diffusion.html">拡散模型</a> (DDPM / SGM) が使える．拡散模型については次稿参照：</p>
-<div id="listing-lst-embedding2" class="listing quarto-float quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848002" data-listing-date-modified-sort="1724338800000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
-<a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top">
-<img src="../../../posts/2024/Samplers/Files/DDPM_outputs.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-拡散模型
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル６
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-02-14
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<p>この <strong>サンプラーとしての拡散模型</strong> を，DDPM をもじって DDPS (Denoising Diffusion Posterior Sampler) と呼ぼう．</p>
-<p>本稿では生成モデルとしてはお馴染みの拡散模型をサンプラーとして捉えなおし，近似ベイズ推論や逆問題への応用をみる．</p>
-<p>しかしこの方法は正確な方法ではない．次稿で Schrödinger 橋を用いて不偏性の達成を目指す：</p>
+<p>だが <span class="math inline">\(p(x|y)\)</span> を一般の事後分布と見れば，この DD を用いた拡散模型的アプローチは条件付き生成のタスクに限らず，逆問題や一般のベイズ推論にも応用可能だろう．</p>
+<p>さらにスコアマッチングを通じた学習法では，事前分布 <span class="math inline">\(p(x)\)</span> と尤度 <span class="math inline">\(p(y|x)\,dy\)</span> の両方からサンプリングができれば実行可能であるため，<strong>シミュレーションベースの推論</strong> (SBI: Simulation-based Inference) への応用も期待できる．</p>
+<p>そこで，この事後分布 <span class="math inline">\(p(x|y)\)</span> からの <strong>シミュレーション・ベースのサンプラーとしての拡散模型</strong> を，DDPM をもじって <strong>雑音除去拡散サンプラー</strong> (DDPS: Denoising Diffusion Posterior Sampler) と呼ぼう．</p>
+<p><span class="citation" data-cites="Benton+2024Denoising">(<a href="#ref-Benton+2024Denoising" role="doc-biblioref">Benton et al., 2024</a>)</span> では DDPS を，離散空間や Riemann 多様体を含む一般の状態空間 <span class="math inline">\(\mathcal{X}\)</span> 上に一般化した <strong>DMM (Denoising Markov Model)</strong> を提案している．</p>
+<p>本稿では生成モデルとしてはお馴染みの拡散模型をサンプラー DDPS として捉えなおし，近似ベイズ推論や逆問題への応用をみる．</p>
+<p>しかしこの方法は正確な方法ではない上に，正確性を記すために時間 <span class="math inline">\(T&gt;0\)</span> を大きく取る必要があり，サンプリングに大変な時間がかかる．</p>
+<p>次稿では DD の代わりに Schrödinger 橋 (SB: Schrödinger Bridge) を用いて，より正確で高速なサンプリングの達成を目指す：</p>
 <div id="listing-lst-embedding4" class="listing quarto-float quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728216068618" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="155">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728626593197" data-listing-date-modified-sort="1728572400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="222">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top"><img src="Files/sde_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img src="../../../posts/2024/Bridges/Files/SB.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-デノイジング・シュレディンガー橋
+拡散モデルからシュレディンガー橋へ
 </h5>
 <div class="card-subtitle listing-subtitle">
-拡散モデルからシュレディンガー橋へ
+Iterative Proportional Fitting アルゴリズムについて
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -606,16 +631,19 @@ No matching items
 </section>
 <section id="雑音除去拡散-dd-の定義" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="雑音除去拡散-dd-の定義"><span class="header-section-number">1.2</span> 雑音除去拡散 (DD) の定義</h3>
-<p><a href="../../../posts/2024/Samplers/Diffusion.html">拡散模型</a> は，次で定まる OU 過程によってデータ分布を <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> にまで破壊しているとみなせる <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span>： <span class="math display">\[
+<p>ひとまず，観測 <span class="math inline">\(y\in\mathcal{Y}\)</span> を固定して議論する．</p>
+<p><a href="../../../posts/2024/Samplers/Diffusion.html">拡散模型</a> では，次で定まる OU 過程によってデータ分布を <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> にまで破壊することを考える <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span>： <span class="math display">\[
 dX_t=-\frac{1}{2}X_t\,dt+dB_t,\qquad X_0\sim p(x|y).
 \]</span></p>
-<p>ただし，この過程は指数エルゴード性を持つと言っても，完全に <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> に従うようになるのは <span class="math inline">\(t\to\infty\)</span> の極限においてである．</p>
+<p>OU 過程は指数エルゴード性を持ち，十分な時間が経てば <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> に収束することは確約されている．とはいっても，完全に <span class="math inline">\(\mathrm{N}_d(0,I_d)\)</span> に従うようになるのは <span class="math inline">\(t\to\infty\)</span> の極限においてである．</p>
 <p>この <span class="math inline">\((X_t)\)</span> の有限時区間 <span class="math inline">\([0,T]\)</span> における時間反転は，<span class="math inline">\((X_t)\)</span> の密度を <span class="math inline">\(p_t(x_t|y)\)</span> で表すと， <span id="eq-denoising-diffusion"><span class="math display">\[
 dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
-\tag{1}\]</span></span> の弱解になる <span class="citation" data-cites="Anderson1982">(<a href="#ref-Anderson1982" role="doc-biblioref">Anderson, 1982</a>)</span>, <span class="citation" data-cites="Haussmann-Pardoux1986">(<a href="#ref-Haussmann-Pardoux1986" role="doc-biblioref">Haussmann and Pardoux, 1986</a>)</span>．詳しくは次の記事参照．</p>
+\tag{1}\]</span></span> の弱解になる <span class="citation" data-cites="Anderson1982">(<a href="#ref-Anderson1982" role="doc-biblioref">Anderson, 1982</a>)</span>, <span class="citation" data-cites="Haussmann-Pardoux1986">(<a href="#ref-Haussmann-Pardoux1986" role="doc-biblioref">Haussmann and Pardoux, 1986</a>)</span>．</p>
+<p>この時間反転過程 <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> を <strong>雑音除去拡散</strong> (Denoising Diffusion) という．</p>
+<p>数学的な詳細は次の記事参照．</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Process,Sampling" data-listing-date-sort="1724598000000" data-listing-file-modified-sort="1728281474321" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling" data-listing-date-sort="1724598000000" data-listing-file-modified-sort="1728537512933" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
 <a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -642,30 +670,30 @@ Ornstein-Uhlenbeck 過程の時間反転
 No matching items
 </div>
 </div>
-<p>この時間反転過程 <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> を <strong>雑音除去拡散</strong> (Denoising Diffusion) という．</p>
 </section>
 <section id="sec-DDPS-sampling" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="sec-DDPS-sampling"><span class="header-section-number">1.3</span> スコアマッチングによる DD からのサンプリング</h3>
-<p>すると残りの問題は，拡散過程 <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> からのサンプリングになる．</p>
-<p>これにはドリフト項 <span class="math inline">\(\log p_{T-t}(Z_t|y)\)</span> の評価と初期分布 <span class="math inline">\(p_T(x_T|y)\)</span> からのサンプリングが必要である．</p>
+<p>すると残りの問題は，DD <span class="math inline">\((Z_t)_{t\in[0,T]}\)</span> からのサンプリングになる．</p>
+<p>そのためDD からのサンプリングのためにはドリフト項 <span class="math inline">\(\log p_{T-t}(Z_t|y)\)</span> の評価と初期分布 <span class="math inline">\(p_T(x_T|y)\)</span> からのサンプリングの２点が必要である．</p>
 <p><span class="math inline">\((Z_t)\)</span> を推定されたスコア <span class="math inline">\(s^\theta\)</span> を用いた Gauss 過程から開始する拡散 <span class="math display">\[
 dZ_t=\frac{1}{2}Z_t\,dt+s_{T-t}^\theta(Z_t,y)\,dt+dW_t,\qquad Z_0\sim\mathrm{N}_d(0,I_d),
-\]</span> で近似することが <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span> の方法である．思い切って <span class="math inline">\(\mathrm{N}_d(0,I_d)\approx p_T(x_T|y)\)</span> としてしまい，<span class="math inline">\(s_t^\theta(x_t,y)\)</span> のモデリングに集中するのである．</p>
-<p>この過程 <span class="math inline">\((Z_t)\)</span> が定める測度を <span class="math inline">\(\mathbb{Q}_y^\theta\in\mathcal{P}(C([0,T];\mathcal{X}))\)</span> と表すと，訓練目標は KL 乖離度の期待値 <span class="math display">\[\begin{align*}
+\]</span> で近似することが SGM (Score-based Generative Model) <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span> の方法である．</p>
+<p>思い切って <span class="math inline">\(\mathrm{N}_d(0,I_d)\approx p_T(x_T|y)\)</span> としてしまい，<span class="math inline">\(s_t^\theta(x_t,y)\)</span> のモデリングに集中するのである．</p>
+<p>具体的には，この過程 <span class="math inline">\((Z_t)\)</span> が定める測度を <span class="math inline">\(\mathbb{Q}_y^\theta\in\mathcal{P}(C([0,T];\mathcal{X}))\)</span> と表すと，訓練目標を KL 乖離度の期待値 <span class="math display">\[\begin{align*}
     \mathcal{L}(\theta)&amp;:=2\operatorname{E}\biggl[\operatorname{KL}\biggr(\mathbb{P}_Y,\mathbb{Q}_Y^\theta\biggl)\biggr]\\
     &amp;=\int^T_0\operatorname{E}\biggl[\left\|s^\theta_t(X_t,Y)-\nabla_x\log p_{t|0}(X_t|X_0)\right\|^2\biggr]\,dt+\mathrm{const.}
-\end{align*}\]</span> が考えられる <span class="citation" data-cites="Song+2021ICLR">(Th’m 1 <a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span>．ただし，<span class="math inline">\(\mathbb{P}_Y\)</span> は <span class="math inline">\((X_t)\)</span> の分布，<span class="math inline">\(p_{t|0}\)</span> は <span class="math inline">\((X_t)\)</span> の遷移密度を表す．</p>
-<p>この損失は <a href="../../../posts/2024/Samplers/EBM.html#sec-DSM">DSM</a> <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> で与えられたものに等しく， <span class="math display">\[
+\end{align*}\]</span> とする <span class="citation" data-cites="Song+2021ICLR">(Th’m 1 <a href="#ref-Song+2021ICLR" role="doc-biblioref">Y. Song et al., 2021</a>)</span>．ただし，<span class="math inline">\(\mathbb{P}_Y\)</span> は <span class="math inline">\((X_t)\)</span> の分布，<span class="math inline">\(p_{t|0}\)</span> は <span class="math inline">\((X_t)\)</span> の遷移密度を表す．</p>
+<p>この損失は <a href="../../../posts/2024/Samplers/EBM.html#sec-DSM">DSM</a> (Denoising Score Matching) <span class="citation" data-cites="Vincent2011">(<a href="#ref-Vincent2011" role="doc-biblioref">Vincent, 2011</a>)</span> で与えられたものに等しく， <span class="math display">\[
 (X_0,Y)\sim p(x,y)=g(y|x)\mu(x)
 \]</span> からのシミュレーションが可能であるならば，この目的関数は確率的最適化アルゴリズムによって最適化できる．</p>
-<p>こうして，雑音除去拡散サンプラー (DDPS: Denoising Diffusion Posterior Sampler) を得る．</p>
+<p>こうして <strong>雑音除去拡散サンプラー</strong> (DDPS: Denoising Diffusion Posterior Sampler) を得る．</p>
 </section>
 <section id="近似ベイズ計算への応用" class="level3" data-number="1.4">
 <h3 data-number="1.4" class="anchored" data-anchor-id="近似ベイズ計算への応用"><span class="header-section-number">1.4</span> 近似ベイズ計算への応用</h3>
 <p>DDPS を学習するためには，事前分布と尤度 <span class="math inline">\(g(y|x)\)</span> からのサンプリングが可能であればよく，関数として評価することは一度もなかった．</p>
 <p>従って DDPS は生成モデリングの他に Simulation-based Inference などの近似推論に用いることができる <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span>．</p>
 <p>実際，この DDPS は従来の ABC (Approximate Bayesian Computation) 法の代替になり得る．<span class="citation" data-cites="Benton+2024Denoising">(<a href="#ref-Benton+2024Denoising" role="doc-biblioref">Benton et al., 2024</a>)</span>, <span class="citation" data-cites="Sharrock+2024">(<a href="#ref-Sharrock+2024" role="doc-biblioref">Sharrock et al., 2024</a>)</span> が良いレビューである．</p>
-<p>さらに，<a href="../../../posts/2024/Samplers/Diffusion.html#sec-acceleration">拡散模型の加速法</a> （Progressive Distillation <span class="citation" data-cites="Salimans-Ho2022">(<a href="#ref-Salimans-Ho2022" role="doc-biblioref">Salimans and Ho, 2022</a>)</span> など）が DDPS にも応用可能である．</p>
+<p>さらに <a href="../../../posts/2024/Samplers/Diffusion.html#sec-acceleration">拡散模型の加速法</a> （Progressive Distillation <span class="citation" data-cites="Salimans-Ho2022">(<a href="#ref-Salimans-Ho2022" role="doc-biblioref">Salimans and Ho, 2022</a>)</span> など）が DDPS にも応用可能である．</p>
 </section>
 <section id="逆問題への応用" class="level3" data-number="1.5">
 <h3 data-number="1.5" class="anchored" data-anchor-id="逆問題への応用"><span class="header-section-number">1.5</span> 逆問題への応用</h3>
@@ -710,79 +738,11 @@ No matching items
 <p><span class="math inline">\(g_t(y|x_t)\)</span> の項も近似可能である．<span class="citation" data-cites="Chung+2023">(<a href="#ref-Chung+2023" role="doc-biblioref">Chung et al., 2023</a>)</span> では条件付き誘導が，<span class="citation" data-cites="Song+2023">(<a href="#ref-Song+2023" role="doc-biblioref">J. Song et al., 2023</a>)</span> では Monte Carlo 法が用いられている．</p>
 </section>
 </section>
-<section id="schrödinger-橋について" class="level2 unnumbered unlisted">
-<h2 class="unnumbered unlisted anchored" data-anchor-id="schrödinger-橋について">Schrödinger 橋について</h2>
-<div id="listing-SB-listing" class="quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728216068618" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="155">
-<a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="Files/sde_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-デノイジング・シュレディンガー橋
-</h5>
-<div class="card-subtitle listing-subtitle">
-拡散モデルからシュレディンガー橋へ
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-03
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="Sampling,Process" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728216059771" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
-<a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="../../../posts/2024/Bridges/Files/sde_animation.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-雑音除去拡散サンプラー
-</h5>
-<div class="card-subtitle listing-subtitle">
-デノイジング・ディフュージョンによるベイズ計算
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-03
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722610800000" data-listing-file-modified-sort="1728216091747" data-listing-date-modified-sort="1728140400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="196">
-<a href="../../../posts/2024/Bridges/TransportMethods.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="../../../posts/2024/Bridges/Files/ode_animation.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-分布道の学習としての生成モデリング
-</h5>
-<div class="card-subtitle listing-subtitle">
-Denoising Diffusion から Schrödinger Bridge へ
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-03
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
+<section id="雑音除去-markov-モデル" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="雑音除去-markov-モデル"><span class="header-section-number">2</span> 雑音除去 Markov モデル</h2>
+<p>DDPS の議論は <span class="math inline">\(\mathcal{X}=\mathbb{R}^d\)</span> 上の OU 過程の場合に限っていた．</p>
+<p>全く同様の構成は，<span class="math inline">\(\mathcal{X}\)</span> が離散空間や Riemann 多様体とし，その上の一般の Markov 過程に対しても実行可能である．</p>
+<p>この事実を，一般化されたスコアマッチングの方法とともに提案したのが <span class="citation" data-cites="Benton+2024Denoising">(<a href="#ref-Benton+2024Denoising" role="doc-biblioref">Benton et al., 2024</a>)</span> である．</p>
 
 
 

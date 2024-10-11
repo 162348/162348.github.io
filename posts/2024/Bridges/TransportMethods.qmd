@@ -3,7 +3,7 @@ title: "分布道の学習としての生成モデリング"
 subtitle: "Denoising Diffusion から Schrödinger Bridge へ"
 author: "司馬 博文"
 date: 8/3/2024
-date-modified: 10/6/2024
+date-modified: 10/11/2024
 categories: [Process, Sampling, P(X)]
 image: Files/ode_animation.gif
 bibliography: 
@@ -13,7 +13,7 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-    拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の性能を誇る．本稿ではこれを統計に応用することを考える．
+    拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の方法の１つである．本稿ではこれを統計に応用することを考える．
 
     生成モデリングを２つの密度の補間問題と捉え，Schrödinger 橋を用いた正確なサンプリング法を考える．この観点から展開されるブリッジマッチング（橋照合？）はフローマッチング，確率的補間，Rectified Flow などを綜合する枠組みとなる．
 listing: 
@@ -24,8 +24,9 @@ listing:
             - "SB0.qmd"
             - "SB1.qmd"
             - "SB2.qmd"
+            - "SB3.qmd"
             - "SF1.qmd"
-            - "../PX/OT.qmd"
+            - "../PX/OT1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
     -   id: diffusion-listing
@@ -46,6 +47,15 @@ listing:
             - "SB1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-embedding0
+        type: grid
+        sort: false
+        grid-columns: 1
+        grid-item-align: center
+        contents:
+            - "SB0.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
     -   id: lst-embedding2
         type: grid
         sort: false
@@ -64,17 +74,17 @@ listing:
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## はじめに
+## アイデア
 
 ### 輸送問題としての生成モデリング
 
-生成モデリングは畢竟，２つの分布 $P_0,P_1\in\cP(\R^d)$ を結ぶ写像 $\phi:\R^d\to\R^d$
+生成モデリングの悲願は，２つの分布 $P_0,P_1\in\cP(\R^d)$ を結ぶ輸送写像 $\phi:\R^d\to\R^d$
 $$
 \phi_*P_0=P_1
 $$
-を，$P_0,P_1$ から定まる PDE のフロー $(\phi_t),\phi_1=\phi$ によって学習することに帰着する．
+を，$P_0,P_1$ が定める PDE のフロー $(\phi_t)$ を学習することで $\phi:=\phi_1$ として得ることにある．
 
-この方法は現在，連続時間の正規化フロー，フローマッチング，確率的補間，Rectified Flow などの広がりを見せている：
+この夢は現在，連続時間の正規化フロー，フローマッチング，確率的補間，Rectified Flow などの名前で追及されている：
 
 ::: {#diffusion-listing}
 :::
@@ -89,7 +99,7 @@ $$
 $$
 P_t:=(\phi_t)_*P_0
 $$
-に対して，[連続方程式](https://ja.wikipedia.org/wiki/連続の方程式) というPDE
+の密度 $p_t$ に対して，[連続方程式](https://ja.wikipedia.org/wiki/連続の方程式) というPDE
 $$
 \pp{p_t}{t}+\div(F_tp_t)=0.
 $$
@@ -99,45 +109,60 @@ $$
 
 ### 歴史：拡散モデル
 
-決定論的なフロー $(\phi_t)$ による $P_0$ の $P_1$ への変換は，元々は [拡散モデル](../Samplers/Diffusion.qmd) (DDPM / SGM) によって考えられていた．
+決定論的なフロー $(\phi_t)$ による $P_0$ の $P_1$ への変換が考えられる前は，確率的に $P_0$ を $P_1$ に変換する方法が [拡散モデル](../Samplers/Diffusion.qmd) (DDPM / SGM) という名前で考えられていた．
 
-この方法では $P_1$ から開始して $P_0$ に収束するエルゴード性を持つ OU 過程の時間反転を学習することで，ノイズ分布 $P_0$ からのサンプルからデータ分布 $P_1$ からのサンプルを生成をする．
+この方法では $P_1$ から開始して $P_0$ に収束するエルゴード性を持つ OU 過程の時間反転・**拡散除去過程** (DD: Denoising Diffusion) を学習することで，ノイズ分布 $P_0$ からのサンプルをデータ分布 $P_1$ からのサンプルに変換するダイナミクスの獲得を目指す．
 
-DDPM (Denoising Diffusion Probabilistic Model) [@Ho+2020] は確率モデルとしてこの枠組みを定式化し最尤推定を目指した．SGM (Score-based Generative Model) [@Song+2019] は直接データ分布のスコア $\nabla_x\log p_t(x)$ をスコアマッチングにより学習することを提案した．
+DDPM (Denoising Diffusion Probabilistic Model) [@Ho+2020] は確率モデルとしてこの枠組みを定式化しパラメータの最尤推定を目指した．SGM (Score-based Generative Model) [@Song+2019] はデータ分布のスコア $\nabla_x\log p_t(x)$ をスコアマッチングにより学習することでドリフト項を直接推定する方法を提案した．
 
-このモデルにはノイズスケジュールなどの不要なパラメータや調節可能なハイパーパラメータが多く，等価な分布変換を定める ODE が存在する [@Song+2021ICLR] ことが自覚されると，ODE とベクトル場による方法が志向された．これで Flow Matching [@Lipman+2023] に至る．
+これらの方法にはノイズスケジュールなどの不要なパラメータや調節可能なハイパーパラメータが多く，等価な分布変換を定める ODE が存在する [@Song+2021ICLR] ことが自覚されると，ODE とベクトル場による方法が志向された．これで Flow Matching [@Lipman+2023] に至る．
+
+しかし DD のように確率過程の時間反転を用いる方法は，離散空間や Riemann 多様体などの極めて一般的な状態空間 $\cX$ に適用可能であるという強みも持つ [@Benton+2024Denoising]．詳しくは次の稿で扱う：
+
+::: {#lst-embedding0}
+:::
 
 ### Schrödinger 橋
 
-分布 $P_1$ から開始する OU 過程は，エルゴード性をもてど，有限時間内で $P_0$ との誤差が消えるわけではない．実際，拡散モデルの時間極限 $T>0$ はなるべく大きく取ることが推奨されている [@Song-Ermon2020]．
+分布 $P_1$ から開始する OU 過程は，エルゴード性をもてど有限時間内で $P_0$ との誤差が消えるわけではない．実際，拡散モデルの時間極限 $T>0$ はなるべく大きく取ることが推奨されている [@Song-Ermon2020]．つまり，$P_0,P_1$ を補間するダイナミクスとしては近似的なものでしかない．
 
-一方で，正確に２つの分布を繋ぐダイナミクスの１つを **Schrödinger 橋** (SB: Schrödinger Bridge) [@Schrodinger1931], [@Schrodinger1932] が与える．^[[@Schrodinger1931] の英訳が [@Chetrite+2021] により与えられている．]
+一方で，正確に２つの分布 $P_0,P_1$ を繋ぐダイナミクスの１つを **Schrödinger 橋** (SB: Schrödinger Bridge) [@Schrodinger1931], [@Schrodinger1932] が与える．^[[@Schrodinger1931] の英訳が [@Chetrite+2021] により与えられている．]
 
-SB の採用で正確なサンプリングが可能になることを [@Shi+2022] が最初に指摘した．
+SB は DD を初期値とした IPF (Iterative Proportional Fitting) / Sinkhorn-Knopp アルゴリズムを通じて計算でき，SB により正確で高速な条件付き生成／事後分布サンプリングが可能になることを [@Shi+2022] が最初に指摘した．
 
 ::: {#lst-embedding1}
 :::
 
 SB をスコアマッチングによって学習することが [@Heng+2022] によって考えられた．
 
-### サンプリングへの応用
+### サンプリングに向けて
 
-SB は事後分布サンプリングだけでなく，正規化定数が不明な分布
+ここまでの議論では，両端の確率分布 $P_0,P_1\in\cP(\R^d)$ が正確に定まっており，自由にサンプルを得ることが可能だと仮定してきた．
+
+統計学でよく見られる状況は，$P_0,P_1$ の正規化定数が未知であるという状況である．
+
+たったこれだけで問題は一気に難しくなる．
+
+事後分布サンプリングだけでなく，一般の正規化定数が不明な分布
 $$
 \pi(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\cX\gamma(x)\,dx
 $$
-に対しても使えることが [@Vargas-Grathwohl-Doucet2023] によって指摘された．
+に対するサンプリング手法 **雑音除去サンプラー** (DDS: Denoising Diffusion Sampler) [@Vargas-Grathwohl-Doucet2023] が提案された．
+
+DDS では $\nabla\log p_{T-t}$ の推定を $h$-変換により回避し，スコアマッチングの代わりに KL 最適制御問題を解くことでドリフト項を推定する．
 
 ::: {#lst-embedding2}
 :::
+
+### まとめ
 
 以上の発展は次のようにまとめることもできる [@Heng+2024]：
 
 | 名称 | 正規化定数の不明な分布に使えるか？ | IPF が必要か？ |
 |:----:|:----:|:---:|
-| [DDPM](SB0.qmd#sec-DDPM) [@Ho+2020], [@Song+2019] | [{{< fa xmark >}}]{.color-blue} | [{{< fa xmark >}}]{.color-blue} |
-| [DSBPM](SB1.qmd#sec-DSBPM) [@Shi+2022] | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
-| [DDS](SB2.qmd#sec-DDGS) [@Vargas-Grathwohl-Doucet2023] | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
-| [DSBS](SB2.qmd#sec-DSB-GS) [@Heng+2024] | [{{< fa check >}}]{.color-red} | [{{< fa check >}}]{.color-red} |
+| [DD による条件付き生成](SB0.qmd) [@Ho+2020], [@Song+2019] | [{{< fa xmark >}}]{.color-blue} | [{{< fa xmark >}}]{.color-blue} |
+| [SB による条件付き生成](SB1.qmd) [@Shi+2022] | [{{< fa xmark >}}]{.color-blue} | [{{< fa check >}}]{.color-red} |
+| [DD によるサンプリング（DDS）](SB2.qmd) [@Vargas-Grathwohl-Doucet2023] | [{{< fa check >}}]{.color-red} | [{{< fa xmark >}}]{.color-blue} |
+| [SB によるサンプリング](SB3.qmd) [@Heng+2024] | [{{< fa check >}}]{.color-red} | [{{< fa check >}}]{.color-red} |
 
-: 前半 DD は Denoising Diffusion, DSB は Denoising Schrödinger Bridge．後半 PM は Probabilistic Model，S は Sampler の頭文字． {.hover .responsive-sm tbl-colwidths="[20,15,15]"}
+: DD は Denoising Diffusion, SB は Schrödinger Bridge の略． {.hover .responsive-sm tbl-colwidths="[20,10,10]"}

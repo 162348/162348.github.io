@@ -1,10 +1,11 @@
 ---
-title: "デノイジング・シュレディンガー橋"
-subtitle: "拡散モデルからシュレディンガー橋へ"
+title: "拡散モデルからシュレディンガー橋へ"
+subtitle: "Iterative Proportional Fitting アルゴリズムについて"
 author: "司馬 博文"
 date: 8/3/2024
-date-modified: 10/6/2024
+date-modified: 10/11/2024
 categories: [Process, Sampling, P(X)]
+image: Files/SB.svg
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
@@ -12,15 +13,17 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-  拡散モデルから始まるフロー学習手法は，画像と動画に関して 2024 年時点で最良の性能を誇る．これを統計に用いるために，正確に２つの分布を補間するような拡散過程を推定したい．
-  これを実行する方法に Schrödinger 橋がある．
+  拡散モデルは「データ過程をノイズに還元する Langevin ダイナミクスを時間反転する」という発想に基づいており，画像と動画の生成・条件付き生成タスクに関して 2024 年時点で最良の方法の１つである．
+  この発想を正確なサンプリング法に昇華するためには，[@Deming-Stephan1940] の Iterative Proportional Fitting アルゴリズムを用いることができる．
+  この方法は拡散モデルによる条件付き生成の加速法として [@Shi+2022] によって提案された．
+  こうして得る拡散過程は Schrödinger Bridge とも呼ばれ，エントロピー最適輸送と深い関わりを持つ．
 listing: 
     -   id: diffusion-listing
         type: grid
         sort: false
         contents:
             - "SB0.qmd"
-            - "SB2.qmd"
+            - "../Samplers/NF3.qmd"
             - "../Samplers/DD1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
@@ -33,24 +36,6 @@ listing:
             - "../Samplers/DD1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-    -   id: lst-embedding2
-        type: grid
-        sort: false
-        grid-columns: 1
-        grid-item-align: center
-        contents:
-            - "../Samplers/Diffusion.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle]
-    -   id: lst-embedding3
-        type: grid
-        sort: false
-        grid-columns: 1
-        grid-item-align: center
-        contents:
-            - "../Samplers/NF3.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle]
 ---
 
 ## 関連記事一覧 {.unnumbered .unlisted}
@@ -60,57 +45,80 @@ listing:
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## Schrödinger 橋による事後分布サンプリング (DSB-PS) {#sec-DSBPM}
+## Schrödinger 橋としての条件付き生成 {#sec-DSBPM}
 
 ### はじめに
 
-$p_T(x_T|y)\approx\rN_d(0,I_d)$ の近似を成り立たせるために $T$ を十分大きく取る必要がある問題は，OU 過程の代わりに Schrödinger 橋を用いることで解決できることが [@Shi+2022] で提案された．
+雑音除去過程（OU 過程の時間反転）を事後分布 $p(x|y)$ からの正確なサンプリングに用いるには，OU 過程の遷移密度 $(p_t(x_t|y))_{t\in[0,T]}$ の終端分布に関する近似的な関係
+$$
+p_T(x_T|y)\approx\rN_d(0,I_d)
+$$
+を正確に成り立たせる必要がある．
+
+これは OU 過程の代わりに Schrödinger 橋を用いることに相当する．
+
+Schrödinger 橋を用いたサンプラーは [@Bernton+2019], [@Shi+2022] で提案された．
 
 Schrödinger 橋自体は，[@DeBortoli+2021] などから拡散模型への応用は議論されていた．
 
 ### 定義
 
-**Schrödinger 橋 (SB)** とは，
-$$
-\Pi^*:=\argmin_{\Pi\in\cP_0}\KL(\Pi,\bP),
-$$
-$$
-\cP_0:=\BRace{\Pi\in\cP(C([0,T];\cX\times\cY))\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0),\Pi_T(x_T,y_T)=\rN_d(0,I_d)p(y_T)},
-$$
-によって定まる確率分布に従う確率過程をいう．ただし，$\bP:=\bP_{y_0}\otimes\delta_{p(y)}$ とした．$\delta_{p(y)}$ は次で定まる確率分布である：
-$$
-dY_t=0,\qquad Y_0\sim p(y).
-$$
+前述の OU 過程の分布を $\bP_y\in\cP(C([0,T];\cX))$ と表そう．OU 過程がエルゴード性を持とうとも，このままでは $(\bP_y)_t=\rN_d(0,I_d)$ は近似的にしか成り立たない．
 
-これは表示
+**Schrödinger 橋 (SB)** とは，$\bP:=\bP_{y}\otimes\delta_{p(y)}$ から最も KL 乖離度が小さい分布
 $$
-\Pi^*=\bP^*_{y_0}\otimes\delta_{p(y)}
+\Pi^*:=\argmin_{\Pi\in\cA}\KL(\Pi,\bP),
+$$ {#eq-SB-problem}
 $$
-を持つから，$Z_0\sim\rN_d(0,I_d)$ に従う過程 $(Z_t)$ をシミュレーションすることで，
+\cA:=\Brace{\Pi\in\cP(C([0,T];\cX\times\cY))\,\middle|\,\begin{array}{l}\Pi_0\sim p(x,y)dxdy,\\\Pi_T=\rN_d(0,I_d)\otimes p(y)dy\end{array}},
 $$
-Z_T\sim\Pi^*_0(x|y)=p(x_0|y)\qquad p(y)\das
+に従う確率過程をいう．
+
+ただし，$\delta_{p(y)}:=p(y)dy\otimes\rU([0,T])$ は $X_0\sim p(y)dy$ を決めたのちに動かない過程 $X_t\equiv X_0$ が $C([0,T];\cY)$ 上に定める確率分布とした．
+
+### SB を使ったサンプリング
+
+SB 問題 ([-@eq-SB-problem]) の解は表示
 $$
-が成り立つ．
+\Pi^*=\bP^*_{y}\otimes\delta_{p(y)}
+$$
+を持つ．
 
-### SB のシミュレーション
+そのため，仮に $\bP^*_y$ に従う過程の時間反転 $(Z_t^y)$ がシミュレーションできたならば，ランダム性の種 $Z_T^y\sim\rN_d(0,I_d)$ とラベル $y$ を初期条件として $(Z_t^y)$ で流すことで，
+$$
+Z_0^y\sim p(x|y)dx,\qquad p(y)\das
+$$
+を得ることになる．
 
-SB 問題の解 $\Pi$ は **逐次的比例フィッティング** (IPF: Iterative Proportional Fitting) により得られる．
+問題は $\Pi^*,\bP^*_y$ を計算し，これそシミュレーションすることである．
 
-#### IPF とは
+## シミュレーション法
 
-IPF アルゴリズムは離散的な形で [@Deming-Stephan1940] が分割表データ解析の研究で提案している．その手続きを [@Ireland-Kullback1968] が距離の最小化として特徴付け，[@Kullback1968] が確率密度に対しても一般化した．ただし，この確率密度に対するアルゴリズムは [@Fortet1940] が Schrödinger 方程式の研究ですでに提案しているものである．
+SB 問題 ([-@eq-SB-problem]) の解 $\Pi$ は **逐次的比例フィッティング** (IPF: Iterative Proportional Fitting) により得られる．
+
+### IPF とは
+
+::: {.callout-tip appearance="simple" icon="false" title="IPF の歴史"}
+
+IPF アルゴリズムと method of iterative propotions の名前は離散的な形で [@Deming-Stephan1940] が分割表データ解析の研究で提案している．
+
+その手続きを [@Ireland-Kullback1968] が距離の最小化として特徴付け，[@Kullback1968] が確率密度に対しても一般化した．
+
+ただし，この確率密度に対するアルゴリズムは [@Fortet1940] が Schrödinger 方程式の研究ですでに提案しているものである．
+
+:::
 
 IPF は元々，指定した２つの確率ベクトル $r\in(0,\infty)^{d_r},c\in(0,\infty)^{d_c}$ を周辺分布に持つ結合分布（カップリング）のうち，指定の行列 $W\in M_{d_rd_c}(\R_+)$ に最も近い KL 乖離度を持つカップリングを見つけるための逐次アルゴリズムである [@Kurras2015]．
 
-種々の分野で再発見され，複数の名前を持っているようである．例：Sheleikhovskii 法，Kruithof アルゴリズム，Furness 法，Sinkhorn-Knopp アルゴリズム，RAS 法など [@Kurras2015]．^[また，行列スケーリングを通じた最小情報コピュラとの関連を [@Bedford+2016], [@清智也2021] が指摘している．]
+種々の分野で再発見され，複数の名前を持っているようである．少なくとも，Sheleikhovskii 法，Kruithof アルゴリズム，Furness 法，Sinkhorn-Knopp アルゴリズム，RAS 法など [@Kurras2015]．^[また，行列スケーリングを通じた最小情報コピュラとの関連を [@Bedford+2016], [@清智也2021] が指摘している．]
 
-$W$ の成分が正である場合は，[@Sinkhorn1967] がアルゴリズムの収束と解の一意性を示している．^[ただし，[@Deming-Stephan1940] にも [@Fortet1940] にも言及しておらず，Markov 連鎖の遷移確率の推定という文脈で研究している．]
+$W$ の成分が正である場合は，[@Sinkhorn1967] がアルゴリズムの収束と解の一意性を示している．^[ただし [@Sinkhorn1967] は [@Deming-Stephan1940] にも [@Fortet1940] にも言及しておらず，Markov 連鎖の遷移確率の推定という文脈で研究している．]
 
-しかし，$W$ の成分が零を含む場合，零成分の位置に依存してアルゴリズムは収束しないことがあり得ることを，[@Sinkhorn-Knopp1967] が $d_r=d_c=1$ の場合について示している．
+しかし，$W$ の成分が零を含む場合，零成分の位置に依存してアルゴリズムは収束しないことがあり得ることを [@Sinkhorn-Knopp1967] が $d_r=d_c=1$ の場合について示している．
 
-#### アルゴリズム
+### アルゴリズム
 
-IPF アルゴリズムは，観念的には，２つの周辺分布のうち片方を制約に課しながら，KL 距離を最小にする射影を返していく：
+IPF アルゴリズムは観念的には，OU 過程の分布 $\bP=\bP_y\otimes\delta_{p(y)}$ からはじめ，２つの周辺分布制約のうち片方のみを満たすもののうち，KL 距離を最小にする解への射影を返していく：
 
 $$
 \Pi^{2n+1}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n})\,\bigg|\,\Pi_T=\rN_d(0,I_d)\otimes p(y_T)dy_T},
@@ -133,26 +141,32 @@ dX_t=f^{2n+2}_t(X_t,y_0)\,dt+dB_t,\qquad X_0\sim p(x|y_0)\,dx,f_t^{2n+2}(x_t,y):
 $$
 ただし，$f^0_t(x_t)=-x_t/2$．
 
-#### DDPS との関係
+### DDPS との関係
 
 最初のイテレーション $n=0$ における $\bP^1_y$ が雑音除去拡散に対応する．
 
 しかし，IPF アルゴリズムのイテレーションを繰り返していくごとに，$T>0$ が十分に大きくない場合でも正確に $\rN_d(0,I_d)$ にデータ分布を還元する SB が得られるようになっていく．
 
-#### DSB-PS
+### DSB-PS
 
 この際，スコア $\nabla_z\log p_{T-t}(Z_t|y)$ から始まり，$f^{n}_t\;(n\ge2)$ の推定も逐次的に行なわなければならない点については，**mean-matching** [@DeBortoli+2021], [@Shi+2022] という方法が考えられている．
 
-この方法を用いて，IPF アルゴリズムが収束するまで実行して最終的に得るサンプラーを **Schrödinger 橋サンプラー** (DSB-PS: Diffusion Schrödinger Bridge Posterior Sampling) という．
+この方法を用いて，IPF アルゴリズムが収束するまで実行して最終的に得るサンプラーを **Schrödinger 橋サンプラー** (DSB-PS: Diffusion Schrödinger Bridge Posterior Sampling) [@Heng+2024] という．
 
-## 文献紹介 {.appendix}
+## 文献紹介 {.appendix .unnumbered}
 
-I^2^SB [@Liu+2023I2SB] のプロジェクトページは [こちら](https://i2sb.github.io/)．Text-to-Speech にも応用されている [@Chen+2023SB]．
+### SB の応用 {.appendix .unnumbered}
 
-SB はエントロピー正則化最適輸送の解になるが，このエントロピー／ラグランジアンの言葉で帰納バイアスを入れることができる [@Koshizuka-Sato2023], [@Isobe+2024]．
+I^2^SB [@Liu+2023I2SB] のプロジェクトページは [こちら](https://i2sb.github.io/)．
 
-[鈴木大慈氏のスライド](https://drive.google.com/file/d/1ipWPVNBpFy5GlQqXtSbbhB0gAJUld-yd/view) では変分法的な見方が徹底されている．
+Text-to-Speech にも応用されている [@Chen+2023SB]．
+
+### エントロピー最適輸送との関係 {.appendix .unnumbered}
 
 1. Langevin 動力学は，平衡分布との KL 乖離度を最小化する Wasserstein 勾配流になっている [@Jordan+1998], [4.4節 @Figalli-Glaudo2023]．
 2. その [時間反転過程](../Samplers/DD1.qmd) は OU 過程からの KL 乖離度とエネルギーの和を，$\ov{Y}_T\sim p_0$ の境界条件の下最小化する過程になっている．
 3. さらに境界条件を加えたものが SB である．
+
+[鈴木大慈氏のスライド](https://drive.google.com/file/d/1ipWPVNBpFy5GlQqXtSbbhB0gAJUld-yd/view) も参照．
+
+機械学習の観点からは，エントロピー正則化項を，帰納バイアスを入れる方法として再解釈することができる [@Koshizuka-Sato2023], [@Isobe+2024]．

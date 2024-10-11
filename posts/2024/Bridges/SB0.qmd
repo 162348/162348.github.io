@@ -1,9 +1,9 @@
 ---
-title: "デノイジング・ディフュージョン・サンプラー"
-subtitle: "サンプラーとしての拡散モデル"
+title: "拡散モデルによる事後分布サンプリング"
+subtitle: "Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法"
 author: "司馬博文"
 date: 8/3/2024
-date-modified: 10/6/2024
+date-modified: 10/11/2024
 categories: [Process, Sampling, P(X)]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -17,22 +17,13 @@ abstract: |
   近似的ではなく，正確に２つの分布を補間するような拡散過程を推定するためには Schrödinger 橋がある．
   Schrödinger 橋については [次稿](SB1.qmd) に譲るとし，本稿ではサンプラーとしての拡散モデルを復習する．
 listing: 
-    -   id: diffusion-listing
-        type: grid
-        sort: false
-        contents:
-            - "../Samplers/NF1.qmd"
-            - "../Samplers/NF3.qmd"
-            - "../Samplers/DD1.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle]
     -   id: SB-listing
         type: grid
         sort: false
         contents:
+            - "TransportMethods.qmd"
             - "SB1.qmd"
             - "SB2.qmd"
-            - "TransportMethods.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
     -   id: lst-embedding
@@ -47,10 +38,10 @@ listing:
     -   id: lst-embedding2
         type: grid
         sort: false
-        grid-columns: 1
-        grid-item-align: center
         contents:
             - "../Samplers/Diffusion.qmd"
+            - "../Samplers/NF1.qmd"
+            - "../Samplers/NF3.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
     -   id: lst-embedding3
@@ -75,18 +66,18 @@ listing:
 
 ## 関連記事一覧 {.unnumbered .unlisted}
 
-::: {#diffusion-listing}
+::: {#SB-listing}
 :::
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## 雑音除去拡散 (DDPM) {#sec-DDPM}
+## 雑音除去拡散 (DD: Denoising Diffusion) {#sec-DDPM}
 
 ### はじめに
 
-潜在空間 $\cX$ 上の事前分布 $\mu$ と，尤度が確率核 $\cX\to\cY$
+潜在空間 $\cX$ 上の事前分布 $p(x)dx$ と，尤度が確率核 $P:\cX\to\cY$
 $$
-x\mapsto g(y|x)\,dy
+P(x,dy)=p(y|x)\,dy
 $$
 の形で与えられているとする．
 
@@ -94,66 +85,84 @@ $$
 $$
 p(x|y)=\frac{g(y|x)\mu(x)}{\int_\cX g(y|x)\mu(x)\,dx}
 $$
-を償却的に学習し，サンプリングするためには [拡散模型](../Samplers/Diffusion.qmd) (DDPM / SGM) が使える．拡散模型については次稿参照：
+を償却的に学習しサンプリングするためには，$p(x|y)$ から開始する Langevin 拡散の時間反転をシミュレーションする [拡散模型](../Samplers/Diffusion.qmd) (DDPM / SGM) の方法が使える．
+
+Langevin 拡散の時間反転は **雑音除去拡散** (DD: Denoising Diffusion) とも呼ばれ，拡散模型は正しい DD を学習すること・高速な DD のシミュレーション法を開発することが主眼である．
+
+償却的に学習するため，一度モデルが訓練されれば，種々の $y\in\cY$ に対応できる．例えば $x$ が画像，$y$ がクラスラベルなどの場合では，$p(x|y)$ からのサンプリングは **条件付き生成** とも呼ばれる．これについては次稿参照：
 
 ::: {#lst-embedding2}
 :::
 
-この **サンプラーとしての拡散模型** を，DDPM をもじって DDPS (Denoising Diffusion Posterior Sampler) と呼ぼう．
+だが $p(x|y)$ を一般の事後分布と見れば，この DD を用いた拡散模型的アプローチは条件付き生成のタスクに限らず，逆問題や一般のベイズ推論にも応用可能だろう．
 
-本稿では生成モデルとしてはお馴染みの拡散模型をサンプラーとして捉えなおし，近似ベイズ推論や逆問題への応用をみる．
+さらにスコアマッチングを通じた学習法では，事前分布 $p(x)$ と尤度 $p(y|x)\,dy$ の両方からサンプリングができれば実行可能であるため，**シミュレーションベースの推論** (SBI: Simulation-based Inference) への応用も期待できる．
 
-しかしこの方法は正確な方法ではない．次稿で Schrödinger 橋を用いて不偏性の達成を目指す：
+そこで，この事後分布 $p(x|y)$ からの **シミュレーション・ベースのサンプラーとしての拡散模型** を，DDPM をもじって **雑音除去拡散サンプラー** (DDPS: Denoising Diffusion Posterior Sampler) と呼ぼう．
+
+[@Benton+2024Denoising] では DDPS を，離散空間や Riemann 多様体を含む一般の状態空間 $\cX$ 上に一般化した **DMM (Denoising Markov Model)** を提案している．
+
+本稿では生成モデルとしてはお馴染みの拡散模型をサンプラー DDPS として捉えなおし，近似ベイズ推論や逆問題への応用をみる．
+
+しかしこの方法は正確な方法ではない上に，正確性を記すために時間 $T>0$ を大きく取る必要があり，サンプリングに大変な時間がかかる．
+
+次稿では DD の代わりに Schrödinger 橋 (SB: Schrödinger Bridge) を用いて，より正確で高速なサンプリングの達成を目指す：
 
 ::: {#lst-embedding4}
 :::
 
 ### 雑音除去拡散 (DD) の定義
 
-[拡散模型](../Samplers/Diffusion.qmd) は，次で定まる OU 過程によってデータ分布を $\rN_d(0,I_d)$ にまで破壊しているとみなせる [@Song+2021ICLR]：
+ひとまず，観測 $y\in\cY$ を固定して議論する．
+
+[拡散模型](../Samplers/Diffusion.qmd) では，次で定まる OU 過程によってデータ分布を $\rN_d(0,I_d)$ にまで破壊することを考える [@Song+2021ICLR]：
 $$
 dX_t=-\frac{1}{2}X_t\,dt+dB_t,\qquad X_0\sim p(x|y).
 $$
 
-ただし，この過程は指数エルゴード性を持つと言っても，完全に $\rN_d(0,I_d)$ に従うようになるのは $t\to\infty$ の極限においてである．
+OU 過程は指数エルゴード性を持ち，十分な時間が経てば $\rN_d(0,I_d)$ に収束することは確約されている．とはいっても，完全に $\rN_d(0,I_d)$ に従うようになるのは $t\to\infty$ の極限においてである．
 
 この $(X_t)$ の有限時区間 $[0,T]$ における時間反転は，$(X_t)$ の密度を $p_t(x_t|y)$ で表すと，
 $$
 dZ_t=\frac{1}{2}Z_t\,dt+\nabla_z\log p_{T-t}(Z_t|y)\,dt+dW_t,\qquad Z_0\sim p_T(x_T|y),
 $$ {#eq-denoising-diffusion}
-の弱解になる [@Anderson1982], [@Haussmann-Pardoux1986]．詳しくは次の記事参照．
+の弱解になる [@Anderson1982], [@Haussmann-Pardoux1986]．
+
+この時間反転過程 $(Z_t)_{t\in[0,T]}$ を **雑音除去拡散** (Denoising Diffusion) という．
+
+数学的な詳細は次の記事参照．
 
 ::: {#lst-embedding}
 :::
 
-この時間反転過程 $(Z_t)_{t\in[0,T]}$ を **雑音除去拡散** (Denoising Diffusion) という．
-
 ### スコアマッチングによる DD からのサンプリング {#sec-DDPS-sampling}
 
-すると残りの問題は，拡散過程 $(Z_t)_{t\in[0,T]}$ からのサンプリングになる．
+すると残りの問題は，DD $(Z_t)_{t\in[0,T]}$ からのサンプリングになる．
 
-これにはドリフト項 $\log p_{T-t}(Z_t|y)$ の評価と初期分布 $p_T(x_T|y)$ からのサンプリングが必要である．
+そのためDD からのサンプリングのためにはドリフト項 $\log p_{T-t}(Z_t|y)$ の評価と初期分布 $p_T(x_T|y)$ からのサンプリングの２点が必要である．
 
 $(Z_t)$ を推定されたスコア $s^\theta$ を用いた Gauss 過程から開始する拡散
 $$
 dZ_t=\frac{1}{2}Z_t\,dt+s_{T-t}^\theta(Z_t,y)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),
 $$
-で近似することが [@Song+2021ICLR] の方法である．思い切って $\rN_d(0,I_d)\approx p_T(x_T|y)$ としてしまい，$s_t^\theta(x_t,y)$ のモデリングに集中するのである．
+で近似することが SGM (Score-based Generative Model) [@Song+2021ICLR] の方法である．
 
-この過程 $(Z_t)$ が定める測度を $\bQ_y^\theta\in\cP(C([0,T];\cX))$ と表すと，訓練目標は KL 乖離度の期待値
+思い切って $\rN_d(0,I_d)\approx p_T(x_T|y)$ としてしまい，$s_t^\theta(x_t,y)$ のモデリングに集中するのである．
+
+具体的には，この過程 $(Z_t)$ が定める測度を $\bQ_y^\theta\in\cP(C([0,T];\cX))$ と表すと，訓練目標を KL 乖離度の期待値
 \begin{align*}
     \L(\theta)&:=2\E\SQuare{\KL\Paren{\bP_Y,\bQ_Y^\theta}}\\
     &=\int^T_0\E\SQuare{\Norm{s^\theta_t(X_t,Y)-\nabla_x\log p_{t|0}(X_t|X_0)}^2}\,dt+\const
 \end{align*}
-が考えられる [Th'm 1 @Song+2021ICLR]．ただし，$\bP_Y$ は $(X_t)$ の分布，$p_{t|0}$ は $(X_t)$ の遷移密度を表す．
+とする [Th'm 1 @Song+2021ICLR]．ただし，$\bP_Y$ は $(X_t)$ の分布，$p_{t|0}$ は $(X_t)$ の遷移密度を表す．
 
-この損失は [DSM](../Samplers/EBM.qmd#sec-DSM) [@Vincent2011] で与えられたものに等しく，
+この損失は [DSM](../Samplers/EBM.qmd#sec-DSM) (Denoising Score Matching) [@Vincent2011] で与えられたものに等しく，
 $$
 (X_0,Y)\sim p(x,y)=g(y|x)\mu(x)
 $$
 からのシミュレーションが可能であるならば，この目的関数は確率的最適化アルゴリズムによって最適化できる．
 
-こうして，雑音除去拡散サンプラー (DDPS: Denoising Diffusion Posterior Sampler) を得る．
+こうして **雑音除去拡散サンプラー** (DDPS: Denoising Diffusion Posterior Sampler) を得る．
 
 ### 近似ベイズ計算への応用
 
@@ -163,7 +172,7 @@ DDPS を学習するためには，事前分布と尤度 $g(y|x)$ からのサ�
 
 実際，この DDPS は従来の ABC (Approximate Bayesian Computation) 法の代替になり得る．[@Benton+2024Denoising], [@Sharrock+2024] が良いレビューである．
 
-さらに，[拡散模型の加速法](../Samplers/Diffusion.qmd#sec-acceleration) （Progressive Distillation [@Salimans-Ho2022] など）が DDPS にも応用可能である．
+さらに [拡散模型の加速法](../Samplers/Diffusion.qmd#sec-acceleration) （Progressive Distillation [@Salimans-Ho2022] など）が DDPS にも応用可能である．
 
 ### 逆問題への応用
 
@@ -187,7 +196,10 @@ $$
 
 $g_t(y|x_t)$ の項も近似可能である．[@Chung+2023] では条件付き誘導が，[@Song+2023] では Monte Carlo 法が用いられている．
 
-## Schrödinger 橋について {.unnumbered .unlisted}
+## 雑音除去 Markov モデル
 
-::: {#SB-listing}
-:::
+DDPS の議論は $\cX=\R^d$ 上の OU 過程の場合に限っていた．
+
+全く同様の構成は，$\cX$ が離散空間や Riemann 多様体とし，その上の一般の Markov 過程に対しても実行可能である．
+
+この事実を，一般化されたスコアマッチングの方法とともに提案したのが [@Benton+2024Denoising] である．

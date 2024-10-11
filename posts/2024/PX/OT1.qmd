@@ -1,21 +1,45 @@
 ---
-title: "最適輸送"
-subtitle: "Sinkhorn アルゴリズム"
+title: "最適輸送とそのエントロピー緩和"
+subtitle: "Iterative Proportional Fitting / Sinkhorn-Knopp Algorithm"
 author: "司馬 博文"
 date: 3/13/2024
-categories: [Computation, P(X)]
+date-modified: 10/11/2024
+categories: [Computation, P(X), Python]
+abstract: |
+  Python で最適輸送写像を計算する方法を解説する．
+  直接最適輸送問題を `POT` (Python Optimal Transport) で解く．この方法は原子の数 $N$ に対して $O(N^3\log N)$ の複雑性を持つ．
+  一方で，エントロピー正則化項 $\epsilon\operatorname{Ent}(\pi)$ を導入したエントロピー最適輸送問題は Sinkhorn アルゴリズムで高速に解くことができる．
+  これには `OTT-JAX` パッケージを用いる．
+  $\epsilon\to0$ の極限で元の最適輸送問題の解を得る．
+execute:
+    cache: true
+code-fold: false
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
 csl: ../../../assets/apalike.csl
+listing: 
+    -   id: ot-listing
+        type: grid
+        sort: false
+        contents:
+            - "OT.qmd"
+            - "../Bridges/SB1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
-The goal of this practical session is to introduce computational optimal transport (OT) in Python. you will familiarize yourself with OT by:
-1. Computing "exact" unregularized optimal transport, using the Python library `POT` (Python Optimal Transport).
-2. Computing entropic optimal transport, using first your own version of the Sinkhorn algorithm, then the Python library [`OTT-JAX`](https://github.com/ott-jax/ott).
+## 関連記事一覧 {.unnumbered .unlisted}
+
+::: {#ot-listing}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
 
 ```{python}
 #| code-summary: プロット用の関数の準備
+#| output: false
+#| code-fold: true
 def plot_weighted_points(
     ax,
     x, a,
@@ -112,28 +136,18 @@ def plot_consistency(
   ax[1].grid(ls='--')
 ```
 
-# 最適輸送
+## 最適輸送
 
-## I.2 Computing Optimal "Croissant" Transport
+### はじめに
 
-### Install
+POT パッケージ（[Docs](https://pythonot.github.io/) / [GitHub](https://github.com/PythonOT/POT)）を用いる．
 
-First, you need to install a few packages:
-
-```{python}
-
-#| colab: {base_uri: 'https://localhost:8080/'}
-
-#| outputId: ba6c29bb-da94-45cc-f8fc-2b0384185fb2
-%pip install POT
-%pip install cloudpickle
+```zsh
+pip install POT
+pip install cloudpickle
 ```
 
-Then, load the required packages.
-
 ```{python}
-
-
 import ot
 import numpy as np
 import os
@@ -141,9 +155,7 @@ from typing import Callable
 import matplotlib.pyplot as plt
 ```
 
-Finally, connect the notebok to your drive to load some data that will be used for the experiments.
-
-### Formalization of the problem
+### 最適輸送問題
 
 We will solve the Bakeries/Cafés problem of transporting croissants from a number of Bakeries to Cafés.
 
@@ -540,9 +552,7 @@ plot_assignement_1D(
 plt.show()
 ```
 
-# II. Entropy Regularized Optimal Transport
-
-## II.1 Reminders on Sinkhorn Algorithm
+## Sinkhorn アルゴリズム
 
 ### Adding negative entropy as a regularizer
 
@@ -575,9 +585,6 @@ $$
 Usually, it starts from $v^{0} = \mathrm{1}_m$ and alternate the above updates until $\|u^{t+1} \odot (Kv^{t+1}) - a\|_1 + \|v^{t+1} \odot (K^T u^{t+1}) - b\|_1 \leq \tau$, where $\tau > 0$ is a fixed convergence threshold. Actually, since at the end of each iteration, one exactly has $v^{t+1} \odot (K^T u^{t+1}) = b$, it just remains to test if $\|u^{t+1} \odot (Kv^{t+1}) - a\|_1 \leq \tau$.
 
 From an entropic optimal transport plan $P^*_\epsilon$, we can approximate the optimal transport cost by $\sum_{i,j=1}^n P^*_{\epsilon_{ij}} C_{ij} = ⟨C, P^*_\epsilon⟩$. For the rest of the section, we call this quantity the entropic optimal transport cost.
-
-## II.2 Using your own Sinkhorn
-
 
 ### Sinkhorn Implementation
 
@@ -968,7 +975,7 @@ plt.show()
 
 Note: The result is different from the lecturer's.
 
-## II.3 Using `OTT`
+## `OTT` パッケージ
 
 ### Install `OTT`
 
