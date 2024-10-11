@@ -176,6 +176,34 @@ div.csl-indent {
   
 
   window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-embedding0 .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-embedding0'] = new List('listing-lst-embedding0', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
     const listingTargetEl = window.document.querySelector('#listing-lst-embedding2 .list');
     if (!listingTargetEl) {
       // No listing discovered, do not attach.
@@ -275,13 +303,13 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="分布道の学習としての生成モデリング – Hirofumi Shiba">
-<meta property="og:description" content="拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の性能を誇る．本稿ではこれを統計に応用することを考える．
+<meta property="og:description" content="拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の方法の１つである．本稿ではこれを統計に応用することを考える．
 
 生成モデリングを２つの密度の補間問題と捉え，Schrödinger 橋を用いた正確なサンプリング法を考える．この観点から展開されるブリッジマッチング（橋照合？）はフローマッチング，確率的補間，Rectified Flow…">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Bridges/Files/ode_animation.gif">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="分布道の学習としての生成モデリング – Hirofumi Shiba">
-<meta name="twitter:description" content="拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の性能を誇る．本稿ではこれを統計に応用することを考える．
+<meta name="twitter:description" content="拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の方法の１つである．本稿ではこれを統計に応用することを考える．
 
 生成モデリングを２つの密度の補間問題と捉え，Schrödinger 橋を用いた正確なサンプリング法を考える．この観点から展開されるブリッジマッチング（橋照合？）はフローマッチング，確率的補間，Rectified Flow…">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Bridges/Files/ode_animation.gif">
@@ -364,7 +392,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">10/06/2024</p>
+        <p class="date-modified">10/11/2024</p>
       </div>
     </div>
       
@@ -373,7 +401,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p>拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の性能を誇る．本稿ではこれを統計に応用することを考える．</p>
+      <p>拡散モデルから始まるフローによるサンプリング法は，画像と動画に関して 2024 年時点で最良の方法の１つである．本稿ではこれを統計に応用することを考える．</p>
       <p>生成モデリングを２つの密度の補間問題と捉え，Schrödinger 橋を用いた正確なサンプリング法を考える．この観点から展開されるブリッジマッチング（橋照合？）はフローマッチング，確率的補間，Rectified Flow などを綜合する枠組みとなる．</p>
     </div>
   </div>
@@ -386,13 +414,14 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a>
+  <li><a href="#アイデア" id="toc-アイデア" class="nav-link active" data-scroll-target="#アイデア"><span class="header-section-number">1</span> アイデア</a>
   <ul class="collapse">
   <li><a href="#輸送問題としての生成モデリング" id="toc-輸送問題としての生成モデリング" class="nav-link" data-scroll-target="#輸送問題としての生成モデリング"><span class="header-section-number">1.1</span> 輸送問題としての生成モデリング</a></li>
   <li><a href="#ベクトル場を学習する-flow-matching" id="toc-ベクトル場を学習する-flow-matching" class="nav-link" data-scroll-target="#ベクトル場を学習する-flow-matching"><span class="header-section-number">1.2</span> ベクトル場を学習する Flow Matching</a></li>
   <li><a href="#歴史拡散モデル" id="toc-歴史拡散モデル" class="nav-link" data-scroll-target="#歴史拡散モデル"><span class="header-section-number">1.3</span> 歴史：拡散モデル</a></li>
   <li><a href="#schrödinger-橋" id="toc-schrödinger-橋" class="nav-link" data-scroll-target="#schrödinger-橋"><span class="header-section-number">1.4</span> Schrödinger 橋</a></li>
-  <li><a href="#サンプリングへの応用" id="toc-サンプリングへの応用" class="nav-link" data-scroll-target="#サンプリングへの応用"><span class="header-section-number">1.5</span> サンプリングへの応用</a></li>
+  <li><a href="#サンプリングに向けて" id="toc-サンプリングに向けて" class="nav-link" data-scroll-target="#サンプリングに向けて"><span class="header-section-number">1.5</span> サンプリングに向けて</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">1.6</span> まとめ</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -408,16 +437,16 @@ window.Quarto = {
 <h2 class="unnumbered unlisted anchored" data-anchor-id="輸送手法一覧">輸送手法一覧</h2>
 <div id="listing-transport-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="192">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="276">
 <a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../Samplers/Files/linear/output.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top"><img src="Files/ode_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-デノイジング・ディフュージョン・サンプラー
+拡散モデルによる事後分布サンプリング
 </h5>
 <div class="card-subtitle listing-subtitle">
-サンプラーとしての拡散モデル
+Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -428,16 +457,18 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="158">
+<div class="g-col-1" data-index="1" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="222">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="Files/sde_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Bridges/Files/SB.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-デノイジング・シュレディンガー橋
+拡散モデルからシュレディンガー橋へ
 </h5>
 <div class="card-subtitle listing-subtitle">
-拡散モデルからシュレディンガー橋へ
+Iterative Proportional Fitting アルゴリズムについて
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -448,7 +479,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Sampling,Process" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="2" data-categories="Sampling,Process" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -470,7 +501,29 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1728172800000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="56">
+<div class="g-col-1" data-index="3" data-categories="Sampling,Process" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="39">
+<a href="../../../posts/2024/Bridges/SB3.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Bridges/Files/unnormalized_target.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Schrödinger 橋によるサンプリング
+</h5>
+<div class="card-subtitle listing-subtitle">
+拡散モデルによるベイズ計算
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="4" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1728172800000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="56">
 <a href="../../../posts/2024/Bridges/SF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Files/ode_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -490,20 +543,20 @@ Schrödinger 橋をサンプリング法
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="P(X),Survey" data-listing-date-sort="1725321600000" data-listing-file-modified-sort="1728551500510" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="4" data-listing-word-count-sort="743">
-<a href="../../../posts/2024/PX/OT.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="5" data-categories="Computation,P(X),Python" data-listing-date-sort="1710288000000" data-listing-file-modified-sort="1728631112172" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="26" data-listing-word-count-sort="5125">
+<a href="../../../posts/2024/PX/OT1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../PX/Images/Monge.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top"><img src="../PX/Images/OT.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-最適輸送とは何か？
+最適輸送とそのエントロピー緩和
 </h5>
 <div class="card-subtitle listing-subtitle">
-歴史と概観
+Iterative Proportional Fitting / Sinkhorn-Knopp Algorithm
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
-2024-09-03
+2024-03-13
 </div>
 </div>
 </div>
@@ -521,17 +574,17 @@ No matching items
 <p>$$</p>
 </div>
 </section>
-<section id="はじめに" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<section id="アイデア" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="アイデア"><span class="header-section-number">1</span> アイデア</h2>
 <section id="輸送問題としての生成モデリング" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="輸送問題としての生成モデリング"><span class="header-section-number">1.1</span> 輸送問題としての生成モデリング</h3>
-<p>生成モデリングは畢竟，２つの分布 <span class="math inline">\(P_0,P_1\in\mathcal{P}(\mathbb{R}^d)\)</span> を結ぶ写像 <span class="math inline">\(\phi:\mathbb{R}^d\to\mathbb{R}^d\)</span> <span class="math display">\[
+<p>生成モデリングの悲願は，２つの分布 <span class="math inline">\(P_0,P_1\in\mathcal{P}(\mathbb{R}^d)\)</span> を結ぶ輸送写像 <span class="math inline">\(\phi:\mathbb{R}^d\to\mathbb{R}^d\)</span> <span class="math display">\[
 \phi_*P_0=P_1
-\]</span> を，<span class="math inline">\(P_0,P_1\)</span> から定まる PDE のフロー <span class="math inline">\((\phi_t),\phi_1=\phi\)</span> によって学習することに帰着する．</p>
-<p>この方法は現在，連続時間の正規化フロー，フローマッチング，確率的補間，Rectified Flow などの広がりを見せている：</p>
+\]</span> を，<span class="math inline">\(P_0,P_1\)</span> が定める PDE のフロー <span class="math inline">\((\phi_t)\)</span> を学習することで <span class="math inline">\(\phi:=\phi_1\)</span> として得ることにある．</p>
+<p>この夢は現在，連続時間の正規化フロー，フローマッチング，確率的補間，Rectified Flow などの名前で追及されている：</p>
 <div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1728551502114" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1728631113756" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -553,7 +606,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1728551502114" data-listing-date-modified-sort="1724716800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,P(X)" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1728631113756" data-listing-date-modified-sort="1724716800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
 <a href="../../../posts/2024/Samplers/NF3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -575,7 +628,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="Process,Sampling" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1728551501930" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
+<div class="g-col-1" data-index="2" data-categories="Process,Sampling" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1728631113572" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
 <a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -609,35 +662,65 @@ No matching items
 \frac{\partial \phi_t(x)}{\partial t}=F_t(\phi_t(x))
 \]</span> は，<span class="math inline">\(P_0,P_1\)</span> を補間する確率密度 <span class="math display">\[
 P_t:=(\phi_t)_*P_0
-\]</span> に対して，<a href="https://ja.wikipedia.org/wiki/連続の方程式">連続方程式</a> というPDE <span class="math display">\[
+\]</span> の密度 <span class="math inline">\(p_t\)</span> に対して，<a href="https://ja.wikipedia.org/wiki/連続の方程式">連続方程式</a> というPDE <span class="math display">\[
 \frac{\partial p_t}{\partial t}+\operatorname{div}(F_tp_t)=0.
 \]</span> を満たす必要がある．</p>
 <p>この PDE を満たす適切なベクトル場 <span class="math inline">\(F_t\)</span> を特定し，これを目的にニューラルネット・ベクトル場 <span class="math inline">\(F_\theta(x_t,t)\)</span> を学習してサンプリングに活かすことが，<a href="../../../posts/2024/Samplers/NF1.html#sec-FM">FM (Flow Matching)</a> により可能になる．</p>
 </section>
 <section id="歴史拡散モデル" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="歴史拡散モデル"><span class="header-section-number">1.3</span> 歴史：拡散モデル</h3>
-<p>決定論的なフロー <span class="math inline">\((\phi_t)\)</span> による <span class="math inline">\(P_0\)</span> の <span class="math inline">\(P_1\)</span> への変換は，元々は <a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> (DDPM / SGM) によって考えられていた．</p>
-<p>この方法では <span class="math inline">\(P_1\)</span> から開始して <span class="math inline">\(P_0\)</span> に収束するエルゴード性を持つ OU 過程の時間反転を学習することで，ノイズ分布 <span class="math inline">\(P_0\)</span> からのサンプルからデータ分布 <span class="math inline">\(P_1\)</span> からのサンプルを生成をする．</p>
-<p>DDPM (Denoising Diffusion Probabilistic Model) <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> は確率モデルとしてこの枠組みを定式化し最尤推定を目指した．SGM (Score-based Generative Model) <span class="citation" data-cites="Song+2019">(<a href="#ref-Song+2019" role="doc-biblioref">Song et al., 2019</a>)</span> は直接データ分布のスコア <span class="math inline">\(\nabla_x\log p_t(x)\)</span> をスコアマッチングにより学習することを提案した．</p>
-<p>このモデルにはノイズスケジュールなどの不要なパラメータや調節可能なハイパーパラメータが多く，等価な分布変換を定める ODE が存在する <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Song et al., 2021</a>)</span> ことが自覚されると，ODE とベクトル場による方法が志向された．これで Flow Matching <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span> に至る．</p>
+<p>決定論的なフロー <span class="math inline">\((\phi_t)\)</span> による <span class="math inline">\(P_0\)</span> の <span class="math inline">\(P_1\)</span> への変換が考えられる前は，確率的に <span class="math inline">\(P_0\)</span> を <span class="math inline">\(P_1\)</span> に変換する方法が <a href="../../../posts/2024/Samplers/Diffusion.html">拡散モデル</a> (DDPM / SGM) という名前で考えられていた．</p>
+<p>この方法では <span class="math inline">\(P_1\)</span> から開始して <span class="math inline">\(P_0\)</span> に収束するエルゴード性を持つ OU 過程の時間反転・<strong>拡散除去過程</strong> (DD: Denoising Diffusion) を学習することで，ノイズ分布 <span class="math inline">\(P_0\)</span> からのサンプルをデータ分布 <span class="math inline">\(P_1\)</span> からのサンプルに変換するダイナミクスの獲得を目指す．</p>
+<p>DDPM (Denoising Diffusion Probabilistic Model) <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span> は確率モデルとしてこの枠組みを定式化しパラメータの最尤推定を目指した．SGM (Score-based Generative Model) <span class="citation" data-cites="Song+2019">(<a href="#ref-Song+2019" role="doc-biblioref">Song et al., 2019</a>)</span> はデータ分布のスコア <span class="math inline">\(\nabla_x\log p_t(x)\)</span> をスコアマッチングにより学習することでドリフト項を直接推定する方法を提案した．</p>
+<p>これらの方法にはノイズスケジュールなどの不要なパラメータや調節可能なハイパーパラメータが多く，等価な分布変換を定める ODE が存在する <span class="citation" data-cites="Song+2021ICLR">(<a href="#ref-Song+2021ICLR" role="doc-biblioref">Song et al., 2021</a>)</span> ことが自覚されると，ODE とベクトル場による方法が志向された．これで Flow Matching <span class="citation" data-cites="Lipman+2023">(<a href="#ref-Lipman+2023" role="doc-biblioref">Lipman et al., 2023</a>)</span> に至る．</p>
+<p>しかし DD のように確率過程の時間反転を用いる方法は，離散空間や Riemann 多様体などの極めて一般的な状態空間 <span class="math inline">\(\mathcal{X}\)</span> に適用可能であるという強みも持つ <span class="citation" data-cites="Benton+2024Denoising">(<a href="#ref-Benton+2024Denoising" role="doc-biblioref">Benton et al., 2024</a>)</span>．詳しくは次の稿で扱う：</p>
+<div id="listing-lst-embedding0" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="276">
+<a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top"><img src="Files/ode_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散モデルによる事後分布サンプリング
+</h5>
+<div class="card-subtitle listing-subtitle">
+Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
 </section>
 <section id="schrödinger-橋" class="level3" data-number="1.4">
 <h3 data-number="1.4" class="anchored" data-anchor-id="schrödinger-橋"><span class="header-section-number">1.4</span> Schrödinger 橋</h3>
-<p>分布 <span class="math inline">\(P_1\)</span> から開始する OU 過程は，エルゴード性をもてど，有限時間内で <span class="math inline">\(P_0\)</span> との誤差が消えるわけではない．実際，拡散モデルの時間極限 <span class="math inline">\(T&gt;0\)</span> はなるべく大きく取ることが推奨されている <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Song and Ermon, 2020</a>)</span>．</p>
-<p>一方で，正確に２つの分布を繋ぐダイナミクスの１つを <strong>Schrödinger 橋</strong> (SB: Schrödinger Bridge) <span class="citation" data-cites="Schrodinger1931">(<a href="#ref-Schrodinger1931" role="doc-biblioref">Schrödinger, 1931</a>)</span>, <span class="citation" data-cites="Schrodinger1932">(<a href="#ref-Schrodinger1932" role="doc-biblioref">Schrödinger, 1932</a>)</span> が与える．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>SB の採用で正確なサンプリングが可能になることを <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span> が最初に指摘した．</p>
+<p>分布 <span class="math inline">\(P_1\)</span> から開始する OU 過程は，エルゴード性をもてど有限時間内で <span class="math inline">\(P_0\)</span> との誤差が消えるわけではない．実際，拡散モデルの時間極限 <span class="math inline">\(T&gt;0\)</span> はなるべく大きく取ることが推奨されている <span class="citation" data-cites="Song-Ermon2020">(<a href="#ref-Song-Ermon2020" role="doc-biblioref">Song and Ermon, 2020</a>)</span>．つまり，<span class="math inline">\(P_0,P_1\)</span> を補間するダイナミクスとしては近似的なものでしかない．</p>
+<p>一方で，正確に２つの分布 <span class="math inline">\(P_0,P_1\)</span> を繋ぐダイナミクスの１つを <strong>Schrödinger 橋</strong> (SB: Schrödinger Bridge) <span class="citation" data-cites="Schrodinger1931">(<a href="#ref-Schrodinger1931" role="doc-biblioref">Schrödinger, 1931</a>)</span>, <span class="citation" data-cites="Schrodinger1932">(<a href="#ref-Schrodinger1932" role="doc-biblioref">Schrödinger, 1932</a>)</span> が与える．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>SB は DD を初期値とした IPF (Iterative Proportional Fitting) / Sinkhorn-Knopp アルゴリズムを通じて計算でき，SB により正確で高速な条件付き生成／事後分布サンプリングが可能になることを <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span> が最初に指摘した．</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="158">
+<div class="g-col-1" data-index="0" data-categories="Process,Sampling,P(X)" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="222">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top"><img src="Files/sde_animation.gif" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Bridges/Files/SB.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-デノイジング・シュレディンガー橋
+拡散モデルからシュレディンガー橋へ
 </h5>
 <div class="card-subtitle listing-subtitle">
-拡散モデルからシュレディンガー橋へ
+Iterative Proportional Fitting アルゴリズムについて
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -655,14 +738,18 @@ No matching items
 </div>
 <p>SB をスコアマッチングによって学習することが <span class="citation" data-cites="Heng+2022">(<a href="#ref-Heng+2022" role="doc-biblioref">Heng et al., 2022</a>)</span> によって考えられた．</p>
 </section>
-<section id="サンプリングへの応用" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="サンプリングへの応用"><span class="header-section-number">1.5</span> サンプリングへの応用</h3>
-<p>SB は事後分布サンプリングだけでなく，正規化定数が不明な分布 <span class="math display">\[
+<section id="サンプリングに向けて" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="サンプリングに向けて"><span class="header-section-number">1.5</span> サンプリングに向けて</h3>
+<p>ここまでの議論では，両端の確率分布 <span class="math inline">\(P_0,P_1\in\mathcal{P}(\mathbb{R}^d)\)</span> が正確に定まっており，自由にサンプルを得ることが可能だと仮定してきた．</p>
+<p>統計学でよく見られる状況は，<span class="math inline">\(P_0,P_1\)</span> の正規化定数が未知であるという状況である．</p>
+<p>たったこれだけで問題は一気に難しくなる．</p>
+<p>事後分布サンプリングだけでなく，一般の正規化定数が不明な分布 <span class="math display">\[
 \pi(x)=\frac{\gamma(x)}{Z},\qquad Z:=\int_\mathcal{X}\gamma(x)\,dx
-\]</span> に対しても使えることが <span class="citation" data-cites="Vargas-Grathwohl-Doucet2023">(<a href="#ref-Vargas-Grathwohl-Doucet2023" role="doc-biblioref">Vargas et al., 2023</a>)</span> によって指摘された．</p>
+\]</span> に対するサンプリング手法 <strong>雑音除去サンプラー</strong> (DDS: Denoising Diffusion Sampler) <span class="citation" data-cites="Vargas-Grathwohl-Doucet2023">(<a href="#ref-Vargas-Grathwohl-Doucet2023" role="doc-biblioref">Vargas et al., 2023</a>)</span> が提案された．</p>
+<p>DDS では <span class="math inline">\(\nabla\log p_{T-t}\)</span> の推定を <span class="math inline">\(h\)</span>-変換により回避し，スコアマッチングの代わりに KL 最適制御問題を解くことでドリフト項を推定する．</p>
 <div id="listing-lst-embedding2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Sampling,Process" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728551500170" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="0" data-categories="Sampling,Process" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1728631111800" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -689,14 +776,17 @@ No matching items
 No matching items
 </div>
 </div>
+</section>
+<section id="まとめ" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">1.6</span> まとめ</h3>
 <p>以上の発展は次のようにまとめることもできる <span class="citation" data-cites="Heng+2024">(<a href="#ref-Heng+2024" role="doc-biblioref">Heng et al., 2024</a>)</span>：</p>
 <div class="table-responsive-sm">
 <table class="table-hover caption-top table">
-<caption>前半 DD は Denoising Diffusion, DSB は Denoising Schrödinger Bridge．後半 PM は Probabilistic Model，S は Sampler の頭文字．</caption>
+<caption>DD は Denoising Diffusion, SB は Schrödinger Bridge の略．</caption>
 <colgroup>
 <col style="width: 20%">
-<col style="width: 15%">
-<col style="width: 15%">
+<col style="width: 10%">
+<col style="width: 10%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -707,22 +797,22 @@ No matching items
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB0.html#sec-DDPM">DDPM</a> <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>, <span class="citation" data-cites="Song+2019">(<a href="#ref-Song+2019" role="doc-biblioref">Song et al., 2019</a>)</span></td>
+<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB0.html">DD による条件付き生成</a> <span class="citation" data-cites="Ho+2020">(<a href="#ref-Ho+2020" role="doc-biblioref">Ho et al., 2020</a>)</span>, <span class="citation" data-cites="Song+2019">(<a href="#ref-Song+2019" role="doc-biblioref">Song et al., 2019</a>)</span></td>
 <td style="text-align: center;"><span class="color-blue"><i class="fa-solid fa-xmark" aria-label="xmark"></i></span></td>
 <td style="text-align: center;"><span class="color-blue"><i class="fa-solid fa-xmark" aria-label="xmark"></i></span></td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB1.html#sec-DSBPM">DSBPM</a> <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span></td>
+<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB1.html">SB による条件付き生成</a> <span class="citation" data-cites="Shi+2022">(<a href="#ref-Shi+2022" role="doc-biblioref">Shi et al., 2022</a>)</span></td>
 <td style="text-align: center;"><span class="color-blue"><i class="fa-solid fa-xmark" aria-label="xmark"></i></span></td>
 <td style="text-align: center;"><span class="color-red"><i class="fa-solid fa-check" aria-label="check"></i></span></td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB2.html#sec-DDGS">DDS</a> <span class="citation" data-cites="Vargas-Grathwohl-Doucet2023">(<a href="#ref-Vargas-Grathwohl-Doucet2023" role="doc-biblioref">Vargas et al., 2023</a>)</span></td>
+<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB2.html">DD によるサンプリング（DDS）</a> <span class="citation" data-cites="Vargas-Grathwohl-Doucet2023">(<a href="#ref-Vargas-Grathwohl-Doucet2023" role="doc-biblioref">Vargas et al., 2023</a>)</span></td>
 <td style="text-align: center;"><span class="color-red"><i class="fa-solid fa-check" aria-label="check"></i></span></td>
 <td style="text-align: center;"><span class="color-blue"><i class="fa-solid fa-xmark" aria-label="xmark"></i></span></td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB2.html#sec-DSB-GS">DSBS</a> <span class="citation" data-cites="Heng+2024">(<a href="#ref-Heng+2024" role="doc-biblioref">Heng et al., 2024</a>)</span></td>
+<td style="text-align: center;"><a href="../../../posts/2024/Bridges/SB3.html">SB によるサンプリング</a> <span class="citation" data-cites="Heng+2024">(<a href="#ref-Heng+2024" role="doc-biblioref">Heng et al., 2024</a>)</span></td>
 <td style="text-align: center;"><span class="color-red"><i class="fa-solid fa-check" aria-label="check"></i></span></td>
 <td style="text-align: center;"><span class="color-red"><i class="fa-solid fa-check" aria-label="check"></i></span></td>
 </tr>
@@ -738,6 +828,9 @@ No matching items
 
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Benton+2024Denoising" class="csl-entry" role="listitem">
+Benton, J., Shi, Y., De Bortoli, V., Deligiannidis, G., and Doucet, A. (2024). <a href="https://doi.org/10.1093/jrsssb/qkae005"><span class="nocase">From denoising diffusions to denoising Markov models</span></a>. <em>Journal of the Royal Statistical Society Series B: Statistical Methodology</em>, <em>86</em>(2), 286–301.
+</div>
 <div id="ref-Chetrite+2021" class="csl-entry" role="listitem">
 Chetrite, R., Muratore-Ginanneschi, P., and Schwieger, K. (2021). <a href="https://doi.org/10.1140/epjh/s13129-021-00032-7">E. Schr<span>ö</span>dinger’s 1931 paper <span>“on the reversal of the laws of nature”</span><span><span class="math inline">\([\)</span></span><span>“<span>Ü</span>ber die umkehrung der naturgesetze,”</span> sitzungsberichte der preussischen akademie der wissenschaften, physikalisch-mathematische klasse, 8 N9 144–153<span><span class="math inline">\(]\)</span></span></a>. <em>The European Physical Journal H</em>, <em>46</em>(1), 28.
 </div>
