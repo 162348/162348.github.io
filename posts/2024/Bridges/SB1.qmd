@@ -1,7 +1,7 @@
 ---
 title: "拡散モデルからシュレディンガー橋へ"
 subtitle: "Iterative Proportional Fitting アルゴリズムについて"
-author: "司馬 博文"
+author: "司馬博文"
 date: 8/3/2024
 date-modified: 10/11/2024
 categories: [Process, Sampling, P(X)]
@@ -27,15 +27,15 @@ listing:
             - "../Samplers/DD1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-    -   id: lst-embedding
-        type: grid
-        sort: false
-        grid-columns: 1
-        grid-item-align: center
-        contents:
-            - "../Samplers/DD1.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle]
+    # -   id: lst-embedding
+    #     type: grid
+    #     sort: false
+    #     grid-columns: 1
+    #     grid-item-align: center
+    #     contents:
+    #         - "../Samplers/DD1.qmd"
+    #     date-format: iso
+    #     fields: [title,image,date,subtitle]
 ---
 
 ## 関連記事一覧 {.unnumbered .unlisted}
@@ -57,9 +57,7 @@ $$
 
 これは OU 過程の代わりに Schrödinger 橋を用いることに相当する．
 
-Schrödinger 橋を用いたサンプラーは [@Bernton+2019], [@Shi+2022] で提案された．
-
-Schrödinger 橋自体は，[@DeBortoli+2021] などから拡散模型への応用は議論されていた．
+Schrödinger 橋を用いたサンプラーは [@Bernton+2019], [@DeBortoli+2021], [@Shi+2022] で提案された．
 
 ### 定義
 
@@ -94,7 +92,7 @@ $$
 
 ## シミュレーション法
 
-SB 問題 ([-@eq-SB-problem]) の解 $\Pi$ は **逐次的比例フィッティング** (IPF: Iterative Proportional Fitting) により得られる．
+SB 問題 ([-@eq-SB-problem]) の解 $\Pi^*$ は **逐次的比例フィッティング** (IPF: Iterative Proportional Fitting) により得られる．
 
 ### IPF とは
 
@@ -118,40 +116,47 @@ $W$ の成分が正である場合は，[@Sinkhorn1967] がアルゴリズムの
 
 ### アルゴリズム
 
-IPF アルゴリズムは観念的には，OU 過程の分布 $\bP=\bP_y\otimes\delta_{p(y)}$ からはじめ，２つの周辺分布制約のうち片方のみを満たすもののうち，KL 距離を最小にする解への射影を返していく：
-
+IPF アルゴリズムは観念的には，OU 過程の分布 $\bP=\bP_y\otimes\delta_{p(y)}$ からはじめ，２つの周辺分布制約
 $$
-\Pi^{2n+1}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n})\,\bigg|\,\Pi_T=\rN_d(0,I_d)\otimes p(y_T)dy_T},
+\Pi_0(x_0,y_0)=p(x_0,y_0)=:\Pi_{\text{data}}(x_0,y_0)
 $$
 $$
-\Pi^{2n+2}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n+1})\,\bigg|\,\Pi_0(x_0,y_0)=p(x_0,y_0)}.
+\Pi_T=\rN_d(0,I_d)\otimes p(y_T)dy_T=:\Pi_{\text{prior}}
+$$
+のうち片方のみを満たすもののうち，KL 距離を最小にする解への射影を返していく：
+$$
+\Pi^{2n+1}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n})\,\bigg|\,\Pi_T=\Pi_{\text{prior}}},
+$$
+$$
+\Pi^{2n+2}:=\argmin_{\Pi\in\cP(C([0,T];\cX\times\cY))}\BRace{\KL(\Pi,\Pi^{2n+1})\,\bigg|\,\Pi_0=\Pi_{\text{data}}}.
 $$
 
 今回の場合，
 $$
 \Pi^{2n+1}=\bP_{y_T}^{2n+1}\otimes\delta_{p(y)},\qquad\Pi^{2n+2}=\bP^{2n+2}_{y_0}\otimes\delta_{p(y)},
 $$
-と分解される．ただし，$\bP_{y_T}^{2n+1}$ は次で定まる $(Z_t)$ の時間反転
+と分解される．
+
+ただし奇数回実施後の $\bP_{y_T}^{2n+1}$ は次で定まるノイズをデータにする過程 $(Z_t)$ の時間反転とした：
 $$
 dZ_t=f_{T-t}^{2n+1}(Z_t,y_T)\,dt+dW_t,\qquad Z_0\sim\rN_d(0,I_d),f_t^{2n+1}(x_t,y):=-f_t^{2n}(x_t,y)+\nabla_{x}\log\Pi^{2n}_t(x_t|y),
 $$
-$\bP_{y_0}^{2n+2}$ は次で定まる $(X_t)$ の経路測度となる：
+一方で偶数回実施後の $\bP_{y_0}^{2n+2}$ は次で定まるデータをノイズにする過程 $(X_t)$ の経路測度となる：
 $$
 dX_t=f^{2n+2}_t(X_t,y_0)\,dt+dB_t,\qquad X_0\sim p(x|y_0)\,dx,f_t^{2n+2}(x_t,y):=-f_t^{2n+1}(x_t,y)+\nabla_x\log\Pi_t^{2n+1}(x_t|y).
 $$
-ただし，$f^0_t(x_t)=-x_t/2$．
 
-### DDPS との関係
+ただし初期分布は OU 過程 $\bP_y$ とするから，$f^0_t(x_t)=-x_t/2$．
 
-最初のイテレーション $n=0$ における $\bP^1_y$ が雑音除去拡散に対応する．
+つまり IPF は OU 過程が時刻 $T$ で正確に不変分布に到達しているようにするために，ドリフト項 $f_t$ を逐次的に修正する過程と見れる．
 
-しかし，IPF アルゴリズムのイテレーションを繰り返していくごとに，$T>0$ が十分に大きくない場合でも正確に $\rN_d(0,I_d)$ にデータ分布を還元する SB が得られるようになっていく．
+### IPF の近似方法
 
-### DSB-PS
+最初のイテレーション $n=0$ における $\bP^1_y$ が雑音除去拡散 DD に対応する．
 
-この際，スコア $\nabla_z\log p_{T-t}(Z_t|y)$ から始まり，$f^{n}_t\;(n\ge2)$ の推定も逐次的に行なわなければならない点については，**mean-matching** [@DeBortoli+2021], [@Shi+2022] という方法が考えられている．
+[DD をスコアマッチングによって学習した](SB0.qmd) ように，$\bP^2_y,\bP^3_y,\cdots$ と逐次的にスコアマッチングを実行することが考えられる．
 
-この方法を用いて，IPF アルゴリズムが収束するまで実行して最終的に得るサンプラーを **Schrödinger 橋サンプラー** (DSB-PS: Diffusion Schrödinger Bridge Posterior Sampling) [@Heng+2024] という．
+この際には **mean-matching** [@DeBortoli+2021], [@Shi+2022] に基づく効率的なアルゴリズムが与えられている．
 
 ## 文献紹介 {.appendix .unnumbered}
 

@@ -3,7 +3,7 @@ title: "拡散モデルによる事後分布サンプリング"
 subtitle: "Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法"
 author: "司馬博文"
 date: 8/3/2024
-date-modified: 10/11/2024
+date-modified: 10/12/2024
 categories: [Process, Sampling, P(X)]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -178,23 +178,40 @@ DDPS を学習するためには，事前分布と尤度 $g(y|x)$ からのサ�
 
 サンプルが画像だとしても，画像修復 (inpainting) や高解像度化 (super-resolution) などの逆問題応用が豊富に存在する．
 
-このようなタスクに対しては **条件付き生成** の技術が考えられている：
+このような条件付き生成のタスクに対しては **誘導** (guidance) の技術が考えられている．
+
+誘導の方法では，精度を向上させるために
+$$
+\nabla_x\log p_t(x_t|y)=\nabla_x\log p_t(x_t)+\nabla_x\log p_t(y|x_t).
+$$
+の分解に注目する．
+
+**Classifier-Free Diffusion Guidance** [@Ho-Salimans2021] では，$\nabla_x\log p_t(x_t|y)$ の形のスコアをモデリングする中で，$y=\emptyset$ のものを２割ほど作り，これを $\nabla_x\log p_t(x_t)$ の推定値としてサンプリングに用いる．
+
+残りはベイズの公式を通じて $\nabla_x\log p_t(y|x_t)$ の推定値とする．詳しくは次稿参照：
 
 ::: {#lst-embedding3}
 :::
 
-このような，単一の $Y=y$ を固定した状況で潜在変数 $X_T$ からサンプリングをしたい場合では，$\log p_t(x_t|y)$ を一緒くたに $s^\theta_{t}(x_t,y)$ に取り替えてしまうのではなく，次の事前分布と尤度への分解に基づいて扱うこともできる：
+### 非償却的な推論
 
-$$
-\nabla_x\log p_t(x_t|y)=\nabla_x\log\mu_t(x_t)+\nabla_x\log g_t(y|x_t),
-$$
-$$
-\mu_t(x_t):=\int_\cX\mu(x_0)p_{t|0}(x_t|x_0)\,dx_0,\qquad g_t(y|x_t):=\int_\cX g(y|x_0)p_{0|t}(x_0,x_t)\,dx_0.
-$$
+一方で単一の $Y=y$ を想定した状況ではさらに精度を上げる方法が考えられる．
 
-この第一項は $s_t^\theta(x_t)$ により統一的にモデリングでき，同様に $X_0\sim\mu(x)$ から始まる雑音化過程 $(X_t)$ の分布を $\bP$ として $\KL(\bP,\bQ^\theta)$ 最小化問題として処理できる．
+$\log p_t(x_t|y)$ を一緒くたに $s^\theta_{t}(x_t,y)$ に取り替えてしまうのではなく，まず第一項 $\nabla_x\log p_t(x_t|y)$ を $s_t^\theta(x_t)$ により統一的にモデリングする．
 
-$g_t(y|x_t)$ の項も近似可能である．[@Chung+2023] では条件付き誘導が，[@Song+2023] では Monte Carlo 法が用いられている．
+そして $\nabla_x\log p_t(y|x_t)$ の項は [Tweedie の推定量](../Samplers/DD1.qmd#sec-Tweedie-formula)
+$$
+\wh{x}_0:=\E[x_0|x_t]=\frac{1}{\sqrt{\ov{\al}_t}}\Paren{x_t+(1-\ov{\al}_t)\nabla_{x_t}\log p_t(x_t)}
+$$ {#eq-Tweedie-estimator}
+を通じて
+$$
+p(y|x_t)\approx p(y|\wh{x}_0)
+$$
+によって近似する．式 ([-@eq-Tweedie-estimator]) の $\nabla_{x_t}\log p_t(x_t)$ に事前に訓練したスコアネットワーク $s_t^\theta(x_t)$ を用いる．
+
+[@Chung+2023] はこの方法を Computer Vision における非線型逆問題に適用している．
+
+[@Song+2023] では Monte Carlo 法が用いられている．
 
 ## 雑音除去 Markov モデル
 
