@@ -44,8 +44,7 @@ for (point, n) in zip(traj,1:length(traj))
         push!(traj_for_animation_x, point.second[1])
         push!(traj_for_animation_y, point.second[2])
         push!(event_time, length(traj_for_animation_x))
-    end
-    if n != length(traj)
+    elseif n != length(traj)
         displacement = traj[n+1].second - point.second
         distance = sqrt((point.second[1] - traj[n+1].second[1])^2 + (point.second[2] - traj[n+1].second[2])^2)
         step_number = round(Int, distance/dt)
@@ -81,7 +80,9 @@ p = plot(traj_for_animation_x[1:1], traj_for_animation_y[1:1],
             #,background_color = "#F0F1EB"
 )
 
-anim = @animate for i in 1:min(length(traj_for_animation_x), 2000)
+using ProgressBars
+
+anim = @animate for i in ProgressBar(1:min(length(traj_for_animation_x), 2000))
     push!(p, traj_for_animation_x[i], traj_for_animation_y[i])
     if i in event_time
         scatter!(p, traj_for_animation_x[i:i], traj_for_animation_y[i:i], marker=:circle, markersize=3, markeralpha=0.6, color="#E95420", label=false)

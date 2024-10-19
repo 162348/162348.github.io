@@ -1,0 +1,161 @@
+---
+title: "`PDMPFlux.jl` パッケージ"
+subtitle: "自動微分による連続時間 MCMC サンプラー"
+author: "司馬 博文"
+date: 10/17/2024
+date-modified: 10/17/2024
+categories: [Julia, MCMC]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    連続時間 MCMC とは 2018 年に以降活発に研究が進んでいる新たな MCMC アルゴリズムである．
+    実用上の欠点に，種々のモデルに統一的な実装が難しくモデルごとにコードを書き直す必要があったことがあったが，
+    この欠点は自動微分と [@Corbella+2022], [@Sutton-Fearnhead2023] らの研究によって解決されつつある．
+    ここでは [@Andral-Kamatani2024] の Python パッケージ `pdmp_jax` とこれに基づく Julia パッケージ `PDMPFlux.jl` を紹介する．
+# image: Images/IdealPoint.png
+code-fold: false
+execute:
+    cache: true
+listing: 
+    -   id: PDMP-listing
+        type: grid
+        contents:
+            - "../Process/PureJump.qmd"
+            - "../Process/ZigZag.qmd"
+            - "../Stat/ZigZagSubsampling.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
+jupyter: julia-1.11
+---
+
+## 連続時間 MCMC について
+
+### はじめに
+
+連続時間 MCMC とは名前の通り MCMC のサンプリングを連続時間で行うアルゴリズムである：
+
+![Zig-Zag サンプラーが２次元の正規分布からサンプリングを実行している様子](../Slides/zigzag_fps14_WhiteBackground.gif)
+
+方向転換をするオレンジ色の点を一定の法則に従って定めることで，**軌跡全体が目標の分布に従う**．
+
+すなわち，目標の関数を緑色の軌跡上で線積分をすれば期待値が得られる．
+
+詳しくは次の記事も参照：
+
+::: {#PDMP-listing}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+### 使い方
+
+```julia
+using PDMPFlux
+```
+
+::: {.callout-tip appearance="simple" icon="false" title="自動微分を使う場合（推奨）"}
+
+1. まずポテンシャル＝**負の対数尤度**を（定数倍の違いを除いて）自分で定義する：
+
+    ```julia
+    function U_Gauss(x::Vector{Float64})
+        return sum(x.^2) / 2
+    end
+    ```
+
+    標準正規分布 $\rN_d(0,I_d)$ だと，対数尤度は
+    $$
+    \log\phi(x) = - \frac{1}{2}\sum_{i=1}^d x_i^2 - \frac{d}{2}\log(2\pi)
+    $$
+    第二項は定数であるから無視して良い．$U(x) = -\log\phi(x)$ とすべき点に注意（先頭のマイナス符号は落とす）．
+
+2. 次のようにしてサンプラーをインスタンス化する：
+
+    ```julia
+    dim = 10
+    sampler = ZigZagAD(dim, U_Gauss)
+    ```
+
+3. 
+
+:::
+
+## `pdmp_jax` パッケージ
+
+[@Andral-Kamatani2024] のアルゴリズムは複数の特徴を持つ．
+
+### 適応的なステップサイズ
+
+
+
+## `PDMPFlux.jl` パッケージ
+
+### `Zygote.jl` による自動微分
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* Zygote ([Docs](https://fluxml.ai/Zygote.jl/stable/) / [GitHub](https://github.com/FluxML/Zygote.jl))
+
+:::
+
+`Zygote.jl` は FluxML が開発する Julia の自動微分パッケージである．
+
+```{julia}
+using Zygote
+gradient(x -> 3x^2 + 2x + 1, 5)
+```
+
+```{julia}
+f(x::Vector{Float64}) = 3x[1]^2 + 2x[2] + 1
+g(x) = gradient(f,x)
+g([1.0,2.0])
+```
+
+### Brent の最適化
+
+`Optim.jl` は Julia の最適化パッケージであり，デフォルトで Brent の最適化アルゴリズムを提供する．
+
+```{julia}
+using Optim
+f(x) = (x-1)^2
+result = optimize(f, 0.0, 1.0)
+result.minimizer
+```
+
+### `StatsPlots.jl` による可視化
+
+[`StatsPlots` は現在 `Plots.jl` に統合されている](https://github.com/JuliaPlots/Plots.jl/tree/v2/StatsPlots)．
+
+また `PDMPFlux.jl` は [`marginalhist`](https://github.com/JuliaPlots/Plots.jl/blob/v2/StatsPlots/src/marginalhist.jl) を wrap した `jointplot` を提供する．
+
+### `ProgressBars.jl` による進捗表示
+
+[`ProgressBars.jl` は tqdm の Julia wrapper を提供する](https://github.com/cloud-oak/ProgressBars.jl)．
+
+### デバッグ
+
+1. `sample_skeleton(sampler::AbstractPDMP, n_sk::Int, xinit::Vector{Float64}, vinit::Vector{Float64}, seed::Int; verbose::Bool=true)::PDMPHistory)::PDMPHistory` が呼ばれる．
+2. `init_state(pdmp::AbstractPDMP, xinit::Array{Float64}, vinit::Array{Float64}, seed::Int)` が呼ばれる．
+3. 取得した `initial_state` から `PDMPHistory(initial_state)` が呼ばれる．
+4. その後 `n_sk` の回数だけ `SamplingLoop.one_step` が実行される．
+
+## ToDo {.appendix}
+
+* `grid_size=0` 以外の実装
+* Zig-Zag 以外のサンプラーの実装
+* ZigZag(dim) は自動で知ってほしい
+* Try clause 内の else を用いているので Julia 1.8 以上が必要．
+* MCMCChains のような plot.jl を完成させる．
+
+* `pdmp-jax` では 37 秒前後かかる例が，`PDMPFlux.jl` では 2 分前後かかる．
+  * しかし，Julia の方が数値誤差が少ないのか，banana potential の対称性がうまく結果に出る．尾が消えたりしない．
+
+## 付録：他に模索した可能性 {.appendix}
+
+### `Seaborn.jl` による可視化 {.appendix}
+
+[`Seaborn.jl` は Python の Seaborn の Julia wrapper を提供する](https://github.com/JuliaPy/Seaborn.jl/blob/master/src/Seaborn.jl)．

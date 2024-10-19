@@ -1,13 +1,11 @@
 ---
-title: "俺のための Julia 入門（４）型宣言"
+title: "俺のための Julia 入門（４）型定義"
 author: "司馬 博文"
 date: 9/9/2020
 categories: [Julia, 俺のためのJulia入門]
 abstract-title: 概要
-abstract: Julia では`::`演算子で型宣言をする．これを省略すると``x::Any``の略記とみなされる．
-format:
-    html:
-        code-fold: false
+abstract: Julia は階層関係を明示的に宣言する必要のある名前的型付け言語であり，既存の型から自由な構成が可能なパラメトリック型付け言語である．
+code-fold: false
 execute:
     cache: true
 ---
@@ -36,7 +34,7 @@ abstract type SubtypeName <: Name end
 
 :::
 
-::: {.callout-caution title="型情報の表示" collapse="true" icon="false"}
+::: {.callout-caution title="型情報の表示方法" collapse="true" icon="false"}
 
 ```{julia}
 supertype(Name)
@@ -66,13 +64,15 @@ Int >: Int
 
 複数の名前付き field をまとめて扱うことができる．
 
-Julia で複合型を立てる時は，まるで構造付きの空間を作るようである．Euclid空間のように．
+<!-- Julia で複合型を立てる時は，まるで構造付きの空間を作るようである．Euclid空間のように． -->
 
-従って，データと method を統合する（＝関数が複合型に所属する）OOP とは少し違い，複合型と，その上の関数を別々に作る．従って，Julia の関数は常 にfirst-class object として扱われる．^[この言葉は 1960 年代に Christopher Strachey によって "functions as first-class citizens" という文脈で初めて使われた。全ての機能を享受できる citizen 的な？ ]
+<!-- 従って，データと method を統合する（＝関数が複合型に所属する）OOP とは少し違い，複合型と，その上の関数を別々に作る．従って，Julia の関数は常 に first-class object として扱われる．^[この言葉は 1960 年代に Christopher Strachey によって "functions as first-class citizens" という文脈で初めて使われた。全ての機能を享受できる citizen 的な？ ] -->
+
+#### 複合型の定義
 
 ::: {.callout-important appearance="simple" icon="false"}
 
-imutable な複合型の変数は`struct`-`end`ブロックで宣言する．
+**imutable な複合型**：変数を`struct`-`end`ブロックで宣言する．
 
 ```{julia}
 struct MyType
@@ -83,14 +83,14 @@ end
 fieldnames(MyType)
 ```
 
-複合型を宣言すると，暗黙のうちに constructor が生成される．これも OOP と同じ．
+**コンストラクタ**：複合型を宣言すると，暗黙のうちに constructor が生成される．
 
 ```{julia}
 z = MyType(1, 2)
 println(z.x)
 ```
 
-mutable な複合型は`mutable struct`-`end`ブロックで宣言する．
+**mutable な複合型**：`mutable struct`-`end`ブロックで宣言する．
 
 ```{julia}
 mutable struct MutableType
@@ -105,13 +105,25 @@ m.x = 10  # フィールドxの値を変更可能
 
 :::
 
-::: {.callout-caution title="カスタムコンストラクタの作成" collapse="true" icon="false"}
+::: {.callout-caution title="カスタムコンストラクタの作成 [(Outer Constructor Methods)](https://docs.julialang.org/en/v1/manual/constructors/#man-outer-constructor-methods)" collapse="true" icon="false"}
 
 ```{julia}
 MyType(x) = MyType(x, 0)
 ```
 
 :::
+
+#### 内部コンストラクタ
+
+コンストラクタの `struct`-`end` ブロック内で定義されたコンストラクタ（複合型と同名のメソッド）では，`new` というコンストラクタの代替関数を使うことができる：
+
+```{julia}
+struct OrderedPair
+  x::Real
+  y::Real
+  OrderedPair(x,y) = x > y ? error("out of order") : new(x,y)
+end
+```
 
 ### Union型：直和
 
@@ -273,6 +285,7 @@ isa(Real, Type{Float64})
 ## 組み込み型とその関数
 
 ### Collection 型：直積
+
 更なる構造付きのものは`DataStructure.jl`にある．
 
 各直積型に，tagをつけてその性質を明示する．
