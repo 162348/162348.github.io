@@ -3,7 +3,7 @@ title: "`PDMPFlux.jl` パッケージ"
 subtitle: "自動微分による連続時間 MCMC サンプラー"
 author: "司馬 博文"
 date: 10/17/2024
-date-modified: 10/17/2024
+date-modified: 10/20/2024
 categories: [Julia, MCMC]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -15,7 +15,7 @@ abstract: |
     連続時間 MCMC とは 2018 年に以降活発に研究が進んでいる新たな MCMC アルゴリズムである．
     実用上の欠点に，種々のモデルに統一的な実装が難しくモデルごとにコードを書き直す必要があったことがあったが，
     この欠点は自動微分と [@Corbella+2022], [@Sutton-Fearnhead2023] らの研究によって解決されつつある．
-    ここでは [@Andral-Kamatani2024] の Python パッケージ `pdmp_jax` とこれに基づく Julia パッケージ `PDMPFlux.jl` を紹介する．
+    ここでは [@Andral-Kamatani2024] の Python パッケージ [`pdmp_jax`](https://github.com/charlyandral/pdmp_jax) とこれに基づく Julia パッケージ [`PDMPFlux.jl`](https://github.com/162348/PDMPFlux.jl) を紹介する．
 # image: Images/IdealPoint.png
 code-fold: false
 execute:
@@ -62,7 +62,7 @@ using PDMPFlux
 1. まずポテンシャル＝**負の対数尤度**を（定数倍の違いを除いて）自分で定義する：
 
     ```julia
-    function U_Gauss(x::Vector{Float64})
+    function U_Gauss(x::Vector)
         return sum(x.^2) / 2
     end
     ```
@@ -80,25 +80,201 @@ using PDMPFlux
     sampler = ZigZagAD(dim, U_Gauss)
     ```
 
-3. 
+3. ハイパーパラメータを与えてサンプリングを実行する．
+
+    ```julia
+    N_sk, N, xinit, vinit = 1_000_000, 1_000_000, zeros(dim), ones(dim)
+    samples = sample(sampler, N_sk, N, xinit, vinit, seed=2024)
+    ```
+
+4. 結果の可視化を行う．
+
+    ```julia
+    jointplot(samples)
+    ```
+
+![](Files/jointplot_Zygote.png)
 
 :::
 
-## `pdmp_jax` パッケージ
+::: {.callout-tip icon="false" title="自動微分を使わず，ポテンシャルの勾配を手動で与える場合" collapse="true"}
+
+```julia
+sampler = ZigZag(dim, grad_U, grid_size=grid_size)  # initialize your Zig-Zag sampler
+output = sample_skeleton(sampler, N_sk, xinit, vinit, verbose = true)  # simulate skeleton points
+samples = sample_from_skeleton(sampler, N, output)  # get samples from the skeleton points
+```
+
+とできる．
+
+`output::PDMPHistory` にはサンプラーの挙動を確認するための多くのメソッドが定義されている：
+
+```julia
+plot_traj(output, 10000)
+diagnostic(output)
+```
+
+:::
+
+## [`pdmp_jax`](https://github.com/charlyandral/pdmp_jax) パッケージ
 
 [@Andral-Kamatani2024] のアルゴリズムは複数の特徴を持つ．
+
+### デモ
+
+[@Neal2003] が slice sampling のデモ用に定義した **漏斗分布** を考える：
+$$
+p(y,x)=\phi(y;0,3)\prod_{i=1}^9\phi(x_i;0,e^{y/2}),\qquad y\in\R,x\in\R^9.
+$$
+
+```python
+import jax
+from jax.scipy.stats import multivariate_normal
+from jax.scipy.stats import norm
+
+import jax.numpy as jnp
+
+def funnel(d=10, sig=3, clip_y=11):
+  """Funnel distribution for testing. Returns energy and sample functions."""
+
+  def unbatched(x):
+    y = x[0]
+    log_density_y = - y**2 / 6
+
+    variance_other = jnp.exp(y/2)
+
+    log_density_other = - jnp.sum(x[1:]**2) / (2 * variance_other)
+
+    return - log_density_y - log_density_other
+
+  def sample_data(n_samples):
+    # sample from Nd funnel distribution
+    y = (sig * jnp.array(np.random.randn(n_samples, 1))).clip(-clip_y, clip_y)
+    x = jnp.array(np.random.randn(n_samples, d - 1)) * jnp.exp(-y / 2)
+    return jnp.concatenate((y, x), axis=1)
+
+  return unbatched, sample_data
+```
+
+```python
+import pdmp_jax as pdmp
+dim = 10
+U, _ = funnel(d=dim)
+grad_U = jax.grad(U)
+seed = 8
+xinit = jnp.ones((dim,)) # initial position
+vinit = jnp.ones((dim,))  # initial velocity
+grid_size = 0
+N_sk = 100000 # number of skeleton points
+N = 100000 # number of samples
+sampler = pdmp.ZigZag(dim, grad_U, grid_size)
+# sample the skeleton of the process
+out = sampler.sample_skeleton(N_sk, xinit, vinit, seed, verbose = True)  # takes only 3 seconds on my M1 Mac
+# sample from the skeleton
+sample = sampler.sample_from_skeleton(N,out)
+```
+
+```python
+import seaborn as sns
+sns.jointplot(x = sample[:,0],y = sample[:,1])
+plt.show()
+```
+
+![](Files/funnel_pdmp_jax.png)
+
+![](Files/funnel_pdmp_jax_diagnostics.png)
+
+  number of error bound :  46817
 
 ### 適応的なステップサイズ
 
 
 
-## `PDMPFlux.jl` パッケージ
+## [`PDMPFlux.jl`](https://github.com/162348/PDMPFlux.jl) パッケージ
 
-### `Zygote.jl` による自動微分
+### デモ
+
+```{julia}
+#| eval: false
+using PDMPFlux
+
+using Random, Distributions, Plots, LaTeXStrings, Zygote, LinearAlgebra
+
+"""
+    Funnel distribution for testing. Returns energy and sample functions.
+    For reference, see Neal, R. M. (2003). Slice sampling. The Annals of Statistics, 31(3), 705–767.
+"""
+function funnel(d::Int=10, σ::Float64=3.0, clip_y::Int=11)
+
+    function neg_energy(x::Vector{Float64})
+        v = x[1]
+        log_density_v = logpdf(Normal(0.0, 3.0), v)
+        variance_other = exp(v)
+        other_dim = d - 1
+        cov_other = I * variance_other
+        mean_other = zeros(other_dim)
+        log_density_other = logpdf(MvNormal(mean_other, cov_other), x[2:end])
+        return - log_density_v - log_density_other
+    end
+
+    function sample_data(n_samples::Int)
+        # sample from Nd funnel distribution
+        y = clamp.(σ * randn(n_samples, 1), -clip_y, clip_y)
+        x = randn(n_samples, d - 1) .* exp.(-y / 2)
+        return hcat(y, x)
+    end
+
+    return neg_energy, sample_data
+end
+
+function plot_funnel(d::Int=10, n_samples::Int=10000)
+    _, sample_data = funnel(d)
+    data = sample_data(n_samples)
+
+    # 最初の2次元を抽出（yとx1）
+    y = data[:, 1]
+    x1 = data[:, 2]
+
+    # 散布図をプロット
+    scatter(y, x1, alpha=0.5, markersize=1, xlabel=L"y", ylabel=L"x_1", 
+            title="Funnel Distribution (First Two Dimensions' Ground Truth)", grid=true, legend=false, color="#78C2AD")
+
+    # xlim と ylim を追加
+    xlims!(-8, 8)  # x軸の範囲を -8 から 8 に設定
+    ylims!(-7, 7)  # y軸の範囲を -7 から 7 に設定
+end
+plot_funnel()
+
+function run_ZigZag_on_funnel(N_sk::Int=100_000, N::Int=100_000, d::Int=10, verbose::Bool=false)
+    U, _ = funnel(d)
+    grad_U(x::Vector{Float64}) = gradient(U, x)[1]
+    xinit = ones(d)
+    vinit = ones(d)
+    seed = 2024
+    grid_size = 0  # constant bounds
+    sampler = ZigZag(d, grad_U, grid_size=grid_size)
+    out = sample_skeleton(sampler, N_sk, xinit, vinit, seed=seed, verbose = verbose)
+    samples = sample_from_skeleton(sampler, N, out)
+    return out, samples
+end
+output, samples = run_ZigZag_on_funnel()  # ４分かかる
+
+jointplot(samples)
+```
+
+![](Files/funnel_PDMPFlux.png)
+
+![](Files/funnel_PDMPFlux_diagnostics.svg)
+
+このデモコードは `Zygote.jl` による自動微分を用いると 5:29 かかっていたところが，`ForwardDiff.jl` による自動微分を用いると 0:21 に短縮された．
+
+### `Zygote.jl` と `ForwardDiff.jl` による自動微分
 
 ::: {.callout-tip appearance="simple" icon="false"}
 
+* [JuliaDiff](https://juliadiff.org/)：Differentiation tools in Julia
 * Zygote ([Docs](https://fluxml.ai/Zygote.jl/stable/) / [GitHub](https://github.com/FluxML/Zygote.jl))
+* ForwardDiff ([Docs](https://juliadiff.org/ForwardDiff.jl/dev/) / [GitHub](https://github.com/JuliaDiff/ForwardDiff.jl))
 
 :::
 
@@ -106,14 +282,25 @@ using PDMPFlux
 
 ```{julia}
 using Zygote
-gradient(x -> 3x^2 + 2x + 1, 5)
+@time Zygote.gradient(x -> 3x^2 + 2x + 1, 5)
 ```
 
 ```{julia}
 f(x::Vector{Float64}) = 3x[1]^2 + 2x[2] + 1
-g(x) = gradient(f,x)
+g(x) = Zygote.gradient(f,x)
 g([1.0,2.0])
 ```
+
+大変柔軟な実装を持っており，広い Julia 関数を微分できる．
+
+`ForwardDiff.jl` [@Revels+2016] は `Zygote.jl` よりも高速な自動微分を特徴としている．
+
+```{julia}
+using ForwardDiff
+@time ForwardDiff.derivative(x -> 3x^2 + 2x + 1, 5)
+```
+
+[しかし定義域の次元が $100$ 以上の場合は `ReverseDiff.jl` の方が高速になる](https://github.com/JuliaDiff/ReverseDiff.jl)．
 
 ### Brent の最適化
 
@@ -136,12 +323,20 @@ result.minimizer
 
 [`ProgressBars.jl` は tqdm の Julia wrapper を提供する](https://github.com/cloud-oak/ProgressBars.jl)．
 
-### デバッグ
+<!-- ### デバッグ
 
 1. `sample_skeleton(sampler::AbstractPDMP, n_sk::Int, xinit::Vector{Float64}, vinit::Vector{Float64}, seed::Int; verbose::Bool=true)::PDMPHistory)::PDMPHistory` が呼ばれる．
 2. `init_state(pdmp::AbstractPDMP, xinit::Array{Float64}, vinit::Array{Float64}, seed::Int)` が呼ばれる．
 3. 取得した `initial_state` から `PDMPHistory(initial_state)` が呼ばれる．
-4. その後 `n_sk` の回数だけ `SamplingLoop.one_step` が実行される．
+4. その後 `n_sk` の回数だけ `SamplingLoop.one_step` が実行される． -->
+
+## 終わりに {.appendix}
+
+今後の確率的プログラミングの１つの焦点は自動微分かもしれない．
+
+今回のパッケージ開発で，少なくとも `v0.2.0` の時点では，プログラムに与える `U_grad` は多くの場合（10 次元の多変量 Gauss，50 次元の Banana など） `Zygote.jl` が少し速く（Funnel 分布では `ForwardDiff.jl` が速い），しかし上界を構成する際の `func` の微分は `ForwardDiff.jl` の方が圧倒的に速い．
+
+大変に不可思議である．
 
 ## ToDo {.appendix}
 
@@ -151,8 +346,10 @@ result.minimizer
 * Try clause 内の else を用いているので Julia 1.8 以上が必要．
 * MCMCChains のような plot.jl を完成させる．
 
-* `pdmp-jax` では 37 秒前後かかる例が，`PDMPFlux.jl` では 2 分前後かかる．
+* `pdmp-jax` では 37 秒前後かかる Banana density の例が，`PDMPFlux.jl` では 2 分前後かかる．
   * しかし，Julia の方が数値誤差が少ないのか，banana potential の対称性がうまく結果に出る．尾が消えたりしない．
+  * → `ForwardDiff.jl` を採用したところ，02:05 から 10 分以上に変化した．`ReverseDiff.jl` を採用したところ 4:44 になった．50 次元というのが微妙なところなのかもしれない．
+* Funnel 分布で試したところ，`PDMPFlux.jl` の棄却率が極めて高い．
 
 ## 付録：他に模索した可能性 {.appendix}
 
