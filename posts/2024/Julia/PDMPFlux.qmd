@@ -185,6 +185,47 @@ plt.show()
 
   number of error bound :  46817
 
+### サンプリングループの構造
+
+<!--
+ ```{mermaid}
+flowchart LR
+  A["one_step()
+  while !state.indicator
+  state=one_step_while()
+  "]--|`tp <= state.horizon`|B
+```
+-->
+
+```{mermaid}
+graph TD;
+  A["one_step()"] -->|state.indicator=false| B["one_step_while()"]
+  B --> C{tp <= state.horizon}
+    C -->|No| D[move_to_horizon]
+    C -->|Yes| E[move_before_horizon]
+    E -->|state.accept=false| G[inner_while]
+    G --> I{ar <= 1.0}
+    I -->|No| J[error_acceptance]
+    I -->|Yes| K[ok_acceptance]
+    K -->|reject| L["if_reject()"]
+    L -->|場合によっては move_to_horizon2| N["inner_while() か one_step_while() まで戻る"]
+    K -->|accept| O["if_accept()
+    state.indicator=true
+    "]
+    D --> B
+    J -->|horizon を縮める| N
+```
+
+1. `ar=lambda_t/state.lambda_bar` によって Poisson thinning を行う．
+
+    ただし，`lambda_bar` とは近似的な上界であり，「最も近い直前の grid 上の点での値」でしかない．当然 `lambda_t` を超過し得る．そのような場合に `error_acceptance()` に入る．
+
+2. `error_acceptance()` に入った場合，`horizon` を縮めてより慎重に同じ区間を Poisson thinning しなおす．`adaptive=true` の場合はこのタイミングで `horizon` を恒久的に縮める．
+
+3. 最後 `if_reject()` に入った場合，`horizon` に到達したら `one_step_while()` まで戻るが，そうでない場合は `inner_while()` まで戻る実装がなされている．
+
+![](Files/SamplingLoop.jpg)
+
 ### 適応的なステップサイズ
 
 
@@ -322,6 +363,8 @@ result.minimizer
 
 [`ProgressBars.jl` は tqdm の Julia wrapper を提供する](https://github.com/cloud-oak/ProgressBars.jl)．
 
+[`ProgressMeter.jl`](https://github.com/timholy/ProgressMeter.jl) も同様の機能を提供し，`ZigZagBoomerang.jl` ではこちらを採用している．
+
 <!-- ### デバッグ
 
 1. `sample_skeleton(sampler::AbstractPDMP, n_sk::Int, xinit::Vector{Float64}, vinit::Vector{Float64}, seed::Int; verbose::Bool=true)::PDMPHistory)::PDMPHistory` が呼ばれる．
@@ -339,11 +382,14 @@ result.minimizer
 
 ## ToDo {.appendix}
 
-* `grid_size=0` 以外の実装
 * Zig-Zag 以外のサンプラーの実装
 * ZigZag(dim) は自動で知ってほしい
 * Try clause 内の else を用いているので Julia 1.8 以上が必要．
 * MCMCChains のような plot.jl を完成させる．
+* `PDMPFlux.jl` のドキュメントを整備する．
+* `ZigZagBoomerang.jl` を見習って統合したり API をつけたり？
+* Turing エコシステムと統合できたりしないか？
+* `Rng` を指定できるようにする？
 
 * `pdmp-jax` では 37 秒前後かかる Banana density の例が，`PDMPFlux.jl` では 2 分前後かかる．
   * しかし，Julia の方が数値誤差が少ないのか，banana potential の対称性がうまく結果に出る．尾が消えたりしない．
