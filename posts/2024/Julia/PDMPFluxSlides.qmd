@@ -1,8 +1,8 @@
 ---
-title: "新時代の MCMC 環境に向けて"
-subtitle: "`PDMPFlux.jl` パッケージの使い方"
+title: "`PDMPFlux.jl` Package for the New Era of MCMC"
+subtitle: "新時代の MCMC 環境に向けて：`PDMPFlux.jl`"
 author:
-  - name: "司馬博文"
+  - name: "Hirofumi Shiba"
 date: "10/29/2024"
 categories: [Slide, MCMC, Julia]
 image: Files/ZigZag_Banana3D.gif
@@ -17,16 +17,14 @@ format:
     logo: ../../../assets/profile.jpg
     css: ../../../assets/slides.css
     footer: |
-      [司馬博文](https://162348.github.io/posts/2024/Slides/PDMPFlux.html)
+      [Hirofumi Shiba](PDMPFluxSlides.qmd)
     scrollable: true
     smaller: false
     controls: true
     controls-layout: bottom-right
     self-contained-math: true
     shift-heading-level-by: -1
-    toc: true
-    toc-depth: 1
-    toc-title: 目次
+    toc: false
     number-sections: true
     theme: serif
     show-slide-number: all
@@ -37,8 +35,6 @@ bibliography:
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
 csl: ../../../assets/apalike.csl
-description: |
-  スライドは<a href="https://162348.github.io/posts/2024/Computation/PDMPFlux_Slides.html" style="text-decoration: underline;">こちら</a>．
 # image: Images/Bayes.svg
 comment: false
 code-fold: false
@@ -47,888 +43,203 @@ execute:
 html-math-method: katex
 abstract-title: 概要
 abstract: |
-  本郷キャンパスにて発表．
-  スライドは[こちら](https://162348.github.io/posts/2024/Computation/PDMPFlux_Slides.html)．
+  Presented at D314, ISM, Tokyo.
+  Get your own copy of the slides [[here]{.underline}](PDMPFlux_Slides.html).
 ---
 
-## Zig-Zag サンプラー
+## Introduction
 
-区分確定的 Makrov 過程を用いた，連続時間 MCMC 手法の１つ
+![Output from `anim_traj()` in `PDMPFlux.jl` package](Files/ZigZag_Banana3D_background.gif)
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-### Zig-Zag サンプラー
+### Overview
 
-* PDMP または 連続時間 MCMC と呼ばれる手法群の一つ
-* ランダムな時刻にランダムな動きをする以外は，確定的な動き
+`PDMPFlux.jl`: package for MCMC sampling.
 
-![Zig-Zag サンプラーの軌跡](../Process/ZigZag_2D.svg)
+[![](Files/PDMPFlux.png)](https://github.com/162348/PDMPFlux.jl)
 
-### PDMP による MCMC / 連続時間 MCMC
+### What's Different? (Detailed in @sec-PDMP)
 
-PDMP （Piecewise Deterministic Markov Process，区分確定的マルコフ過程）
+Instead of Markov Chains, `PDMPFlux.jl` uses:
 
-![代表的な３つの PDMP. Animated by [@Grazzi2020]](pdmps.gif)
+![](Files/slide1.jpeg)
 
-今回は Zig-Zag サンプラー（中央）に注目する．
+Currently, most PDMPs move piecewise *linearly*.
 
-### PDMP / 連続時間 MCMC の美点１
+### What's PDMP? (Detailed in @sec-PDMP)
 
-::: {layout="[40,60]" layout-valign="center"}
+| | PDMP | Diffusion |
+|:---:|:------:|:------:|
+| Diffuse? | [No]{.color-blue} | [Yes]{.color-red} |
+| Jump? | [Yes]{.color-red} | [No]{.color-blue} |
+| Driving noise | Poisson | Gauss |
+| Plot | ![](Files/Cauchy1D.png) | ![](../Process/MALA_1D.svg) |
+
+: {.hover .responsive-sm}
+
+### How to Use? (1/3)
+
+```julia
+using PDMPFlux
+
+function U_Cauchy(x::Vector)
+    return log(1 + x.^2)
+end
+
+dim = 10
+sampler = ZigZagAD(dim, U_Cauchy)  # Instantiate a sampler
+```
+
+**Inputs**: Dimension $d$, and *any* $U$ that satisfies
+
+$$
+p(x) \propt \exp\left\{ -U(x) \right\},\qquad x\in\R^d.
+$$
+
+::: aside
+$U$ may be called *potential*, or *negative log-density*.
+:::
+
+### How to Use? (2/3)
+
+```julia
+N_sk, N, xinit, vinit = 1_000_000, 1_000_000, zeros(dim), ones(dim)  # Hyperparameters
+samples = sample(sampler, N_sk, N, xinit, vinit, seed=2024)
+```
+
+**Output**: $N$ samples from $p\propt e^{-U}$.
+
+![](Files/Cauchy1D.gif)
+
+::: aside
+`N_sk`: number of [orange points]{.color-unite}, `N`: number of samples, `xinit, vinit`: initial position and velocity.
+:::
+
+### How to Use? (3/3)
+
+Function `sample` is a wrapper of:
+
+```julia
+traj = sample_skeleton(sampler, N_sk, xinit, vinit)  # simulate skeleton points
+samples = sample_from_skeleton(sampler, N, traj)  # get samples from the skeleton points
+```
+
+`traj` contains a list $\{x_i\}_{i=1}^{N_{sk}}$ of [orange points]{.color-unite}
+
+![](Files/Cauchy1D.gif)
+
+### Diagnostic
+
+```julia
+diagnostic(traj)
+```
+
+![](Files/diagnostic.png){.nostretch fig-align="center"}
+
+We see acceptance rate is a bit low due to the long tails of $p$.
+
+## What is PDMP? {#sec-PDMP}
+
+![Animated by [@Grazzi2020]](../Slides/pdmps.gif)
+
+
+### Two Key Changes in MCMC History
+
+1. **Lifting**: MH (Metropolis-Hastings) → Lifted MH
+2. **Continuous-time Limit**: Lifted MH → Zig-Zag Sampler
+
+::: {layout-ncol=3}
+![[MH @Metropolis+1953]](../Slides/Files/MH_traj.svg)
+
+![[Lifted MH @Turitsyn+2011]](../Slides/Files/LMH_traj.svg)
+
+![[Zig-Zag @Bierkens+2019]](../Slides/Files/zigzag_traj.svg)
+:::
+
+### What's Wrong with MH?: [Reversibility]{.color-unite}
+
+[Reversibility]{.color-unite} (a.k.a detailed balance):
+$$
+p(x)q(x|y)=p(y)q(y|x).
+$$
+In words:
+$$
+\text{Probability}[\text{Going}\;x\to y]=\text{Probability}[\text{Going}\;y\to x].
+$$
+{{< fa arrow-right >}} Harder to explore the entire space
+
+{{< fa arrow-right >}} Slow mixing of [MH]{.color-unite}
+
+### Lifting into a Larger State Space
+
+::: {layout="[50,50]" layout-valign="top" style="margin: 0px; !important"}
 
 ::: {#first-column}
 
-![Zig-Zag 過程の軌道](../Process/ZigZag_2D.svg)
+![](../Slides/Files/lifting_illustration.svg)
+
+![](../Slides/Files/potential.svg)
 
 :::
 
 ::: {#second-column}
 
-* 正確なシミュレーションが可能な連続過程である．
-* シミュレーションが簡単で，次の２つだけ考えれば良い：
-  * [ランダムな時刻]{.small-letter}
-  [（非一様 Poisson 点過程）]{.small-letter}
-  * [ランダムな変化]{.small-letter}
-  [（Zig-Zag の場合はこれも無し）]{.small-letter}
+::: {style="margin-bottom: 50px; !important"}
+
+$q^{(+1)}$: Only propose $\rightarrow$ moves
+
+$q^{(-1)}$: Only propose $\leftarrow$ moves
 
 :::
 
-:::
+{{< fa arrow-right >}} Once going uphill, it continues to go uphill.
 
-### PDMP / 連続時間 MCMC の美点２
-
-::: {layout="[40,60]" layout-valign="center"}
-
-::: {#first-column}
-
-![Zig-Zag 過程の軌道](../Process/ZigZag_2D.svg)
-
-:::
-
-::: {#second-column}
-
-* 軌跡自体が目標分布 $\pi$ に従う
-  * [軌跡上で線積分する or 好きな間隔で切り出してサンプルとする]{.small-letter}
-* 非対称 Metropolis-Hastings 法の scaling limit として導かれる
-  * [Zig-Zag は Curie-Weiss 模型の Lifted MH 法から]{.small-letter} [[@Bierkens-Roberts2017]]{.footnote-letter}
-  * [BPS は分子動力学法の模型から]{.small-letter} [[@Peters-deWith2012]]{.footnote-letter}
-
-:::
-
-:::
-
-### PDMP / 連続時間 MCMC の美点３
-
-1. [シミュレーションが簡単]{.underline}（本節の残りで解説）
-
-    [PDMP：離散化誤差なしで簡単にシミュレーションできる稀有な連続過程]{.small-letter}
-
-2. [ダイナミクスが良い]{.underline}（第 [-@sec-ergodicity] 節）
-
-    [前スライドで見た通り，**非対称な**ダイナミクスが作れる]{.small-letter}
-
-3. [**スケーラブルなサンプリング手法**]{.underline}（第 [-@sec-scalable-inference] 節）
-
-    [全データにアクセスする必要はなく，一部で良い（サブサンプリング）]{.small-letter}
-
-    [**バイアスが入らない**サブサンプリングが可能]{.small-letter} [@Bierkens+2019]
-
-### Zig-Zag 過程の定義
-
-::: {.callout-tip title="定義（Zig-Zag 過程）" icon="false"}
-
-Zig-Zag 過程は状態空間 $E=\R^d\times\{\pm1\}^d$ 上に定義される過程 $Z=(X,\Theta)$ である．
-
-$\Theta$ は速度，$X$ は位置と解し，第一成分 $X$ が $\R^d$ 上の目標分布 $\pi$ に従うように構成される．
-
-ランダムな時刻におけるランダムな変化（次スライド）を除いては，速度 $\theta\in\{\pm1\}^d$ の等速直線運動をする．
-
-:::
-
-::: {.small-letter}
-
-すなわち，$(x,\theta)\in E$ から出発する Zig-Zag 過程は，次の微分方程式系で定まる決定論的なフロー $\phi_{(x,\theta)}:\R\to\R^d$ に従って運動する粒子とみなせる：
-$$
-\dd{\phi_{(x,\theta)}(t)}{t}=\theta,\qquad \dd{\Theta_t}{t}=0.
-$$
-
-:::
-
-### Zig-Zag 過程のシミュレーション
-
-::: {.callout-tip appearance="simple" icon="false"}
-
-1. 状態空間 $E$ 上のレート関数 $\lambda_1,\cdots,\lambda_d$ （次スライド）から定まる強度関数
-    $$
-    m_i(t):=\lambda_i(x+\theta t,\theta),\qquad i\in[d],
-    $$
-    を持つ，$d$ 個の独立な $\R_+$ 上の非一様 Poisson 点過程の，最初の到着時刻 $T_1,\cdots,T_d$ をシミュレーションする．
-2. 最初に到着した成分の番号 $j:=\argmin_{i\in[d]}T_i$ について，時刻 $T_j$ に速度成分 $\theta_j$ の符号を反転させる．すなわち，関数
-    $$
-    F_j(\theta)_i:=\begin{cases}-\theta_i&i=j\\\theta_i&i\ne j\end{cases}
-    $$
-    に従ってジャンプする．
-3. $t=T_j$ までを線型に補間し，1. に戻ってくり返す．
-
-:::
-
-### レート関数 $\lambda_i$ の設定
-
-::: {.callout-tip title="命題（Zig-Zag 過程の不変分布）" icon="false"}
-
-目標の分布が $\pi(dx)\propt e^{-U(x)}\,dx$ と表せるとする．このとき，レート関数 $\lambda_1,\cdots,\lambda_d:E\to\R_+$ が，ある $\theta_i$ のみには依らない非負連続関数 $\gamma_i:E\to\R_+$ を用いて
-$$
-\lambda_i(x,\theta)=\Paren{\theta_i\partial_iU(x)}_++\gamma_i(x,\theta_{-i})
-$$
-と表されるならば，Zig-Zag 過程 $Z=(X,\Theta)$ の位置成分 $X$ は $\pi$ を不変分布に持つ．
-
-:::
-
-あとはエルゴード性が成り立てば，$\pi$ に対する MCMC として使える．
-
-### Zig-Zag 過程のエルゴード性
-
-::: {.callout-tip title="定理 [@Bierkens-Roberts-Zigg2019]" icon="false"}
-
-$U\in C^3(\R^d)$ はある定数 $c>d,c'\in\R$ に関して
-$$
-U(x)\ge c\log\abs{x}-c'\qquad x\in\R^d
-$$
-を満たすならば，全変動距離に関してエルゴード性を持つ：^[実は同じ条件の下で，多項式エルゴード性が示せる（第 [-@sec-ergodicity] 節参照）．]
-$$
-\Norm{P^t((x,\theta),-)-\pi}_\TV\xrightarrow{t\to\infty}0.
-$$
-
-:::
-
-$$
-\pi(x)\propt e^{-U(x)}\le C'\abs{x}^c,\qquad C'>0,
-$$
-ということだから，ほとんどの場合成り立つ．
-
-### リフレッシュ動作 $\gamma_i$ の意味
-
-$$
-\lambda_i(x,\theta)=\Paren{\theta_i\partial_iU(x)}_++\gamma_i(x,\theta_{-i})
-$$
-
-* $\gamma_i$ は $\theta_i$ に依らず，成分 $\theta_i$ を変化させる頻度を定める．
-* $\gamma_i\equiv0$ と取った方が，Monte Carlo 推定量の漸近分散は最小になる [@Andrieu-Livingstone2021]
-* $\gamma_i$ だけの自由度があることが，Zig-Zag サンプラーのスケーラビリティを支えている（次節 [-@sec-scalable-inference] 参照）
-
-### 到着時刻 $T_j$ のシミュレーション
-
-::: {.callout-tip title="命題" icon="false"}
-
-強度関数 $m_i$ を持つ Poisson 点過程の，最初の到着時刻 $T_i$ は，
-$$
-M_i(t):=\int^t_0m_i(s)\,ds
-$$
-と指数分布する確率変数 $E_i\sim\Exp(1)$ を用いて，
-$$
-T_i\deq M_i^{-1}(E_i)
-$$
-とシミュレーションできる．
-
-:::
-
-しかしこの方法は，$m_i$ が多項式の場合しか使えない．
-
-### 剪定 [@Lewis-Shedler1979 Poisson thinning]
-
-::: {.callout-tip title="命題" icon="false"}
-
-$m\le M$ を２つの強度関数とする．$M$ を強度に持つ Poisson 点過程 $\eta$ の点
-$$
-X_1,X_2,\cdots,X_{\eta([0,T])}
-$$
-をシミュレーションし，それぞれを確率 $1-\frac{m(X_i)}{M(X_i)}$ で取り除く（剪定）．
-
-すると，残った点は強度 $m$ の Poisson 点過程に従う．
-
-:::
-::: {.small-letter}
-Zig-Zag 過程のシミュレーションの問題は，強度関数
-$$
-m_i(t)=\lambda_i(x+t\theta,\theta)=\Paren{\theta_i\partial_iU(x+t\theta)}_++\gamma_i(x+t\theta,\theta_{-i})
-$$
-の多項式による上界 $M_i$ を見つける問題に帰着される．
-:::
-
-## 大規模データに対するベイズ推論 {#sec-scalable-inference}
-
-Zig-Zag サンプラーは，不偏なサブサンプリングにより，スケーラブルな Monte Carlo 法として使える．
-
-### 従来の MCMC は大規模データに弱い．
-
-* Metropolis-Hastings 法
-
-  [{{< fa arrow-right >}}]{.color-minty} 採択-棄却のステップでは，毎度全データにアクセスする必要があり，計算量が大きい．
-* データの一部のみを使って尤度を不変推定する^[Pseudo-marginal Metropolis-Hastings [@Andrieu-Roberts2009] など．]
-
-  [{{< fa arrow-right >}}]{.color-minty} 目標分布に収束しなくなる（バイアスが導入される）
-
-  [{{< fa arrow-right >}}]{.color-minty} MCMC を使う利点が失われる
-
-### 大規模データに対する２つのアプローチ
-
-[1. Devide-and-conquer]{.underline}
-
-データを小さなチャンクに分割し，それぞれで MCMC を回し，あとから結果を総合する．
-
-| 不偏性 | 手法名 | 提案文献 |
-|:-:|:------:|:------:|
-| [{{< fa xmark >}}]{.color-blue} | WASP | [[@Srivastava+2015]]{.footnote-letter} |
-| [{{< fa xmark >}}]{.color-blue} | Consensus Monte Carlo | [[@Scott+2016]]{.footnote-letter} |
-| [{{< fa check >}}]{.color-red} | Monte Carlo Fusion | [[@Dai+2019]]{.footnote-letter} |
-
-: {.hover .responsive-sm tbl-colwidths="[20,50,35]"}
-
-### 大規模データに対する２つのアプローチ
-
-[2. Subsampling]{.underline}
-
-尤度評価（全データが必要）を，リサンプリングに基づく不偏推定量で代用する．
-
-| 不偏性 | 手法名 | 提案文献 |
-|:-:|:------:|:------:|
-| [{{< fa xmark >}}]{.color-blue} | Stochastic Gadient MCMC | [[@Welling-Teh2011]]{.footnote-letter} |
-| [{{< fa check >}}]{.color-red} | Zig-Zag with Subsampling | [[@Bierkens+2019]]{.footnote-letter} |
-| [{{< fa xmark >}}]{.color-blue} | Stochastic Gradient PDMP | [[@Fearnhead+2024]]{.footnote-letter} |
-
-: {.hover .responsive-sm tbl-colwidths="[20,50,35]"}
-
-### Zig-Zag サンプラーではバイアスを導入しないサブサンプリングが可能
-
-::: {.small-letter}
-Zig-Zag サンプラーは，ジャンプ強度で尤度の情報を使う：$U=-\log\pi$
-$$
-\lambda_i(x,\theta)=\Paren{\theta_i\partial_iU(x)}_++\gamma_i(x,\theta_{-i}),\qquad i\in[d],
-$$
-仮に，単一のサンプル $k\in[n]$ から計算できる量 $E_k^1(x)$ に関して
-$$
-\partial_iU(x)=\frac{1}{n}\sum_{k=1}^nE_i^k(x)
-$$
-が成り立つ場合，$\partial_iU(x)$ を，$[n]:=\{1,\cdots,n\}$ 上の一様サンプル $K$ を用いて
-$$
-E_i^K(x),\qquad K\sim\rU([n])
-$$
-で不偏推定できる．
-:::
-
-### ZZ-SS (Zig-Zag Sampler with Sub-Sampling)
-
-Bayes 推論の文脈では，負の対数尤度 $U(x)=-\log\pi(x|\b{y})$ は
-$$
-U(x)=-\sum_{k=1}^n\log p(y_k|x)-\log p(x),\qquad\pi(x)\propt\paren{\prod_{k=1}^np(y_k|x)}p(x),
-$$
-という表示を持つ．$p(x)$ は事前分布，$y_1,\cdots,y_k$ がデータ．
-$$
-E_i^k(x):=\pp{}{x_i}\Paren{-n\log p(y_k|x)-\log p(x)}
-$$
-と定めると，
-$$
-\partial_iU(x)=\mathbb{E}[E_i^K(x)]\qquad K\sim\rU([n]).
-$$
-
-### ZZ-SS (Zig-Zag Sampler with Sub-Sampling)
-
-そこで，ランダムに定まる強度関数
-$$
-m^K_i(t):=\Paren{\theta\cdot E^K_i(x+\theta t)}_+,\qquad K\sim\rU([n]),
-$$
-を用いて Zig-Zag 過程をシミュレーションすることを考える．
-
-ただし，
-$$
-m_i^k(t)\le M_i(t)
-$$
-を満たす上界 $M_i$ が存在すると仮定する．
-
-### ZZ-SS (Zig-Zag Sampler with Sub-Sampling)
-
-::: {.callout-tip appearance="simple" icon="false" title="ZZ-SS アルゴリズム"}
-
-1. 代理強度関数 $M_1,\cdots,M_d$ を持つ互いに独立な $\R_+$ 上の非一様 Poisson 点過程の到着時刻 $T_1,\cdots,T_d$ をシミュレーションする．
-2. 最初に到着した座標番号 $j:=\argmin_{i\in[d]}T_i$ について，確率
-    $$
-    \frac{m^K_j(T_j)}{M_j(T_j)},\qquad K\sim\rU([n]),
-    $$
-    で時刻 $T_j$ に速度成分 $\theta_j$ の符号を反転させる．
-3. １に $t=T_j$ として戻って，繰り返す．
-
-:::
-
-### ZZ-SS (Zig-Zag Sampler with Sub-Sampling)
-
-::: {.callout-note title="部分サンプリングにより不変分布が変わらないことの証明" icon="false"}
-
-ZZ-SS によってシミュレートされる過程は，レート関数
-$$
-\lambda_i(x,\theta)=\mathbb{E}\SQuare{\Paren{\theta_iE^K_i(x)}_+}=\frac{1}{n}\sum_{k=1}^n(\theta_iE^k_i(x))_+
-$$
-を持った Zig-Zag 過程に等しい
-
-これは，元々のレート関数 $(\theta\partial_iU(x))_+$ に対して，
-$$
-\gamma_i(x,\theta):=\frac{1}{n}\sum_{k=1}^n(\theta_iE^k_i(x))_+-\paren{\frac{\theta_i}{n}\sum_{k=1}^nE^k_i(x)}_+\ge0.
-$$
-という項を加えて得る Zig-Zag サンプラーともみなすことができる．非負性は関数 $(x)_+:=x\lor0$ の凸性から従う．最後に $\gamma_i(x,\theta)=\gamma_i(x,F_i(\theta))$ を確認すれば良い．
-
-これは
-\begin{align*}
-  &\qquad\frac{1}{n}\sum_{k=1}^n\Paren{\theta_iE_i^k(x)}_+-\frac{1}{n}\sum_{k=1}^n\Paren{-\theta_iE_i^k(x)}_+\\
-  &=\frac{1}{n}\sum_{k=1}^n\paren{(\theta_iE_i^k(x))_+-(-\theta_iE_i^k(x))_+}=\frac{1}{n}\sum_{k=1}^n\theta_iE_i^k(x)
-\end{align*}
-であることから従う．
-
-:::
-
-### 上界 $M_i$ をどう見つけるか？
-
-::: {.small-letter}
-ランダムに定まる強度関数
-$$
-m^K_i(t):=\Paren{\theta_iE^K_i(x+\theta t)}_+
-$$
-に対して，
-$$
-\max_{k\in[n]}m^k_i(t)\le M_i(t)
-$$
-を満たす多項式関数 $M_i$ を見つけないと，剪定ができず，事実上シミュレーションが不可能．
-
-また，タイトな上界でないと，ほとんどの提案が棄却され，無駄な計算量が増してしまう．
-:::
-
-### ZZ-CV (Zig-Zag Sampler with Control Variates)
-
-::: {.callout-tip title="命題 [@Bierkens+2019] （制御変数による上界の構成）" icon="false"}
-
-$\partial_iU(x)$ は Lipschitz 定数 $C_i$ を持って Lipschitz 連続であるとする．このとき，
-$$
-M_i(t):=a_i+b_it
-$$
-$$
-a_i:=(\theta_i\partial_iU(x_*))_++C_i\norm{x-x_*}_p,\quad b_i:=C_id^{1/p}
-$$
-と定めれば，$m_i^k\le M_i$ が成り立つ．ただし，ランダムな強度関数 $m_i^k$ は次のように定めた：
-$$
-m^k_i(t):=\Paren{\theta E_i^k(x+\theta t)}_+,\qquad x_*:=\argmin_{x\in\R^d}U(x),
-$$
-$$
-E^k_i(x):=\partial_iU(x_*)+\partial_iU^k(x)-\partial_iU^k(x_*).
-$$
-
-:::
-
-### ZZ-CV (Zig-Zag Sampler with Control Variates)
-
-事前処理により，事後最頻値 $\wh{x}$ に十分近いように参照点 $x_*$ を選ぶ
-
-[{{< fa arrow-right >}}]{.color-minty} その後は **データのサイズに依存しない $O(1)$ 計算複雑性で事後分布からの正確なサンプリングが可能**
-
-::: {.callout-tip appearance="simple" icon="false" title="preprocessing for ZZ-CV"}
-
-1. $x_*:=\argmin_{x\in\R^d}U(x)$ を探索する．
-2. $\partial_iU(x_*),\partial_iU^k(x_*)$ を計算する．
-
-:::
-
-この２つはいずれも $O(n)$ の複雑性で実行できる．
-
-### 例：正規標本の平均推定
-
-::: {.small-letter}
-
-データは１次元で，分散 $\sigma^2$ が既知な正規分布に従うとする：
-$$
-Y^j\iidsim\rN(x_0,\sigma^2),\qquad j\in[n].
-$$
-事前分布を $\rN(0,\rho^2)$ とすると，定数の違いを除いて
-\begin{align*}
-    U'(x)&=\frac{x}{\rho^2}+\frac{1}{\sigma^2}\sum_{j=1}^n(x-y^j)=\frac{x}{\rho^2}+\frac{n}{\sigma^2}(x-\ov{y}),
-\end{align*}
-であるから，$U'$ は非有界であり，簡単な上界が見つからない．しかし，
-$$
-U''(x)=\frac{1}{\rho^2}+\frac{n}{\sigma^2}.
-$$
-は有界だから，$U'$ は $\norm{U''}_\infty$ を Lipschitz 定数として Lipscthiz 連続である．
-
-:::
-
-### 数値実験：ZZ（サブサンプリングなし）と ZZ-CV（制御変数を用いたサブサンプリング）の比較
-
-::: {.small-letter}
-同じ長さの軌跡＋同数のサンプルを用いて，事後平均推定量により $x_0$ を推定した場合の平均自乗誤差は次の通り：
-:::
-
-![横軸：単位計算量，縦軸：平均自乗誤差（点線は不正確！）](../Process/MeanOfGaussian_Erronous.svg)
-
-### 数値実験：ZZ と ZZ-CV の比較
-
-単位計算量 (epoch)：「データ $n$ を通じた勾配の計算」を１単位とする<br>
-揃えて比較すると，たしかに効率が改善されている：
-
-![横軸：単位計算量，縦軸：平均自乗誤差](../Process/MeanOfGaussian.svg)
-
-### ZZ-CV がうまくいく理由
-
-::: {.small-letter}
-
-[{{< fa arrow-right >}}]{.color-minty} データ数 $n\to\infty$ の極限で，事後分布は最頻値 $\wh{x}$ の周りに集中するため
-
-事前処理により参照点 $x_*$ を
-$$
-\norm{x_*-\wh{x}}_p=O(n^{-1/2})\quad(n\to\infty)
-$$
-程度の正確性で得られたならば，
-$$
-\norm{x-x_*}_p=O_p(n^{-1/2}),\quad\partial_iU(x_*)=O_p(n^{1/2})\quad(n\to\infty)
-$$
-が成り立つ．このことより，
-$$
-M_i(t)=a_i+b_it=O_p(n^{1/2})\quad(n\to\infty)
-$$
-であるが，Zig-Zag 過程は $O(n^{-1/2})$ のタイムステップで区切って独立なサンプルとみなせるため，総じて独立なサンプルを得るための計算量は $O(1)$．
-:::
-
-## ロジスティック回帰と大規模不均衡データの問題
-
-不均衡データに対する Gibbs サンプラーは収束が無際限に遅くなるが，Zig-Zag サンプラーでは簡単なトリックで克服できる．
-
-### ロジスティック回帰
-
-$$
-\P[Y=1\mi X,\xi]=\frac{1}{1+\exp(-X^\top\xi)}
-$$
-
-の，事前分布 $p_0(\xi)d\xi$ とデータ $\{(x^i,y^i)\}_{i=1}^n$ に対する事後分布 $\pi$ は次のように表せる：
-
-$$
-\pi(\xi)\propt p_0(\xi)\prod_{i=1}^n\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}.
-$$
-
-$\pi$ は正規分布の Pólya-Gamma 複合としての構造を持つ<br>
-[{{< fa arrow-right >}}]{.color-minty} データ拡張による Gibbs サンプラー [@Polson+2013] によりサンプリング可能．
-
-### ロジットモデルはポテンシャルの勾配が有界になる {#sec-bounds-on-DU}
+{{< fa arrow-right >}} This is [irreversible]{.color-unite}, since
 
 \begin{align*}
-    U(\xi)&:=-\log p_0(\xi)-\sum_{i=1}^n\log\paren{\frac{\exp(y^i(x^i)^\top\xi)}{1+\exp((x^i)^\top\xi)}}=:U_0(\xi)+U_1(\xi)
+  &\text{Probability}[x\to y]\\
+  &\qquad\ne\text{Probability}[y\to x].
 \end{align*}
 
-$$
-U_1(\xi)=\frac{1}{n}\sum_{j=1}^nU^j_1(\xi),\qquad U_1^j(\xi)=-n\log\paren{\frac{\exp\paren{y^j(x^j)^\top\xi}}{1+\exp\paren{(x^j)^\top\xi}}},
-$$
-$$
-\partial_iU^j_1(\xi)=n\frac{x^j_i\exp\paren{(x^j)^\top\xi}}{1+\exp\paren{(x^j)^\top\xi}}-ny^jx^j_i<nx^j_i(1-y^j).
-$$
-$$
-\therefore\qquad\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}\qquad i\in[d].
-$$
-
-### Poisson 剪定のための上界
-
-::: {.small-letter}
-1. 前スライドの評価 $\abs{\partial_iU^j_1(\xi)}\le n\max_{j\in[n]}\abs{x^j_i}$ を通じて，定数のバウンド
-  $$
-  m_i(t)=\Paren{\theta_i\partial_iU(\xi+\theta_it)}_+\le\paren{n\theta_i\max_{j\in[n]}\abs{x^j_i}}_+\equiv:M_i
-  $$
-  によって Poisson 剪定をする [ZZ (Global bound)]{.color-minty}．
-2. 事後分布の最頻値周りへの集中を通じた，$m_i$ の１次関数によるバウンド
-  $$
-  M_i(t):=a_i+b_it,\qquad a_i:=(\theta_i\partial_iU(\xi_*))_++C_i\abs{\xi-\xi_*},
-  $$
-  $$
-  b_i:=C_i\sqrt{d},\qquad C_i:=\frac{n}{4}\max_{j\in[n]}\abs{x^j_i}\abs{x^j}.
-  $$
-  によって Poisson 剪定をすることも可能である [ZZ (Affine bound)]{.color-minty}．
-
-同じ上界を用いたサブサンプリング [ZZ-SS]{.color-minty} と [ZZ-CV]{.color-minty} も考えられる．
-:::
-
-### 性能比較
-
-![ロジスティック回帰のサブサンプリングによる ESS の比較](../Stat/Logistic2_ESS_per_Epoch.svg)
-
-### 有効サンプル数について
-
-::: {.small-letter}
-
-Zig-Zag 過程 $(Z_t)_{t\in[0,T]}$ から $B$ 個のサンプル $X_1,\cdots,X_B$ を生成して，関数 $h\in\L^2(\pi)$ の期待値
-$\displaystyle(\pi|h)=\int_0^Th(x)\,\pi(dx)$
-を推定したとする．この際
-$$
-\wh{\ESS}:=T\frac{\wh{\V_\pi[h]}}{\wh{\sigma^2_h}}
-$$
-$$
-\wh{\V_\pi[h]}:=\frac{1}{T}\int^T_0h(X_s)^2\,ds-\paren{\frac{1}{T}\int^T_0h(X_s)\,ds}^2,
-$$
-$$
-\wh{\sigma^2_h}:=\frac{1}{B-1}\sum_{i=1}^B(Y_i-\ov{Y})^2,\qquad Y_i:=\sqrt{\frac{B}{T}}\int^{\frac{iT}{B}}_{\frac{(i-1)T}{B}}h(X_s)\,ds.
-$$
-によって推定できる．
-
-:::
-
-### ロジスティック回帰における「大規模不均衡データ」の問題
-
-ロジスティック回帰において，
-$$
-\sum_{j=1}^ny^j\ll n
-$$
-が成り立つ状況下では，Pólya-Gamma 複合に基づく Gibbs サンプラーの収束が，$n\to\infty$ の極限で際限なく遅くなる．
-
-これは事後分布が最頻値の周りに集中する速度が，不均衡な $n\to\infty$ 極限では変化するためである．
-
-### 「大規模不均衡データ」に対する Gibbs サンプラーの失敗
-
-![自己相関関数の比較（ランダムウォーク・メトロポリス vs Gibbs サンプラー）](../Stat/Logistic.svg)
-
-### 「大規模不均衡データ」に対する Gibbs サンプラーの失敗
-
-![サンプラーの動きと事後分布（ランダムウォーク・メトロポリスの場合）](../Stat/posterior_MH.svg)
-
-### 「大規模不均衡データ」に対する Gibbs サンプラーの失敗
-
-![サンプラーの動きと事後分布（Pólya-Gamma 複合に基づくGibbs サンプラーの場合）](../Stat/posterior_PG.svg)
-
-### 不均衡極限では測度の集中レートが違う [@Johndrow+2019]
-
-| | 通常の極限 | 不均衡極限 |
-|:---:|:-----:|:-----:|
-| 事後分布 | $n^{-1/2}$ | $(\log n)^{-1}$ |
-| 提案分布 | $n^{-1/2}$ | $n^{-1/2}$ |
-
-: {.hover .responsive-sm tbl-colwidths="[20,40,40]"}
-
-$$
-\sum_{i=1}^ny^i=1,\qquad n\to\infty,
-$$
-の「不均衡極限」または Infinitely Imbalanced Limit [@Owen2007] において，集中のオーダーが変わってしまう．
-
-### 事後分布の集中不足の影響
-
-* Pólya-Gamma 複合に基づく Gibbs サンプラー
-
-  提案のステップサイズが，事後分布のスケールに比べて小さすぎる．
-
-* 制御変数に基づく Zig-Zag サンプラー (ZZ-CV)
-
-  レート関数 $m_i$ の上界 $M_i$ の評価がズレることで効率が下がっていく．
-
-後者は単に $M_i$ の設計不良の問題で，挽回可能！^[最初から Zig-Zag サンプラーでは上界 $M_i$ の設計が永遠の課題．]
-
-### 重点サブサンプリング [@Sen+2020]
-
-::: {.callout-important appearance="simple" icon="false"}
-**一様でないサブサンプリング** を導入することで，Zig-Zag サンプラーを不均衡データにも強くできる．（そもそも汎用的な効率化手法である．）
-:::
-
-::: {.small-letter}
-
-サブサンプリングによりランダム化された強度関数
-$$
-m_i^K(t)=\Paren{\theta_iE^K_i(x+\theta t)}_+
-$$
-は，真の勾配 $\partial_iU(\xi)$ に対する不偏性
-$$
-\mathbb{E}\SQuare{E^K_i(\xi)}=\partial_iU(\xi)
-$$
-を満たす限り，一様なサブサンプリング $K\sim\rU([n])$ に限る必要はなかったのである．
-
-:::
-
-### 重点サブサンプリング [@Sen+2020]
-
-::: {.small-letter}
-
-$(p_x)$ をある $[n]$ 上の分布 $\nu\in\cP([n])$ の質量関数として
-$$
-E^j_i(\xi):=\frac{1}{p_j}\partial_iU^j(\xi)\qquad j\in[n]
-$$
-と定めると，
-$$
-\partial_iU(\xi)=\sum_{j=1}^np_jE_i^j(\xi)=\mathbb{E}[E_i^J].
-$$
-このリスケーリングした勾配の推定量 $E_i^1,\cdots,E_i^n$ に対して，大域的な上界は
-$$
-\abs{E_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
-$$
-に変わる．以前の評価 $\displaystyle\partial_iU^j\le n\max_{j\in[n]}\abs{x^j_i}$ ([-@sec-bounds-on-DU]) は，$p_j\equiv1/n$ の場合に当たる．
-
-:::
-
-### 重点サブサンプリング [@Sen+2020]
-
-この一般化により，
-$$
-\abs{E_i^j(\xi)}\le\max_{j\in[n]}\frac{\abs{x_i^j}}{p_j}
-$$
-の右辺を確率分布 $\nu=(p_j)\in\cP([n])$ に関して最適化することで，ZZ-SS よりタイトな上界を得る．具体的には
-$$
-p_j\propt\abs{x^j_i}
-$$
-と取れば良い (ZZ-IS)．
-
-### 性能比較（通常のデータの場合）
-
-![新たに追加された ZZ-IS（重点サブサンプリング）は緑色の線．](../Stat/Logistic2_ESS_per_Epoch_IS.svg)
-
-### 「大規模不均衡データ」に対する Zig-Zag サンプラー
-
-$\xi_0=1$ を真値とし，次のように生成した１次元データを考える：
-$$
-X^j\iidsim(1-\al)\delta_0+\al\rN(1,2),
-$$
-$$
-\mathbb{P}[Y^j=1]=\frac{1}{1+e^{-X^j}}.
-$$
-
-::: {.callout-important appearance="simple" icon="false" title="予想"}
-* $\al$ が小さくなるにつれて，ZZ-CV の効率は悪化する
-* ZZ-IS は重要なデータにうまく注目することで効率悪化を防げる
-:::
-
-### 「大規模不均衡データ」に対する Zig-Zag サンプラー
-
-![左にいく（$\al$ が小さい）ほどスパース性は大きい．ZZ-CV は性能が下がるが，ZZ-IS では逆に上がっている．$n=1000$．](../Stat/Logistic2_ESS_per_Epoch_Sparse.svg)
-
-::: notes
-$\alpha$ が小さい領域で ZZ-IS の効率が上がっていることは，$\partial_iV^j_i(\xi)=0$ の場合は上界も $0$ になり，そもそも提案もされないため，スパースになるほど効率が上がるためだと思われる．
-:::
-
-## ダイナミクスとエルゴード性 {#sec-ergodicity}
-
-拡散様の振る舞い (diffusive behaviour) がないために，従来法より収束レートが改善する．
-
-### Zig-Zag サンプラーがうまく行った理由
-
-従来法に比べ，
-
-1. 確定的な動きが対称性を壊す
-
-    [{{< fa arrow-right >}}]{.color-minty} 状態空間のより効率的な探索が可能．
-
-2. バイアスのない部分サンプリングが可能
-
-    [{{< fa arrow-right >}}]{.color-minty} $p$ そのものではなく，$\partial_i\log p$ の値のみ使うため．
-
-    [{{< fa arrow-right >}}]{.color-minty} 効率的な Poisson 剪定アルゴリズムさえ見つかれば，（理論的には）どんな $U=-\log\pi$ に対しても効率的な実行が可能
-
-２を今まで詳しく見てきた．本節では１を考察する．
-
-### 連続かつ非対称なダイナミクス
-
-対象分布：標準 Cauchy 分布 $f(x)=\frac{1}{\pi\sigma}\frac{1}{1+\paren{\frac{x-\mu}{\sigma}}^2}$
-
-::: {layout-ncol=2}
-![Zig-Zag サンプラー [@Bierkens+2018-PDMC]](../Process/ZigZag_1D.svg)
-
-![Metropolis-adjusted Langevin Algorithm [@Roberts-Tweedie1996]](../Process/MALA_1D.svg)
-:::
-
-### 忘却：エルゴード性の必要条件
-
-忘却＝スタート地点をすぐに忘れるかどうか：
-$$
-\norm{P^t(x,-)-P^t(y,-)}_\TV\xrightarrow{t\to\infty}0.
-$$
-
-::: {layout-ncol=2}
-![Zig-Zag サンプラー [@Bierkens+2018-PDMC]](../Process/ZigZag_1D.svg)
-
-![Metropolis-adjusted Langevin Algorithm [@Roberts-Tweedie1996]](../Process/MALA_1D.svg)
-:::
-
-[Diffusive Behaviour]{.absolute bottom=150 right=180 .small-letter .color-unite}
-
-### $t$-分布に対する収束レート
-
-自由度 $\nu$ の $t$-分布 $\rt(\nu)$ に対して，
-
-* Zig-Zag Sampler [@Vasdekis-Roberts2022]
-$$
-\Norm{P^t\paren{(x,\theta),-}-\rt(\nu)}_\TV\le\frac{C_1V_1(x)}{t^k},\qquad k<\nu.
-$$
-
-* Metropolis-adjusted Langevin Algorithm [@Jarner-Tweedie2003]
-$$
-\Norm{P^t\paren{x,-}-\rt(\nu)}_\TV\le\frac{C_2V_2(x)}{t^k},\qquad k<\frac{\nu}{2}.
-$$
-[参考：$\rt(\nu)\Rightarrow\rN(0,1)\;(\nu\to\infty)$．]{.small-letter}
-
-### Zig-Zag 過程の特徴付け
-
-::: {.callout-important appearance="simple" icon="false"}
-
-状態空間を $E'=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ と取ると，Zig-Zag 過程のジャンプは，レート関数
-$$
-\lambda(x,\theta):=\sum_{i=1}^d\lambda_i(x,\theta)
-$$
-が定める強度
-$$
-M(t):=\lambda(x+t\theta,\theta)
-$$
-を持った $\R_+$ 上の非一様 Poisson 点過程に従う．
-
-:::
-
-::: {.small-letter}
-この $E'$ 上の点過程上で，次の確率核 $Q$ に従ってジャンプするとみれる：
-$$
-Q((x,\theta),-):=\sum_{i=1}^d\frac{\lambda_i(x,\theta)}{\lambda(x,\theta)}\delta_{(x,F_i(\theta))}(-)
-$$
-:::
-
-::: {.callout-note title="証明（２つの定義の等価性）" icon="false" collapse="true"}
-
-Zig-Zag 過程に対する２つの定義を与えたが，これら２つが同分布の過程を定めることは証明が必要である．
-
-まず，$\min_{i\in[d]}T_i$ が，強度関数 $M$ が定める到着時刻に同分布であることを示す．
-
-各 $T_i$ の密度は
-$$
-p_i(t)=m_i(t)e^{-M_i(t)}1_{(0,\infty)}(t)
-$$
-で与えられ，$T_i$ は互いに独立だから，$(T_1,\cdots,T_d)$ の結合密度もわかる．
-
-$T_1,\cdots,T_d$ を昇順に並べた順序統計量を
-$$
-T_{(1)}\le\cdots\le T_{(d)}
-$$
-で表すとする．この $d$ 次元確率ベクトルの密度 $p$ は，
-$$
-p(t_1,\cdots,t_d)=1_{\Brace{t_1\le\cdots\le t_d}}(t_1,\cdots,t_d)\paren{\sum_{\sigma\in\mathfrak{S}_d}\prod_{i=1}^dm_i(t_{\sigma(i)})e^{-M_i(t_{\sigma(i)})}}
-$$
-と計算できる．
-
-この $p$ を $t_2,\cdots,t_d$ に関して積分することで，$T_1$ の密度が得られる：^[計算過程は省略したが，$d=2$ の場合と，$d=3$ の場合を少しやってみると良い．]
-\begin{align*}
-    p_{(1)}(t)&=\int_{(0,\infty)^{d-1}}p(t_1,\cdots,t_d)\,dt_2\cdots dt_d\\
-    &=\Paren{\sum_{i=1}^dm_i(t_1)}\exp\paren{-\sum_{i=1}^dM_i(t_1)}=m(t_1)e^{-M(t_1)}.
-\end{align*}
-
-これは確かに，強度関数 $m$ が定める到着時刻の密度である．
-
-続いて，$j=\argmin_{i\in[d]}T_i$ の，$\min_{i\in[d]}T_i$ に関する条件付き確率質量関数が
-$$
-q(i|t)=\frac{m_i(t)}{\sum_{i=1}^dm_i(t)}
-$$
-であることを示す．
-
-そのためには，任意の $i\in[d]$ と $A\in\B(\R^+)$ とに関して $\Brace{T_{(1)}\in A,T_{(1)}=T_i}$ という形の事象を計算し，密度が積の形で与えられることを見れば良い．
-
-\begin{align*}
-    &\qquad\P[T_{(1)}\in A,T_{(1)}=T_i]\\
-    &=\P[T_i\in A,\forall_{j\ne i}\;T_i\le T_j]\\
-    &=\int_Ap_i(t_i)\,dt_i\paren{\sum_{\sigma\in\Aut([d]\setminus\{i\})}\int^\infty_{t_i}p_{\sigma(1)}(t_{\sigma(1)})\,dt_{\sigma(1)}\int^\infty_{t_{\sigma(1)}}p_{\sigma(2)}(t_{\sigma(2)})\,dt_{\sigma(2)}\cdots\int^\infty_{t_{\sigma(d-1)}}p_{\sigma(d)}(t_{\sigma(d)})\,dt_{\sigma(d)}}\\
-    &=\int_Am_i(t_i)\exp\paren{-\sum_{i=1}^dm_i(t_i)}\,dt_i\\
-    &=\int_A\frac{m_i(t_i)}{m(t_i)}m(t_i)e^{-M(t_i)}\,dt_i.
-\end{align*}
-
-よって，$\min_{i\in[d]}T_i$ と $\argmin_{i\in[d]}T_i$ とに関する結合密度は，^[参照測度は，$[d]$ 上のものは計数測度 $\#$ をとっている．]
-$$
-q(i|t)p_{(1)}(t)
-$$
-という積の形で与えられることがわかった．
-
-
-::: {.callout-important appearance="simple" icon="false" title="まとめ"}
-
-1. 前述の定義は，$\min_{i\in[d]}T_i$ の形で密度 $p_{(1)}$ からシミュレーションし，$\argmin_{i\in[d]}T_i$ の形で $q$ からシミュレーションしている．
-2. 後述の定義は，$p_{(1)}(t)$ から直接シミュレーションし，再び $q(i|t)$ から直接シミュレーションをする．
-
-１が２に等価であることがわかった．
-
 :::
 
 :::
 
-### 数学的な見通しの良さ
+### Continuous-time Limit: A Strategy for Efficient Computing
 
-::: {.callout-important appearance="simple" icon="false"}
+'[Limiting case of lifted MH]{.color-unite}' means that we only simulate [**where we should flip the momentum**]{.underline} $\sigma\in\{\pm1\}$ in Lifted MH.
 
-* 運動：速度 $\theta\in\{\pm1\}^d$ による等速直線運動．
-* ジャンプ：$E'=\bigcup_{\theta\in\{\pm1\}^d}\R^d\times\{\theta\}$ 上の [$Q$-付印](../Process/Poisson.qmd#sec-marked-process) された非一様 Poisson 点過程．
+::: {.callout-tip appearance="simple" icon="false" title="[1d Zig Zag sampler @Bierkens+2019]"}
 
-:::
+**Input**: Gradient $\nabla\log p$ of log target density $p$
 
-この定式化の下では，[@Davis1993] により [拡張生成作用素の形](../Process/PureJump.qmd#sec-settings) が一般的な設定で調べられている：$C^1(E)\subset\D(\wh{L})$ かつ
-$$
-\wh{L}f(x,\theta)=\theta\cdot D_xf(x,\theta)+\lambda(x,\theta)\Paren{f(x,-\theta)-f(x,\theta)}.
-$$
+For $n\in\{1,2,\cdots,N\}$:
 
-[{{< fa arrow-right >}}]{.color-minty} 拡散項がジャンプ項になっただけで，従来の MCMC の解析に用いたエルゴード定理がそのまま使える．
-
-### 指数エルゴード性
-
-::: {.callout-tip title="命題 [@Bierkens-Roberts-Zigg2019]" icon="false"}
-
-$U\in C^3(\R^d)$ は次を満たすとする：
-
-1. $\displaystyle\lim_{\abs{x}\to\infty}\frac{\abs{D^2U(x)}\lor1}{\abs{DU(x)}}=0,\qquad\lim_{\abs{x}\to\infty}\frac{\abs{DU(x)}}{U(x)}=0.$
-2. $\gamma_1,\cdots,\gamma_d$ は有界である．
-
-このとき，Zig-Zag 過程は指数エルゴード性を持つ：
-$$
-\Norm{P^t((x,\theta),-)-\pi}_\TV\le V(x,\theta)e^{-ct},\qquad t\ge0,(x,\theta)\in E.
-$$
-:::
-
-::: {.small-letter}
-$\pi$ の分布の裾が指数よりも重い場合などは条件１を満たさない．<br>
-例 ： $\displaystyle\qqquad U(x)=x^\al\qquad(0<\al<1)$
-::: 
-
-### 対象分布の裾が重いと指数エルゴード性が破れる
-
-::: {.callout-tip title="命題（確率測度の差の全変動の表示）" icon="false"}
-
-任意の可測空間 $(E,\cE)$ 上の任意の確率測度 $\mu,\nu\in\cP(E)$ について，
-$$
-\norm{\mu-\nu}_\TV=2\max_{A\in\cE}\Paren{\mu(A)-\nu(A)}.
-$$
+1. Simulate an first arrival time $T_n$ of a [Poisson point process]{.color-unite} (described in the next slide)
+2. Linearly interpolate until time $T_n$:
+    $$
+    X_t = X_{T_{n-1}} + \sigma(t-T_{n-1}),\qquad t\in[T_{n-1},T_n].
+    $$
+3. Go back to Step 1 with the momentum $\sigma\in\{\pm1\}$ flipped
 
 :::
 
-::: {.small-letter}
+### Summary
 
-たとえば $A$ を半径 $t\sqrt{d}$ の閉球 $B_{t\sqrt{d}}$ の補集合 $B_{t\sqrt{d}}^\comp$ と取ると，時刻 $t$ に $B_{t\sqrt{d}}^\comp$ に到着する確率は $0$ だから，
-$$
-\Norm{P^t\paren{(x,\theta),-}-\pi}_\TV\ge\pi(B_{t\sqrt{d}}^\comp),\qquad t\ge0.
-$$
-$\pi$ の裾確率が指数よりも遅い場合，これは指数エルゴード性に矛盾する．
+1. PDMPs have [irreversible dynamics]{.color-unite}
+2. PDMPs are easy to simulate
+3. {{< fa arrow-right >}} Promising for high-dimensional problems
 
-:::
+Using `PDMPFlux.jl`, I want to fit a large Bayesian model, showcasing the usefulness of PDMP samplers.
 
-## まとめと展望
-
-::: {.small-letter}
-
-1. [ダイナミクス]{.underline}<br>
-  多様な動きを取り入れることで，高次元における収束を加速する
-
-    * Boomerang Sampler [@Bierkens+2020]
-    * SUZZ (Speed-Up Zig-Zag) [@Vasdekis-Roberts2023]
-
-2. [シミュレーション]{.underline}<br>
-  Poisson 剪定さえ効率的に出来れば実行可能<br>
-  [{{< fa arrow-right >}}]{.color-minty} 一般的な処方箋を求める方向に研究が進んでいる
-
-    * Automatic Zig-Zag [@Corbella+2022]
-    * Concave-Convex PDMP [@Sutton-Fearnhead2023]
-    * NuZZ (Numerical Zig-Zag) [@Pagani+2023]
-
-:::
-
-### 参考文献 {.unnumbered}
+## References {visibility="uncounted"}
 
 ::: {layout="[40,60]" layout-valign="top"}
 
 ::: {#first-column}
 
-![スライドとコード](Files/QR_804546.svg)
+[![For further details, please see my old introductory slides via the above QR code](../Slides/Files/QR_ZigZagPoliSci.svg)](../Slides/ZigZagPoliSci.qmd)
 
 :::
 
@@ -941,48 +252,3 @@ $\pi$ の裾確率が指数よりも遅い場合，これは指数エルゴー�
 
 :::
 
-
-
-
-
-<!-- ### 不偏なサブサンプリング技術の探求 {visibility="uncounted"}
-
-* [@Quiroz+2019] 一般論の構築を目指して
-* [@Dang+2019] HMC に対する不偏なサブサンプリング
-* [@Zhang+2020] MH に対する不偏なサブサンプリング
-
-### Zig-Zag サンプラーの根本問題 {visibility="uncounted"}
-
-::: {.callout-important appearance="simple" icon="false" title="Zig-Zag サンプラーの応用範囲に直結する重大問題"}
-Poisson 剪定のための，簡単な関数によるタイトな上界
-$$
-\Paren{\theta_iE^k_i(x+\theta t)}_+\le M_i(t)
-$$
-を見つけること．単に具体的な状況で見つけるだけでなく，なるべく一般的な状況でタイトに与える命題が必要．
-:::
-
-1. $U$ の勾配が有界ならば，$M_i$ は定数に取れる．<br>
-  [{{< fa arrow-right >}}]{.color-minty} そんなモデルはロジットモデルくらいだし，多くの場合タイトな評価になっていない．
-
-2. ZZ-CV [@Bierkens+2019]<br>
-  [{{< fa arrow-right >}}]{.color-minty} $U$ の二回微分が有界ならば，$M_i$ を１次関数とする効率的な方法がある．
-
-### Gibbs within Zig-Zag Sampler [@Sachs+2023] {visibility="uncounted"}
-
-階層モデルにおいて，Poisson thinning が効率的に行える成分だけ Zig-Zag サンプラーでアップデートし，それ以外の変数は Gibbs サンプラーのままにする． -->
-
-### 関連ページ {visibility="uncounted" .unnumbered}
-
-::: {.small-letter}
-* Zig-Zag 過程
-  * [０．PDMP 全般](https://162348.github.io/posts/2024/Process/PureJump.html)
-  * [１．基本とエルゴード性](https://162348.github.io/posts/2024/Process/ZigZag.html)
-  * [２．サブサンプリング法について](https://162348.github.io/posts/2024/Stat/ZigZagSubsampling.html)
-  * [Zig-Zag 過程の由来について詳しいポスター発表](https://162348.github.io/posts/2024/Computation/MCMC.html)
-* [Poisson 点過程について](https://162348.github.io/posts/2024/Process/Poisson.html)
-* ロジスティック回帰
-  * [前編：不均衡極限で何が起こるか？](https://162348.github.io/posts/2024/Stat/Logistic.html)
-  * [後編：Zig-Zag サンプラーによる解決](https://162348.github.io/posts/2024/Stat/Logistic2.html)
-* エルゴード性
-  * [Langevin Dynamics の多項式エルゴード性](https://162348.github.io/posts/2024/Process/Langevin.html)
-:::

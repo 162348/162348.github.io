@@ -3,7 +3,7 @@ title: "粒子フィルターの実装"
 subtitle: "リサンプリング編"
 author: "司馬 博文"
 date: 1/14/2024
-categories: [Particles, Python]
+categories: [Particles, Julia]
 bibliography: ../../../assets/mathematics.bib
 csl: ../../../assets/apalike.csl
 abstract: 粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．
@@ -13,15 +13,14 @@ execute:
 listing: 
     -   id: lst-embedding
         type: grid
-        grid-columns: 1
-        grid-item-align: center
         contents:
             - "../../2023/Particles/ParticleFilter.qmd"
+            - "AdvancedPS.qmd"
         date-format: iso
         fields: [title,image,date,subtitle,categories]
 ---
 
-Python を用いた粒子フィルター全体の実装は [粒子フィルターの実装 | Particles Package](../../2023/Particles/ParticleFilter.qmd) 参照：
+## 関連記事 {.unnumbered .unlisted}
 
 ::: {#lst-embedding}
 :::
@@ -33,7 +32,7 @@ Python を用いた粒子フィルター全体の実装は [粒子フィルタ�
 リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．
 
 :::{.callout-tip icon="false" title="問題設定と記法"}
-1. 状態空間を距離空間 $E$ とし，この上の Markov 過程 $\{X_n\}_{n=0}^\infty\subset\L(\Om;E)$ を既知とし，**参照過程** と呼ぶ．
+1. 状態空間を Polish 空間 $E$ とし，この上の Markov 過程 $\{X_n\}_{n=0}^\infty\subset\L(\Om;E)$ を既知とし，**参照過程** と呼ぶ．
 2. この Markov 過程の，時刻 $t\in\N$ までの見本道の分布を $\bM_t(dx_{0:t})\in\cP(E^{t+1})$ と表す．
 3. 非負値な有界可測関数の列 $\{G_n\}_{n=0}^t\subset \L_b(E^2)_+$ に関して，
 $$
@@ -44,10 +43,10 @@ $$
 $$
 \bM_t(dx_{0:t})=\bM_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
 $$
-を用いる．黒板ボールド $\bM_0,\cdots,\bM_t$ は積確率測度で，イタリック体 $M_1,\cdots,M_t$ は確率核を表す．^[確率核に関する記法は [本サイトの数学記法一覧](../../../static/Notations.qmd#sec-kernels) を参照．]
+を用いる．黒板ボールド $\bM_0,\cdots,\bM_t$ は積確率測度で，イタリック体 $M_1,\cdots,M_t$ は確率核を表す．^[確率核に関する記法は [本サイトの数学記法一覧](../../../static/Notations.qmd#sec-kernels) を参照．$E$ を Polish 空間としたため，全ての確率測度 $\bM_t(dx_{0:t})$ はこのように分解 (disintegration) できる．]
 :::
 
-:::{.callout-tip icon="false" title="例（フィルタリング問題と Feynman-Kac 測度）" collapse="true"}
+:::{.callout-caution icon="false" title="例（フィルタリング問題と Feynman-Kac 測度）" appearance="simple"}
 $\{X_n\}$ をシステムダイナミクス，$\{Y_n\}\subset\L(\Om;\R^d)$ を観測モデル
 $$
 \P[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
@@ -55,7 +54,7 @@ $$
 $$
 A\in\B(\R^d),\quad x\in E,
 $$
-に従った観測の過程とした，[状態空間モデル](../../2023/Surveys/SSM.qmd) $(X_n,Y_n)$ におけるフィルタリング問題とは，$y_1,\cdots,y_n,\cdots\in\R^d$ を観測として
+に従った観測の過程とした，[状態空間モデル](../../2023/Surveys/SSM.qmd) $(X_n,Y_n)$ におけるフィルタリング問題とは，$y_1,\cdots,y_n\in\R^d$ を観測として
 $$
 G_n(x_{n-1},x_n):=f_n(y_n|x_n)
 $$
