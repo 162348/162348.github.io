@@ -1,6 +1,6 @@
 ---
 title: "ベイズ階層多ハザードモデル"
-subtitle: "Zig-Zag サンプラーによる大規模推定"
+subtitle: "Zig-Zag サンプラーによるモデル平均法"
 author: "司馬 博文"
 date: 9/12/2024
 date-modified: 10/7/2024
@@ -12,7 +12,10 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-    医療技術評価における生存解析では，打ち切りデータを最もよく外挿できるハザードモデルが探索される．これを polyhazard model で実行するためのベイズ階層モデルとモデル平均法を紹介する．
+    医療技術評価における生存解析では，打ち切りデータを最もよく外挿できるハザードモデルが探索される．
+    そこでモデルの選択が重要な課題になるが，ベイズの方法だとモデル平均というアイデアが使える．
+    これを polyhazard model で実行するためのベイズ階層モデルとモデル平均法を紹介する．
+    キーとなる記述は Zig-Zag サンプラーである．
 image: Images/Polyhazard.png
 listing: 
     -   id: lst-zigzag
@@ -71,7 +74,7 @@ $$
 
 ### ベイズ階層多ハザードモデル
 
-[@Hardcastle+2024] では HTA への応用を念頭に，完全なベイズ階層多ハザードモデルの推定を試みている．
+[@Hardcastle+2024] では [HTA](SurvivalAnalysis.qmd#sec-HTA) への応用を念頭に，完全なベイズ階層多ハザードモデルの推定を試みている．
 
 #### 第１階層
 
@@ -84,15 +87,15 @@ $$
 $$ {#eq-mu}
 を考える．ただし，$\gamma_{k,j}\in2$ は共変量 $x_j$ が $k\in[K]$ 番目の部分モデルに参加するかどうかを決める指示変数とする．
 
-残っているパラメータ $\beta_{k,j}\;(j\in[p])$ には
+式 ([-@eq-mu]) で残っているパラメータ $\beta_{k,j}\;(j\in[p])$ には
 $$
 \beta_{k,j}\sim(1-\om)\delta_0+\om\operatorname{N}(0,\sigma_\beta^2)
 $$
-と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．
+と spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定し，変数選択を促進する．選択された変数については $\gamma_{k,j}=1$ とする．
 
-以降，$\theta_k=(\nu_k,\mu_k)$ とし，$(K,\gamma,\theta)$ を本モデルのパラメータとする．
+以降，$\theta_k=(\nu_k,\mu_k)$ とし，$(K,\gamma,\theta)$ を本モデルのパラメータと理解する（$K$ の事前分布は後述 [-@sec-prior-of-PX]）．
 
-#### 第二階層
+#### 第２階層
 
 $\sigma_\alpha^2=2,\sigma_{\beta_0}^2=5$ は固定してしまうと，$\phi:=(\om,\sigma_\beta)$ がハイパーパラメータとして残っている．これには
 $$
@@ -101,7 +104,7 @@ $$
 $$
 \sigma_\beta\sim\operatorname{HalfCauchy}(0,1)
 $$
-という事前分布をおく．
+という事前分布をおき，$a=b=4$ と固定する．
 
 前者はモデルのサイズについて Beta-二項分布を仮定することに等価である [3.1 節 @Ley-Steel2009]．後者は [@Gelman2006], [@Polson-Scott2012] の推奨の通りである．
 
@@ -119,19 +122,90 @@ K\sim\Pois_{>0}(\xi)
 $$
 個選ぶこととする．
 
-ハイパーパラメータ $\xi$ については，[@Hardcastle+2024] では $\xi=2$ としている．この根拠は
+ハイパーパラメータ $\xi$ については，[@Hardcastle+2024] では $\xi=2$ としている．その根拠の１つに
 $$
-\P[K>4]\approx0.061
+\P[K\ge5]\approx0.061
 $$
-であることとしている．
+を満たす性質が，実際の応用で５つ以上の競合リスクが存在する場面は稀であることに整合することを挙げている：
+
+```{julia}
+#| echo: false
+using Distributions
+using StatsPlots
+using LaTeXStrings
+
+# パラメータ設定
+λ = 2  # 母数
+
+# 確率質量関数のプロット
+plot(1:9, pdf.(Poisson(λ), 1:9)./(1-pdf(Poisson(λ), 0)), 
+    line=:stem,  # 棒グラフスタイル
+    marker=:circle,  # 点のマーカー
+    linewidth=2,
+    markersize=4,
+    label="Theoretical PMF",
+    title=L"\mathrm{Pois}_{>0}(2)",
+    xlabel=L"K",
+    ylabel="mass",
+    legend=:topright,
+    color="#78C2AD"
+)
+```
 
 ## PDMP によるベイズ競合リスク分析
 
-### $\theta$ の Zig-Zag サンプリング
+### はじめに
 
+前節で定義されたモデルのパラメータ空間
+$$
+(K,D,\gamma,\phi,\theta)
+$$
+上での事後分布サンプリングを行うことを考える．$\phi=(\om,\sigma_\beta)$ はハイパーパラメータである．
 
+基本的には $\theta=(\theta_k)=(\nu_k,\mu_k)$ の事後分布サンプリングを考えるのであるが，$K,\gamma$ の如何によって $\theta$ の次元が変化する．
 
-モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] を Concave-Convex PDMP [@Sutton-Fearnhead2023] で修正して用いる．
+加えて $D$ の如何によって尤度が変化するから，Poisson 点過程の強度関数に解析的な上界が見つかるはずもないため，Automatic Zig-Zag [@Corbella+2022] と Concave-Convex PDMP [@Sutton-Fearnhead2023] を組み合わせて用いる．
+
+### $\theta$ の Zig-Zag サンプリング {#sec-theta}
+
+polyhazard model の標準的なサンプラーには Gibbs サンプラーや NUTS サンプラーがあり得るが，いずれも複数の次元の間を飛び回れるように拡張するには，空間の間の跳躍をうまく設計する必要がある．
+
+この点で Zig-Zag サンプラーは従来のサンプリング法と対等であるが，今回の設定には多峰性の懸念も存在する．
+
+というのも，$D$ によって指定される分布は互いに交換可能であるため，混合モデリングにおける label switching problem [@Jasra+2005] 同様に事後分布は必然的に多峰性（対称性）を帯びるはずである．
+
+多峰性への対処という点では，Zig-Zag サンプラーに軍配が上がるはずである [@Andrieu-Livingstone2021]．
+
+### ハイパーパラメータ $\phi$ のサンプリング
+
+$(\theta,\phi)$ 上から結合分布を Zig-Zag サンプリングすることも可能であるが，$\theta$ は $\phi$ に依存するため，事後分布は強い相関構造を持つと予想される．
+
+一方でこの条件付き構造は Gibbs サンプラーの発想で有効に利用したいものである．これには Zig-Zag within Gibbs [@Sachs+2023] を用いることができる．
+
+この方法によれば，ハイパーパラメータ $\phi=(\om,\sigma_\beta)$ を固定した下で他の変数をサンプリングすることになる．この設定では次に論じるように変数選択の指示変数 $\gamma$ に対する効率的なシミュレーション法も導く．
+
+### 変数選択 $\gamma$ のサンプリング
+
+一般にベイズ変数選択は $\gamma$ のような指示変数のサンプリングに問題を帰着させる方法 [@Zanella2020] が state-of-the-art とされる．
+
+しかし各 $\gamma\in 2^{Kp}$ に対応するモデルの（周辺）尤度の計算が困難な場面は多く，特に今回の生存モデルはその一例である [@Liang+2023]．
+
+しかし Zig-Zag サンプラーでは $\{\beta_{k,j}=0\}$ のなす部分空間を通過する際に一定の確率でランダムな時間ここに囚われることで，自然な形で trans-dimensional なサンプリングが可能になることが [@Chevallier+2023], [@Bierkens+2023] により同時に提案されている．
+
+この際 $\{\beta_{k,j}=0\}$ から脱出する確率は時刻や位置に依らず（ハイパーパラメータ $\om$ の下で）一定であり，一様な Poisson 点過程のシミュレーションにより実現される．この意味で Zig-Zag サンプラーによる変数選択は，周辺尤度の計算を回避した効率的な計算法を提供する．
+
+### $K,D$ のサンプリング
+
+ここでは birth-death-swap 過程を用いる．というのも，３つの Poisson 点過程 $\Lambda^b,\Lambda^d,\Lambda^s$ を用いて，これが到着するごとに確率核 $q_b,q_d,q_s$ に従って新たなハザード関数の追加・消去・取り替えが起こる．
+
+取り替えは必ずしも必要がないが，これの追加により多峰性の問題 [-@sec-theta] が解決され，サンプラーの収束が改善されるという．
+
+birth-death 過程は次の詳細釣り合い条件を満たせば良い：
+$$
+\Lambda^b(t)\pi(\theta,D,K)q_b(u)=\Lambda^d(t)\pi(\theta',D',K')q_d(u').
+$$
+
+この方法は Zig-Zag within Gibbs [@Sachs+2023] の Gibbs 核を，[@Green1995] の超次元跳躍核に取り替えていることに等しい．
 
 ## 文献紹介 {.appendix}
 
