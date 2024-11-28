@@ -1,0 +1,131 @@
+---
+title: "理想点解析とモデル平均"
+subtitle: "PDMP サンプラーによる大規模ベイズ推定"
+author: "司馬 博文"
+date: 11/22/2024
+date-modified: 11/28/2024
+categories: [Bayesian, Statistics, MCMC]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+    - IdealPoint.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    理想点解析とは，政治学において国会議員のイデオロギーを定量化・視覚化する方法論である．この手法は多くの側面を持ち，項目反応モデルであると同時に[多次元展開法](../Kernels/Manifold.qmd#sec-MDU) (MDU: Multidimensional Unfolding)でもある．
+code-fold: false
+execute:
+    cache: true
+listing: 
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 2
+        grid-item-align: center
+        contents:
+            - "IdealPoint.qmd"
+            - "IdealPoint1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 理想点解析と項目反応モデル
+
+理想点解析とは，項目反応モデルを利用した各議員（立法府の構成員など）の行動様式・イデオロギーの定量化・視覚化の手法である．
+
+詳しくは次項を参照：
+
+::: {#lst-embedding}
+:::
+
+本稿では理想点解析を目標として，項目反応モデル，特に二項選択モデルをベイズ推定する方法を考える．
+
+その中でも，理想点 $x_i\in\R^d$ の次元 $d$ に関してモデル選択を行うことを考える．
+
+## 変数選択と Sticky PDMP サンプラー
+
+### はじめに
+
+まずは次の標準的な理想点モデルを考える [@Imai+2016 p.633] 参照：
+
+::: {.callout-tip icon="false" title="標準的な理想点モデル"}
+
+$i\in[N]$ 番目の議員が $j\in[J]$ 番目の法案に対して賛成ならば $y^i_j=1$，反対ならば $y^i_j=0$ のデータ $y\in M_{N,J}(2)$ が得られているとする．
+
+このとき $i\in[N]$ 番目の議員の理想点 $x_i\in\R^d$ は，$y^i$ を次のように予測する潜在変数とする：
+\begin{align*}
+  y^i_j&=1_{\R^+}(\wt{y}^i_j)\\
+  \wt{y}^i_j&=x_i^\top\beta_j+\ep^i_j,\qquad\ep^i_j\iidsim\rN(0,1).
+\end{align*}
+
+すなわち $d$-母数のロジット項目反応モデルにおいて，議員ごとの母数である $x_i\in\R^d$ を **理想点** と呼ぶ．項目識別母数 $\beta_j\in\R^d$ は法案ごとの性質の違いを表しているものと考える．
+
+換言すれば，$\Phi$ を $\rN(0,1)$ の分布関数として，次のプロビットモデルが想定されたことになる：
+$$
+\P[y^i_j=1]=\Phi(x_i^\top\beta_j).
+$$
+
+:::
+
+このモデルの潜在変数 $\wt{y}$ とパラメータ $(x_i)_{i=1}^N\in M_{dN}(\R),(\beta_j)_{j=1}^J\in M_{dJ}(\R)$ の事後分布を推定すると同時に，理想点の次元 $d$ についてモデル選択を行うことを考える．
+
+### 事後分布の表示
+
+$(x_i),(\beta_j)$
+
+\begin{align*}
+  p(\wt{y},x,\beta|y)&=
+\end{align*}
+
+このモデルはテーブルデータ $y^i_j$ の対称性の崩れに全ての情報が委ねられている．その性質上強い多峰性を持った事後分布になるはずであり，本質的に MCMC のサンプリングが困難である．
+
+そこでここでは PDMP サンプラーを用いた事後分布サンプリングを試みる．
+
+## モデルの拡張
+
+### 時系列データへの適用
+
+[@Martin-Quinn2002] は最高裁判事の理想点の経時変化を解析し，その MCMC を通じた推定法が `MCMCpack` パッケージで実装されている [@Martin+2011]．
+
+しかしこの方法は極めて時間がかかることで知られており，[@Imai+2016 p.643] は代わりに変分ベイズ推論による推定法を提案し，５日の推定時間が４秒に短縮されたとしている．
+
+### 階層化
+
+[@Bafumi+2005] では従来のモデル
+$$
+y^*_l=\al_{j[l]}+x_{i[l]}^\top\beta_{j[l]}+\ep_l,\qquad\ep_l\iidsim\rN(0,1)
+$$
+に次の階層構造を加えたモデルを考察している：
+$$
+x_{i[l]}=\gamma_{g[i[l]]}^\top z_{i[l]}+\eta_{i[l]},\qquad\eta_{i[l]}\iidsim\rN(0,\sigma^2_{g[i[l]]}).
+$$
+
+これにより議員 $i[l]\in [N]$ ごとに異なる共変量 $z_{i[l]}\in\R^M$ をモデルに加味することが可能になっている．
+
+$g:[N]\to\bN$ は議員のグループを表している．
+
+::: {.callout-caution title="線型トレンド時系列モデルとしての解釈" collapse="true" icon="false"}
+
+$g:[N]\to\bN$ を議員番号とし，$i[l]$ を当該議員の累計議員経験年数とする（○○議員３期目，など）．
+
+加えて $z_{i[l]}$ を累計議員経験年数と取ると，議員ごとに係数 $\gamma_{g[i[l]]}$ を持った線型トレンドをモデリングすることに相当する．
+
+このモデルは DW-NOMINATE [@Poole-Rosenthal1997] が用いたのちに [@Bailey2007] などでも継承されている．
+
+:::
+
+## クラスタリングと ZigZag-within-Gibbs サンプラー
+
+## 注 {.appendix}
+
+本稿は [@Imai+2016] と [@Hardcastle+2024] に触発されて書かれた．[@Imai+2016] では種々の理想点モデルを，最も純粋なものから真に興味深い複雑なものまで，変分ベイズ推論の観点で統一的に扱っている．[@Hardcastle+2024] では大規模な polyhazard モデルとそのモデル選択を，単一の PDMP サンプラーで行っている．
+
+一方で本稿はあくまで MCMC の正統進化としての PDMP サンプラーを主軸に据えることを提案する．これにより正確でバイアスのない推定を，従来よりもはるかに高速に推定できることを示す．
+
+加えて PDMP サンプラーでは次のような追加の利点がある
+
+* [@Imai+2016] のようなパラメトリックブートストラップをせずとも自然な不確実性の定量化を与える．
+* モデル選択と平均を同時に行うことができる．
+
