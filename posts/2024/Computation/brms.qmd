@@ -3,7 +3,7 @@ title: "R によるベイズ混合モデリング入門"
 subtitle: "brms を用いた混合効果モデリング入門"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 9/12/2024
+date-modified: 12/8/2024
 categories: [Bayesian, MCMC, R, Stan, Statistics]
 image: ./brms_files/figure-html/unnamed-chunk-4-1.png
 bibliography: 
@@ -333,7 +333,7 @@ $x_i$ と $\al_{s[i]}$ に相関がある場合，$x_i$ と $\eta_s$ にも相�
 $$
 y_i=\al_0+\beta x_i+\ep_i.
 $$
-このことを **完全プーリングモデル** (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを **部分プーリングモデル** (partial pooling model) と呼んで対比させることがある．^[[@Bafumi-Gelman2007 p.5] や [@久保川達也2006 p.141] も参照．]
+このことを **完全プーリングモデル** (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを **部分プーリングモデル** (partial pooling model) と呼んで対比させることがある．^[[@Bafumi-Gelman2007 p.5] や [@久保川達也2006 p.141] も参照．[@Cunningham21-Mixtape] は pooled OLS と呼んでいる．]
 
 周辺モデル (marginal model) や **母平均モデル** (population-average model) とも呼ばれる [@Gardiner+2009 p.228]．
 
@@ -353,18 +353,27 @@ $$
 $$
 y_i=\al_{s[i]}^{\text{unmodeled}}+\beta x_i+\ep_i
 $$
-$$
-\al_s^{\text{unmodeled}}\sim\rN(\al_0,\infty)
-$$
 として，グループ毎に変動する切片項 $\al_{s[i]}^{\text{unmodeled}}$ を許すが，この変数自体にモデルは仮定しない，とすることもできる．
 
-このようなモデルは，グループ毎に別々の回帰分析を実行し，$\beta$ の値はこれらのグループの間で適切に重みづけて最終的な推定値としているに等しい．
+したがってグループ毎に別々の回帰分析を実行し，別々の切片 $\al_{s[i]}^{\text{unmodeled}}$ を得て，$\beta$ の値はこれらのグループの間で適切に重みづけて最終的な推定値としているに等しい．
 
-すなわち，グループの数だけ，グループへの所属を表す２値変数 $1_{s[i]=s}$ を導入し，$S$ 個の項 $\sum_{s=1}^S1_{s[i]=s}\al_{s[i]}^{\text{unmodeled}}$ を説明変数に加えて回帰分析を行うことに等しい．
+すなわち，グループの数だけ，グループへの所属を表す２値変数 $1_{\Brace{s[i]=s}}$ を導入し，$S$ 個の項 $\sum_{s=1}^S1_{\Brace{s[i]=s}}\al_{s[i]}^{\text{unmodeled}}$ を説明変数に加えて回帰分析を行うことに等しい．
+
+ベイズ的には，変動係数の場合は更なる構造
+$$
+\al_s=\al_0+\eta_s,\qquad s\in[S],
+$$
+に基づきグループレベルにばらつく確率構造が仮定されているのと対照的に，improper な一様事前分布
+$$
+\al_s^{\text{unmodeled}}\iidsim\rN(\al_0,\infty)
+$$
+を仮定した場合が固定効果モデルであると理解される [@BDA p.383]．
+
+また群内平均を引いた値 $y_i-\ov{y}_{s[i]}$ を目的変数として，説明変数 $x_i-\ov{x}_{s[i]}$ により回帰分析を行うこととも等価である．この変換により $\al_{s[i]}^{\text{unmodeled}}$ が消去されると考えられるのである．
 
 ::: {.callout-caution title="固定効果モデルの別名" icon="false" appearance="simple"}
 
-* [@Hansen2022] をはじめ，計量経済学では fixed effects model と呼ばれる．
+* [@Hansen2022] をはじめ，計量経済学では fixed effects model と呼ばれる．^[特にパネルデータの文脈では within estimator ともいう [@Cunningham21-Mixtape]．]
 * [@Bafumi-Gelman2007] は unmodeled varying intercept と呼んでいる．
 * least squares dummy variable regression とも呼べる．^[[@Bafumi-Gelman2007 p.5]，[@Hansen2022 p.609] 17.11節 など．狭義では，fixed effects model は within transformation を行い，グループ間の影響を引いたあとに回帰を実行する……という手続きを指すこともあるが，２つは等価な結果を生む．詳しくは [@Cunningham21-Mixtape] なども参照．]
 
