@@ -3,7 +3,7 @@ title: "ベイズ分散分析のモデル解析"
 subtitle: "心理学実験を題材として"
 author: "司馬 博文"
 date: 9/24/2024
-date-modified: 9/24/2024
+date-modified: 12/7/2024
 categories: [Bayesian, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -18,6 +18,8 @@ abstract: |
     本稿では特にベイズ ANOVA 手法 [@Rouder+2016] を採用して，そのモデルケースを実証する．
 # image: Images/Polyhazard.png
 code-fold: false
+execute:
+    cache: false
 listing: 
     -   id: lst-survey
         type: grid
@@ -50,7 +52,7 @@ listing:
 
 ## 社会的なロボット
 
-### はじめに
+### はじめに {#sec-preprocessing}
 
 [@Horstmann+2018] は（偽の）心理実験が終了した後にロボットの電源を切るように命令された被験者が，実際にその指示に従うまでの時間が，ロボットの反応によりどう変化するかを調べた．
 
@@ -80,7 +82,8 @@ df$SwitchOff_Time
 
 ```{r}
 df <- df[!is.na(df$SwitchOff_Time), ]
-df[df$SwitchOff_Time == 0, ]$SwitchOff_Time <- 1  # questionable ?
+# df[df$SwitchOff_Time == 0, ]$SwitchOff_Time <- 1  # questionable ?
+df <- df[df$SwitchOff_Time > 0, ]
 df$log_data <- log(df$SwitchOff_Time)
 ```
 
@@ -146,20 +149,24 @@ df$S <- factor(df$S)
 summary(aov(log_data ~ O * S, data = df))
 ```
 
-いずれの因子も有意にはならない．
+因子 O と交差項 O*S は有意になったが他は棄却されなかった．
 
 しかし O と S の交互作用は少しあるかもしれないと期待させられるような結果である．
 
-棄却はされなかった以上，統計的検定を通じたこれ以上の検討はできないが，ベイズの方法でさらに深く検討することができる．
+統計的検定はあくまで棄却されるかどうかのみであり，$p$ 値の値にはこれ以上解釈可能な意味はない．しかし，ベイズの方法でさらに深く検討することができる．
 
 ### ベイズ分散分析の実行
 
 ここではベイズ分散分析の提案者である Rouder と Morey による [`BayesFactor`](https://richarddmorey.github.io/BayesFactor/) パッケージを用いる．
 
-その `anovaBF` 関数では，帰無仮説に対応するモデル（切片項のみのモデル）に対する [JZS 因子](Survey1.qmd#sec-JZS-factor) を出力する：
+```{r}
+#| output: false
+library(BayesFactor)
+```
+
+その `anovaBF` 関数では，帰無仮説に対応するモデル（切片項のみのモデル）に対する [JZS 因子](Survey1.qmd#sec-JZS-factor) を精度保証付きで出力する：
 
 ```{r}
-library(BayesFactor)
 bf = anovaBF(log_data ~ O * S, data = df)
 bf
 ```
@@ -170,23 +177,123 @@ bf
 
 これを見る限り，O を含んだモデルが大きく支持され，S のみを含んだモデルはむしろ切片のみのモデルよりも予測性能が悪い．
 
-O と S の両方を含んだモデルは，交差項の追加により大きく改善される．
+O と S の両方を含んだモデルは，交差項の追加により大きく改善されるが，O のみを含んだモデルより劣るようである．^[このような検討は，モデル平均を取ることによってさらに詳細に行うことができる．詳しくは [@vandenBergh+2020] も参照．]
+
+### 因子ごとの強度の検討
+
+Bayes ANOVA により，どの因子を含むモデルがデータをよく予測するかを検討した．
+
+ここでは各因子の影響の大きさを，フルモデルの係数をベイズ推定することで定量的に比較する．
+
+`BayesFactor` パッケージにおいて，フルモデルのベイズ推定は次のように実行できる：
+
+```{r}
+full_model <- lmBF(log_data ~ O + S + O * S, data = df)
+chains <- posterior(full_model, iterations = 10000)
+plot(chains[,1:3])
+plot(chains[,4:5])
+plot(chains[,6:7])
+```
+
+`mu` とは切片項のことである（[別稿](Survey1.qmd#sec-lm-ANOVA) も参照）．また，２つの水準のみを持つ因子については，それぞれの水準が $\pm1$ としてコーディングされる．
+
+これを見ると，S はほとんど $0$ 近くの値が推定されている一方で，O は $0$ からはっきり離れた値が推定されている．
+
+S*O の係数は $0$ を少なくない確率で跨いでおり，十分に支持されるとは言えない．
 
 ## ハリーポッターを用いた性格テスト
 
-## 参考文献 {.appendix}
+### はじめに
 
-本稿の解析は [@vandenBergh+2020] に基づく．
+[@Jakob+2019] では被験者にハリーポッターの４つの寮のうちどれを希望するか？と [ダークトライアド](https://ja.wikipedia.org/wiki/ダークトライアド) 傾向テストの２つのデータをとり，特に [マキャベリズム](https://ja.wikipedia.org/wiki/マキャヴェリズム) 的傾向との関係を調査した．
 
-Bayes Anova は階層モデルにおいてどの成分が予測に重要な意味を持つかを定量する極めて強力な手法である．[@BDA p.423] 16.5 節に良い例がある．
+```{r}
+#| output: false
+raw_df <- read.csv("Files/harry_all.csv", sep = ";")
+df <- data.frame(
+  House = raw_df$Sorting_house_wish,
+  Machiavellianism = raw_df$SD3_Machiavellianism
+)
+```
 
-> the analysis of variance is a helpful tool in understanding the importance of diﬀerent components in a hierarchical model. [@BDA p.423]
+### 解析の目標
 
-その他の Bayes ANOVA の文献には [@Gelman2005] などがある．
+マキャベリズム的傾向は $10$ から $45$ までの整数値で表されている．これを寮の選択により予測することを考える．
+
+前節の例では２つの因子を検討したが，いずれも水準は２つのみであった．
+
+ここでは４つの水準を持つ因子を検討し，どの水準が応答により強く影響を与えるかを見分ける方法を検討する．
+
+そもそもこの寮の選択という因子はとんでもない JZS スコアを叩き出す．
+
+```{r}
+df$House <- factor(df$House)
+bf = anovaBF(Machiavellianism ~ House, data = df)
+bf
+```
+
+### 水準ごとの強度の検討
+
+実は，全ての水準が必ずしもマキャベリズムの予測に関係するとは言えない．
+
+実際簡単に箱ひげ図を描いてみることでそのことが伺える：
+
+```{r}
+boxplot(
+  Machiavellianism ~ House, data = df,
+  main = "Boxplot of Four Data Sets",
+  xlab = "Data Sets",
+  ylab = "Values",
+  col = c("pink", "yellow", "skyblue", "lightgreen")
+)
+```
+
+スリザリンが明らかにマキャベリズム的傾向が高いが，ハッフルパフが有意に低いかどうかの判断がつかない．
+
+そこでダミー変数を説明変数として
+
+```{r}
+#| output: false
+library(ggplot2)
+library(dplyr)
+
+chains <- posterior(bf, iterations = 10000)
+posterior_samples <- as.data.frame(as.matrix(chains))
+
+posterior_long <- posterior_samples %>%
+  dplyr::select(`House-Gryffindor`, `House-Hufflepuff`, `House-Ravenclaw`, `House-Slytherin`) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "House",
+    values_to = "Value"
+  )
+```
+```{r}
+ggplot(posterior_long, aes(x = Value, fill = House, color = House)) +
+  geom_density(alpha = 0.4) +
+  labs(
+    title = "Posterior Distributions of House Effects",
+    x = "Coefficient Value",
+    y = "Density"
+  ) +
+  scale_fill_manual(values = c("pink", "yellow", "skyblue", "lightgreen")) +
+  scale_color_manual(values = c("pink", "yellow", "skyblue", "lightgreen")) +
+  theme_minimal()
+```
+
+スリザリンはもちろん，ハッフルパフの係数もほとんど他の寮と共通部分を持たず，効果がはっきり分離できることが見て取れる．
 
 ## 終わりに {.appendix}
 
-ベイズ ANOVA の注意点をここに付しておく．
+ここでは complete case analysis を行った [-@sec-preprocessing]．
+
+さらに時間の対数を取れないような，`SwitchOff_Time` が 0 のケースを除外した．
+
+この行為の正当性は結構怪しく，元論文 [@Horstmann+2018] での実験計画に戻って正当性を検討する必要があるだろうが，ここではデータ解析のワークフローを見せることを優先してこのような処理を行なった．
+
+また残差の正規性の仮定から大きく離反することが懸念される場合は，ベイズ ANOVA の [デフォルト線型モデル解釈](Survey1.qmd#sec-lm-ANOVA) は不適になるため，適切な事前分布を設定して一般のサンプラーを用いたベイズ推論を実行する必要があるが，やはり Bayes ANOVA は同じ要領で可能である．
+
+続いて ベイズ ANOVA の注意点をここに付しておく．
 
 科学としては，ANOVA と統計的検定はベイズ推論とモデル比較の手続きで代替されるべきであると言える．
 
@@ -199,3 +306,13 @@ Bayes Anova は階層モデルにおいてどの成分が予測に重要な意�
 一方で `bayesanova` ([CRAN](https://cran.r-project.org/web/packages/bayesanova/index.html) / [GitHub](https://github.com/cran/bayesanova)) [@Kelter2022] は，検定ライクな手続きを根本的に排除しており，Gauss 混合モデルとして Gibbs サンプラーによるベイズ推定を実行し，ROPE (Region of Practical Equivalence) [@Kruschke2018] を用いたベイズ事後分布に基づくモデル比較を行う．
 
 もちろんこのような完全なモデリングを行うことが理想かもしれないが，従来の ANOVA になれきっている研究者にとっては，Bayesian ANOVA に手を伸ばしてみることが次のステップとして大変良いだろう．
+
+## 参考文献 {.appendix}
+
+本稿の解析は [@vandenBergh+2020] に基づく．
+
+Bayes Anova は階層モデルにおいてどの成分が予測に重要な意味を持つかを定量する極めて強力な手法である．[@BDA p.423] 16.5 節に良い例がある．
+
+> the analysis of variance is a helpful tool in understanding the importance of diﬀerent components in a hierarchical model. [@BDA p.423]
+
+その他の Bayes ANOVA の文献には [@Gelman2005] などがある．
