@@ -1,10 +1,10 @@
 ---
 title: "ベイズ分散分析のモデル解析"
 subtitle: "心理学実験を題材として"
-author: "司馬 博文"
+author: "司馬博文"
 date: 9/24/2024
-date-modified: 12/7/2024
-categories: [Bayesian, Statistics]
+date-modified: 12/8/2024
+categories: [Bayesian, Statistics, R]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
@@ -16,10 +16,10 @@ abstract: |
     しかし，古典的な ANOVA 解析手法である F-検定や t-検定は，データの一側面しか伝えない．
     一方で，モデルの仮定を前面に出したベイズ的な解析手法は，データを探索的に吟味することができ，極めて微妙な消息も捉えることが可能になる．
     本稿では特にベイズ ANOVA 手法 [@Rouder+2016] を採用して，そのモデルケースを実証する．
-# image: Images/Polyhazard.png
+image: Files/House.png
 code-fold: false
 execute:
-    cache: false
+    cache: true
 listing: 
     -   id: lst-survey
         type: grid
@@ -197,9 +197,55 @@ plot(chains[,6:7])
 
 `mu` とは切片項のことである（[別稿](Survey1.qmd#sec-lm-ANOVA) も参照）．また，２つの水準のみを持つ因子については，それぞれの水準が $\pm1$ としてコーディングされる．
 
+`posterior` 関数はデータ拡張に基づく Gibbs サンプラーが実行される．
+
 これを見ると，S はほとんど $0$ 近くの値が推定されている一方で，O は $0$ からはっきり離れた値が推定されている．
 
 S*O の係数は $0$ を少なくない確率で跨いでおり，十分に支持されるとは言えない．
+
+事後分布を同一画面上にプロットすると次のとおり：
+
+```{r}
+#| output: false
+library(ggplot2)
+library(dplyr)
+
+posterior_samples <- as.data.frame(as.matrix(chains))
+colnames(posterior_samples)[2:9] <- c("O-O", "O-", "S-S", "S-", "O:S-OS", "O:S-O", "O:S-S", "O:S-")
+
+posterior_long <- posterior_samples %>%
+  dplyr::select(`O-O`, `O-`, `S-S`, `S-`, `O:S-OS`, `O:S-O`, `O:S-S`, `O:S-`) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "x",
+    values_to = "y"
+  )
+```
+
+```{r}
+ggplot(posterior_long, aes(x = y, fill = x, color = x)) +
+  geom_density(alpha = 0.4) +
+  labs(
+    title = "Posterior Distributions of Effects",
+    x = "Coefficient Value",
+    y = "Density"
+  ) +
+  scale_fill_manual(values = c("pink", "pink", "skyblue", "skyblue", "yellow", "yellow", "grey", "grey")) +
+  scale_color_manual(values = c("pink", "pink", "skyblue", "skyblue", "yellow", "yellow", "grey", "grey")) +
+  theme_minimal()
+```
+
+### まとめ
+
+係数の事後分布が $0$ を台に持つかの検討を通じて，データから O の説明力の強い証拠が伺える．これが Bayes ANOVA である．
+
+S の影響は小さいと思われるが，Objection が存在したグループ内で S のあるなしは影響があり得るようである．
+
+そこで次の解析として，O の係数を S によって回帰する変動係数モデルによる解析があり得るだろう．
+
+このようにして，変数を選択するだけでなく，交差項 S*O の影響も仔細に検討できることがベイズによる視覚的な解析の強みである．
+
+検定や数値的な検討のみからこの絶妙な消息が捉えられたかというと，それは難しいだろうと筆者には思われる．
 
 ## ハリーポッターを用いた性格テスト
 
@@ -254,14 +300,13 @@ boxplot(
 
 ```{r}
 #| output: false
-library(ggplot2)
-library(dplyr)
-
 chains <- posterior(bf, iterations = 10000)
 posterior_samples <- as.data.frame(as.matrix(chains))
 
+colnames(posterior_samples)[2:5] <- c("Gryffindor", "Hufflepuff", "Ravenclaw", "Slytherin")
+
 posterior_long <- posterior_samples %>%
-  dplyr::select(`House-Gryffindor`, `House-Hufflepuff`, `House-Ravenclaw`, `House-Slytherin`) %>%
+  dplyr::select(`Gryffindor`, `Hufflepuff`, `Ravenclaw`, `Slytherin`) %>%
   tidyr::pivot_longer(
     cols = everything(),
     names_to = "House",
@@ -282,6 +327,14 @@ ggplot(posterior_long, aes(x = Value, fill = House, color = House)) +
 ```
 
 スリザリンはもちろん，ハッフルパフの係数もほとんど他の寮と共通部分を持たず，効果がはっきり分離できることが見て取れる．
+
+### まとめ
+
+検定を行って，寮の選択はマキャベリズム的傾向を予測するのに有用だとわかった後，具体的にどの水準にどれくらいの効果があるかや，水準同士の効果量の比較をするには古典的には多重比較を行う必要があった．
+
+多重比較には多くの問題があることが知られている [@岡田謙介2014]. [@永田靖2022]．^[ベイズ流に多重比較を行うこともでき，多くの問題を迂回できることが知られている．[@岡田謙介2014], [@vandenBergh+2020] も参照．]
+
+一方でベイズ ANOVA によるプロットでは，事後分布が $0$ を含むかどうかで直感的に ANOVA 検定様の判断が可能であり，続いて効果量の比較も一目瞭然である．
 
 ## 終わりに {.appendix}
 
