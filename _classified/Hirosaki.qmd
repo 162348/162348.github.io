@@ -1,0 +1,222 @@
+---
+title: "BMI と LAB の関係"
+subtitle: "`hirosaki_data` を用いて"
+author: "司馬博文"
+date: 12/9/2024
+execute: 
+  cache: true
+# format:
+#   pdf:
+#     fig-format: png
+#     template-partials:
+#       - ../assets/before-body.tex
+# pdf-engine: lualatex
+# documentclass: ltjsarticle
+# format:
+#   typst:
+#     margin:
+#       x: 1.5em
+#       y: 1.5em
+#     mainfont: "UDEV Gothic NF"
+#     fig-format: svg
+---
+
+## データの概観
+
+```{r}
+#| output: false
+library(readxl)
+raw_df <- read_excel("../../Desktop/NurtureOfMentalism/3-BayesianDataAnalysis/Files/hirosaki_data.xlsx")
+raw_df
+```
+
+<!--
+```{r}
+#| overflow: wrap
+colnames(raw_df)
+```
+-->
+
+初めに `BMI` を３つのカテゴリに分類して解析する．
+
+```{r}
+#| output: false
+library(dplyr)
+raw_df <- raw_df %>%
+  mutate(BMIcate_3 = case_when(
+  BMI < 18.5 ~ "underweight",
+  BMI < 25 ~ "normal",
+  BMI >= 25 ~ "obese",
+  TRUE ~ "E"
+  ))
+```
+
+```{r}
+boxplot(
+  raw_df$LAB_color_100 ~ raw_df$BMIcate_3,
+  col = c("gray", "pink", "skyblue"),
+  main = "LAB classified by BMI",
+  xlab = "BMI",
+  ylab = "LAB"
+)
+```
+
+## 多項ロジスティック回帰
+
+まずはデフォルトのまま適用してみる．
+
+```{r}
+#| output: false
+library(brms)
+logit_model <- bf(
+  BMIcate_3 ~ LAB_color_100,
+  family = categorical(link = "logit")
+)
+```
+
+```{r}
+library(knitr) # used for the "kable" command
+kable(get_prior(logit_model, data = raw_df))
+```
+
+```{r}
+#| output: false
+model_logistic <- brm(
+  logit_model,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+summary(model_logistic)
+```
+
+```{r}
+plot(model_logistic)
+```
+
+結構 obese と underweight で効果が非対称なのがわかる．肥満のリスクは上がるが，「痩せるリスク」というのはあまり変わらないように思える．
+
+係数の事前分布を正規分布に変更した場合を考えてみる．
+
+```{r}
+#| output: false
+prior_normal <- c(
+  set_prior("normal(0, 2)", class = "b", coef = "LAB_color_100", dpar = "muobese"),
+  set_prior("normal(0, 2)", class = "b", coef = "LAB_color_100", dpar = "muunderweight")
+)
+model_logistic_normalprior <- update(model_logistic, prior = prior_normal)
+```
+
+```{r}
+plot(model_logistic_normalprior)
+```
+
+### 事後予測チェック
+
+２種類の事前分布を用いたから，そのどちらが適切かを事後予測チェックで確認する．
+
+```{r}
+library(ggplot2)
+pp_check(model_logistic, type="bars", ndraws=100) + 
+  scale_x_discrete("BMI", breaks=c(1,2,3), labels=c("underweight", "normal", "obese")) + 
+  ylab("LAB") + ggtitle("Posterior predictive check", "Uniform prior")
+```
+
+```{r}
+pp_check(model_logistic_normalprior, type="bars", ndraws=100) + 
+  scale_x_discrete("BMI", breaks=c(1,2,3), labels=c("underweight", "normal", "obese")) + 
+  ylab("LAB") + ggtitle("Posterior predictive check", "Normal prior")
+```
+
+```{r}
+#| output: false
+library(gridExtra)
+```
+```{r}
+p1 <- pp_check(model_logistic, ndraws=100) + theme(legend.position = "none")
+p2 <- pp_check(model_logistic_normalprior, ndraws=100) + theme(legend.position = "none")
+grid.arrange(p1, p2, ncol = 2)
+```
+
+ほとんど変わらないように思われる．係数の事前分布を正規分布にするか，一様分布（デフォルト）のままにするかは（予測の観点からは）ほとんど影響がないと見て良いだろう．
+
+## BMI への回帰
+
+`BMI` を３カテゴリに分けてロジスティック回帰を行うと，モデルの非線型性から変数の選択が少し困難になるため，`BMI` そのものを回帰することを考える：
+
+```{r}
+linear_model <- lm(
+  BMI ~ LAB_color_100 * LDL,
+  data = raw_df
+)
+summary(linear_model)
+```
+
+`LAB_color_100` と `LDL` は強い共線型性を持つため，この結果はあまり意味を持たないと思って良い．
+
+### 分散分析
+
+`LAB_color_100` と `LDL` の２つの変数に関して分散分析を行なってみる．
+
+```{r}
+#| output: false
+library(BayesFactor)
+```
+
+`generalTestBF` 関数を用いて，特定の変数のみをモデルに含めた場合のベイズ因子の値を計算することができる：
+
+```{r}
+bf = generalTestBF(
+  formula = BMI ~ LAB_color_100 + LDL + LAB_color_100 * LDL,
+  data = raw_df,
+  whichModels = "all"
+)
+bf
+```
+
+[1] が最大で，[3] が少し遅れて次点である．`LDL` より `LAB_color_100` が `BMI` をよく予測することがわかる．
+
+交差項 `LDL*LAB_color_100` を入れてもモデルの予測力は上がるわけではないが，邪魔をするわけでもない．`LDL`, `LAB_color_100` には線型な相関があることを踏まえると，`LAB_color_100` の二次の効果もあまりないと思われる．
+
+```{r}
+cross_term_model <- lmBF(
+  formula = BMI ~ LAB_color_100 + LDL + LAB_color_100 * LDL,
+  data = raw_df
+)
+chains <- posterior(cross_term_model, iterations = 10000)
+plot(chains[,2])
+plot(chains[,3:4])
+```
+
+`LAB_color_100` の係数は $1$ 前後が推定されているが，そのほかの係数はほとんど $0$ にまで縮小されていることがわかる．
+
+これもやはり `LAB_color_100` 以外の変数が追加の予測力を持たないことを示している．
+
+<!--
+```{r}
+posterior_samples <- as.data.frame(as.matrix(chains))
+colnames(posterior_samples)[2:4] <- c("LAB", "LDL", "LAB*LDL")
+
+posterior_long <- posterior_samples %>%
+  dplyr::select(`LAB`, `LDL`, `LAB*LDL`) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "x",
+    values_to = "y"
+  )
+ggplot(posterior_long, aes(x = y, fill = x, color = x)) +
+  geom_density(alpha = 0.4) +
+  labs(
+    title = "Posterior Distributions of Effects",
+    x = "Coefficient Value",
+    y = "Density"
+  ) +
+  scale_fill_manual(values = c("pink", "skyblue", "yellow")) +
+  scale_color_manual(values = c("pink", "skyblue", "yellow")) +
+  xlim(-0.1, 0.5) +
+  ylim(0, 10) +
+  theme_minimal()
+```
+-->
