@@ -1,18 +1,21 @@
 ---
 title: "ベイズデータ解析６"
 subtitle: "応答が質的変数の場合"
-author: "司馬 博文"
+author: "司馬博文"
 date: 12/5/2024
-date-modified: 12/5/2024
+date-modified: 12/9/2024
 categories: [Bayesian, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-# abstract-title: 概要
-# abstract: |
-    
+abstract-title: 概要
+abstract: |
+    通常の回帰モデルは応答変数が連続であることが暗黙の仮定となっている．
+    この節では，応答変数が質的変数である場合のモデリングを扱う．
+    この場合でも多くのモデルが利用可能であり，その多くが一般化線型モデルの枠組みで統一的に扱うことができる．
+keywords: [Binomial Model, Multinomial Model, Polychotomous Response Data, Log-linear Model, Bradley-Terry Model, Poisson Model, Rank Ordered Data]
 image: Files/BayesianWorkflow.svg
 listing: 
     -   id: lst-survey
@@ -114,9 +117,80 @@ $t(1,0,2.5)$ から $t(7,0,2.5)$ はいずれも $[-5,5]$ に多くの重みを�
 
 ### はじめに
 
-順序応答 $y\in n+1=\{0,1,\cdots,n\}$ の場合，$y$ がカウントを表す場合は Poisson モデル，複数回繰り返される独立試行の成功回数である場合は二項モデルが考えられる．
+順序応答 $y\in\{1,\cdots,k\}$ の場合，$y$ がカウントを表す場合は Poisson モデル，複数回繰り返される独立試行の成功回数である場合は二項モデルが考えられる．
 
-一方で多項モデルも想定できる．$y$ が全く構造を持たない名目 (nominal) 応答である場合，ほぼ唯一の選択である．
+一方で多項モデル（正確にはカテゴリカルモデル）
+$$
+Y\sim\operatorname{Cat}(\al_1,\cdots,\al_k),\qquad\sum_{j=1}^k\al_j=1,
+$$
+も想定できる．$y$ が全く構造を持たない名目 (nominal) 応答である場合，ほぼ唯一の選択である．
+
+### 名目応答に対する多項モデル
+
+名目応答が $k$ 次元ベクトル $y_i\in\N^k$ の形で与えられている場合，
+$$
+y_i\sim\Mult(n_i;\al_{i1},\cdots,\al_{ik}),\qquad\sum_{j=1}^k\al_{ij}=1,
+$$
+というモデルを想定できる．$n_i\equiv1$ の場合，応答を one-hot 表現にしたカテゴリカルモデルに対応する．
+
+リンク関数は，特定のカテゴリ $j=1$ を基準として $g(\al):=\log\frac{\al}{\al_{i1}}$ と定めることが多い：
+$$
+\log\frac{\al_{ij}}{\al_{i1}}=X_i\beta^{(j)}.
+$$
+これを **多項ロジスティック回帰** または **ソフトマックス回帰** (softmax regression) [@Kruschke2015 p.650] という：
+$$
+\al_{ij}=\operatorname{softmax}(X_i\beta^{(j)})=\frac{e^{X_i\beta^{(j)}}}{\sum_{l=1}^ke^{X_i\beta^{(l)}}},\qquad \beta^{(1)}=0.
+$$
+
+係数は，説明変数が $1$ 単位増加した際の，参照カテゴリ $j=1$ に対する対数オッズ比の変化を表す．
+
+一方で条件付きロジスティック回帰 (conditional logistic regression) なる方法もある [22.2節 @Kruschke2015 pp.655-]．
+
+### 順序応答に対する多項モデル
+
+応答 $y_i\in\{1,\cdots,k\}$ に自然な順序がある場合，カテゴリ確率 $\al_{i1},\cdots,\al_{ik}$ の代わりに累積確率
+$$
+\pi_{ij}:=\sum_{l\le j}\al_{il}=\P[Y_i\le j]
+$$
+を考えることもできる．
+
+この場合リンク関数はロジットやプロビットが使える：
+$$
+\log\frac{\pi_{ij}}{1-\pi_{ij}}=X_i\beta^{(j)}.
+$$
+$\beta^{(j)}\equiv\beta$ と取ることもありえなくない．
+
+これを順序ロジスティック回帰 (ordinal / ordered logistic regression) という [@Kruschke2015 p.671]．
+
+### Poisson モデル
+
+応答が $\{1,\cdots,k\}$ カテゴリのカウント $y=(y_1,\cdots,y_k)$ である場合，
+$$
+y_i\iidsim\Pois(\lambda_i)
+$$
+というモデルを想定できる．
+
+カウント総数 $n:=\sum_{i=1}^ky_i$ が既知である場合，これに関して条件付けると
+$$
+y\bigg|\sum_{i=1}^ky_i=n\sim\Mult(n;\al_1,\cdots,\al_k),\qquad\al_i:=\frac{\lambda_i}{\sum_{j=1}^k\lambda_j}
+$$
+という周辺モデルを想定したことになる．
+
+リンク関数には対数関数 $g=\log$ を用いることが多い．
+
+### トーナメントデータ
+
+一度に２人の単位が勝負をし，どちらが勝利したかのデータに対する標準的なモデルに，[@Bradley-Terry1952] モデルがある．国際チェス連盟や欧州囲碁連盟で選手のランクづけにも採用されている [@Hastie-Tibshirani1998]．
+
+このモデルでは各プレイヤーに能力パラメータ $\al_i$ を与え，能力の差のロジスティック関数
+$$
+\P[i\;\text{defeats}\;j]=\frac{e^{\al_i-\al_j}}{1+e^{\al_i-\al_j}}
+$$
+という確率で勝敗が決まるとする．$\lambda_i:=e^{\al_i}$ というパラメータづけもよく用いられる．
+
+このモデルは「勝利」「引き分け」「敗北」の３応答に対する確率モデルを調節することで，引き分け [@Rao-Kupper1967] や先手有利 [@Davidson-Beaver1977], [@Agresti12-CategoricalData] などの情報も取り入れられるように簡単に拡張できる．
+
+このように２値応答ではなく多値応答とみても，前節の Poisson モデルの定式化に帰着させることで，一般化線型モデリングの枠組みに合流させることができる [@BDA pp.427-428]．
 
 ### 対数線型モデル
 
@@ -132,4 +206,4 @@ $y$ も $x$ も名目応答である場合，これは分割表解析の問題�
 
 ## 終わりに {.appendix}
 
-[@BDA] の 16 章で一般化線型モデルが扱われている．[@Kruschke2015] はさらに詳しい．
+[@BDA] の 16 章で一般化線型モデルが扱われている．[@Kruschke2015] はさらに詳しく，22 章で名目応答，23 章で順序応答，24 章でカウントデータを扱っている．
