@@ -19,7 +19,7 @@ csl: ../../../assets/apalike.csl
 # image: Files/House.png
 code-fold: false
 execute:
-    cache: false
+    cache: true
 listing: 
     -   id: lst-survey
         type: grid
@@ -45,7 +45,7 @@ listing:
 
 ```{r}
 #| echo: false
-path <- "~/Desktop/NurtureOfMentalism/3-BayesianDataAnalysis/Files/data.xlsx"
+path <- "~/Desktop/Mentalism/3-BayesianDataAnalysis/Files/data.xlsx"
 ```
 
 ```{r}
@@ -53,3 +53,219 @@ path <- "~/Desktop/NurtureOfMentalism/3-BayesianDataAnalysis/Files/data.xlsx"
 library(readxl)
 raw_df <- read_excel(path)
 ```
+
+```{r}
+#| output: false
+#| echo: false
+library(dplyr)
+raw_df <- raw_df %>%
+  rename(LAB = LAB_color_100)
+```
+
+## 線型重回帰
+
+### 変数の追加
+
+<!-- 
+```{r}
+#| output: false
+library(rstanarm)
+options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+fit1 <- stan_glm(
+  formula = BMI ~ LAB,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+prior_summary(fit1)
+```
+
+```{r}
+print(fit1)
+```
+-->
+
+はじめに
+$$
+\texttt{BMI} = \beta_0 + \beta_{\texttt{LAB}}\cdot\mathtt{LAB} + \beta_{\texttt{LDL}}\cdot\mathtt{LDL} + \beta_{\texttt{LAB:LDL}}\cdot\mathtt{LAB}\cdot\mathtt{LDL} + \epsilon
+$$
+$$
+\beta_0\sim\rt(3;\mu_0,3.4),\qquad\ep\sim\rN(0,\sigma^2),
+$$
+$$
+\beta_{\texttt{LAB}},\beta_{\texttt{LDL}},\beta_{\texttt{LAB:LDL}}\sim\rN(0,\infty),\qquad\sigma\sim\rt(3;0,3.4),
+$$
+というモデルを考える．
+
+```{r}
+#| output: false
+library(brms)
+model1 <- bf(
+  BMI ~ LAB
+)
+fit1 <- brm(
+  formula = model1,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+library(knitr)
+kable(get_prior(
+  formula = model1,
+  data = raw_df
+))
+```
+
+```{r}
+plot(fit1, variable = c("b_Intercept", "b_LAB"))
+```
+
+```{r}
+summary(fit1)$fixed
+```
+
+$\beta_{\texttt{LAB}}$ の最頻値＝最尤推定量は $0.6$ である．これは，LAB が $1$ 違う個人の間で BMI の値が約 $0.6$ 違うと解釈できる．
+
+例えば LAB が $3.0$ の個人の予測される BMI は
+$$
+\mathtt{BMI}\approx20.7+0.6\times3.0=22.5
+$$
+となる．
+
+ここに新たな変数 LDL を追加すると，LAB の係数 $\beta_{\texttt{LAB}}$ は $0.6$ から $0.5$ に減少する．これはどういう意味だろうか？
+
+```{r}
+#| output: false
+model2 <- update(model1, BMI ~ LAB + LDL)
+fit2 <- brm(
+  formula = model2,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+```{r}
+plot(fit2, variable = c("b_Intercept", "b_LAB", "b_LDL"))
+```
+
+一般に係数の追加は層別に当たる．例えばこの結果は，**LDL の値が同じ人の中では** LAB が $1$ 違う人の BMI の値が $0.5$ 違うと解釈できる．
+
+```{r}
+summary(fit2)$fixed
+```
+
+ここで $\beta_{\texttt{LDL}}$ の値が極めて小さいことに気づくかもしれない．これは LAB に比べて LDL の影響が小さいことを意味しない．なぜならばこの２つの変数はスケールが約 $10^2$ 違うためである．LDL は 100 のスケール，LAB は 1 のスケールである．
+
+説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．
+
+### データの正規化
+
+そこでデータを正規化してみる：
+
+```{r}
+#| output: false
+df <- data.frame(
+  sBMI = scale(raw_df$BMI),
+  sLAB = scale(raw_df$LAB),
+  sLDL = scale(raw_df$LDL)
+)
+
+model2s <- bf(sBMI ~ sLAB + sLDL)
+fit2s <- brm(
+  formula = model2s,
+  data = df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+plot(fit2s, variable = c("b_Intercept", "b_sLAB", "b_sLDL"))
+```
+
+```{r}
+summary(fit2s)$fixed
+```
+
+データを正規化してしまったため，直接的な係数の解釈はできないが，係数を相互に比較できる．
+
+またその他のモデルの性質は変わらない．例えば事後予測分布も変わらない．
+
+```{r}
+library(gridExtra)
+p2s <- pp_check(fit2s, ndraws = 100)
+p2 <- pp_check(fit2, ndraws = 100)
+grid.arrange(p2, p2s, nrow = 1)
+```
+
+### 交差項の係数
+
+再び正規化する前のデータに戻る．
+
+```{r}
+#| output: false
+model3 <- update(model2, BMI ~ LAB * LDL)
+fit3 <- brm(
+  formula = model3,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+```{r}
+plot(fit3, variable = c("b_Intercept", "b_LAB", "b_LDL", "b_LAB:LDL"))
+```
+
+```{r}
+summary(fit3)$fixed
+```
+
+交差項を含む線型回帰における係数の解釈はさらに限定的になる．
+
+$\beta_{\texttt{LAB}}$ は LDL が $0$ である人が仮にいたとした場合の，LAB が $1$ 違う人の間の BMI の平均的な違いを表す，と解釈できる．（LDL の平均が $0$ になるように変数変換をして回帰するともっと自然な解釈ができる）．
+
+$\beta_{\texttt{LAB:LDL}}$ は片方の係数 $\beta_{\texttt{LAB}}$ を固定した際，LDL が $1$ だけ違うグループにおける係数 $\beta_{\texttt{LDL}}$ との違いを表す．
+
+すなわち交差項の追加は，LDL に依って層別し，それぞれのグループに異なる $\beta_{\texttt{LAB}}$ を推定することを可能にする．この点で階層モデリングに似ている．
+
+### まとめ
+
+線型回帰において，説明変数の追加は，「他の説明変数を固定したグループ内での」係数の推定に変化する（階層モデリングにつながる見方）．
+
+
+
+<!--
+
+```{r}
+#| output: false
+model3s <- update(model2s, sBMI ~ sLAB * sLDL)
+fit3s <- brm(
+  formula = model3s,
+  data = df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+```{r}
+plot(fit3s, variable = c("b_Intercept", "b_sLAB", "b_sLDL", "b_sLAB:sLDL"))
+```
+
+```{r}
+summary(fit3s)$fixed
+```
+
+全ての係数がほとんど０に近い値になってしまった．
+
+しかし事後予測分布はあまり変わらないようである．
+
+```{r}
+p3s <- pp_check(fit3s, ndraws = 100)
+grid.arrange(p2s, p3s, nrow = 1)
+``` -->
+
+
+## 文献紹介 {.appendix}
+
+[10 節 @Gelman-Hill-Vehtari2020] に線型重回帰モデルにおいて，係数の解釈法が丁寧に解説されている．
