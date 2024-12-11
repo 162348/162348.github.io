@@ -1,0 +1,219 @@
+---
+title: "変量効果と固定効果"
+subtitle: "統一的見解を目指して"
+author: "司馬博文"
+date: 12/11/2024
+categories: [Opinion, Statistics]
+image: Files/Hierarchical.svg
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+# listing: 
+#     -   id: lst-embedding
+#         type: grid
+#         grid-columns: 1
+#         grid-item-align: center
+#         contents:
+#             - "../Julia/PDMPFlux.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+---
+
+## 概要
+
+階層モデル
+$$
+y_{ij}=\theta_j+\epsilon_{ij}
+$$ {#eq-model1}
+$$
+\theta_j=\mu+\gamma_j
+$$ {#eq-model2}
+を考える．$j\in[J]$ がグループ，$i\in[n_j]$ はそのグループに所属する単位とする．層別・クラスター抽出された標本，パネルデータなど，好きなように解釈してほしい．
+
+([-@eq-model1]), ([-@eq-model2]) を階層モデルと呼ぶ理由は，([-@eq-model1]) で $y_{ij}$ が最小単位として回帰されているのと同時に，([-@eq-model2]) でグループごとの変数 $\theta_j$ にもモデルが設定されているためである．個人単位とグループ単位の２つの階層で回帰モデルが設定されているために **階層モデル** という．
+
+([-@eq-model1]) は他の個人レベル説明変数を含んでいても良い
+$$
+y_{ij}=x_{ij}^\top\beta+\theta_j+\epsilon_{ij}
+$$ {#eq-model3}
+が，ここでは問題にしない．
+
+本稿で問題にするのは，グループレベル変数 $\theta_j$ に対する２つの扱い方：「変量効果」と「固定効果」の違いである．
+
+この名称の違いが表すものとして，単にモデルの違いなのか，それともモデルは同じで単に推定方法の違いなのか，という点からすでに混乱が見られる．
+
+::: {.callout-important appearance="simple" icon="false" title="筆者の結論"}
+
+There are only two ways to make sense of the terminology "fixed effects" and "random effects":
+
+1. Econometric manner:
+
+  If $\theta_j$ is not correlated with the vector of covariates $x_{ij}$, then it is a random effect. Otherwise, it is a fixed effect. Random effects can be estimated via Generalized Least Squares (GLS).
+
+2. Biostatic manner:
+
+  If we assume a super-population model on $\theta_j$, then it is a random effect. If we don't assume any additional hierarchical structure on $\theta_j$ (or just a flat prior), then it is a fixed effect.
+
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## サーベイ
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* 計量経済学では，$x_{ij}$ と $\theta_j$ の相関の有無に関する仮定の違いと，これに起因する自然な後続の（最小自乗）推定法の違いである．
+
+:::
+
+### 計量経済学 {#sec-econometrics}
+
+[@Hansen2022] を参照して，計量経済学で主流な固定効果と変量効果の違いの解釈を見る．
+
+[17.7 @Hansen2022 pp.603-] では，固定効果モデルは ([-@eq-model3]) のような他の説明変数 $x_{ij}$ が存在する場合，$x_{ij}$ と $u_{i}$ の相関が危惧される際に使える「推定手法」（あるいは推定量の名前）として導入される．
+
+> In the econometrics literature if the stochastic structure of $\theta_j$ is treated as unknown and possibly correlated with $x_{ij}$ then $\theta_j$ is called a fixed effect. [@Hansen2022 p.604]
+
+その推定手法とは，within transformation $\dot{-}$ を
+$$
+\dot{y}_{ij}=y_{ij}-\ov{y}_j,\qquad\ov{y}_j:=\frac{1}{n_j}\sum_{i=1}^{n_j}y_{ij}
+$$
+と定めて，この変換をデータに適用してから回帰
+$$
+\dot{y}_{ij}=\dot{x}_{ij}^\top\beta+\dot{\epsilon}_{ij}
+$$ {#eq-within}
+を解く．この変換は $\theta_j$ を消去するように出来ているため，$\theta_j$ の性質や $x_{ij}$ との相関に依らずに係数 $\beta$ を推定できるというのである．
+
+一方で within transformation を施さずに直接 GLS 推定して得る推定量を変量効果推定量，OLS 推定して得る推定量を pooled OLS と呼ぶ [17.6 @Hansen2022 pp.601-603]．
+
+多くの場合，変量効果モデル ([-@eq-model3]) では $\theta_j$ と $x_{ij}$ との無相関性の他に，誤差の均一性
+$$
+\theta_j\sim(0,\sigma^2_\theta)
+$$
+も仮定されるため，同グループ内の残差に
+$$
+\V[\theta_j+\epsilon_{ij}]=\begin{pmatrix}
+\sigma^2_\theta+\sigma^2_\ep&\sigma^2_\theta&\cdots&\sigma^2_\theta\\
+\sigma^2_\theta&\sigma^2_\theta+\sigma^2_\ep&\cdots&\sigma^2_\theta\\
+\vdots&\vdots&\ddots&\vdots\\
+\sigma^2_\theta&\sigma^2_\theta&\cdots&\sigma^2_\theta+\sigma^2_\ep
+\end{pmatrix}
+$$
+という共分散構造が仮定されていることになる．このような設定では GLS 推定量が BLUE を与える [@Hayashi2000 p.55]．
+
+::: {.callout-important appearance="simple" icon="false" title="筆者の結論"}
+
+計量経済学で変量効果モデル・固定効果モデルと呼んだときは，$\theta_j$ と $x_{ij}$ との相関の有無に関する仮定の違いで呼び分けている．
+
+それぞれのモデルで自然な OLS 様推定量があり，「変量効果」「固定効果」という名称はそのまま推定手法の違いも指すようである（もはや仮定の違いから始まるワークフローの名前になっている）．
+
+:::
+
+### Gelman の見解 {#sec-BDA}
+
+以上の違いをモデルの違いとして理解した場合，変動効果モデルは $\theta_j$ に無相関性や等分散性を初めとするモデルをおいており，固定効果モデルはモデリングを放棄している，とも見れる．
+
+Gelman もこのような観点に立っているものと思われる．
+
+> The term fixed effects is used in contrast to random effects—but not in a consistent way! Fixed eﬀects are usually deﬁned as varying coeﬃcients that are not themselves modeled. [@Gelman-Hill2006 p.245]
+
+これをよく理解するために，$0,1$ の指示変数（ダミー変数）からなる計画行列 $X$ を導入した ([-@eq-model1]) の別の定式化を考える：
+$$
+\b{y}=X\b{\theta}+\b{\ep}
+$$ {#eq-dummy}
+$$
+X=\begin{pmatrix}
+\b{1}_{n_1}&O&O&O\\
+O&\b{1}_{n_2}&O&O\\
+\vdots&\vdots&\ddots&\vdots\\
+O&O&O&\b{1}_{n_J}
+\end{pmatrix}
+$$
+$$
+\b{\theta}=\vctrr{\theta_1}{\vdots}{\theta_J},\qquad\left.\b{1}_{n_j}:=\vctrr{1}{\vdots}{1}\right\}n_j
+$$
+
+これ以上何も考えず，([-@eq-dummy]) に対して OLS 推定を行うと，固定効果推定量と全く同じものが得られる [定理 17.1 @Hansen2022 p.610]．残差も同じである．
+
+すると Gelman による次の固定効果モデルの定義は，最終的に得られる MAP 推定量としては，計量経済学の文脈 [-@sec-econometrics] のものと一致することになる：
+
+::: {.callout-tip title="[15.2 節 @BDA p.383]" icon="false"}
+
+独立な一様事前分布
+$$
+\theta_j\iidsim\rN(\mu,\infty)
+$$
+を仮定した場合の $\theta_j$ を **固定効果** と呼ぶ．
+
+階層的なモデル
+$$
+\theta_j=\mu+\gamma_j,\qquad\gamma_j\sim\rN(0,\sigma^2_\theta)
+$$
+を仮定した場合の $\theta_j$ を **変量効果** と呼ぶ．
+
+２つが同居するモデルを **混合効果モデル** (mixed-effects model) という．
+
+:::
+
+この語用法は，$\theta_j\iidsim\rN(\mu,\infty)$ の事前分布の下で MAP 推定した場合が，最尤推定量と一部の OLS 推定量と一致するため，計量経済学の文脈 [-@sec-econometrics] のものと一致する．
+
+それだけでなく変量効果モデルとは階層モデルであり，推定の際に縮小が働く．このような方法で推定されるモデルは疫学や生物統計学の分野でもよく使われてランダム効果モデルと呼ばれている（例えば [@Robinson1991], [@Solomon2005]）ため，この語用法とも一致することになる．
+
+以上の見解は [@Gelman2005 p.20] に端的に現れている：
+
+> In the Bayesian framework, this definition implies that fixed effects $\theta_j$ are estimated conditional on $\sigma_\theta=\infty$ and random effects $\theta_j$ are estimated conditional on $\sigma_\theta$ from the posterior distribution. [@Gelman2005 p.20]
+
+### 'fix', 'random' の名前の由来は？
+
+この生物統計学的な語用法は，必ずしも fixed effects と対置するわけではない．グループ $j\in[J]$ に依存せず一定の値を取るいわば普通の「係数」と「変動係数」があるだけである．
+
+多くの場合，ランダム効果は局外母数であり，$\beta$ （多くの場合処置効果）の不偏推定が最大の目的である．計量経済学のように深刻な外生性が疑われる状況を扱うわけでもない．それゆえ階層モデルによる縮小推定が選好されるという背景もある．
+
+一方で計量経済学では効率が落ちても外生性への頑健性が選好されることが多いようである．
+
+すると次の語用法が出現し，'fix', 'random' の名前の由来も同時にうまく説明するように見える：
+
+> Effects are ﬁxed if they are interesting in themselves or random if there is interest in the underlying population. [@Searle-Casella-McCulloch1992 p.7]
+
+だがこうするともはやモデルとしてどのような仮定の違いを表しているのかわからなくなり，専門用語というよりは日常用語である．
+
+そこで [@Gelman2005 p.21] ではこの意味では別の用語を採用するとしている：
+
+> We prefer to sidestep the overloaded terms “ﬁxed” and “random” with a cleaner distinction by simply renaming the terms. We deﬁne effects (or coefﬁcients) in a multilevel model as _constant_ if they are identical for all groups in a population and _varying_ if they are allowed to differ from group to group. [@Gelman2005 p.21]
+
+<!-- 
+
+[@Gelman2005 p.20] と [@Gelman-Hill2006 p.245] では「固定効果」「変動効果」という名称のもう一つの意味として，$\theta_j$ が $y_{i_1j},y_{i_2j},\cdots$ の間で変動するか？という違いを指すこともあるとしている：
+
+> Fixed effects are constant across individuals, and random effects vary. [@Gelman2005 p.20]
+
+文字通りに取ると，$\theta_j$ が固定効果で，$\theta_j+\ep_{ij}$ をひとまとまりで見ると変動効果ということになる．
+
+ここまで２つの見解を見てきたが，無事意味の通る統一的見解が得られそうである．しかし「固定」「変動」の名前の由来については全く謎のままである．
+
+-->
+
+### その他のベイジアンの見解
+
+[@Hoff2009 p.147] には次の記述がある：
+
+> the $\theta_j$'s (or $\gamma_j$'s) may be referred to as either "fixed effects" or "random effects" depending on how they are estimated.
+
+つまり推定手法の違いで呼び分けるとしている．
+
+これを見ると，前節 [-@sec-BDA] の BDA が開陳しているような，（無理に）モデルの違いとして理解しようという立場はやや急進的であり，ここまでいくともはや「固定効果」「変量効果」という名称が意味を持たないとも思える．
+
+実際 [@BDA p.383] には次の注がある：
+
+> The terms ‘fixed’ and ‘random’ come from the non-Bayesian statistical tradition and are somewhat confusing in a Bayesian context where all unknown parameters are treated as ‘random’ or, equivalently, as having ﬁxed but unknown values.
+
+ベイズの立場では潜在変数だろうがパラメータだろうが，未知である限り「固定」「変動」の区別はない，というのは正しいが，だとしたらこの名称は捨てるべきである．
+
+## 筆者の結論
+
+筆者は基本的には BDA の見解 [-@sec-BDA] を採用し，「固定効果」と「変動効果」の違いは，係数にモデルを想定しているかどうかの違いと理解することにした．
+
+「固定効果」と「変量効果」の語は（慣習を踏襲すべき場合を除いて）使わず，「変動係数」 (varying coefficient) と呼ぶつもりである．
+
