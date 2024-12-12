@@ -1,0 +1,112 @@
+---
+title: "`brms` を用いたベイズ重回帰分析"
+subtitle: "BMI データを題材として"
+author: "司馬博文"
+date: 12/10/2024
+date-modified: 12/12/2024
+categories: [Bayesian, Statistics, R]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+# abstract-title: 概要
+# abstract: |
+#     心理学などの人間を対象にする研究では変数の数が多く，正しいモデルを見つけるために分散分析 (ANOVA) が広く用いられる．
+#     しかし，古典的な ANOVA 解析手法である F-検定や t-検定は，データの一側面しか伝えない．
+#     一方で，モデルの仮定を前面に出したベイズ的な解析手法は，データを探索的に吟味することができ，極めて微妙な消息も捉えることが可能になる．
+#     本稿では特にベイズ ANOVA 手法 [@Gelman2005], [@Rouder+2012] を採用して，そのモデルケースを実証する．
+# image: Files/House.png
+code-fold: false
+execute:
+    cache: true
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "../Survey/BayesANOVA.qmd"
+            - "../Computation/brms.qmd"
+            - "../Survey/BDA1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 2
+        grid-item-align: center
+        sort: false
+        contents:
+            - "../Survey/BayesRegression.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## はじめに
+
+データの非線型変換も取り入れたベイズ線型重回帰分析は，多くの場合，データを理解するための最初の解析手法として選択される．
+
+その方法を `brms` パッケージを用いて実践したのが次の記事である：
+
+::: {#lst-embedding}
+:::
+
+前稿では BMI を LAB と LDL から予測する問題を，線型回帰モデルから始めた．
+
+交差項を追加することで，LDL が違う群に対して LAB がどう変わるかの層別の違いを見ることができる．
+
+事後予測分布によるモデルのチェックは残差プロットと同様に，極めて手軽かつ有力なモデル検証の方法である．
+
+これにより関数関係の非線型性が疑われたため，被説明変数 BMI に対して対数変換を施して線型回帰をすると，予測性能の改善が見られた．
+
+事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd [@Vehtari+2017] があることを学んだ．
+
+```{r}
+#| echo: false
+#| output: false
+path <- "~/Desktop/Mentalism/3-BayesianDataAnalysis/Files/data.xlsx"
+library(readxl)
+raw_df <- read_excel(path)
+library(dplyr)
+raw_df <- raw_df %>%
+  rename(LAB = LAB_color_100)
+```
+
+## 変数選択
+
+ここでは予測性能を elpd で見ることでモデルを選択するのではなく，ベイズ的な方法を取り入れて変数選択を行う方法をみる．
+
+### 多くの説明変数が存在する場合の事前分布
+
+`stan_glm` では回帰係数には適切な分散を持った独立な正規分布（$g$-prior）をデフォルトの事前分布としている．
+
+`brms` では一様事前分布である．
+
+仮に説明変数が極めて多い場合，このデフォルト事前分布を採用し続けることは適切ではない．
+
+実際，独立な正規・一様分布に従う説明変数が大量にある場合，これは「ベイズ（事後平均）推定量の分散が大きい」という事前分布を採用していることに含意してしまう．
+
+仮に $\sigma$ にも同様の分散の大きい事前分布をおいているのならば辻褄は合うが，そうでないならばベイズ決定係数 $R^2$ にほとんど $1$ 近くの事前分布をおいていることに等価である．
+
+すなわち過学習されたモデルに強い事前分布をおいていることになる [@Gelman-Hill-Vehtari2020 p.208]．これは我々の信念と食い違うだろう．そもそも弱情報であるべきデフォルト事前分布としては相応しくない．
+
+### 正則事前分布
+
+まずは各変数の正規事前分布の分散を十分小さくして，誤差 $\ep$ の分散 $\sigma^2$ のスケールと同一にすることが考えられる．
+
+この際 $R^2$ にはほとんど無情報な事前分布が仮定されるのと同一である．
+
+さらに，仮に「多くの説明変数のうち，一部しか重要なものはなく，他の大部分はほとんど無関係である」と思っている，あるいは思いたいとする．変数選択を行いたい場合がこれにあたる．
+
+この信念を正確に表現する事前分布の一つに馬蹄事前分布 (horseshoe prior) [@Carlos+2010] とその正則化バージョン [@Piironen-Vehtari2017] がある．
+
+これらの分布は $R^2$ 上の事前分布に，$0$ 上にスパイクを生じさせる．シンプルなモデルを選好することになるのである．
+
+Stan においては `prior=hs` によって指定できる [@Gelman-Hill-Vehtari2020 p.209]．
+
+## 文献紹介 {.appendix}
+
+変数選択のための事前分布とその $R^2$ 上に定める事前分布については [12.7 節 @Gelman-Hill-Vehtari2020] で丁寧に議論されている．
+
+[@George-McCulloch1993] による変数選択法が [Chapter 9 @Hoff2009] で取り上げられている．

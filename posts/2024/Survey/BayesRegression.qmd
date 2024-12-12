@@ -10,13 +10,14 @@ bibliography:
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-# abstract-title: 概要
-# abstract: |
-#     心理学などの人間を対象にする研究では変数の数が多く，正しいモデルを見つけるために分散分析 (ANOVA) が広く用いられる．
-#     しかし，古典的な ANOVA 解析手法である F-検定や t-検定は，データの一側面しか伝えない．
-#     一方で，モデルの仮定を前面に出したベイズ的な解析手法は，データを探索的に吟味することができ，極めて微妙な消息も捉えることが可能になる．
-#     本稿では特にベイズ ANOVA 手法 [@Gelman2005], [@Rouder+2012] を採用して，そのモデルケースを実証する．
-# image: Files/House.png
+abstract-title: 概要
+abstract: |
+    ベイズ重回帰分析は解析者のデータへの理解を促進する強力な探索的データ解析手法である．
+    このことを `brms` パッケージと BMI データを用いて例証する．
+    １変数の場合から始め，変数を追加して挙動が変わるのを解釈・検証（残差プロット・事後予測プロット）しながら慎重に進んでいく．
+    交差検証による事後予測スコア elpd を用いて，データの非線型変換を利用することで，非線型な関係を見出す方法を扱う．
+    ここまで行えば，データの階層化やノンパラメトリックな手法の採用などの次のステップが自然と見えてくるだろう．
+image: Files/elpd.svg
 code-fold: false
 execute:
     cache: true
@@ -37,6 +38,15 @@ listing:
         sort: false
         contents:
             - "BDA2.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-embedding2
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "../TransDimensionalModels/BayesSelection.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -71,9 +81,9 @@ raw_df <- raw_df %>%
   rename(LAB = LAB_color_100)
 ```
 
-## 線型重回帰
+## ベイズ線型重回帰
 
-### ベイズ単回帰
+### ベイズ単回帰の実行と視覚化
 
 <!-- 
 ```{r}
@@ -98,7 +108,7 @@ print(fit1)
 ```
 -->
 
-はじめに
+最終的には
 $$
 \texttt{BMI} = \beta_0 + \beta_{\texttt{LAB}}\cdot\mathtt{LAB} + \beta_{\texttt{LDL}}\cdot\mathtt{LDL} + \beta_{\texttt{LAB:LDL}}\cdot\mathtt{LAB}\cdot\mathtt{LDL} + \epsilon
 $$
@@ -108,7 +118,13 @@ $$
 $$
 \beta_{\texttt{LAB}},\beta_{\texttt{LDL}},\beta_{\texttt{LAB:LDL}}\sim\rN(0,\infty),\qquad\sigma\sim\rt(3;0,3.4),
 $$
-というモデルを考える．
+という５つのパラメータを持ったモデルを考えるが，ここではまず１つの説明変数 LAB にのみ注目する．
+
+なお，分散パラメータに出てくる $3.4$ の数字は，被説明変数 BMI の標本分散である：
+
+```{r}
+sqrt(var(raw_df$BMI))
+```
 
 ```{r}
 #| output: false
@@ -168,7 +184,7 @@ for (i in sims_to_display) {
 abline(summary(fit1)$fixed[1,1], summary(fit1)$fixed[2,1])
 ```
 
-### モデルのチェック {#sec-pp-check1}
+### モデルのチェック：事後予測分布と残差プロット {#sec-pp-check1}
 
 さらにベイズ模型は事後予測分布をプロットし，実際の観測データと比べることで，モデルがデータ生成過程をどれほど反映できているかが瞬時に把握できる：
 
@@ -196,9 +212,11 @@ plot(raw_df$LAB, res[,1], xlab="LAB", ylab="Residuals")
 abline(0,0)
 ```
 
+ただし，残差と事後予測分布には，標本内のデータを見ているか，標本外のデータを想定しているかという大きな違いがある．
 
+この２つの結果が乖離している場合，モデルが標本に過適合していることを疑う必要がある．具体的には次節 [-@sec-model-validation] 参照．
 
-### 変数の追加
+### 変数の追加による係数の解釈の変化
 
 ここに新たな変数 LDL を追加すると，LAB の係数 $\beta_{\texttt{LAB}}$ は $0.6$ から $0.5$ に減少する．これはどういう意味だろうか？
 
@@ -225,7 +243,9 @@ summary(fit2)$fixed
 
 説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．
 
-### データの正規化 {#sec-standardization}
+### データの正規化：係数同士の比較 {#sec-standardization}
+
+係数同士の比較をするためには，説明変数のスケールを揃える必要がある．
 
 そこでデータを正規化してみる：
 
@@ -249,11 +269,20 @@ fit2s <- brm(
 plot(fit2s, variable = c("b_Intercept", "b_sLAB", "b_sLDL"))
 ```
 
+$\beta_{\texttt{LDL}}$ の方が $0$ に近く推定されていることがわかる．
+
 ```{r}
 summary(fit2s)$fixed
 ```
 
 データを正規化してしまったため，直接的な係数の解釈はできないが，係数を相互に比較できる．
+
+係数の大小を見ることで，LAB の方が有効な説明変数であるように思える．だが元々 LAB は $0$ から離れた値だったが，LDL を入れた途端にいずれも $0$ にかぶりかけている．これは２つの間に共線型性が存在するためである．
+
+```{r}
+plot(df$sLAB, df$sLDL, xlab = "LAB", ylab = "LDL")
+lm(sLDL ~ sLAB, data = df) %>% abline()
+```
 
 またその他のモデルの性質は変わらない．例えば事後予測分布も変わらない．
 
@@ -293,7 +322,7 @@ $\beta_{\texttt{LAB:LDL}}$ は片方の係数 $\beta_{\texttt{LAB}}$ を固定�
 
 すなわち交差項の追加は，LDL に依って層別し，それぞれのグループに異なる $\beta_{\texttt{LAB}}$ を推定することを可能にする．この点で階層モデリングに似ている．
 
-### 交差項
+### 交差項の層別効果の視覚化
 
 交差項 `LAB*LDL` の追加は，LDL の違うサブグループの間に異なる LAB をフィッティングすることを可能にする．
 
@@ -304,6 +333,7 @@ raw_df$LDLcate2 <- ifelse(raw_df$LDL > median(raw_df$LDL), "High", "Low")
 ```
 
 ```{r}
+#| output: false
 model3_cate <- bf(BMI ~ LAB * LDLcate2)
 fit3_cate <- brm(
   formula = model3_cate,
@@ -325,13 +355,11 @@ legend("topleft", # または "topright", "bottomleft", "bottomright" など
 
 LDL が大きいと，LAB の BMI に与える影響は緩やかになることがわかる．LDL の方が LAB の代わりに BMI の増加を説明してしまっているとも考えられる．
 
+<!--
+
 ### まとめ
 
 線型回帰において，説明変数の追加は，「他の説明変数を固定したグループ内での」係数の推定に変化する（階層モデリングにつながる見方）．
-
-
-
-<!--
 
 ```{r}
 #| output: false
@@ -360,7 +388,7 @@ grid.arrange(p2s, p3s, nrow = 1)
 ```
 -->
 
-## モデル検証
+## モデル検証 {#sec-model-validation}
 
 ### はじめに
 
@@ -413,11 +441,9 @@ $$
 bayes_R2(fit3)
 ```
 
-以上の $R^2$ の議論では係数を点推定して「残差」を議論していた．
+以上の $R^2$ の議論では係数を点推定して「残差」を議論していたが，モデルのパラメータ（の関数）である以上，ベイズ推定することもできる．
 
-他の可能性も考慮して推定を改善するのがベイズのやり方である．
-
-ベイズ決定係数は，事後予測分布からのサンプルを用いて複数回予測値 $\wh{y}_i$ を計算し，
+ベイズ決定係数（の事後予測値）は，事後予測分布からのサンプルを用いて複数回予測値 $\wh{y}_i$ を計算し，
 $$
 R^2_{\texttt{Bayes}}:=\frac{\V[\wh{y}]}{\V[\wh{y}]+\sigma^2}
 $$
@@ -436,7 +462,7 @@ AIC は新たなデータ点が観測された際の，そのデータ点に対�
 
 AIC と同様の推定を，計算機集約的に行う方法に次節の交差検証法がある：
 
-### 交差検証
+### 交差検証と elpd
 
 事後予測検証では事後分布と観測を比較したが，よりこの好ましくは新しい（推定に用いていない）データと突き合わせることである．
 
@@ -452,8 +478,8 @@ loo(fit3)
 
 elpd (expected log predictive density) は，LOO 交差検証により得る，（省いていた）データの対数尤度の平均である：
 $$
-\mathrm{elpd}_{\text{loo}}=\sum_{i=1}^n\log p(y_i|y_{-i})=\sum_{i=1}^n\int p(y_i|\theta)p(\theta|y_{-i})\,d\theta.
-$$
+\mathrm{elpd}_{\text{loo}}:=\sum_{i=1}^n\log p(y_i|y_{-i})=\sum_{i=1}^n\int p(y_i|\theta)p(\theta|y_{-i})\,d\theta.
+$$ {#eq-def-elpd}
 
 この値が大きいほどモデルの予測が良い．一般に elpd は，一度見たことあるデータ点に対する事後予測スコアよりも低くなる．^[訓練に用いたデータ点に関する事後予測スコアはdeviance と関係があり，$-2$ を乗じたものは deviance と同じスケールになる [@Gelman-Hill-Vehtari2020 p.174], [@Vehtari+2017 p.1427]．AIC は deviance から $2p$ を引いたものである [@Gelman-Hill-Vehtari2020 p.175]．] この際の差は `p_loo` が測っており，乖離が大きすぎるとモデルがデータに過適合していることを表す．
 
@@ -478,6 +504,18 @@ loo_compare(loo(fit1), loo(fit2))
 
 `elpd_diff` の値は標準偏差と比べて大変に小さい．交差検証の観点からは，`LDL` の追加は BMI の予測の観点から全く違いがないことがわかる．
 
+### ベイズワークフロー
+
+この elpd を基本としたモデルの比較は極めて強力である．
+
+線型モデルが適切な場合，適切な説明変数を新たに作ったり，不要な説明変数を除去して推定を安定化させることで，最適な予測力を持つ線型モデルが特定できる．
+
+[@Gelman-Hill-Vehtari2020 p.206] などの解析例も参照．
+
+その際に elpd は，事後予測分布のプロットを見るという視覚的な方法よりも定量的な指標として大活躍することになる．
+
+しかし時には線型性の仮定が不適切であるという仮説・結論に行き着く場合もある．
+
 ## 非線型性への憧憬
 
 ### はじめに
@@ -494,7 +532,7 @@ LAB による BMI への回帰の残差には，左右の非対称性が見ら�
 
 そこでここでは非線型な変換に注目する．
 
-### 線型回帰モデルという仮定
+### 被説明変数の対数変換
 
 線型回帰モデリングにおける最大の仮定は，説明変数の加法性と，$y$ への効果の線型性である：
 $$
@@ -542,14 +580,63 @@ grid.arrange(p1, p1_log, nrow=1)
 
 事後予測分布も改善しているのがわかる．
 
+### 変換前後のモデルの比較：Jacobian の補正
+
 ただし，説明変数を対数スケールに変換してしまったので，直接 LOO スコアを比較することはできないことに注意する：
 
-
 ```{r}
-loo_compare(loo(fit1), loo(fit1_log))
+loo_fit1 <- loo(fit1)
+loo_fit1_log <- loo(fit1_log)
+loo_compare(loo_fit1, loo_fit1_log)
 ```
 
-### log-log モデル
+実際，`fit1` の elpd が $-2211$ であるのに対し，`fit1_log` は $426$ とスケールが全く違う：
+
+```{r}
+loo_fit1_log
+```
+
+しかし elpd の定義 ([-@eq-def-elpd]) を見ると，$y_i$ の密度変換をするために，Jacobian の値を加えれば良いことがわかる．
+
+それぞれの項は `loo(fit1_log)$pointwise[,1]` に格納されている：
+
+```{r}
+sum(loo_fit1_log$pointwise[,1])
+```
+
+```{r}
+loo_fit1_Jacobian <- loo_fit1_log
+loo_fit1_Jacobian$pointwise[,1] <- loo_fit1_log$pointwise[,1] - log(raw_df$BMI)
+sum(loo_fit1_Jacobian$pointwise[,1])
+```
+
+```{r}
+loo_compare(loo_fit1_Jacobian, loo_fit1)
+```
+
+::: {.callout-note title="背景" icon="false" collapse="true"}
+
+$x$ を BMI，$y:=\log x$ とする．`fit1_log` の elpd は
+$$
+\log p(y)
+$$
+によって計算されているところを，変数変換
+$$
+p(y)\,dy=\frac{p\paren{\log x}}{x}\,dx
+$$
+を施すことで
+$$
+\log p(y)\mapsto\log p(\log x)-\log x
+$$
+という関係を得る．
+
+左辺が `fit1_log` の elpd のスケールであり，右辺の $\log p(\log x)$ の部分が `fit1` の elpd のスケールである．$-\log x$ の Jacobian に対応する部分を加える必要がある．
+
+:::
+
+被説明変数に対数変換を施すことで，モデルの予測性能が改善したことがわかる．
+
+### 説明変数の対数変換：log-log モデル
 
 同様に説明変数にも対数変換を施すことができる．
 
@@ -592,6 +679,21 @@ median(loo_R2(fit1_loglog))
 しかし連続変数間の関数関係が複雑だと思われる場合，ノンパラメトリック手法を求める前に，変数を離散化して解析することも得るものが大きい場合が多い．
 
 このような設定は，離散変数を扱う積極的な理由になる．非線型性を扱うために設定を簡略化するのである．
+
+## おわりに
+
+BMI を LAB と LDL から予測する問題を，線型回帰モデルから始めた．
+
+交差項を追加することで，LDL が違う群に対して LAB がどう変わるかの層別の違いを見ることができる．
+
+事後予測分布によるモデルのチェックは残差プロットと同様に，極めて手軽かつ有力なモデル検証の方法である．
+
+これにより関数関係の非線型性が疑われたため，被説明変数 BMI に対して対数変換を施して線型回帰をすると，予測性能の改善が見られた．
+
+事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd [@Vehtari+2017] があることを学んだ．
+
+::: {#lst-embedding2}
+:::
 
 ## 文献紹介 {.appendix}
 
