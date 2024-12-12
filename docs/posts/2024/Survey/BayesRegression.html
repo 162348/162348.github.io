@@ -6,10 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 <meta name="dcterms.date" content="2024-12-10">
 
-<title>ベイズ重回帰分析 – Hirofumi Shiba</title>
+<title>brms を用いたベイズ重回帰分析 – Hirofumi Shiba</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -150,6 +150,34 @@ div.csl-indent {
       window['quarto-listing-loaded']();
     }
   })
+  
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-embedding .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-embedding'] = new List('listing-lst-embedding', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
   </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
@@ -223,14 +251,14 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="ベイズ重回帰分析 – Hirofumi Shiba">
-<meta property="og:description" content="医療データを題材として">
+<meta property="og:title" content="brms を用いたベイズ重回帰分析 – Hirofumi Shiba">
+<meta property="og:description" content="BMI データを題材として">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Survey/Files/House.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta property="og:image:height" content="960">
 <meta property="og:image:width" content="1344">
-<meta name="twitter:title" content="ベイズ重回帰分析 – Hirofumi Shiba">
-<meta name="twitter:description" content="医療データを題材として">
+<meta name="twitter:title" content="brms を用いたベイズ重回帰分析 – Hirofumi Shiba">
+<meta name="twitter:description" content="BMI データを題材として">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Survey/Files/House.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:image-height" content="960">
@@ -287,8 +315,8 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">ベイズ重回帰分析</h1>
-            <p class="subtitle lead">医療データを題材として</p>
+      <h1 class="title"><code>brms</code> を用いたベイズ重回帰分析</h1>
+            <p class="subtitle lead">BMI データを題材として</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Bayesian</div>
                 <div class="quarto-category">Statistics</div>
@@ -303,7 +331,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -317,7 +345,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">12/11/2024</p>
+        <p class="date-modified">12/12/2024</p>
       </div>
     </div>
       
@@ -335,10 +363,29 @@ window.Quarto = {
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a></li>
   <li><a href="#線型重回帰" id="toc-線型重回帰" class="nav-link" data-scroll-target="#線型重回帰"><span class="header-section-number">2</span> 線型重回帰</a>
   <ul class="collapse">
-  <li><a href="#変数の追加" id="toc-変数の追加" class="nav-link" data-scroll-target="#変数の追加"><span class="header-section-number">2.1</span> 変数の追加</a></li>
-  <li><a href="#データの正規化" id="toc-データの正規化" class="nav-link" data-scroll-target="#データの正規化"><span class="header-section-number">2.2</span> データの正規化</a></li>
-  <li><a href="#交差項の係数" id="toc-交差項の係数" class="nav-link" data-scroll-target="#交差項の係数"><span class="header-section-number">2.3</span> 交差項の係数</a></li>
-  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">2.4</span> まとめ</a></li>
+  <li><a href="#ベイズ単回帰" id="toc-ベイズ単回帰" class="nav-link" data-scroll-target="#ベイズ単回帰"><span class="header-section-number">2.1</span> ベイズ単回帰</a></li>
+  <li><a href="#sec-pp-check1" id="toc-sec-pp-check1" class="nav-link" data-scroll-target="#sec-pp-check1"><span class="header-section-number">2.2</span> モデルのチェック</a></li>
+  <li><a href="#変数の追加" id="toc-変数の追加" class="nav-link" data-scroll-target="#変数の追加"><span class="header-section-number">2.3</span> 変数の追加</a></li>
+  <li><a href="#sec-standardization" id="toc-sec-standardization" class="nav-link" data-scroll-target="#sec-standardization"><span class="header-section-number">2.4</span> データの正規化</a></li>
+  <li><a href="#交差項の係数の解釈" id="toc-交差項の係数の解釈" class="nav-link" data-scroll-target="#交差項の係数の解釈"><span class="header-section-number">2.5</span> 交差項の係数の解釈</a></li>
+  <li><a href="#交差項" id="toc-交差項" class="nav-link" data-scroll-target="#交差項"><span class="header-section-number">2.6</span> 交差項</a></li>
+  <li><a href="#まとめ" id="toc-まとめ" class="nav-link" data-scroll-target="#まとめ"><span class="header-section-number">2.7</span> まとめ</a></li>
+  </ul></li>
+  <li><a href="#モデル検証" id="toc-モデル検証" class="nav-link" data-scroll-target="#モデル検証"><span class="header-section-number">3</span> モデル検証</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">3.1</span> はじめに</a></li>
+  <li><a href="#決定係数" id="toc-決定係数" class="nav-link" data-scroll-target="#決定係数"><span class="header-section-number">3.2</span> 決定係数</a></li>
+  <li><a href="#ベイズ決定係数" id="toc-ベイズ決定係数" class="nav-link" data-scroll-target="#ベイズ決定係数"><span class="header-section-number">3.3</span> ベイズ決定係数</a></li>
+  <li><a href="#aic" id="toc-aic" class="nav-link" data-scroll-target="#aic"><span class="header-section-number">3.4</span> AIC</a></li>
+  <li><a href="#交差検証" id="toc-交差検証" class="nav-link" data-scroll-target="#交差検証"><span class="header-section-number">3.5</span> 交差検証</a></li>
+  <li><a href="#sec-posterior-predictive-score" id="toc-sec-posterior-predictive-score" class="nav-link" data-scroll-target="#sec-posterior-predictive-score"><span class="header-section-number">3.6</span> 事後予測スコアによるモデル比較</a></li>
+  </ul></li>
+  <li><a href="#非線型性への憧憬" id="toc-非線型性への憧憬" class="nav-link" data-scroll-target="#非線型性への憧憬"><span class="header-section-number">4</span> 非線型性への憧憬</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-2" id="toc-はじめに-2" class="nav-link" data-scroll-target="#はじめに-2"><span class="header-section-number">4.1</span> はじめに</a></li>
+  <li><a href="#線型回帰モデルという仮定" id="toc-線型回帰モデルという仮定" class="nav-link" data-scroll-target="#線型回帰モデルという仮定"><span class="header-section-number">4.2</span> 線型回帰モデルという仮定</a></li>
+  <li><a href="#log-log-モデル" id="toc-log-log-モデル" class="nav-link" data-scroll-target="#log-log-モデル"><span class="header-section-number">4.3</span> log-log モデル</a></li>
+  <li><a href="#離散変数化" id="toc-離散変数化" class="nav-link" data-scroll-target="#離散変数化"><span class="header-section-number">4.4</span> 離散変数化</a></li>
   </ul></li>
   
   </ul>
@@ -358,7 +405,7 @@ window.Quarto = {
 </div>
 <section id="はじめに" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
-<p>ベイズ回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：</p>
+<p>ベイズ線型回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
 <div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727103600000" data-listing-file-modified-sort="1733732956590" data-listing-date-modified-sort="1733670000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
@@ -383,7 +430,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715439600000" data-listing-file-modified-sort="1733625497731" data-listing-date-modified-sort="1733583600000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715439600000" data-listing-file-modified-sort="1733981335037" data-listing-date-modified-sort="1733583600000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -394,7 +441,7 @@ window.Quarto = {
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -440,8 +487,8 @@ No matching items
 </section>
 <section id="線型重回帰" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="線型重回帰"><span class="header-section-number">2</span> 線型重回帰</h2>
-<section id="変数の追加" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="変数の追加"><span class="header-section-number">2.1</span> 変数の追加</h3>
+<section id="ベイズ単回帰" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="ベイズ単回帰"><span class="header-section-number">2.1</span> ベイズ単回帰</h3>
 <!-- 
 
 
@@ -657,17 +704,32 @@ LAB        0.6119695  0.105872  0.4014823  0.817622 0.9998797 9249.283 7186.599<
 <p>例えば LAB が <span class="math inline">\(3.0\)</span> の個人の予測される BMI は <span class="math display">\[
 \mathtt{BMI}\approx20.7+0.6\times3.0=22.5
 \]</span> となる．</p>
-<p>ここに新たな変数 LDL を追加すると，LAB の係数 <span class="math inline">\(\beta_{\texttt{LAB}}\)</span> は <span class="math inline">\(0.6\)</span> から <span class="math inline">\(0.5\)</span> に減少する．これはどういう意味だろうか？</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model2 <span class="ot">&lt;-</span> <span class="fu">update</span>(model1, BMI <span class="sc">~</span> LAB <span class="sc">+</span> LDL)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model2,</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-fig-caption="回帰直線のプロット">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, raw_df<span class="sc">$</span>BMI, <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"BMI"</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="fu">summary</span>(fit1)<span class="sc">$</span>fixed[<span class="dv">1</span>,<span class="dv">1</span>], <span class="fu">summary</span>(fit1)<span class="sc">$</span>fixed[<span class="dv">2</span>,<span class="dv">1</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit1-line" class="quarto-float quarto-figure quarto-figure-center anchored" width="672">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit1-line-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="BayesRegression_files/figure-html/fig-fit1-line-1.png" id="fig-fit1-line" class="img-fluid figure-img" width="672">
 </div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-fit1-line-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>しかしこの図を見ればわかる通り，LAB は BMI の変動の一部しか説明しておらず，上述ような点推定的な議論にどれほど意味があるかは疑問である．</p>
+<p>ベイズ回帰では幅を持って結果を理解できるため，その美点を活かさない理由はない．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit2, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_LAB"</span>, <span class="st">"b_LDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, raw_df<span class="sc">$</span>BMI, <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"BMI"</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>sims <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(fit1)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>sims_to_display <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">nrow</span>(sims), <span class="dv">100</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> sims_to_display) {</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(sims[i, <span class="dv">1</span>], sims[i, <span class="dv">2</span>], <span class="at">col =</span> <span class="st">"gray"</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="fu">summary</span>(fit1)<span class="sc">$</span>fixed[<span class="dv">1</span>,<span class="dv">1</span>], <span class="fu">summary</span>(fit1)<span class="sc">$</span>fixed[<span class="dv">2</span>,<span class="dv">1</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -676,70 +738,66 @@ LAB        0.6119695  0.105872  0.4014823  0.817622 0.9998797 9249.283 7186.599<
 </div>
 </div>
 </div>
-<p>一般に係数の追加は層別に当たる．例えばこの結果は，<strong>LDL の値が同じ人の中では</strong> LAB が <span class="math inline">\(1\)</span> 違う人の BMI の値が <span class="math inline">\(0.5\)</span> 違うと解釈できる．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit2)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>              Estimate   Est.Error     l-95% CI    u-95% CI     Rhat  Bulk_ESS
-Intercept 20.166740267 0.510522239 1.916021e+01 21.16019758 1.000753 12221.847
-LAB        0.481395182 0.124645917 2.389870e-01  0.72592090 1.001291  9120.764
-LDL        0.008630676 0.004390414 1.012456e-04  0.01724088 1.000804  9642.207
-          Tail_ESS
-Intercept 7745.032
-LAB       6973.939
-LDL       7388.183</code></pre>
-</div>
-</div>
-<p>ここで <span class="math inline">\(\beta_{\texttt{LDL}}\)</span> の値が極めて小さいことに気づくかもしれない．これは LAB に比べて LDL の影響が小さいことを意味しない．なぜならばこの２つの変数はスケールが約 <span class="math inline">\(10^2\)</span> 違うためである．LDL は 100 のスケール，LAB は 1 のスケールである．</p>
-<p>説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．</p>
 </section>
-<section id="データの正規化" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="データの正規化"><span class="header-section-number">2.2</span> データの正規化</h3>
-<p>そこでデータを正規化してみる：</p>
+<section id="sec-pp-check1" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-pp-check1"><span class="header-section-number">2.2</span> モデルのチェック</h3>
+<p>さらにベイズ模型は事後予測分布をプロットし，実際の観測データと比べることで，モデルがデータ生成過程をどれほど反映できているかが瞬時に把握できる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">sBMI =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>BMI),</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">sLAB =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>LAB),</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sLDL =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>LDL)</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>model2s <span class="ot">&lt;-</span> <span class="fu">bf</span>(sBMI <span class="sc">~</span> sLAB <span class="sc">+</span> sLDL)</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>fit2s <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model2s,</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df,</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit2s, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_sLAB"</span>, <span class="st">"b_sLDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>synthetic_data <span class="ot">&lt;-</span> <span class="fu">posterior_predict</span>(fit1, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">LAB =</span> <span class="fl">3.0</span>), <span class="at">ndraws =</span> <span class="dv">10000</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(synthetic_data, <span class="at">nclass =</span> <span class="dv">100</span>, <span class="at">xlab =</span> <span class="st">"BMI"</span>, <span class="at">main =</span> <span class="st">"Predicted BMI for a person with LAB = 3.0"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="BayesRegression_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit2s)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>               Estimate  Est.Error      l-95% CI   u-95% CI     Rhat Bulk_ESS
-Intercept -3.713305e-05 0.03331282 -0.0653705442 0.06528019 1.000142 8200.177
-sLAB       1.547948e-01 0.03971459  0.0770044500 0.23356108 1.000533 8176.849
-sLDL       7.751500e-02 0.03964411 -0.0009587426 0.15493778 1.000060 8366.416
-          Tail_ESS
-Intercept 7006.161
-sLAB      7330.864
-sLDL      7904.067</code></pre>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">pp_check</span>(fit1, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>p1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
 </div>
 </div>
-<p>データを正規化してしまったため，直接的な係数の解釈はできないが，係数を相互に比較できる．</p>
-<p>またその他のモデルの性質は変わらない．例えば事後予測分布も変わらない．</p>
+</div>
+<p>事後予測分布のプロットを見ると，モデルが取り逃がしている構造として，BMI の分布が左右で非対称であることがあることがわかる．回帰直線のプロット <a href="#fig-fit1-line" class="quarto-xref">図&nbsp;1</a> を見ても，直線の上側の点の方が裾が広く分散している．</p>
+<p>「やせ」と「肥満」は対称ではないのである．</p>
+<p>残差をプロットすることでさらに明らかになる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>p2s <span class="ot">&lt;-</span> <span class="fu">pp_check</span>(fit2s, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">pp_check</span>(fit2, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(p2, p2s, <span class="at">nrow =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit1)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, res[,<span class="dv">1</span>], <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"Residuals"</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="dv">0</span>,<span class="dv">0</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit1-res" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit1-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="BayesRegression_files/figure-html/fig-fit1-res-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-fit1-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;2: 残差のプロット
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="変数の追加" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="変数の追加"><span class="header-section-number">2.3</span> 変数の追加</h3>
+<p>ここに新たな変数 LDL を追加すると，LAB の係数 <span class="math inline">\(\beta_{\texttt{LAB}}\)</span> は <span class="math inline">\(0.6\)</span> から <span class="math inline">\(0.5\)</span> に減少する．これはどういう意味だろうか？</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>model2 <span class="ot">&lt;-</span> <span class="fu">update</span>(model1, BMI <span class="sc">~</span> LAB <span class="sc">+</span> LDL)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model2,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit2, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_LAB"</span>, <span class="st">"b_LDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -748,41 +806,113 @@ sLDL      7904.067</code></pre>
 </div>
 </div>
 </div>
-</section>
-<section id="交差項の係数" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="交差項の係数"><span class="header-section-number">2.3</span> 交差項の係数</h3>
-<p>再び正規化する前のデータに戻る．</p>
+<p>一般に係数の追加は層別に当たる．例えばこの結果は，<strong>LDL の値が同じ人の中では</strong> LAB が <span class="math inline">\(1\)</span> 違う人の BMI の値が <span class="math inline">\(0.5\)</span> 違うと解釈できる．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>model3 <span class="ot">&lt;-</span> <span class="fu">update</span>(model2, BMI <span class="sc">~</span> LAB <span class="sc">*</span> LDL)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model3,</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit2)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Estimate   Est.Error     l-95% CI    u-95% CI     Rhat  Bulk_ESS
+Intercept 20.167095694 0.508697419 1.915738e+01 21.16817592 1.000156 12406.505
+LAB        0.480590230 0.123523343 2.345347e-01  0.72295784 1.000166  8773.965
+LDL        0.008655655 0.004414599 1.466805e-04  0.01750134 1.000146  8828.879
+          Tail_ESS
+Intercept 7872.585
+LAB       7388.178
+LDL       7208.248</code></pre>
+</div>
+</div>
+<p>ここで <span class="math inline">\(\beta_{\texttt{LDL}}\)</span> の値が極めて小さいことに気づくかもしれない．これは LAB に比べて LDL の影響が小さいことを意味しない．なぜならばこの２つの変数はスケールが約 <span class="math inline">\(10^2\)</span> 違うためである．LDL は 100 のスケール，LAB は 1 のスケールである．</p>
+<p>説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．</p>
+</section>
+<section id="sec-standardization" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="sec-standardization"><span class="header-section-number">2.4</span> データの正規化</h3>
+<p>そこでデータを正規化してみる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">sBMI =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>BMI),</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">sLAB =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>LAB),</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sLDL =</span> <span class="fu">scale</span>(raw_df<span class="sc">$</span>LDL)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>model2s <span class="ot">&lt;-</span> <span class="fu">bf</span>(sBMI <span class="sc">~</span> sLAB <span class="sc">+</span> sLDL)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>fit2s <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model2s,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df,</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit3, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_LAB"</span>, <span class="st">"b_LDL"</span>, <span class="st">"b_LAB:LDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit2s, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_sLAB"</span>, <span class="st">"b_sLDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="BayesRegression_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit3)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit2s)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Estimate  Est.Error     l-95% CI   u-95% CI      Rhat Bulk_ESS
+Intercept 7.522651e-05 0.03425035 -0.068425590 0.06721458 1.0014686 9820.954
+sLAB      1.541776e-01 0.03921660  0.077864765 0.23129153 0.9998343 8961.051
+sLDL      7.719841e-02 0.04016989 -0.001446599 0.15438400 1.0000044 9394.795
+          Tail_ESS
+Intercept 7058.981
+sLAB      7946.039
+sLDL      8158.999</code></pre>
+</div>
+</div>
+<p>データを正規化してしまったため，直接的な係数の解釈はできないが，係数を相互に比較できる．</p>
+<p>またその他のモデルの性質は変わらない．例えば事後予測分布も変わらない．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>p2s <span class="ot">&lt;-</span> <span class="fu">pp_check</span>(fit2s, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">pp_check</span>(fit2, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(p2, p2s, <span class="at">nrow =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="交差項の係数の解釈" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="交差項の係数の解釈"><span class="header-section-number">2.5</span> 交差項の係数の解釈</h3>
+<p>再び正規化する前のデータに戻る．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>model3 <span class="ot">&lt;-</span> <span class="fu">update</span>(model2, BMI <span class="sc">~</span> LAB <span class="sc">*</span> LDL)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model3,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit3, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Intercept"</span>, <span class="st">"b_LAB"</span>, <span class="st">"b_LDL"</span>, <span class="st">"b_LAB:LDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit3)<span class="sc">$</span>fixed</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>              Estimate   Est.Error     l-95% CI     u-95% CI     Rhat Bulk_ESS
-Intercept 18.342847436 1.568855132 15.217697338 21.470326438 1.000462 3627.617
-LAB        0.948896994 0.400163493  0.156625759  1.734906281 1.000388 3715.667
-LDL        0.024015313 0.013311850 -0.002112022  0.050269396 1.000499 3792.231
-LAB:LDL   -0.003796444 0.003105054 -0.009906587  0.002312495 1.000913 3608.100
+Intercept 18.343555254 1.604795320 15.143167287 21.369150246 1.000525 3244.231
+LAB        0.951188612 0.411125758  0.170115468  1.769360158 1.000082 3333.452
+LDL        0.023882438 0.013536050 -0.001720447  0.050917031 1.000414 3315.768
+LAB:LDL   -0.003783052 0.003173761 -0.010074600  0.002145523 1.000361 3166.146
           Tail_ESS
-Intercept 4617.198
-LAB       4842.826
-LDL       4301.296
-LAB:LDL   4361.301</code></pre>
+Intercept 4340.650
+LAB       4113.096
+LDL       4512.152
+LAB:LDL   3934.990</code></pre>
 </div>
 </div>
 <p>交差項を含む線型回帰における係数の解釈はさらに限定的になる．</p>
@@ -790,8 +920,48 @@ LAB:LDL   4361.301</code></pre>
 <p><span class="math inline">\(\beta_{\texttt{LAB:LDL}}\)</span> は片方の係数 <span class="math inline">\(\beta_{\texttt{LAB}}\)</span> を固定した際，LDL が <span class="math inline">\(1\)</span> だけ違うグループにおける係数 <span class="math inline">\(\beta_{\texttt{LDL}}\)</span> との違いを表す．</p>
 <p>すなわち交差項の追加は，LDL に依って層別し，それぞれのグループに異なる <span class="math inline">\(\beta_{\texttt{LAB}}\)</span> を推定することを可能にする．この点で階層モデリングに似ている．</p>
 </section>
-<section id="まとめ" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">2.4</span> まとめ</h3>
+<section id="交差項" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="交差項"><span class="header-section-number">2.6</span> 交差項</h3>
+<p>交差項 <code>LAB*LDL</code> の追加は，LDL の違うサブグループの間に異なる LAB をフィッティングすることを可能にする．</p>
+<p>このことを最もよく見るには，LDL が上半分か下半分かで LAB の係数がどう変わるかを見るのが良い．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>raw_df<span class="sc">$</span>LDLcate2 <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(raw_df<span class="sc">$</span>LDL <span class="sc">&gt;</span> <span class="fu">median</span>(raw_df<span class="sc">$</span>LDL), <span class="st">"High"</span>, <span class="st">"Low"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>model3_cate <span class="ot">&lt;-</span> <span class="fu">bf</span>(BMI <span class="sc">~</span> LAB <span class="sc">*</span> LDLcate2)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>fit3_cate <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model3_cate,</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Compiling Stan program...</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Start sampling</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, raw_df<span class="sc">$</span>BMI, <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"BMI"</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>b_hat <span class="ot">&lt;-</span> <span class="fu">summary</span>(fit3_cate)<span class="sc">$</span>fixed</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(b_hat[<span class="dv">1</span>,<span class="dv">1</span>], b_hat[<span class="dv">2</span>,<span class="dv">1</span>], <span class="at">col =</span> <span class="st">"red"</span>)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(b_hat[<span class="dv">1</span>,<span class="dv">1</span>] <span class="sc">+</span> b_hat[<span class="dv">3</span>,<span class="dv">1</span>], b_hat[<span class="dv">2</span>,<span class="dv">1</span>] <span class="sc">+</span> b_hat[<span class="dv">4</span>,<span class="dv">1</span>], <span class="at">col =</span> <span class="st">"blue"</span>)</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"topleft"</span>, <span class="co"># または "topright", "bottomleft", "bottomright" など</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">legend =</span> <span class="fu">c</span>(<span class="st">"High"</span>, <span class="st">"Low"</span>),</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">col =</span> <span class="fu">c</span>(<span class="st">"red"</span>, <span class="st">"blue"</span>),</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">lty =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>LDL が大きいと，LAB の BMI に与える影響は緩やかになることがわかる．LDL の方が LAB の代わりに BMI の増加を説明してしまっているとも考えられる．</p>
+</section>
+<section id="まとめ" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">2.7</span> まとめ</h3>
 <p>線型回帰において，説明変数の追加は，「他の説明変数を固定したグループ内での」係数の推定に変化する（階層モデリングにつながる見方）．</p>
 <!--
 
@@ -816,7 +986,7 @@ plot(fit3s, variable = c("b_Intercept", "b_sLAB", "b_sLDL", "b_sLAB:sLDL"))
 ```
 
 ::: {.cell-output-display}
-![](BayesRegression_files/figure-html/unnamed-chunk-22-1.png){width=672}
+![](BayesRegression_files/figure-html/unnamed-chunk-30-1.png){width=672}
 :::
 :::
 
@@ -829,16 +999,16 @@ summary(fit3s)$fixed
 ::: {.cell-output .cell-output-stdout}
 
 ```
-             Estimate  Est.Error    l-95% CI   u-95% CI      Rhat Bulk_ESS
-Intercept  0.01978004 0.03709257 -0.05197748 0.09215196 0.9998914 12539.39
-sLAB       0.15724179 0.03982217  0.07920330 0.23473457 1.0002386 10022.53
-sLDL       0.08203374 0.04044490  0.00233379 0.16062205 1.0003407 10776.67
-sLAB:sLDL -0.03663806 0.03106259 -0.09809338 0.02453782 1.0000813 11109.65
+             Estimate  Est.Error     l-95% CI   u-95% CI     Rhat Bulk_ESS
+Intercept  0.01938697 0.03724650 -0.053346956 0.09179243 1.000897 12645.10
+sLAB       0.15751063 0.04061630  0.077334977 0.23580527 1.000272  9586.56
+sLDL       0.08185278 0.03996790  0.004555445 0.16070040 1.000044  9657.48
+sLAB:sLDL -0.03702489 0.03138831 -0.099524165 0.02440712 1.001304 11829.47
           Tail_ESS
-Intercept 6988.362
-sLAB      7144.648
-sLDL      7501.354
-sLAB:sLDL 7489.995
+Intercept 8049.027
+sLAB      7220.602
+sLDL      7181.699
+sLAB:sLDL 7514.588
 ```
 
 
@@ -852,25 +1022,356 @@ sLAB:sLDL 7489.995
 しかし事後予測分布はあまり変わらないようである．
 
 
+
+::: {.cell}
+
+```{.r .cell-code}
 p3s <- pp_check(fit3s, ndraws = 100)
 grid.arrange(p2s, p3s, nrow = 1)
-``` -->
+```
+
+::: {.cell-output-display}
+![](BayesRegression_files/figure-html/unnamed-chunk-32-1.png){width=672}
+:::
+:::
+
+
+-->
+</section>
+</section>
+<section id="モデル検証" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="モデル検証"><span class="header-section-number">3</span> モデル検証</h2>
+<section id="はじめに-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">3.1</span> はじめに</h3>
+<p>残差プロットや事後予測プロットによるモデルの検証は，解析と並行して見てきた．</p>
+<p>ここではより詳細に，モデルの予測性能に基づいた検証・比較方法を見る．</p>
+<p>交差検証法によるスコア <code>elpd_loo</code> によるモデル比較が一つ推奨される．</p>
+</section>
+<section id="決定係数" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="決定係数"><span class="header-section-number">3.2</span> 決定係数</h3>
+<p><a href="#fig-fit1-line" class="quarto-xref">図&nbsp;1</a> の回帰直線のプロットと <a href="#fig-fit1-res" class="quarto-xref">図&nbsp;2</a> の残差プロットを見ると，残差がまだ構造を持っていることがわかる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit3)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, res[,<span class="dv">1</span>], <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"Residuals"</span>)</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="dv">0</span>,<span class="dv">0</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit3-res" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit3-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="BayesRegression_files/figure-html/fig-fit3-res-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-fit3-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;3: fit3 の残差のプロット
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>この残差は標本分散 <span class="math inline">\(\widehat{\sigma}^2\)</span></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>sigma <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">var</span>(res)[<span class="dv">1</span>,<span class="dv">1</span>])</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(sigma)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 3.394462</code></pre>
+</div>
+</div>
+<p>を持っている．</p>
+<p>ひとまず LAB と LDL について回帰をすることで，データの変動がどれほど説明できたかを考えてみよう．</p>
+<p><span class="math display">\[
+R^2:=1-\frac{\widehat{\sigma}^2}{s_y^2}=\frac{s_y^2-\widehat{\sigma}^2}{s_y^2}
+\]</span></p>
+<p>という値は <a href="https://ja.wikipedia.org/wiki/決定係数"><strong>決定係数</strong></a> と呼ばれ，データ <span class="math inline">\(y\)</span> の分散 <span class="math inline">\(s_y^2\)</span> のうち「説明された分散」の割合を表す．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span><span class="sc">-</span>sigma<span class="sc">^</span><span class="dv">2</span><span class="sc">/</span><span class="fu">var</span>(raw_df<span class="sc">$</span>BMI)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.04403279</code></pre>
+</div>
+</div>
+<p>データの変動の <span class="math inline">\(4\%\)</span> しか説明できていないことがわかる．</p>
+</section>
+<section id="ベイズ決定係数" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="ベイズ決定係数"><span class="header-section-number">3.3</span> ベイズ決定係数</h3>
+<p>ベイズ決定係数 <span class="citation" data-cites="Gelman+2019">(<a href="#ref-Gelman+2019" role="doc-biblioref">Andrew Gelman and Vehtari, 2019</a>)</span> は <code>brms</code> パッケージで次のように計算できる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bayes_R2</span>(fit3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Estimate  Est.Error       Q2.5      Q97.5
+R2 0.04735052 0.01359373 0.02345481 0.07669648</code></pre>
+</div>
+</div>
+<p>以上の <span class="math inline">\(R^2\)</span> の議論では係数を点推定して「残差」を議論していた．</p>
+<p>他の可能性も考慮して推定を改善するのがベイズのやり方である．</p>
+<p>ベイズ決定係数は，事後予測分布からのサンプルを用いて複数回予測値 <span class="math inline">\(\widehat{y}_i\)</span> を計算し， <span class="math display">\[
+R^2_{\texttt{Bayes}}:=\frac{\mathrm{V}[\widehat{y}]}{\mathrm{V}[\widehat{y}]+\sigma^2}
+\]</span> という値で「データの変動のうち説明された割合」を表す．</p>
+</section>
+<section id="aic" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="aic"><span class="header-section-number">3.4</span> AIC</h3>
+<p><span class="citation" data-cites="Akaike74-AIC">(<a href="#ref-Akaike74-AIC" role="doc-biblioref">Akaike, 1974</a>)</span> は次のように定義される： <span class="math display">\[
+\mathtt{AIC}=-2\biggr(\sup_\theta\log p(y|\theta)\biggl)+2p.
+\]</span></p>
+<p>第１項は deviance とも呼ばれ，残差を表す．</p>
+<p>AIC は新たなデータ点が観測された際の，そのデータ点に対するデビアンス（ある種の損失）の推定量となっており，小さいほどよい．</p>
+<p>AIC と同様の推定を，計算機集約的に行う方法に次節の交差検証法がある：</p>
+</section>
+<section id="交差検証" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="交差検証"><span class="header-section-number">3.5</span> 交差検証</h3>
+<p>事後予測検証では事後分布と観測を比較したが，よりこの好ましくは新しい（推定に用いていない）データと突き合わせることである．</p>
+<p>LOO (Leave-One-Out) 交差検証 <span class="citation" data-cites="Stone1974">(<a href="#ref-Stone1974" role="doc-biblioref">Stone, 1974</a>)</span> では，データを１つだけ抜いてモデルを推定し，このモデルの予測値と実際の値を比較するモデル検証法である．</p>
+<p><code>brms</code> パッケージでは <a href="https://mc-stan.org/loo/reference/loo-glossary.html"><code>loo</code> パッケージ</a> を内部で利用して高速に計算することができる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Computed from 10000 by 839 log-likelihood matrix.
+
+         Estimate   SE
+elpd_loo  -2220.7 26.8
+p_loo         5.6  0.7
+looic      4441.4 53.5
+------
+MCSE of elpd_loo is 0.0.
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.3, 1.0]).
+
+All Pareto k estimates are good (k &lt; 0.7).
+See help('pareto-k-diagnostic') for details.</code></pre>
+</div>
+</div>
+<p>回帰分析において予測値と実際の（省いていた）データの乖離は，AIC を踏襲して事後予測分布のスコア関数で測る <span class="citation" data-cites="Vehtari+2017">(<a href="#ref-Vehtari+2017" role="doc-biblioref">Vehtari et al., 2017, p. 1414</a>)</span>．</p>
+<p>elpd (expected log predictive density) は，LOO 交差検証により得る，（省いていた）データの対数尤度の平均である： <span class="math display">\[
+\mathrm{elpd}_{\text{loo}}=\sum_{i=1}^n\log p(y_i|y_{-i})=\sum_{i=1}^n\int p(y_i|\theta)p(\theta|y_{-i})\,d\theta.
+\]</span></p>
+<p>この値が大きいほどモデルの予測が良い．一般に elpd は，一度見たことあるデータ点に対する事後予測スコアよりも低くなる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> この際の差は <code>p_loo</code> が測っており，乖離が大きすぎるとモデルがデータに過適合していることを表す．</p>
+<p><code>p_loo</code> は有効パラメータ数の（一致）推定量である．今回のモデルには切片項と <code>LAB</code>, <code>LDL</code>, <code>LAB:LDL</code> そして <code>sigma</code> の５つのパラメータがあるが，それより <span class="math inline">\(0.6\)</span> だけ大きい値が出ている．</p>
+<p>最後の列は情報量規準のスケールにしたものである： <span class="math display">\[
+\mathtt{looic}=-2\times\mathrm{elpd}_{\text{loo}}.
+\]</span></p>
+<p>一般に LOO-CV は計算が大変であるが，<code>loo</code> パッケージは Pareto Smoothed Importance Sampling (PSIS) <span class="citation" data-cites="Vehtari+2015">(<a href="#ref-Vehtari+2015" role="doc-biblioref">Vehtari et al., 2024</a>)</span> を用いて高速に計算している．</p>
+<p><span class="math inline">\(k&gt;0.7\)</span> の場合はこれがうまくいっていないことを示唆する．この下で <span class="math inline">\(\mathtt{p_loo}&gt;p\)</span> はモデルの誤特定を示唆する．</p>
+</section>
+<section id="sec-posterior-predictive-score" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="sec-posterior-predictive-score"><span class="header-section-number">3.6</span> 事後予測スコアによるモデル比較</h3>
+<p><code>brms</code> パッケージでは <code>loo_compare</code> 関数で２つのモデルの elpd スコアを比較できる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo_compare</span>(<span class="fu">loo</span>(fit1), <span class="fu">loo</span>(fit2))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     elpd_diff se_diff
+fit2  0.0       0.0   
+fit1 -0.9       2.1   </code></pre>
+</div>
+</div>
+<p><code>elpd_diff</code> の値は標準偏差と比べて大変に小さい．交差検証の観点からは，<code>LDL</code> の追加は BMI の予測の観点から全く違いがないことがわかる．</p>
+</section>
+</section>
+<section id="非線型性への憧憬" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="非線型性への憧憬"><span class="header-section-number">4</span> 非線型性への憧憬</h2>
+<section id="はじめに-2" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">4.1</span> はじめに</h3>
+<p>LAB による BMI への回帰の残差には，左右の非対称性が見られる <a href="#sec-pp-check1" class="quarto-xref">2.2</a>．</p>
+<p>そして更なる変数 LDL の追加は予測の観点では特に影響がないことがわかった <a href="#sec-posterior-predictive-score" class="quarto-xref">3.6</a>．</p>
+<p>そこでここでは手軽に非線型性を取り入れる方法として，データを変換することを考える．</p>
+<p>第 <a href="#sec-standardization" class="quarto-xref">2.4</a> 節でデータを標準化すると回帰モデルの係数の解釈が容易になることみた．</p>
+<p>しかしデータの線型変換は線型回帰モデルを変えず，推定には何の影響も与えない．</p>
+<p>そこでここでは非線型な変換に注目する．</p>
+</section>
+<section id="線型回帰モデルという仮定" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="線型回帰モデルという仮定"><span class="header-section-number">4.2</span> 線型回帰モデルという仮定</h3>
+<p>線型回帰モデリングにおける最大の仮定は，説明変数の加法性と，<span class="math inline">\(y\)</span> への効果の線型性である： <span class="math display">\[
+y=\beta_0+\beta_1x_1+\beta_2x_2+\cdots.
+\]</span></p>
+<p>LAB や LDL の BMI への影響が線型であると見るのは相当横暴な仮定である．LAB と LDL が両方高いことが相乗的に BMI を高めるシナリオの方があり得そうである．</p>
+<p>BMI も LAB も LDL も正の値しか取らないこともあり，対数変換を考えることは良い第一歩だろう．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>model1_log <span class="ot">&lt;-</span> <span class="fu">update</span>(model1, <span class="fu">log</span>(BMI) <span class="sc">~</span> LAB)</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>fit1_log <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model1_log,</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit1_log)</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(raw_df<span class="sc">$</span>LAB, res[,<span class="dv">1</span>], <span class="at">xlab=</span><span class="st">"LAB"</span>, <span class="at">ylab=</span><span class="st">"Residuals (on log scale)"</span>)</span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="dv">0</span>,<span class="dv">0</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>残差プロットを見ると，元のスケールでの線型回帰 <a href="#fig-fit1-res" class="quarto-xref">図&nbsp;2</a> と比べて非対称性は軽減している．</p>
+<!-- 
+
+
+::: {.cell}
+
+```{.r .cell-code}
+pp_check(fit1_log, ndraws = 100)
+```
+
+::: {.cell-output-display}
+![](BayesRegression_files/figure-html/unnamed-chunk-41-1.png){width=672}
+:::
+:::
+
+
+-->
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(bayesplot)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>yrep <span class="ot">&lt;-</span> <span class="fu">posterior_predict</span>(fit1_log, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>p1_log <span class="ot">&lt;-</span> <span class="fu">ppc_dens_overlay</span>(raw_df<span class="sc">$</span>BMI, <span class="fu">exp</span>(yrep))</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(p1, p1_log, <span class="at">nrow=</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-43-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>事後予測分布も改善しているのがわかる．</p>
+<p>ただし，説明変数を対数スケールに変換してしまったので，直接 LOO スコアを比較することはできないことに注意する：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo_compare</span>(<span class="fu">loo</span>(fit1), <span class="fu">loo</span>(fit1_log))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Not all models have the same y variable. ('yhash' attributes do not
+match)</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         elpd_diff se_diff
+fit1_log     0.0       0.0
+fit1     -2657.0       8.2</code></pre>
+</div>
+</div>
+</section>
+<section id="log-log-モデル" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="log-log-モデル"><span class="header-section-number">4.3</span> log-log モデル</h3>
+<p>同様に説明変数にも対数変換を施すことができる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>model1_loglog <span class="ot">&lt;-</span> <span class="fu">update</span>(model1_log, <span class="fu">log</span>(BMI) <span class="sc">~</span> <span class="fu">log</span>(LAB))</span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>fit1_loglog <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> model1_loglog,</span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">5000</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>yrep <span class="ot">&lt;-</span> <span class="fu">posterior_predict</span>(fit1_loglog, <span class="at">ndraws =</span> <span class="dv">100</span>)</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>p1_loglog <span class="ot">&lt;-</span> <span class="fu">ppc_dens_overlay</span>(raw_df<span class="sc">$</span>BMI, <span class="fu">exp</span>(yrep))</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(p1_log, p1_loglog, <span class="at">nrow=</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="BayesRegression_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>予測性能はわずかに悪化していることがわかる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo_compare</span>(<span class="fu">loo</span>(fit1_log), <span class="fu">loo</span>(fit1_loglog))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            elpd_diff se_diff
+fit1_log     0.0       0.0   
+fit1_loglog -1.8       1.1   </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">median</span>(<span class="fu">loo_R2</span>(fit1_log))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02487841</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">median</span>(<span class="fu">loo_R2</span>(fit1_loglog))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0223436</code></pre>
+</div>
+</div>
+<p>しかし log-log モデルの係数は弾力性 (elasticity) としての解釈ができることもあり，解釈性の観点から選好されることがある <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020, p. 195</a>)</span>．</p>
+</section>
+<section id="離散変数化" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="離散変数化"><span class="header-section-number">4.4</span> 離散変数化</h3>
+<p>離散変数の扱いは連続変数よりも難しくなる．基本的に一般化線型モデルの枠組みが必要になる．</p>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733324400000" data-listing-file-modified-sort="1733904280146" data-listing-date-modified-sort="1733842800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
+<a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/BayesianWorkflow.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析６
+</h5>
+<div class="card-subtitle listing-subtitle">
+応答が質的変数の場合
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-05
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>しかし連続変数間の関数関係が複雑だと思われる場合，ノンパラメトリック手法を求める前に，変数を離散化して解析することも得るものが大きい場合が多い．</p>
+<p>このような設定は，離散変数を扱う積極的な理由になる．非線型性を扱うために設定を簡略化するのである．</p>
 </section>
 </section>
 
 
-<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献紹介</h2><div class="quarto-appendix-contents">
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 文献紹介</h2><div class="quarto-appendix-contents">
 
 <p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(10 節 <a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020</a>)</span> に線型重回帰モデルにおいて，係数の解釈法が丁寧に解説されている．</p>
+<p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(11 節 <a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020</a>)</span> はモデルの検証法を扱っている．</p>
+<p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020</a>)</span> では基本的に <code>rstanarm</code> パッケージを用いているが，本稿では <code>brms</code> パッケージを用いた．</p>
 
 
 
 
 </div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Akaike74-AIC" class="csl-entry" role="listitem">
+Akaike, H. (1974). <a href="https://doi.org/10.1109/TAC.1974.1100705">A new look at the statistical model identification</a>. <em>IEEE Transaction on Automatic Control</em>, <em>19</em>(6), 716–723.
+</div>
+<div id="ref-Gelman+2019" class="csl-entry" role="listitem">
+Andrew Gelman, J. G., Ben Goodrich, and Vehtari, A. (2019). <a href="https://doi.org/10.1080/00031305.2018.1549100">R-squared for bayesian regression models</a>. <em>The American Statistician</em>, <em>73</em>(3), 307–309.
+</div>
 <div id="ref-Gelman-Hill-Vehtari2020" class="csl-entry" role="listitem">
 Gelman, A., Hill, J., and Vehtari, A. (2020). <em><a href="https://avehtari.github.io/ROS-Examples/">Regression and other stories</a></em>. Cambridge University Press.
 </div>
-</div></section></div></main> <!-- /main -->
+<div id="ref-Mudholkar2014" class="csl-entry" role="listitem">
+Mudholkar, G. S. (2014). <a href="https://doi.org/10.1002/9781118445112.stat00641">Multiple correlation coefficient</a>. In <em>Wiley StatsRef: Statistics reference online</em>. John Wiley &amp; Sons, Ltd.
+</div>
+<div id="ref-Olkin-Pratt58-UMVestimator-CorrelationCoefficient" class="csl-entry" role="listitem">
+Olkin, I., and Pratt, J. W. (1958). Unbiased estimation of certain correlation coefficients. <em>The Annals of Mathematical Statistics</em>, <em>29</em>(1), 201–211.
+</div>
+<div id="ref-Stone1974" class="csl-entry" role="listitem">
+Stone, M. (1974). <a href="http://www.jstor.org/stable/2984809">Cross-validatory choice and assessment of statistical predictions</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>36</em>(2), 111–147.
+</div>
+<div id="ref-Vehtari+2017" class="csl-entry" role="listitem">
+Vehtari, A., Gelman, A., and Gabry, J. (2017). <a href="https://doi.org/10.1007/s11222-016-9696-4">Practical bayesian model evaluation using leave-one-out cross-validation and WAIC</a>. <em>Statistics and Computing</em>, <em>27</em>(5), 1413–1432.
+</div>
+<div id="ref-Vehtari+2015" class="csl-entry" role="listitem">
+Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="https://arxiv.org/abs/1507.02646">Pareto smoothed importance sampling</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>決定係数は，回帰が OLS 推定量により推定された場合には <span class="math inline">\(Y\)</span> と説明変数のベクトル <span class="math inline">\(X\)</span> との間の <strong>重相関係数</strong> とも一致する <span class="citation" data-cites="Mudholkar2014">(<a href="#ref-Mudholkar2014" role="doc-biblioref">Mudholkar, 2014</a>)</span>．<span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020, p. 168</a>)</span> も参照．一般に決定係数は母集団の多重相関係数の一致推定量だと見れる．こうみた場合のバイアスを低減・脱離した値に，自由度調整済み決定係数，<span class="citation" data-cites="Olkin-Pratt58-UMVestimator-CorrelationCoefficient">(<a href="#ref-Olkin-Pratt58-UMVestimator-CorrelationCoefficient" role="doc-biblioref">Olkin and Pratt, 1958</a>)</span> 推定量などが存在する．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>訓練に用いたデータ点に関する事後予測スコアはdeviance と関係があり，<span class="math inline">\(-2\)</span> を乗じたものは deviance と同じスケールになる <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020, p. 174</a>)</span>, <span class="citation" data-cites="Vehtari+2017">(<a href="#ref-Vehtari+2017" role="doc-biblioref">Vehtari et al., 2017, p. 1427</a>)</span>．AIC は deviance から <span class="math inline">\(2p\)</span> を引いたものである <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020, p. 175</a>)</span>．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {

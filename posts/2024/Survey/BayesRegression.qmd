@@ -1,9 +1,9 @@
 ---
-title: "ベイズ重回帰分析"
-subtitle: "医療データを題材として"
-author: "司馬 博文"
+title: "`brms` を用いたベイズ重回帰分析"
+subtitle: "BMI データを題材として"
+author: "司馬博文"
 date: 12/10/2024
-date-modified: 12/11/2024
+date-modified: 12/12/2024
 categories: [Bayesian, Statistics, R]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -30,13 +30,22 @@ listing:
             - "BDA1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "BDA2.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
 ## はじめに
 
-ベイズ回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：
+ベイズ線型回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：
 
 ::: {#lst-survey}
 :::
@@ -64,7 +73,7 @@ raw_df <- raw_df %>%
 
 ## 線型重回帰
 
-### 変数の追加
+### ベイズ単回帰
 
 <!-- 
 ```{r}
@@ -138,6 +147,59 @@ $$
 $$
 となる．
 
+```{r}
+#| fig-caption: 回帰直線のプロット
+#| label: fig-fit1-line
+plot(raw_df$LAB, raw_df$BMI, xlab="LAB", ylab="BMI")
+abline(summary(fit1)$fixed[1,1], summary(fit1)$fixed[2,1])
+```
+
+しかしこの図を見ればわかる通り，LAB は BMI の変動の一部しか説明しておらず，上述ような点推定的な議論にどれほど意味があるかは疑問である．
+
+ベイズ回帰では幅を持って結果を理解できるため，その美点を活かさない理由はない．
+
+```{r}
+plot(raw_df$LAB, raw_df$BMI, xlab="LAB", ylab="BMI")
+sims <- as.matrix(fit1)
+sims_to_display <- sample(nrow(sims), 100)
+for (i in sims_to_display) {
+  abline(sims[i, 1], sims[i, 2], col = "gray")
+}
+abline(summary(fit1)$fixed[1,1], summary(fit1)$fixed[2,1])
+```
+
+### モデルのチェック {#sec-pp-check1}
+
+さらにベイズ模型は事後予測分布をプロットし，実際の観測データと比べることで，モデルがデータ生成過程をどれほど反映できているかが瞬時に把握できる：
+
+```{r}
+synthetic_data <- posterior_predict(fit1, newdata = data.frame(LAB = 3.0), ndraws = 10000)
+hist(synthetic_data, nclass = 100, xlab = "BMI", main = "Predicted BMI for a person with LAB = 3.0")
+```
+
+```{r}
+p1 <- pp_check(fit1, ndraws = 100)
+p1
+```
+
+事後予測分布のプロットを見ると，モデルが取り逃がしている構造として，BMI の分布が左右で非対称であることがあることがわかる．回帰直線のプロット @fig-fit1-line を見ても，直線の上側の点の方が裾が広く分散している．
+
+「やせ」と「肥満」は対称ではないのである．
+
+残差をプロットすることでさらに明らかになる：
+
+```{r}
+#| fig-cap: 残差のプロット
+#| label: fig-fit1-res
+res <- residuals(fit1)
+plot(raw_df$LAB, res[,1], xlab="LAB", ylab="Residuals")
+abline(0,0)
+```
+
+
+
+### 変数の追加
+
 ここに新たな変数 LDL を追加すると，LAB の係数 $\beta_{\texttt{LAB}}$ は $0.6$ から $0.5$ に減少する．これはどういう意味だろうか？
 
 ```{r}
@@ -163,7 +225,7 @@ summary(fit2)$fixed
 
 説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．
 
-### データの正規化
+### データの正規化 {#sec-standardization}
 
 そこでデータを正規化してみる：
 
@@ -202,7 +264,7 @@ p2 <- pp_check(fit2, ndraws = 100)
 grid.arrange(p2, p2s, nrow = 1)
 ```
 
-### 交差項の係数
+### 交差項の係数の解釈
 
 再び正規化する前のデータに戻る．
 
@@ -230,6 +292,38 @@ $\beta_{\texttt{LAB}}$ は LDL が $0$ である人が仮にいたとした場�
 $\beta_{\texttt{LAB:LDL}}$ は片方の係数 $\beta_{\texttt{LAB}}$ を固定した際，LDL が $1$ だけ違うグループにおける係数 $\beta_{\texttt{LDL}}$ との違いを表す．
 
 すなわち交差項の追加は，LDL に依って層別し，それぞれのグループに異なる $\beta_{\texttt{LAB}}$ を推定することを可能にする．この点で階層モデリングに似ている．
+
+### 交差項
+
+交差項 `LAB*LDL` の追加は，LDL の違うサブグループの間に異なる LAB をフィッティングすることを可能にする．
+
+このことを最もよく見るには，LDL が上半分か下半分かで LAB の係数がどう変わるかを見るのが良い．
+
+```{r}
+raw_df$LDLcate2 <- ifelse(raw_df$LDL > median(raw_df$LDL), "High", "Low")
+```
+
+```{r}
+model3_cate <- bf(BMI ~ LAB * LDLcate2)
+fit3_cate <- brm(
+  formula = model3_cate,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+plot(raw_df$LAB, raw_df$BMI, xlab="LAB", ylab="BMI")
+b_hat <- summary(fit3_cate)$fixed
+abline(b_hat[1,1], b_hat[2,1], col = "red")
+abline(b_hat[1,1] + b_hat[3,1], b_hat[2,1] + b_hat[4,1], col = "blue")
+legend("topleft", # または "topright", "bottomleft", "bottomright" など
+       legend = c("High", "Low"),
+       col = c("red", "blue"),
+       lty = 1)
+```
+
+LDL が大きいと，LAB の BMI に与える影響は緩やかになることがわかる．LDL の方が LAB の代わりに BMI の増加を説明してしまっているとも考えられる．
 
 ### まとめ
 
@@ -263,9 +357,247 @@ summary(fit3s)$fixed
 ```{r}
 p3s <- pp_check(fit3s, ndraws = 100)
 grid.arrange(p2s, p3s, nrow = 1)
-``` -->
+```
+-->
 
+## モデル検証
+
+### はじめに
+
+残差プロットや事後予測プロットによるモデルの検証は，解析と並行して見てきた．
+
+ここではより詳細に，モデルの予測性能に基づいた検証・比較方法を見る．
+
+交差検証法によるスコア `elpd_loo` によるモデル比較が一つ推奨される．
+
+### 決定係数
+
+@fig-fit1-line の回帰直線のプロットと @fig-fit1-res の残差プロットを見ると，残差がまだ構造を持っていることがわかる．
+
+```{r}
+#| fig-cap: fit3 の残差のプロット
+#| label: fig-fit3-res
+res <- residuals(fit3)
+plot(raw_df$LAB, res[,1], xlab="LAB", ylab="Residuals")
+abline(0,0)
+```
+
+この残差は標本分散 $\wh{\sigma}^2$
+
+```{r}
+sigma <- sqrt(var(res)[1,1])
+print(sigma)
+```
+
+を持っている．
+
+ひとまず LAB と LDL について回帰をすることで，データの変動がどれほど説明できたかを考えてみよう．
+
+$$
+R^2:=1-\frac{\wh{\sigma}^2}{s_y^2}=\frac{s_y^2-\wh{\sigma}^2}{s_y^2}
+$$
+
+という値は [**決定係数**](https://ja.wikipedia.org/wiki/決定係数) と呼ばれ，データ $y$ の分散 $s_y^2$ のうち「説明された分散」の割合を表す．^[決定係数は，回帰が OLS 推定量により推定された場合には $Y$ と説明変数のベクトル $X$ との間の **重相関係数** とも一致する [@Mudholkar2014]．[@Gelman-Hill-Vehtari2020 p.168] も参照．一般に決定係数は母集団の多重相関係数の一致推定量だと見れる．こうみた場合のバイアスを低減・脱離した値に，自由度調整済み決定係数，[@Olkin-Pratt58-UMVestimator-CorrelationCoefficient] 推定量などが存在する．]
+
+```{r}
+1-sigma^2/var(raw_df$BMI)
+```
+
+データの変動の $4\%$ しか説明できていないことがわかる．
+
+### ベイズ決定係数
+
+ベイズ決定係数 [@Gelman+2019] は `brms` パッケージで次のように計算できる：
+
+```{r}
+bayes_R2(fit3)
+```
+
+以上の $R^2$ の議論では係数を点推定して「残差」を議論していた．
+
+他の可能性も考慮して推定を改善するのがベイズのやり方である．
+
+ベイズ決定係数は，事後予測分布からのサンプルを用いて複数回予測値 $\wh{y}_i$ を計算し，
+$$
+R^2_{\texttt{Bayes}}:=\frac{\V[\wh{y}]}{\V[\wh{y}]+\sigma^2}
+$$
+という値で「データの変動のうち説明された割合」を表す．
+
+### AIC
+
+[@Akaike74-AIC] は次のように定義される：
+$$
+\mathtt{AIC}=-2\Paren{\sup_\theta\log p(y|\theta)}+2p.
+$$
+
+第１項は deviance とも呼ばれ，残差を表す．
+
+AIC は新たなデータ点が観測された際の，そのデータ点に対するデビアンス（ある種の損失）の推定量となっており，小さいほどよい．
+
+AIC と同様の推定を，計算機集約的に行う方法に次節の交差検証法がある：
+
+### 交差検証
+
+事後予測検証では事後分布と観測を比較したが，よりこの好ましくは新しい（推定に用いていない）データと突き合わせることである．
+
+LOO (Leave-One-Out) 交差検証 [@Stone1974] では，データを１つだけ抜いてモデルを推定し，このモデルの予測値と実際の値を比較するモデル検証法である．
+
+`brms` パッケージでは [`loo` パッケージ](https://mc-stan.org/loo/reference/loo-glossary.html) を内部で利用して高速に計算することができる．
+
+```{r}
+loo(fit3)
+```
+
+回帰分析において予測値と実際の（省いていた）データの乖離は，AIC を踏襲して事後予測分布のスコア関数で測る [@Vehtari+2017 p.1414]．
+
+elpd (expected log predictive density) は，LOO 交差検証により得る，（省いていた）データの対数尤度の平均である：
+$$
+\mathrm{elpd}_{\text{loo}}=\sum_{i=1}^n\log p(y_i|y_{-i})=\sum_{i=1}^n\int p(y_i|\theta)p(\theta|y_{-i})\,d\theta.
+$$
+
+この値が大きいほどモデルの予測が良い．一般に elpd は，一度見たことあるデータ点に対する事後予測スコアよりも低くなる．^[訓練に用いたデータ点に関する事後予測スコアはdeviance と関係があり，$-2$ を乗じたものは deviance と同じスケールになる [@Gelman-Hill-Vehtari2020 p.174], [@Vehtari+2017 p.1427]．AIC は deviance から $2p$ を引いたものである [@Gelman-Hill-Vehtari2020 p.175]．] この際の差は `p_loo` が測っており，乖離が大きすぎるとモデルがデータに過適合していることを表す．
+
+`p_loo` は有効パラメータ数の（一致）推定量である．今回のモデルには切片項と `LAB`, `LDL`, `LAB:LDL` そして `sigma` の５つのパラメータがあるが，それより $0.6$ だけ大きい値が出ている．
+
+最後の列は情報量規準のスケールにしたものである：
+$$
+\mathtt{looic}=-2\times\mathrm{elpd}_{\text{loo}}.
+$$
+
+一般に LOO-CV は計算が大変であるが，`loo` パッケージは Pareto Smoothed Importance Sampling (PSIS) [@Vehtari+2015] を用いて高速に計算している．
+
+$k>0.7$ の場合はこれがうまくいっていないことを示唆する．この下で $\mathtt{p_loo}>p$ はモデルの誤特定を示唆する．
+
+### 事後予測スコアによるモデル比較 {#sec-posterior-predictive-score}
+
+`brms` パッケージでは `loo_compare` 関数で２つのモデルの elpd スコアを比較できる：
+
+```{r}
+loo_compare(loo(fit1), loo(fit2))
+```
+
+`elpd_diff` の値は標準偏差と比べて大変に小さい．交差検証の観点からは，`LDL` の追加は BMI の予測の観点から全く違いがないことがわかる．
+
+## 非線型性への憧憬
+
+### はじめに
+
+LAB による BMI への回帰の残差には，左右の非対称性が見られる [-@sec-pp-check1]．
+
+そして更なる変数 LDL の追加は予測の観点では特に影響がないことがわかった [-@sec-posterior-predictive-score]．
+
+そこでここでは手軽に非線型性を取り入れる方法として，データを変換することを考える．
+
+第 [-@sec-standardization] 節でデータを標準化すると回帰モデルの係数の解釈が容易になることみた．
+
+しかしデータの線型変換は線型回帰モデルを変えず，推定には何の影響も与えない．
+
+そこでここでは非線型な変換に注目する．
+
+### 線型回帰モデルという仮定
+
+線型回帰モデリングにおける最大の仮定は，説明変数の加法性と，$y$ への効果の線型性である：
+$$
+y=\beta_0+\beta_1x_1+\beta_2x_2+\cdots.
+$$
+
+LAB や LDL の BMI への影響が線型であると見るのは相当横暴な仮定である．LAB と LDL が両方高いことが相乗的に BMI を高めるシナリオの方があり得そうである．
+
+BMI も LAB も LDL も正の値しか取らないこともあり，対数変換を考えることは良い第一歩だろう．
+
+```{r}
+#| output: false
+model1_log <- update(model1, log(BMI) ~ LAB)
+fit1_log <- brm(
+  formula = model1_log,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+res <- residuals(fit1_log)
+plot(raw_df$LAB, res[,1], xlab="LAB", ylab="Residuals (on log scale)")
+abline(0,0)
+```
+
+残差プロットを見ると，元のスケールでの線型回帰 @fig-fit1-res と比べて非対称性は軽減している．
+
+<!-- 
+```{r}
+pp_check(fit1_log, ndraws = 100)
+```
+-->
+
+
+```{r}
+#| output: false
+library(bayesplot)
+```
+```{r}
+yrep <- posterior_predict(fit1_log, ndraws = 100)
+p1_log <- ppc_dens_overlay(raw_df$BMI, exp(yrep))
+grid.arrange(p1, p1_log, nrow=1)
+```
+
+事後予測分布も改善しているのがわかる．
+
+ただし，説明変数を対数スケールに変換してしまったので，直接 LOO スコアを比較することはできないことに注意する：
+
+
+```{r}
+loo_compare(loo(fit1), loo(fit1_log))
+```
+
+### log-log モデル
+
+同様に説明変数にも対数変換を施すことができる．
+
+```{r}
+#| output: false
+model1_loglog <- update(model1_log, log(BMI) ~ log(LAB))
+fit1_loglog <- brm(
+  formula = model1_loglog,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+
+```{r}
+yrep <- posterior_predict(fit1_loglog, ndraws = 100)
+p1_loglog <- ppc_dens_overlay(raw_df$BMI, exp(yrep))
+grid.arrange(p1_log, p1_loglog, nrow=1)
+```
+
+予測性能はわずかに悪化していることがわかる：
+
+```{r}
+loo_compare(loo(fit1_log), loo(fit1_loglog))
+```
+
+```{r}
+median(loo_R2(fit1_log))
+median(loo_R2(fit1_loglog))
+```
+
+しかし log-log モデルの係数は弾力性 (elasticity) としての解釈ができることもあり，解釈性の観点から選好されることがある [@Gelman-Hill-Vehtari2020 p.195]．
+
+### 離散変数化
+
+離散変数の扱いは連続変数よりも難しくなる．基本的に一般化線型モデルの枠組みが必要になる．
+
+::: {#lst-embedding}
+:::
+
+しかし連続変数間の関数関係が複雑だと思われる場合，ノンパラメトリック手法を求める前に，変数を離散化して解析することも得るものが大きい場合が多い．
+
+このような設定は，離散変数を扱う積極的な理由になる．非線型性を扱うために設定を簡略化するのである．
 
 ## 文献紹介 {.appendix}
 
 [10 節 @Gelman-Hill-Vehtari2020] に線型重回帰モデルにおいて，係数の解釈法が丁寧に解説されている．
+
+[11 節 @Gelman-Hill-Vehtari2020] はモデルの検証法を扱っている．
+
+[@Gelman-Hill-Vehtari2020] では基本的に `rstanarm` パッケージを用いているが，本稿では `brms` パッケージを用いた．
+
