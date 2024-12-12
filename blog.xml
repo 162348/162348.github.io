@@ -217,6 +217,1708 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
   <media:content url="https://162348.github.io/posts/2024/Lifestyle/Files/Hierarchical.svg" medium="image" type="image/svg+xml"/>
 </item>
 <item>
+  <title>brms を用いたベイズ重回帰分析</title>
+  <dc:creator>司馬博文 </dc:creator>
+  <link>https://162348.github.io/posts/2024/Survey/BayesRegression.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<p>ベイズ線型回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：</p>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/House.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズ分散分析のモデル解析
+</h5>
+<div class="card-subtitle listing-subtitle">
+心理学実験を題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-24
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Computation/brms_files/figure-html/unnamed-chunk-4-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+R によるベイズ混合モデリング入門
+</h5>
+<div class="card-subtitle listing-subtitle">
+<code>brms</code> を用いた混合効果モデリング入門
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-05-12
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
+<a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/BayesianWorkflow.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析５
+</h5>
+<div class="card-subtitle listing-subtitle">
+回帰モデルの概観
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-05
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>ここではベイズ回帰モデルに変数を増やしていく際の解釈の変化や，変数の選択の問題などの実際的な問題を扱う．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(readxl)</span>
+<span id="cb1-2">raw_df <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">read_excel</span>(path)</span></code></pre></div>
+</div>
+</section>
+<section id="線型重回帰" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="線型重回帰"><span class="header-section-number">2</span> 線型重回帰</h2>
+<section id="ベイズ単回帰" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="ベイズ単回帰"><span class="header-section-number">2.1</span> ベイズ単回帰</h3>
+<!-- 
+
+
+::: {.cell}
+
+```{.r .cell-code}
+library(rstanarm)
+options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+fit1 <- stan_glm(
+  formula = BMI ~ LAB,
+  data = raw_df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+:::
+
+::: {.cell}
+
+```{.r .cell-code}
+prior_summary(fit1)
+```
+
+::: {.cell-output .cell-output-stdout}
+
+```
+Priors for model 'fit1' 
+------
+Intercept (after predictors centered)
+  Specified prior:
+    ~ normal(location = 23, scale = 2.5)
+  Adjusted prior:
+    ~ normal(location = 23, scale = 8.7)
+
+Coefficients
+  Specified prior:
+    ~ normal(location = 0, scale = 2.5)
+  Adjusted prior:
+    ~ normal(location = 0, scale = 7.8)
+
+Auxiliary (sigma)
+  Specified prior:
+    ~ exponential(rate = 1)
+  Adjusted prior:
+    ~ exponential(rate = 0.29)
+------
+See help('prior_summary.stanreg') for more details
+```
+
+
+:::
+:::
+
+::: {.cell}
+
+```{.r .cell-code}
+print(fit1)
+```
+
+::: {.cell-output .cell-output-stdout}
+
+```
+stan_glm
+ family:       gaussian [identity]
+ formula:      BMI ~ LAB
+ observations: 839
+ predictors:   2
+------
+            Median MAD_SD
+(Intercept) 20.7    0.4  
+LAB          0.6    0.1  
+
+Auxiliary parameter(s):
+      Median MAD_SD
+sigma 3.4    0.1   
+
+------
+* For help interpreting the printed output see ?print.stanreg
+* For info on the priors used see ?prior_summary.stanreg
+```
+
+
+:::
+:::
+
+
+-->
+<p>はじめに <img src="https://latex.codecogs.com/png.latex?%0A%5Ctexttt%7BBMI%7D%20=%20%5Cbeta_0%20+%20%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D%5Ccdot%5Cmathtt%7BLAB%7D%20+%20%5Cbeta_%7B%5Ctexttt%7BLDL%7D%7D%5Ccdot%5Cmathtt%7BLDL%7D%20+%20%5Cbeta_%7B%5Ctexttt%7BLAB:LDL%7D%7D%5Ccdot%5Cmathtt%7BLAB%7D%5Ccdot%5Cmathtt%7BLDL%7D%20+%20%5Cepsilon%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cbeta_0%5Csim%5Cmathrm%7Bt%7D(3;%5Cmu_0,3.4),%5Cqquad%5Cepsilon%5Csim%5Cmathrm%7BN%7D(0,%5Csigma%5E2),%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D,%5Cbeta_%7B%5Ctexttt%7BLDL%7D%7D,%5Cbeta_%7B%5Ctexttt%7BLAB:LDL%7D%7D%5Csim%5Cmathrm%7BN%7D(0,%5Cinfty),%5Cqquad%5Csigma%5Csim%5Cmathrm%7Bt%7D(3;0,3.4),%0A"> というモデルを考える．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(brms)</span>
+<span id="cb2-2">model1 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">bf</span>(</span>
+<span id="cb2-3">  BMI <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> LAB</span>
+<span id="cb2-4">)</span>
+<span id="cb2-5">fit1 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb2-6">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model1,</span>
+<span id="cb2-7">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb2-8">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb2-9">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(knitr)</span>
+<span id="cb3-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">kable</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">get_prior</span>(</span>
+<span id="cb3-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model1,</span>
+<span id="cb3-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df</span>
+<span id="cb3-5">))</span></code></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 32%">
+<col style="width: 13%">
+<col style="width: 6%">
+<col style="width: 8%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 8%">
+<col style="width: 4%">
+<col style="width: 4%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">prior</th>
+<th style="text-align: left;">class</th>
+<th style="text-align: left;">coef</th>
+<th style="text-align: left;">group</th>
+<th style="text-align: left;">resp</th>
+<th style="text-align: left;">dpar</th>
+<th style="text-align: left;">nlpar</th>
+<th style="text-align: left;">lb</th>
+<th style="text-align: left;">ub</th>
+<th style="text-align: left;">source</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">b</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">default</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">b</td>
+<td style="text-align: left;">LAB</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">default</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">student_t(3, 22.7, 3.4)</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">default</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">student_t(3, 0, 3.4)</td>
+<td style="text-align: left;">sigma</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">default</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(fit1, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">variable =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_Intercept"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LAB"</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit1)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            Estimate Est.Error   l-95% CI  u-95% CI      Rhat Bulk_ESS Tail_ESS
+Intercept 20.6961127  0.428332 19.8724047 21.541559 1.0000894 9919.088 7202.522
+LAB        0.6119695  0.105872  0.4014823  0.817622 0.9998797 9249.283 7186.599</code></pre>
+</div>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D"> の最頻値＝最尤推定量は <img src="https://latex.codecogs.com/png.latex?0.6"> である．これは，LAB が <img src="https://latex.codecogs.com/png.latex?1"> 違う個人の間で BMI の値が約 <img src="https://latex.codecogs.com/png.latex?0.6"> 違うと解釈できる．</p>
+<p>例えば LAB が <img src="https://latex.codecogs.com/png.latex?3.0"> の個人の予測される BMI は <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathtt%7BBMI%7D%5Capprox20.7+0.6%5Ctimes3.0=22.5%0A"> となる．</p>
+<div class="cell" data-fig-caption="回帰直線のプロット">
+<div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"BMI"</span>)</span>
+<span id="cb7-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit1)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit1)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>])</span></code></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit1-line" class="quarto-float quarto-figure quarto-figure-center anchored" width="672">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit1-line-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/fig-fit1-line-1.png" id="fig-fit1-line" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-fit1-line-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>しかしこの図を見ればわかる通り，LAB は BMI の変動の一部しか説明しておらず，上述ような点推定的な議論にどれほど意味があるかは疑問である．</p>
+<p>ベイズ回帰では幅を持って結果を理解できるため，その美点を活かさない理由はない．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"BMI"</span>)</span>
+<span id="cb8-2">sims <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">as.matrix</span>(fit1)</span>
+<span id="cb8-3">sims_to_display <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sample</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">nrow</span>(sims), <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb8-4"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> sims_to_display) {</span>
+<span id="cb8-5">  <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(sims[i, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], sims[i, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"gray"</span>)</span>
+<span id="cb8-6">}</span>
+<span id="cb8-7"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit1)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit1)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>])</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-pp-check1" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-pp-check1"><span class="header-section-number">2.2</span> モデルのチェック</h3>
+<p>さらにベイズ模型は事後予測分布をプロットし，実際の観測データと比べることで，モデルがデータ生成過程をどれほど反映できているかが瞬時に把握できる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1">synthetic_data <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">posterior_predict</span>(fit1, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">newdata =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data.frame</span>(<span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">LAB =</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3.0</span>), <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10000</span>)</span>
+<span id="cb9-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">hist</span>(synthetic_data, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">nclass =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"BMI"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">main =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Predicted BMI for a person with LAB = 3.0"</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1">p1 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">pp_check</span>(fit1, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb10-2">p1</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>事後予測分布のプロットを見ると，モデルが取り逃がしている構造として，BMI の分布が左右で非対称であることがあることがわかる．回帰直線のプロット 図&nbsp;1 を見ても，直線の上側の点の方が裾が広く分散している．</p>
+<p>「やせ」と「肥満」は対称ではないのである．</p>
+<p>残差をプロットすることでさらに明らかになる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1">res <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">residuals</span>(fit1)</span>
+<span id="cb11-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, res[,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Residuals"</span>)</span>
+<span id="cb11-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit1-res" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit1-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/fig-fit1-res-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-fit1-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;2: 残差のプロット
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="変数の追加" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="変数の追加"><span class="header-section-number">2.3</span> 変数の追加</h3>
+<p>ここに新たな変数 LDL を追加すると，LAB の係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D"> は <img src="https://latex.codecogs.com/png.latex?0.6"> から <img src="https://latex.codecogs.com/png.latex?0.5"> に減少する．これはどういう意味だろうか？</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1">model2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">update</span>(model1, BMI <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> LAB <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> LDL)</span>
+<span id="cb12-2">fit2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb12-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model2,</span>
+<span id="cb12-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb12-5">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb12-6">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(fit2, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">variable =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_Intercept"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LAB"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LDL"</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>一般に係数の追加は層別に当たる．例えばこの結果は，<strong>LDL の値が同じ人の中では</strong> LAB が <img src="https://latex.codecogs.com/png.latex?1"> 違う人の BMI の値が <img src="https://latex.codecogs.com/png.latex?0.5"> 違うと解釈できる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit2)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Estimate   Est.Error     l-95% CI    u-95% CI     Rhat  Bulk_ESS
+Intercept 20.167095694 0.508697419 1.915738e+01 21.16817592 1.000156 12406.505
+LAB        0.480590230 0.123523343 2.345347e-01  0.72295784 1.000166  8773.965
+LDL        0.008655655 0.004414599 1.466805e-04  0.01750134 1.000146  8828.879
+          Tail_ESS
+Intercept 7872.585
+LAB       7388.178
+LDL       7208.248</code></pre>
+</div>
+</div>
+<p>ここで <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLDL%7D%7D"> の値が極めて小さいことに気づくかもしれない．これは LAB に比べて LDL の影響が小さいことを意味しない．なぜならばこの２つの変数はスケールが約 <img src="https://latex.codecogs.com/png.latex?10%5E2"> 違うためである．LDL は 100 のスケール，LAB は 1 のスケールである．</p>
+<p>説明変数 LAB と LDL のどちらが重要か，どっちをモデルに含めるべきかは全く別の方法で議論する必要がある．</p>
+</section>
+<section id="sec-standardization" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="sec-standardization"><span class="header-section-number">2.4</span> データの正規化</h3>
+<p>そこでデータを正規化してみる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1">df <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">data.frame</span>(</span>
+<span id="cb16-2">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">sBMI =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI),</span>
+<span id="cb16-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">sLAB =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB),</span>
+<span id="cb16-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">sLDL =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">scale</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LDL)</span>
+<span id="cb16-5">)</span>
+<span id="cb16-6"></span>
+<span id="cb16-7">model2s <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">bf</span>(sBMI <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> sLAB <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> sLDL)</span>
+<span id="cb16-8">fit2s <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb16-9">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model2s,</span>
+<span id="cb16-10">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> df,</span>
+<span id="cb16-11">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb16-12">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(fit2s, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">variable =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_Intercept"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_sLAB"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_sLDL"</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit2s)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Estimate  Est.Error     l-95% CI   u-95% CI      Rhat Bulk_ESS
+Intercept 7.522651e-05 0.03425035 -0.068425590 0.06721458 1.0014686 9820.954
+sLAB      1.541776e-01 0.03921660  0.077864765 0.23129153 0.9998343 8961.051
+sLDL      7.719841e-02 0.04016989 -0.001446599 0.15438400 1.0000044 9394.795
+          Tail_ESS
+Intercept 7058.981
+sLAB      7946.039
+sLDL      8158.999</code></pre>
+</div>
+</div>
+<p>データを正規化してしまったため，直接的な係数の解釈はできないが，係数を相互に比較できる．</p>
+<p>またその他のモデルの性質は変わらない．例えば事後予測分布も変わらない．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(gridExtra)</span>
+<span id="cb20-2">p2s <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">pp_check</span>(fit2s, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb20-3">p2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">pp_check</span>(fit2, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb20-4"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">grid.arrange</span>(p2, p2s, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">nrow =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="交差項の係数の解釈" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="交差項の係数の解釈"><span class="header-section-number">2.5</span> 交差項の係数の解釈</h3>
+<p>再び正規化する前のデータに戻る．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1">model3 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">update</span>(model2, BMI <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> LAB <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> LDL)</span>
+<span id="cb21-2">fit3 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb21-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model3,</span>
+<span id="cb21-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb21-5">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb21-6">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(fit3, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">variable =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_Intercept"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LAB"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LDL"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"b_LAB:LDL"</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit3)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Estimate   Est.Error     l-95% CI     u-95% CI     Rhat Bulk_ESS
+Intercept 18.343555254 1.604795320 15.143167287 21.369150246 1.000525 3244.231
+LAB        0.951188612 0.411125758  0.170115468  1.769360158 1.000082 3333.452
+LDL        0.023882438 0.013536050 -0.001720447  0.050917031 1.000414 3315.768
+LAB:LDL   -0.003783052 0.003173761 -0.010074600  0.002145523 1.000361 3166.146
+          Tail_ESS
+Intercept 4340.650
+LAB       4113.096
+LDL       4512.152
+LAB:LDL   3934.990</code></pre>
+</div>
+</div>
+<p>交差項を含む線型回帰における係数の解釈はさらに限定的になる．</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D"> は LDL が <img src="https://latex.codecogs.com/png.latex?0"> である人が仮にいたとした場合の，LAB が <img src="https://latex.codecogs.com/png.latex?1"> 違う人の間の BMI の平均的な違いを表す，と解釈できる．（LDL の平均が <img src="https://latex.codecogs.com/png.latex?0"> になるように変数変換をして回帰するともっと自然な解釈ができる）．</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB:LDL%7D%7D"> は片方の係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D"> を固定した際，LDL が <img src="https://latex.codecogs.com/png.latex?1"> だけ違うグループにおける係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLDL%7D%7D"> との違いを表す．</p>
+<p>すなわち交差項の追加は，LDL に依って層別し，それぞれのグループに異なる <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7B%5Ctexttt%7BLAB%7D%7D"> を推定することを可能にする．この点で階層モデリングに似ている．</p>
+</section>
+<section id="交差項" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="交差項"><span class="header-section-number">2.6</span> 交差項</h3>
+<p>交差項 <code>LAB*LDL</code> の追加は，LDL の違うサブグループの間に異なる LAB をフィッティングすることを可能にする．</p>
+<p>このことを最もよく見るには，LDL が上半分か下半分かで LAB の係数がどう変わるかを見るのが良い．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1">raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LDLcate2 <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ifelse</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LDL <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">median</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LDL), <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"High"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Low"</span>)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1">model3_cate <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">bf</span>(BMI <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> LAB <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> LDLcate2)</span>
+<span id="cb26-2">fit3_cate <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb26-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model3_cate,</span>
+<span id="cb26-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb26-5">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb26-6">)</span></code></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Compiling Stan program...</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Start sampling</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"BMI"</span>)</span>
+<span id="cb29-2">b_hat <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">summary</span>(fit3_cate)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>fixed</span>
+<span id="cb29-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>)</span>
+<span id="cb29-4"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>] <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>] <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> b_hat[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"blue"</span>)</span>
+<span id="cb29-5"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">legend</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"topleft"</span>, <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;"># または "topright", "bottomleft", "bottomright" など</span></span>
+<span id="cb29-6">       <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">legend =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"High"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Low"</span>),</span>
+<span id="cb29-7">       <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">col =</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"red"</span>, <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"blue"</span>),</span>
+<span id="cb29-8">       <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">lty =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>LDL が大きいと，LAB の BMI に与える影響は緩やかになることがわかる．LDL の方が LAB の代わりに BMI の増加を説明してしまっているとも考えられる．</p>
+</section>
+<section id="まとめ" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">2.7</span> まとめ</h3>
+<p>線型回帰において，説明変数の追加は，「他の説明変数を固定したグループ内での」係数の推定に変化する（階層モデリングにつながる見方）．</p>
+<!--
+
+
+
+::: {.cell}
+
+```{.r .cell-code}
+model3s <- update(model2s, sBMI ~ sLAB * sLDL)
+fit3s <- brm(
+  formula = model3s,
+  data = df,
+  chains = 4, iter = 5000, cores = 4
+)
+```
+:::
+
+::: {.cell}
+
+```{.r .cell-code}
+plot(fit3s, variable = c("b_Intercept", "b_sLAB", "b_sLDL", "b_sLAB:sLDL"))
+```
+
+::: {.cell-output-display}
+![](BayesRegression_files/figure-html/unnamed-chunk-30-1.png){width=672}
+:::
+:::
+
+::: {.cell}
+
+```{.r .cell-code}
+summary(fit3s)$fixed
+```
+
+::: {.cell-output .cell-output-stdout}
+
+```
+             Estimate  Est.Error     l-95% CI   u-95% CI     Rhat Bulk_ESS
+Intercept  0.01938697 0.03724650 -0.053346956 0.09179243 1.000897 12645.10
+sLAB       0.15751063 0.04061630  0.077334977 0.23580527 1.000272  9586.56
+sLDL       0.08185278 0.03996790  0.004555445 0.16070040 1.000044  9657.48
+sLAB:sLDL -0.03702489 0.03138831 -0.099524165 0.02440712 1.001304 11829.47
+          Tail_ESS
+Intercept 8049.027
+sLAB      7220.602
+sLDL      7181.699
+sLAB:sLDL 7514.588
+```
+
+
+:::
+:::
+
+
+
+全ての係数がほとんど０に近い値になってしまった．
+
+しかし事後予測分布はあまり変わらないようである．
+
+
+
+::: {.cell}
+
+```{.r .cell-code}
+p3s <- pp_check(fit3s, ndraws = 100)
+grid.arrange(p2s, p3s, nrow = 1)
+```
+
+::: {.cell-output-display}
+![](BayesRegression_files/figure-html/unnamed-chunk-32-1.png){width=672}
+:::
+:::
+
+
+-->
+</section>
+</section>
+<section id="モデル検証" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="モデル検証"><span class="header-section-number">3</span> モデル検証</h2>
+<section id="はじめに-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">3.1</span> はじめに</h3>
+<p>残差プロットや事後予測プロットによるモデルの検証は，解析と並行して見てきた．</p>
+<p>ここではより詳細に，モデルの予測性能に基づいた検証・比較方法を見る．</p>
+<p>交差検証法によるスコア <code>elpd_loo</code> によるモデル比較が一つ推奨される．</p>
+</section>
+<section id="決定係数" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="決定係数"><span class="header-section-number">3.2</span> 決定係数</h3>
+<p>図&nbsp;1 の回帰直線のプロットと 図&nbsp;2 の残差プロットを見ると，残差がまだ構造を持っていることがわかる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1">res <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">residuals</span>(fit3)</span>
+<span id="cb30-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, res[,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Residuals"</span>)</span>
+<span id="cb30-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div id="fig-fit3-res" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-fit3-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/fig-fit3-res-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-fit3-res-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;3: fit3 の残差のプロット
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>この残差は標本分散 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Csigma%7D%5E2"></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1">sigma <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">sqrt</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(res)[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>])</span>
+<span id="cb31-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">print</span>(sigma)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 3.394462</code></pre>
+</div>
+</div>
+<p>を持っている．</p>
+<p>ひとまず LAB と LDL について回帰をすることで，データの変動がどれほど説明できたかを考えてみよう．</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AR%5E2:=1-%5Cfrac%7B%5Cwidehat%7B%5Csigma%7D%5E2%7D%7Bs_y%5E2%7D=%5Cfrac%7Bs_y%5E2-%5Cwidehat%7B%5Csigma%7D%5E2%7D%7Bs_y%5E2%7D%0A"></p>
+<p>という値は <a href="https://ja.wikipedia.org/wiki/決定係数"><strong>決定係数</strong></a> と呼ばれ，データ <img src="https://latex.codecogs.com/png.latex?y"> の分散 <img src="https://latex.codecogs.com/png.latex?s_y%5E2"> のうち「説明された分散」の割合を表す．<sup>1</sup></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span>sigma<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">^</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">/</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">var</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.04403279</code></pre>
+</div>
+</div>
+<p>データの変動の <img src="https://latex.codecogs.com/png.latex?4%5C%25"> しか説明できていないことがわかる．</p>
+</section>
+<section id="ベイズ決定係数" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="ベイズ決定係数"><span class="header-section-number">3.3</span> ベイズ決定係数</h3>
+<p>ベイズ決定係数 <span class="citation" data-cites="Gelman+2019">(Andrew Gelman and Vehtari, 2019)</span> は <code>brms</code> パッケージで次のように計算できる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">bayes_R2</span>(fit3)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Estimate  Est.Error       Q2.5      Q97.5
+R2 0.04735052 0.01359373 0.02345481 0.07669648</code></pre>
+</div>
+</div>
+<p>以上の <img src="https://latex.codecogs.com/png.latex?R%5E2"> の議論では係数を点推定して「残差」を議論していた．</p>
+<p>他の可能性も考慮して推定を改善するのがベイズのやり方である．</p>
+<p>ベイズ決定係数は，事後予測分布からのサンプルを用いて複数回予測値 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7By%7D_i"> を計算し， <img src="https://latex.codecogs.com/png.latex?%0AR%5E2_%7B%5Ctexttt%7BBayes%7D%7D:=%5Cfrac%7B%5Cmathrm%7BV%7D%5B%5Cwidehat%7By%7D%5D%7D%7B%5Cmathrm%7BV%7D%5B%5Cwidehat%7By%7D%5D+%5Csigma%5E2%7D%0A"> という値で「データの変動のうち説明された割合」を表す．</p>
+</section>
+<section id="aic" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="aic"><span class="header-section-number">3.4</span> AIC</h3>
+<p><span class="citation" data-cites="Akaike74-AIC">(Akaike, 1974)</span> は次のように定義される： <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathtt%7BAIC%7D=-2%5Cbiggr(%5Csup_%5Ctheta%5Clog%20p(y%7C%5Ctheta)%5Cbiggl)+2p.%0A"></p>
+<p>第１項は deviance とも呼ばれ，残差を表す．</p>
+<p>AIC は新たなデータ点が観測された際の，そのデータ点に対するデビアンス（ある種の損失）の推定量となっており，小さいほどよい．</p>
+<p>AIC と同様の推定を，計算機集約的に行う方法に次節の交差検証法がある：</p>
+</section>
+<section id="交差検証" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="交差検証"><span class="header-section-number">3.5</span> 交差検証</h3>
+<p>事後予測検証では事後分布と観測を比較したが，よりこの好ましくは新しい（推定に用いていない）データと突き合わせることである．</p>
+<p>LOO (Leave-One-Out) 交差検証 <span class="citation" data-cites="Stone1974">(Stone, 1974)</span> では，データを１つだけ抜いてモデルを推定し，このモデルの予測値と実際の値を比較するモデル検証法である．</p>
+<p><code>brms</code> パッケージでは <a href="https://mc-stan.org/loo/reference/loo-glossary.html"><code>loo</code> パッケージ</a> を内部で利用して高速に計算することができる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit3)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Computed from 10000 by 839 log-likelihood matrix.
+
+         Estimate   SE
+elpd_loo  -2220.7 26.8
+p_loo         5.6  0.7
+looic      4441.4 53.5
+------
+MCSE of elpd_loo is 0.0.
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.3, 1.0]).
+
+All Pareto k estimates are good (k &lt; 0.7).
+See help('pareto-k-diagnostic') for details.</code></pre>
+</div>
+</div>
+<p>回帰分析において予測値と実際の（省いていた）データの乖離は，AIC を踏襲して事後予測分布のスコア関数で測る <span class="citation" data-cites="Vehtari+2017">(Vehtari et al., 2017, p. 1414)</span>．</p>
+<p>elpd (expected log predictive density) は，LOO 交差検証により得る，（省いていた）データの対数尤度の平均である： <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7Belpd%7D_%7B%5Ctext%7Bloo%7D%7D=%5Csum_%7Bi=1%7D%5En%5Clog%20p(y_i%7Cy_%7B-i%7D)=%5Csum_%7Bi=1%7D%5En%5Cint%20p(y_i%7C%5Ctheta)p(%5Ctheta%7Cy_%7B-i%7D)%5C,d%5Ctheta.%0A"></p>
+<p>この値が大きいほどモデルの予測が良い．一般に elpd は，一度見たことあるデータ点に対する事後予測スコアよりも低くなる．<sup>2</sup> この際の差は <code>p_loo</code> が測っており，乖離が大きすぎるとモデルがデータに過適合していることを表す．</p>
+<p><code>p_loo</code> は有効パラメータ数の（一致）推定量である．今回のモデルには切片項と <code>LAB</code>, <code>LDL</code>, <code>LAB:LDL</code> そして <code>sigma</code> の５つのパラメータがあるが，それより <img src="https://latex.codecogs.com/png.latex?0.6"> だけ大きい値が出ている．</p>
+<p>最後の列は情報量規準のスケールにしたものである： <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathtt%7Blooic%7D=-2%5Ctimes%5Cmathrm%7Belpd%7D_%7B%5Ctext%7Bloo%7D%7D.%0A"></p>
+<p>一般に LOO-CV は計算が大変であるが，<code>loo</code> パッケージは Pareto Smoothed Importance Sampling (PSIS) <span class="citation" data-cites="Vehtari+2015">(Vehtari et al., 2024)</span> を用いて高速に計算している．</p>
+<p><img src="https://latex.codecogs.com/png.latex?k%3E0.7"> の場合はこれがうまくいっていないことを示唆する．この下で <img src="https://latex.codecogs.com/png.latex?%5Cmathtt%7Bp_loo%7D%3Ep"> はモデルの誤特定を示唆する．</p>
+</section>
+<section id="sec-posterior-predictive-score" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="sec-posterior-predictive-score"><span class="header-section-number">3.6</span> 事後予測スコアによるモデル比較</h3>
+<p><code>brms</code> パッケージでは <code>loo_compare</code> 関数で２つのモデルの elpd スコアを比較できる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo_compare</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit1), <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit2))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     elpd_diff se_diff
+fit2  0.0       0.0   
+fit1 -0.9       2.1   </code></pre>
+</div>
+</div>
+<p><code>elpd_diff</code> の値は標準偏差と比べて大変に小さい．交差検証の観点からは，<code>LDL</code> の追加は BMI の予測の観点から全く違いがないことがわかる．</p>
+</section>
+</section>
+<section id="非線型性への憧憬" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="非線型性への憧憬"><span class="header-section-number">4</span> 非線型性への憧憬</h2>
+<section id="はじめに-2" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="はじめに-2"><span class="header-section-number">4.1</span> はじめに</h3>
+<p>LAB による BMI への回帰の残差には，左右の非対称性が見られる 2.2．</p>
+<p>そして更なる変数 LDL の追加は予測の観点では特に影響がないことがわかった 3.6．</p>
+<p>そこでここでは手軽に非線型性を取り入れる方法として，データを変換することを考える．</p>
+<p>第 2.4 節でデータを標準化すると回帰モデルの係数の解釈が容易になることみた．</p>
+<p>しかしデータの線型変換は線型回帰モデルを変えず，推定には何の影響も与えない．</p>
+<p>そこでここでは非線型な変換に注目する．</p>
+</section>
+<section id="線型回帰モデルという仮定" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="線型回帰モデルという仮定"><span class="header-section-number">4.2</span> 線型回帰モデルという仮定</h3>
+<p>線型回帰モデリングにおける最大の仮定は，説明変数の加法性と，<img src="https://latex.codecogs.com/png.latex?y"> への効果の線型性である： <img src="https://latex.codecogs.com/png.latex?%0Ay=%5Cbeta_0+%5Cbeta_1x_1+%5Cbeta_2x_2+%5Ccdots.%0A"></p>
+<p>LAB や LDL の BMI への影響が線型であると見るのは相当横暴な仮定である．LAB と LDL が両方高いことが相乗的に BMI を高めるシナリオの方があり得そうである．</p>
+<p>BMI も LAB も LDL も正の値しか取らないこともあり，対数変換を考えることは良い第一歩だろう．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1">model1_log <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">update</span>(model1, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log</span>(BMI) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> LAB)</span>
+<span id="cb41-2">fit1_log <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb41-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model1_log,</span>
+<span id="cb41-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb41-5">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb41-6">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1">res <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">residuals</span>(fit1_log)</span>
+<span id="cb42-2"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">plot</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>LAB, res[,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>], <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">xlab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"LAB"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ylab=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Residuals (on log scale)"</span>)</span>
+<span id="cb42-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">abline</span>(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>残差プロットを見ると，元のスケールでの線型回帰 図&nbsp;2 と比べて非対称性は軽減している．</p>
+<!-- 
+
+
+::: {.cell}
+
+```{.r .cell-code}
+pp_check(fit1_log, ndraws = 100)
+```
+
+::: {.cell-output-display}
+![](BayesRegression_files/figure-html/unnamed-chunk-41-1.png){width=672}
+:::
+:::
+
+
+-->
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">library</span>(bayesplot)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1">yrep <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">posterior_predict</span>(fit1_log, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb44-2">p1_log <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ppc_dens_overlay</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">exp</span>(yrep))</span>
+<span id="cb44-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">grid.arrange</span>(p1, p1_log, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">nrow=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-43-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>事後予測分布も改善しているのがわかる．</p>
+<p>ただし，説明変数を対数スケールに変換してしまったので，直接 LOO スコアを比較することはできないことに注意する：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo_compare</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit1), <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit1_log))</span></code></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Not all models have the same y variable. ('yhash' attributes do not
+match)</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         elpd_diff se_diff
+fit1_log     0.0       0.0
+fit1     -2657.0       8.2</code></pre>
+</div>
+</div>
+</section>
+<section id="log-log-モデル" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="log-log-モデル"><span class="header-section-number">4.3</span> log-log モデル</h3>
+<p>同様に説明変数にも対数変換を施すことができる．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb48" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1">model1_loglog <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">update</span>(model1_log, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log</span>(BMI) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">~</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">log</span>(LAB))</span>
+<span id="cb48-2">fit1_loglog <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">brm</span>(</span>
+<span id="cb48-3">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">formula =</span> model1_loglog,</span>
+<span id="cb48-4">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> raw_df,</span>
+<span id="cb48-5">  <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">5000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span></span>
+<span id="cb48-6">)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb49" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1">yrep <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">posterior_predict</span>(fit1_loglog, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">ndraws =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>)</span>
+<span id="cb49-2">p1_loglog <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ppc_dens_overlay</span>(raw_df<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>BMI, <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">exp</span>(yrep))</span>
+<span id="cb49-3"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">grid.arrange</span>(p1_log, p1_loglog, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">nrow=</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Survey/BayesRegression_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>予測性能はわずかに悪化していることがわかる：</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb50" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo_compare</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit1_log), <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo</span>(fit1_loglog))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            elpd_diff se_diff
+fit1_log     0.0       0.0   
+fit1_loglog -1.8       1.1   </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">median</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo_R2</span>(fit1_log))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02487841</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb54" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">median</span>(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">loo_R2</span>(fit1_loglog))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0223436</code></pre>
+</div>
+</div>
+<p>しかし log-log モデルの係数は弾力性 (elasticity) としての解釈ができることもあり，解釈性の観点から選好されることがある <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 195)</span>．</p>
+</section>
+<section id="離散変数化" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="離散変数化"><span class="header-section-number">4.4</span> 離散変数化</h3>
+<p>離散変数の扱いは連続変数よりも難しくなる．基本的に一般化線型モデルの枠組みが必要になる．</p>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
+<a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/BayesianWorkflow.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析６
+</h5>
+<div class="card-subtitle listing-subtitle">
+応答が質的変数の場合
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-05
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>しかし連続変数間の関数関係が複雑だと思われる場合，ノンパラメトリック手法を求める前に，変数を離散化して解析することも得るものが大きい場合が多い．</p>
+<p>このような設定は，離散変数を扱う積極的な理由になる．非線型性を扱うために設定を簡略化するのである．</p>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 文献紹介</h2><div class="quarto-appendix-contents">
+
+<p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(10 節 Gelman et al., 2020)</span> に線型重回帰モデルにおいて，係数の解釈法が丁寧に解説されている．</p>
+<p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(11 節 Gelman et al., 2020)</span> はモデルの検証法を扱っている．</p>
+<p><span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020)</span> では基本的に <code>rstanarm</code> パッケージを用いているが，本稿では <code>brms</code> パッケージを用いた．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Akaike74-AIC" class="csl-entry">
+Akaike, H. (1974). <a href="https://doi.org/10.1109/TAC.1974.1100705">A new look at the statistical model identification</a>. <em>IEEE Transaction on Automatic Control</em>, <em>19</em>(6), 716–723.
+</div>
+<div id="ref-Gelman+2019" class="csl-entry">
+Andrew Gelman, J. G., Ben Goodrich, and Vehtari, A. (2019). <a href="https://doi.org/10.1080/00031305.2018.1549100">R-squared for bayesian regression models</a>. <em>The American Statistician</em>, <em>73</em>(3), 307–309.
+</div>
+<div id="ref-Gelman-Hill-Vehtari2020" class="csl-entry">
+Gelman, A., Hill, J., and Vehtari, A. (2020). <em><a href="https://avehtari.github.io/ROS-Examples/">Regression and other stories</a></em>. Cambridge University Press.
+</div>
+<div id="ref-Mudholkar2014" class="csl-entry">
+Mudholkar, G. S. (2014). <a href="https://doi.org/10.1002/9781118445112.stat00641">Multiple correlation coefficient</a>. In <em>Wiley StatsRef: Statistics reference online</em>. John Wiley &amp; Sons, Ltd.
+</div>
+<div id="ref-Olkin-Pratt58-UMVestimator-CorrelationCoefficient" class="csl-entry">
+Olkin, I., and Pratt, J. W. (1958). Unbiased estimation of certain correlation coefficients. <em>The Annals of Mathematical Statistics</em>, <em>29</em>(1), 201–211.
+</div>
+<div id="ref-Stone1974" class="csl-entry">
+Stone, M. (1974). <a href="http://www.jstor.org/stable/2984809">Cross-validatory choice and assessment of statistical predictions</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>36</em>(2), 111–147.
+</div>
+<div id="ref-Vehtari+2017" class="csl-entry">
+Vehtari, A., Gelman, A., and Gabry, J. (2017). <a href="https://doi.org/10.1007/s11222-016-9696-4">Practical bayesian model evaluation using leave-one-out cross-validation and WAIC</a>. <em>Statistics and Computing</em>, <em>27</em>(5), 1413–1432.
+</div>
+<div id="ref-Vehtari+2015" class="csl-entry">
+Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="https://arxiv.org/abs/1507.02646">Pareto smoothed importance sampling</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>決定係数は，回帰が OLS 推定量により推定された場合には <img src="https://latex.codecogs.com/png.latex?Y"> と説明変数のベクトル <img src="https://latex.codecogs.com/png.latex?X"> との間の <strong>重相関係数</strong> とも一致する <span class="citation" data-cites="Mudholkar2014">(Mudholkar, 2014)</span>．<span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 168)</span> も参照．一般に決定係数は母集団の多重相関係数の一致推定量だと見れる．こうみた場合のバイアスを低減・脱離した値に，自由度調整済み決定係数，<span class="citation" data-cites="Olkin-Pratt58-UMVestimator-CorrelationCoefficient">(Olkin and Pratt, 1958)</span> 推定量などが存在する．↩︎</p></li>
+<li id="fn2"><p>訓練に用いたデータ点に関する事後予測スコアはdeviance と関係があり，<img src="https://latex.codecogs.com/png.latex?-2"> を乗じたものは deviance と同じスケールになる <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 174)</span>, <span class="citation" data-cites="Vehtari+2017">(Vehtari et al., 2017, p. 1427)</span>．AIC は deviance から <img src="https://latex.codecogs.com/png.latex?2p"> を引いたものである <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 175)</span>．↩︎</p></li>
+</ol>
+</section></div> ]]></description>
+  <category>Bayesian</category>
+  <category>Statistics</category>
+  <category>R</category>
+  <guid>https://162348.github.io/posts/2024/Survey/BayesRegression.html</guid>
+  <pubDate>Tue, 10 Dec 2024 00:00:00 GMT</pubDate>
+</item>
+<item>
   <title>ベイズデータ解析５</title>
   <dc:creator>司馬博文 </dc:creator>
   <link>https://162348.github.io/posts/2024/Survey/BDA1.html</link>
@@ -235,7 +1937,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910206000" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -246,7 +1948,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -257,7 +1959,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -279,7 +1981,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -301,7 +2003,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -323,7 +2025,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -345,7 +2047,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -449,7 +2151,7 @@ No matching items
 <p>ベイズの立場からは，「変量」と「固定」の名称は歴史的なもので，実質的な違いは「次の階層で回帰モデルを仮定するか，モデルを持たない最終階層の変数と扱い一様事前分布に従うとするか」という仮定の違いにすぎない．詳しくは次節：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1733910206248" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1733985241154" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
 <a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -490,7 +2192,7 @@ No matching items
 <p>こうして設定された各因子の各水準ごとの係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta%5E%7B(m)%7D_j"> の事後分布を見ることで「分散分析」を実行することになる．これがベイズによる分散分析の再解釈である．</p>
 <div id="listing-lst-ANOVA" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -512,7 +2214,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -534,7 +2236,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910206000" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -545,7 +2247,7 @@ No matching items
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -812,7 +2514,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910206000" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -823,7 +2525,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -834,7 +2536,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -856,7 +2558,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -878,7 +2580,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -900,7 +2602,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -922,7 +2624,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -1225,7 +2927,7 @@ Yates, F. (1934). <a href="https://doi.org/10.2307/2983604">Contingency tables i
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910205920" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733985240830" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
 <a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:diffusion-listing:posts/2024/Bridges/SB0.html -->
@@ -1245,7 +2947,7 @@ Langevin 拡散の時間反転を用いたシミュレーションベースの�
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910205920" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
+<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733985240830" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -1267,7 +2969,7 @@ Iterative Proportional Fitting アルゴリズムについて
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910205920" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733985240830" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -1303,7 +3005,7 @@ No matching items
 <p>雑音除去過程に関しては次の記事を参照：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1733985242606" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
 <a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -1333,7 +3035,7 @@ No matching items
 <p>DDS については次の記事を参照：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910205920" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733985240830" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -2263,7 +3965,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1733910206344" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
+<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1733985241246" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
 <a href="../../../posts/2024/Particles/ParticleMethods.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -2285,7 +3987,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1733910208748" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="488">
+<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1733985243746" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="488">
 <a href="../../../posts/Surveys/SMCSamplers.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -2307,7 +4009,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1733910205660" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
+<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1733985240570" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
 <a href="../../../posts/2023/Surveys/ParticleFilter.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3358,7 +5060,7 @@ van/ Kekem, D. L. (2018). <em>Dynamics of the lorenz-96 model: Bifurcations, sym
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3380,7 +5082,7 @@ van/ Kekem, D. L. (2018). <em>Dynamics of the lorenz-96 model: Bifurcations, sym
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3402,7 +5104,7 @@ van/ Kekem, D. L. (2018). <em>Dynamics of the lorenz-96 model: Bifurcations, sym
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4057,7 +5759,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 <p>この「別のモデル」の選び方は <span class="citation" data-cites="Rouder+2012">(Rouder et al., 2012)</span> によって一致性とスケール不変性を持つものが提案されている．詳しくは次の関連記事も参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4079,7 +5781,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910206000" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4090,7 +5792,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -4101,7 +5803,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5344,7 +7046,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5366,7 +7068,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5388,7 +7090,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5656,7 +7358,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5678,7 +7380,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910206000" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985240902" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1529">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5689,7 +7391,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 R によるベイズ混合モデリング入門
 </h5>
 <div class="card-subtitle listing-subtitle">
-brms を用いた混合効果モデリング入門
+<code>brms</code> を用いた混合効果モデリング入門
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
@@ -5700,7 +7402,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5722,7 +7424,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="3" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5744,7 +7446,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="420">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5766,7 +7468,7 @@ brms を用いた混合効果モデリング入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733910208552" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1733985243438" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="224">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6097,7 +7799,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6119,7 +7821,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6141,7 +7843,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733910208716" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1733985243714" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6650,7 +8352,7 @@ Wedderburn, R. W. M. (1974). <a href="http://www.jstor.org/stable/2334725">Quasi
 </div>
 <div id="listing-lst-stan" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ01DTUMlMkNSJTJDU3RhbiUyQ1lVSU1BJTJDQmF5ZXNpYW4=" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733910207548" data-listing-date-modified-sort="1726790400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="952">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ01DTUMlMkNSJTJDU3RhbiUyQ1lVSU1BJTJDQmF5ZXNpYW4=" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1733985242434" data-listing-date-modified-sort="1726790400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="952">
 <a href="../../../posts/2024/R/adastan.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6672,7 +8374,7 @@ YUIMA と Stan を用いた確率過程のベイズ推定入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1733910207496" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="554">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1733985242386" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="554">
 <a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6694,7 +8396,7 @@ rstan による Stan の利用
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1733910207532" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
+<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1733985242418" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
 <a href="../../../posts/2024/R/YUIMA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-stan:posts/2024/R/YUIMA.html -->
@@ -8360,7 +10062,7 @@ font-style: inherit;">"theta"</span>))</span></code></pre></div>
 <h2 class="unlisted unnumbered anchored" data-anchor-id="次稿">次稿</h2>
 <div id="listing-lst-listing1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1733910208740" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1733985243738" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
 <a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -8544,7 +10246,7 @@ Zig-Zag サンプラーが挑む課題
 <p>Zig-Zag サンプラーについては次の記事も参照：</p>
 <div id="listing-lst-zigzag" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1733910207488" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1733985242374" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
 <a href="../../../posts/2024/Process/ZigZag.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-zigzag:posts/2024/Process/ZigZag.html -->
@@ -8564,7 +10266,7 @@ Zig-Zag 過程によるサンプリング
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1733910208528" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
+<div class="g-col-1" data-index="1" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1733985243418" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
 <a href="../../../posts/2024/Stat/ZigZagSubsampling.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8586,7 +10288,7 @@ Zig-Zag サンプラーのサブサンプリングによるスケーラビリテ
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1733910207484" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
+<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1733985242374" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
 <a href="../../../posts/2024/Process/PureJump.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8617,7 +10319,7 @@ No matching items
 <p>続きは次稿参照：</p>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1733910208740" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1733985243738" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
 <a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -8759,7 +10461,7 @@ Wei, L. J. (1992). <a href="https://doi.org/10.1002/sim.4780111409">The accelera
 <h2 class="unnumbered unlisted anchored" data-anchor-id="最適輸送に関する記事">最適輸送に関する記事</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Q29tcHV0YXRpb24lMkNQKFgpJTJDUHl0aG9u" data-listing-date-sort="1710288000000" data-listing-file-modified-sort="1733910206304" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="26" data-listing-word-count-sort="5125">
+<div class="g-col-1" data-index="0" data-categories="Q29tcHV0YXRpb24lMkNQKFgpJTJDUHl0aG9u" data-listing-date-sort="1710288000000" data-listing-file-modified-sort="1733985241210" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="26" data-listing-word-count-sort="5125">
 <a href="../../../posts/2024/PX/OT1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-listing:posts/2024/PX/OT1.html -->
@@ -9330,7 +11032,7 @@ Villani, C. (2009). <em><a href="https://doi.org/10.1007/978-3-540-71050-9"><spa
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1Byb2Nlc3MlMkNTYW1wbGluZw==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1724371200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
+<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1Byb2Nlc3MlMkNTYW1wbGluZw==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733985242606" data-listing-date-modified-sort="1724371200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
 <a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9352,7 +11054,7 @@ Villani, C. (2009). <em><a href="https://doi.org/10.1007/978-3-540-71050-9"><spa
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711756800000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1722470400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
+<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711756800000" data-listing-file-modified-sort="1733985242606" data-listing-date-modified-sort="1722470400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
 <a href="../../../posts/2024/Samplers/EBM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9560,7 +11262,7 @@ Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/
 <h2 data-number="3" class="anchored" data-anchor-id="応用"><span class="header-section-number">3</span> 応用</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1NhbXBsaW5n" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="450">
+<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1NhbXBsaW5n" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733985242790" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="450">
 <a href="../../../posts/2024/Samplers/NF.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9582,7 +11284,7 @@ Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
+<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733985242790" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9604,7 +11306,7 @@ Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711756800000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1722470400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
+<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711756800000" data-listing-file-modified-sort="1733985242606" data-listing-date-modified-sort="1722470400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
 <a href="../../../posts/2024/Samplers/EBM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9699,7 +11401,7 @@ Skilling, J. (1989). <a href="https://doi.org/10.1007/978-94-015-7860-8_48">The 
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-flow-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1NhbXBsaW5n" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="450">
+<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1NhbXBsaW5n" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733985242790" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="3" data-listing-word-count-sort="450">
 <a href="../../../posts/2024/Samplers/NF.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9721,7 +11423,7 @@ Skilling, J. (1989). <a href="https://doi.org/10.1007/978-94-015-7860-8_48">The 
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
+<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733985242790" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
 <a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9743,7 +11445,7 @@ Skilling, J. (1989). <a href="https://doi.org/10.1007/978-94-015-7860-8_48">The 
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUHl0aG9u" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1863">
+<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUHl0aG9u" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733985242790" data-listing-date-modified-sort="1724025600000" data-listing-reading-time-sort="10" data-listing-word-count-sort="1863">
 <a href="../../../posts/2024/Samplers/NF2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -11669,7 +13371,7 @@ Grathwohl, W., Chen, R. T. Q., Bettencourt, J., and Duvenaud, D. (2019). <a href
 
 <div id="listing-related-articles-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1733910206208" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
+<div class="g-col-1" data-index="0" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1733985241114" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
 <a href="../../../posts/2024/Kernels/HierarchicalModel.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -11691,7 +13393,7 @@ Grathwohl, W., Chen, R. T. Q., Bettencourt, J., and Duvenaud, D. (2019). <a href
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1N0YXRpc3RpY3MlMkNHZW9tZXRyeQ==" data-listing-date-sort="1722297600000" data-listing-file-modified-sort="1733910206228" data-listing-date-modified-sort="1723680000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
+<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1N0YXRpc3RpY3MlMkNHZW9tZXRyeQ==" data-listing-date-sort="1722297600000" data-listing-file-modified-sort="1733985241134" data-listing-date-modified-sort="1723680000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
 <a href="../../../posts/2024/Kernels/Manifold.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -11713,7 +13415,7 @@ Grathwohl, W., Chen, R. T. Q., Bettencourt, J., and Duvenaud, D. (2019). <a href
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="S2VybmVs" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1733910206228" data-listing-date-modified-sort="1723334400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="581">
+<div class="g-col-1" data-index="2" data-categories="S2VybmVs" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1733985241134" data-listing-date-modified-sort="1723334400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="581">
 <a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12156,7 +13858,7 @@ Sylvester, J. J. (1889). <a href="https://books.google.co.jp/books?id=cxRKAQAAMA
 <p>その意味で，次の記事は全て，本稿の続きであり，本稿は現代の機械学習の壮大な序章としても理解できる．</p>
 <div id="listing-kernel-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcA==" data-listing-date-sort="1722211200000" data-listing-file-modified-sort="1733910206228" data-listing-date-modified-sort="1723420800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="385">
+<div class="g-col-1" data-index="0" data-categories="RGVlcA==" data-listing-date-sort="1722211200000" data-listing-file-modified-sort="1733985241134" data-listing-date-modified-sort="1723420800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="385">
 <a href="../../../posts/2024/Kernels/NCL.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12178,7 +13880,7 @@ Sylvester, J. J. (1889). <a href="https://books.google.co.jp/books?id=cxRKAQAAMA
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1N0YXRpc3RpY3MlMkNHZW9tZXRyeQ==" data-listing-date-sort="1722297600000" data-listing-file-modified-sort="1733910206228" data-listing-date-modified-sort="1723680000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
+<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ05hdHVyZSUyQ1N0YXRpc3RpY3MlMkNHZW9tZXRyeQ==" data-listing-date-sort="1722297600000" data-listing-file-modified-sort="1733985241134" data-listing-date-modified-sort="1723680000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="597">
 <a href="../../../posts/2024/Kernels/Manifold.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12200,7 +13902,7 @@ Sylvester, J. J. (1889). <a href="https://books.google.co.jp/books?id=cxRKAQAAMA
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ1N1cnZleQ==" data-listing-date-sort="1707609600000" data-listing-file-modified-sort="1733910206204" data-listing-date-modified-sort="1722211200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="883">
+<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ1N1cnZleQ==" data-listing-date-sort="1707609600000" data-listing-file-modified-sort="1733985241110" data-listing-date-modified-sort="1722211200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="883">
 <a href="../../../posts/2024/Kernels/Deep.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12738,460 +14440,6 @@ Zou, H., Hastie, T., and Tibshirani, R. (2006). <a href="http://www.jstor.org/st
   <guid>https://162348.github.io/posts/2024/Kernels/HierarchicalModel.html</guid>
   <pubDate>Mon, 12 Aug 2024 00:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/Kernels/Images/MM.svg" medium="image" type="image/svg+xml"/>
-</item>
-<item>
-  <title>フローベース模型による条件付き生成</title>
-  <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2024/Samplers/NF3.html</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-<section id="関連ページ" class="level3 unnumbered unlisted">
-<h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
-<div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1Byb2Nlc3MlMkNTYW1wbGluZw==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1724371200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
-<a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/DDPM_outputs.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-拡散模型
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル６
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-02-14
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707868800000" data-listing-file-modified-sort="1733910207900" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
-<a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/linear/output.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ニューラル常微分方程式
-</h5>
-<div class="card-subtitle listing-subtitle">
-シミュレーションなしの拡散モデルとしての連続正規化流
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-02-14
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711756800000" data-listing-file-modified-sort="1733910207716" data-listing-date-modified-sort="1722470400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
-<a href="../../../posts/2024/Samplers/EBM.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/NCL/thumb_checkerboard.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-エネルギーベースモデル
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル５
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-03-30
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-</section>
-<section id="誘導" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="誘導"><span class="header-section-number">1</span> 誘導</h2>
-<p>拡散模型の美点には，条件付けが可能で拡張性に優れているという点もある．</p>
-<p>実際，拡散模型の出現後，Conditional VAE <span class="citation" data-cites="Kingma+2014">(Kingma et al., 2014)</span> などの従来手法を凌駕する条件付き生成が可能であることが直ちに理解された．</p>
-<p><img src="https://latex.codecogs.com/png.latex?C"> がクラスラベルなどの離散変数である場合，「誘導」による条件付き生成が初めに考えられた．</p>
-<section id="はじめに" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1.1</span> はじめに</h3>
-<p>「誘導」ではまず，DDPM <span class="citation" data-cites="Ho+2020">(Ho et al., 2020)</span> でタイムステップ <img src="https://latex.codecogs.com/png.latex?t"> を positional encoding したようにして，プロンプト <img src="https://latex.codecogs.com/png.latex?c"> をデータに埋め込む．<sup>1</sup></p>
-<p>そしてデータ <img src="https://latex.codecogs.com/png.latex?X"> とそのラベル <img src="https://latex.codecogs.com/png.latex?C"> に対して，条件付き分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D%5BX%7CC%5D"> をモデリングする．</p>
-<p>しかしこのアプローチの問題は，ラベル <img src="https://latex.codecogs.com/png.latex?C"> が不確実な場合などは，この情報を無視して普通の <img src="https://latex.codecogs.com/png.latex?X"> が生成されてしまいがちであることである．</p>
-<p>そこで目的関数に，条件付き分布 <img src="https://latex.codecogs.com/png.latex?X%7CC"> の正確性を期すような追加のデザインをする．これが「誘導」である．</p>
-</section>
-<section id="条件付きスコア場" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="条件付きスコア場"><span class="header-section-number">1.2</span> 条件付きスコア場</h3>
-<p>条件付き分布 <img src="https://latex.codecogs.com/png.latex?p(x%7Cc)"> を学習することを考える．</p>
-<p>このとき <img src="https://latex.codecogs.com/png.latex?p(x%7Cc)"> のスコアは，Bayes の定理から次のように表せる： <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%20p(x%7Cc)=%5Clog%20p(c%7Cx)+%5Clog%20p(x)-%5Clog%20p(c),%0A"> <span id="eq-conditioned-score"><img src="https://latex.codecogs.com/png.latex?%0A%5Ctherefore%5Cqquad%5Cnabla_x%5Clog%20p(x%7Cc)=%5Cnabla_x%5Clog%20p(x)+%5Cnabla_x%5Clog%20p(c%7Cx).%0A%5Ctag%7B1%7D"></span></p>
-<p>すなわち，条件付き確率 <img src="https://latex.codecogs.com/png.latex?p(x%7Cc)"> のスコア場は，条件なしのスコア場 <img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p(x)"> と，分類器のスコア場 <img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p(c%7Cx)"> の重ね合わせになる．</p>
-</section>
-<section id="sec-CG" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sec-CG"><span class="header-section-number">1.3</span> 分類器による誘導 (CG)</h3>
-<p>式 (1) から，<img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p(x%7Cc)"> が計算できる分類器 <img src="https://latex.codecogs.com/png.latex?p(c%7Cx)"> を新たに訓練すれば，既存のモデル <img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p(x)"> から，サンプリング方法を変えるだけで条件付き生成ができる．</p>
-<p>これを <strong>CG: Classifier Guidance</strong> <span class="citation" data-cites="Dhariwal-Nichol2021">(Dhariwal and Nichol, 2021)</span> といい，サンプリング中に各ステップで少しずつ <img src="https://latex.codecogs.com/png.latex?x_t"> が <img src="https://latex.codecogs.com/png.latex?p(x_t%7Cc)"> に近づくように「誘導」されていく．</p>
-<p>さらに，<img src="https://latex.codecogs.com/png.latex?c"> が無視されがちな場合も見越して，誘導スケール (guidance scale) という新たなハイパーパラメータ <img src="https://latex.codecogs.com/png.latex?%5Clambda%5Cge0"> を導入し，次のスコア <span id="eq-CG-score"><img src="https://latex.codecogs.com/png.latex?%0A%5Cnabla_x%5Clog%20p(x)+%5Clambda%5Cnabla_x%5Clog%20p(c%7Cx).%0A%5Ctag%7B2%7D"></span> からサンプリングすることも考えられる．</p>
-<p><img src="https://latex.codecogs.com/png.latex?%5Clambda%3E1"> としどんどん大きくしていくと，クラスラベル <img src="https://latex.codecogs.com/png.latex?c"> に「典型的な」サンプルが生成される傾向にある．</p>
-</section>
-<section id="分類器なしの誘導" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="分類器なしの誘導"><span class="header-section-number">1.4</span> 分類器なしの誘導</h3>
-<p>CG はいわばアドホックな方法であり，外部の分類器 <img src="https://latex.codecogs.com/png.latex?p(c%7Cx)"> に頼らない方法を考えたい．</p>
-<p>そのためには，式 (2) から <img src="https://latex.codecogs.com/png.latex?p(c%7Cx)"> を消去して <span id="eq-CFG-score"><img src="https://latex.codecogs.com/png.latex?%0A%5Clambda%5Cnabla_x%5Clog%20p(x%7Cc)+(1-%5Clambda)%5Cnabla_x%5Clog%20p(x)%0A%5Ctag%7B3%7D"></span> とみて，<img src="https://latex.codecogs.com/png.latex?p(x%7Cc),p(x)"> のいずれもデータから学ぶ．</p>
-<p>このアプローチを <strong>Classifier-Free Diffusion Guidance</strong> <span class="citation" data-cites="Ho-Salimans2021">(Ho and Salimans, 2021)</span> という．</p>
-<p>その際は，新たなクラスラベル <img src="https://latex.codecogs.com/png.latex?%5Cemptyset"> を導入して <img src="https://latex.codecogs.com/png.latex?%0Ap(x)=p(x%7C%5Cemptyset)%0A"> とみなすことで，<img src="https://latex.codecogs.com/png.latex?p(x%7Cc),p(x)"> を同一の <a href="../../../posts/2024/Samplers/Diffusion.html#sec-score-network">スコアネットワーク</a> でモデリングする．</p>
-<p>データセット内にランダムに1から2割の画像をクラスラベル <img src="https://latex.codecogs.com/png.latex?%5Cemptyset"> と設定することで，これを実現する．</p>
-<p>同様の方法を，スコアマッチングではなくフローマッチングを行うことを <span class="citation" data-cites="Dao+2023">(Dao et al., 2023)</span>, <span class="citation" data-cites="Zheng+2023GuidedFlow">(Q. Zheng et al., 2023)</span> が提案している．</p>
-<p>この方法は，追加の分類器の訓練が必要ないだけでなく，サンプリングのクオリティも向上する <span class="citation" data-cites="Nichol+2022">(Nichol et al., 2022)</span>, <span class="citation" data-cites="Saharia+2022SIGGRAPH">(Saharia, Chan, Chang, et al., 2022)</span>．これは分類タスクで訓練されたスコア <img src="https://latex.codecogs.com/png.latex?%5Clog%20p(c%7Cx)"> はどう訓練してもスコアネットワークで学習したスコア (3) に匹敵する「良い」勾配が得られないためである．</p>
-</section>
-<section id="高解像度画像生成への応用" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="高解像度画像生成への応用"><span class="header-section-number">1.5</span> 高解像度画像生成への応用</h3>
-<section id="sec-CascadedGeneration" class="level4" data-number="1.5.1">
-<h4 data-number="1.5.1" class="anchored" data-anchor-id="sec-CascadedGeneration"><span class="header-section-number">1.5.1</span> Cascaded Generation</h4>
-<p>条件付き生成の技術はそのままで，最終的なクオリティを向上させるためには，Cascading <span class="citation" data-cites="Ho+2022">(Ho et al., 2022)</span> が使用可能である．</p>
-<p>これは，画像生成は <img src="https://latex.codecogs.com/png.latex?x"> の解像度が低い状態で行い，この低解像度画像を次の条件付き拡散モデルの条件付け <img src="https://latex.codecogs.com/png.latex?c"> として，条件付き生成を <strong>高解像度化</strong> (super-resolution) に用いるものである <span class="citation" data-cites="Saharia+2023">(Saharia et al., 2023)</span>．</p>
-<p>この方法の美点は，条件付き生成器をたくさんスタックしたのちに，拡散模型間の段階でも Gauss ノイズや blur を印加することで，さらに最終的なクオリティが上げられるという <span class="citation" data-cites="Ho+2022">(Ho et al., 2022)</span>．これを <strong>conditioning augmentation</strong> と呼んでいる．</p>
-<p>この方法は最初から高解像度での生成を目指して大規模な単一の拡散模型を設計するよりも大きく計算コストを削減できる．</p>
-<p>Google も <a href="https://imagen.research.google/">Imagen</a> <span class="citation" data-cites="Saharia+2022">(Saharia, Chan, Saxena, et al., 2022)</span> でこのアーキテクチャを用いている．</p>
-</section>
-<section id="self-conditioning-chen2023analogbits" class="level4" data-number="1.5.2">
-<h4 data-number="1.5.2" class="anchored" data-anchor-id="self-conditioning-chen2023analogbits"><span class="header-section-number">1.5.2</span> Self-Conditioning <span class="citation" data-cites="Chen+2023AnalogBits">(T. Chen et al., 2023)</span></h4>
-<p>拡散モデルを自己再帰的に用い，自身の前回の出力を今回の入力として逐次的にサンプリングを繰り返すことで，サンプリングのクオリティをさらに向上する自己条件づけが <span class="citation" data-cites="Chen+2023AnalogBits">(T. Chen et al., 2023)</span> で提案された．</p>
-<p>この方法は RoseTTAFold Diffusion <span class="citation" data-cites="Watson+2023">(Watson et al., 2023)</span> によるたんぱく質構造生成でも用いられている：</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/Samplers/Files/RFDiff.gif" class="img-fluid figure-img"></p>
-<figcaption>RFdiffusion generating a novel protein that binds to the insulin receptor. Taken from <a href="https://www.bakerlab.org/2023/07/11/diffusion-model-for-protein-design/">Baker Lab HP</a></figcaption>
-</figure>
-</div>
-</section>
-</section>
-<section id="逆問題への応用" class="level3" data-number="1.6">
-<h3 data-number="1.6" class="anchored" data-anchor-id="逆問題への応用"><span class="header-section-number">1.6</span> 逆問題への応用</h3>
-<p>一方で単一の <img src="https://latex.codecogs.com/png.latex?Y=y"> を想定した状況では，非償却的な方法を採用することでさらに精度を上げることが考えられる．</p>
-<p><img src="https://latex.codecogs.com/png.latex?%5Clog%20p_t(x_t%7Cy)"> を一緒くたに <img src="https://latex.codecogs.com/png.latex?s%5E%5Ctheta_%7Bt%7D(x_t,y)"> に取り替えてしまうのではなく，まず第一項 <img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p_t(x_t%7Cy)"> を <img src="https://latex.codecogs.com/png.latex?s_t%5E%5Ctheta(x_t)"> により統一的にモデリングする．</p>
-<p>そして <img src="https://latex.codecogs.com/png.latex?%5Cnabla_x%5Clog%20p_t(y%7Cx_t)"> の項は <a href="../../../posts/2024/Samplers/DD1.html#sec-Tweedie-formula">Tweedie の推定量</a> <span id="eq-Tweedie-estimator"><img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7Bx%7D_0:=%5Coperatorname%7BE%7D%5Bx_0%7Cx_t%5D=%5Cfrac%7B1%7D%7B%5Csqrt%7B%5Coverline%7B%5Calpha%7D_t%7D%7D%5Cbiggr(x_t+(1-%5Coverline%7B%5Calpha%7D_t)%5Cnabla_%7Bx_t%7D%5Clog%20p_t(x_t)%5Cbiggl)%0A%5Ctag%7B4%7D"></span> を通じて <img src="https://latex.codecogs.com/png.latex?%0Ap(y%7Cx_t)%5Capprox%20p(y%7C%5Cwidehat%7Bx%7D_0)%0A"> によって近似する．式 (4) の <img src="https://latex.codecogs.com/png.latex?%5Cnabla_%7Bx_t%7D%5Clog%20p_t(x_t)"> に事前に訓練したスコアネットワーク <img src="https://latex.codecogs.com/png.latex?s_t%5E%5Ctheta(x_t)"> を用いる．</p>
-<p><span class="citation" data-cites="Chung+2023">(Chung et al., 2023)</span> はこの方法を Computer Vision における非線型逆問題に適用している．</p>
-<p><span class="citation" data-cites="Song+2023">(Song et al., 2023)</span> では Monte Carlo 法が用いられている．</p>
-<p>拡散模型の一般の事後分布サンプリングのための応用については次稿も参照：</p>
-<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1733910205920" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
-<a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/Bridges/SB0.html -->
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-拡散モデルによる事後分布サンプリング
-</h5>
-<div class="card-subtitle listing-subtitle">
-Langevin 拡散の時間反転を用いたシミュレーションベースのサンプリング法
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-08-03
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-</section>
-</section>
-<section id="sec-2" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="sec-2"><span class="header-section-number">2</span> フローマッチングによる連続な条件付け</h2>
-<section id="sec-CCG" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="sec-CCG"><span class="header-section-number">2.1</span> 連続な条件付き生成</h3>
-<p>連続な変数に対する条件付き確率からの生成は CcGAN <span class="citation" data-cites="Ding+2021">(Ding et al., 2021)</span> などでも試みられていた．</p>
-<p>AlphaFold 3 <span class="citation" data-cites="Abramson+2024">(Abramson et al., 2024)</span> や RoseTTAFold Diffusion <span class="citation" data-cites="Watson+2023">(Watson et al., 2023)</span>, <span class="citation" data-cites="Krishna+2024">(Krishna et al., 2024)</span> など，たんぱく質構造生成模型において拡散モデルが用いられている理由も，高精度な条件付き生成が可能であることが大きいという．</p>
-<p>このことに加えて連続な変数に対する条件付けを可能にすることは，拡散モデルの拡張性をさらに高めることになる．</p>
-<p>そもそも拡散モデルは <a href="../../../posts/2024/Samplers/NF1.html#sec-FM">連続時間正規化流</a> (CNF) と合流し，フローマッチング（第 2.2 節）によりノイズ分布 <img src="https://latex.codecogs.com/png.latex?P_0"> をデータ分布 <img src="https://latex.codecogs.com/png.latex?P_1"> に変換する曲線 <img src="https://latex.codecogs.com/png.latex?%5C%7BP_t%5C%7D_%7Bt%5Cin%5B0,1%5D%7D%5Csubset%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)"> を直接学習するように発展した．</p>
-<p>この方法では，新たな条件付け変数 <img src="https://latex.codecogs.com/png.latex?c%5Cin%5B0,1%5D%5Ek"> に対して，連続写像 <img src="https://latex.codecogs.com/png.latex?%0AP_%7Bt,c%7D:%5B0,1%5D%5Ctimes%5B0,1%5D%5Ek%5Cto%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%0A"> を学習するようにフローマッチングを拡張できれば，連続な条件付き生成が可能になることになる．</p>
-<p>これを行列値ベクトル場の理論を通じて達成するのが <strong>拡張フローマッチング</strong> (EFM: Extended Flow Matching) <span class="citation" data-cites="Isobe+2024">(Isobe et al., 2024)</span> である．</p>
-<p>このようなフローマッチングの拡張は <span class="citation" data-cites="Chen-Lipman2024">(R. T. Q. Chen and Lipman, 2024)</span> でも考えられている．</p>
-</section>
-<section id="sec-FM" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="sec-FM"><span class="header-section-number">2.2</span> フローマッチング (FM)</h3>
-<p>２つの確率分布 <img src="https://latex.codecogs.com/png.latex?P_0,P_1%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)"> を結ぶ曲線を <img src="https://latex.codecogs.com/png.latex?%0A(P_t)=((%5Cphi_t)_*P_0)_%7Bt%5Cin%5B0,1%5D%7D%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D%0A"> の形で学習することを考える．</p>
-<p>そのための１つのアプローチとして，<a href="https://ja.wikipedia.org/wiki/連続の方程式">連続方程式</a> というPDE <span id="eq-CE"><img src="https://latex.codecogs.com/png.latex?%0A%5Cfrac%7B%5Cpartial%20p_t%7D%7B%5Cpartial%20t%7D+%5Coperatorname%7Bdiv%7D(F_tp_t)=0.%0A%5Ctag%7B5%7D"></span> を満たすベクトル場 <img src="https://latex.codecogs.com/png.latex?F_t"> を学習し，これが定めるフローを <img src="https://latex.codecogs.com/png.latex?(%5Cphi_t)"> とすることがある：</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cfrac%7B%5Cpartial%20%5Cphi_t(x)%7D%7B%5Cpartial%20t%7D=F_t(%5Cphi_t(x)).%0A"></p>
-<p>このような <img src="https://latex.codecogs.com/png.latex?F_t"> が１つ既知であり，<img src="https://latex.codecogs.com/png.latex?p_t"> から自由にサンプリングできる場合は， <span id="eq-FM-objective"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_%7B%5Cmathrm%7BFM%7D%7D(%5Ctheta)=%5Coperatorname%7BE%7D%5Cbiggl%5B%5Cbiggl%7CF_%5Ctheta(X_T,T)-F_T(X_T)%5Cbiggr%7C%5E2%5Cbiggr%5D,%5Cqquad%20T%5Csim%5Cmathrm%7BU%7D(%5B0,1%5D),X_T%5Csim%20p_T,%0A%5Ctag%7B6%7D"></span> の最小化によってベクトル場 <img src="https://latex.codecogs.com/png.latex?F_t"> が学習できる．これを <strong>フローマッチング</strong> (FM: Flow Matching) の目的関数という．</p>
-</section>
-<section id="条件付きフローマッチング-cfm" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="条件付きフローマッチング-cfm"><span class="header-section-number">2.3</span> 条件付きフローマッチング (CFM)</h3>
-<p>仮に <img src="https://latex.codecogs.com/png.latex?p_t"> が <img src="https://latex.codecogs.com/png.latex?%0Ap_t(x)=%5Cint_%5COmega%20p_t(x%7Cc)q(c)%5C,dc,%5Cqquad%5COmega%5Csubset%5Cmathbb%7BR%7D%5Ek,%0A"> という <img src="https://latex.codecogs.com/png.latex?p_%7Bt,c%7D(x):=p_t(x%7Cc)"> の <img src="https://latex.codecogs.com/png.latex?q">-混合としての展開を通じて得られているとする．</p>
-<p>この場合，<img src="https://latex.codecogs.com/png.latex?(p_%7Bt,c%7D)"> を生成するベクトル場 <img src="https://latex.codecogs.com/png.latex?F_t(x%7Cc)"> が特定できれば， <span id="eq-marginal-VF"><img src="https://latex.codecogs.com/png.latex?%0AF_t(x):=%5Coperatorname%7BE%7D%5Cleft%5B%5Cfrac%7BF_t(x%7CU)p_t(x%7CU)%7D%7Bp_t(x)%7D%5Cright%5D%0A%5Ctag%7B7%7D"></span> が <img src="https://latex.codecogs.com/png.latex?(p_t)"> を生成する <span class="citation" data-cites="Lipman+2023">(定理1 Lipman et al., 2023)</span>, <span class="citation" data-cites="Tong+2024">(定理3.1 Tong et al., 2024)</span>．</p>
-<p>従って，<img src="https://latex.codecogs.com/png.latex?F_t"> を学習するには FM 目的関数 (6) の代わりに <span id="eq-CFM-objective"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_%7B%5Cmathrm%7BCFM%7D%7D(%5Ctheta)=%5Coperatorname%7BE%7D%5Cbiggl%5B%5Cbiggl%7CF_%5Ctheta(X_T,T)-F_T(X%7CC)%5Cbiggr%7C%5E2%5Cbiggr%5D,%5Cqquad%20C%5Csim%20q,%0A%5Ctag%7B8%7D"></span> の最小化によっても <img src="https://latex.codecogs.com/png.latex?F_t(x%7Cc)"> が学習できる．これを <strong>条件付きフローマッチング</strong> (CFM: Conditional Flow Matching) の目的関数という．</p>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="$P_0$ が Gauss 分布である場合 [@Lipman+2023]">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<img src="https://latex.codecogs.com/png.latex?P_0"> が Gauss 分布である場合 <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span>
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-1" class="callout-1-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?P_0=%5Cmathrm%7BN%7D_d(0,I_d)"> をノイズ分布，<img src="https://latex.codecogs.com/png.latex?P_1"> を一般のデータ分布とする．</p>
-<p>ただし，誤差を許して，<img src="https://latex.codecogs.com/png.latex?P_1*%5Cmathrm%7BN%7D_d(0,%5Csigma%5E2I_d)"> を改めて真のデータ分布とする．</p>
-<p>このように定式化することで，各データ点 <img src="https://latex.codecogs.com/png.latex?c%5Cin%5C%7Bx_i%5C%7D_%7Bi=1%7D%5En"> で条件づければ， <img src="https://latex.codecogs.com/png.latex?%0AP_%7B0,c%7D:=P_0(-%7Cc)=%5Cmathrm%7BN%7D_d(0,I_d),%5Cqquad%20P_%7B1,c%7D:=P_1(-%7Cc)=%5Cmathrm%7BN%7D_d(0,%5Csigma%5E2I_d),%0A"> の間を結ぶ曲線 <img src="https://latex.codecogs.com/png.latex?(P_%7Bt,c%7D)_%7Bt%5Cin%5B0,1%5D,c%5Cin%5C%7Bx_i%5C%7D_%7Bi=1%7D%5En%7D"> を学習する問題となる．</p>
-<p>実は <img src="https://latex.codecogs.com/png.latex?P_%7B0,c%7D,P_%7B1,c%7D"> が Gauss 分布であることにより，この問題はすでに <span class="citation" data-cites="McCann1997">(McCann, 1997, p. 159)</span> によって解かれており，最適輸送は <img src="https://latex.codecogs.com/png.latex?%0AP_%7Bt,c%7D=%5Cmathrm%7BN%7D_d%5Cbiggr(tc,(t%5Csigma-t+1)%5E2I_d%5Cbiggl),%5Cqquad%20F_t(x%7Cc)=%5Cfrac%7Bc-(1-%5Csigma)x%7D%7B1-(1-%5Csigma)t%7D,%0A"> によって与えられる．</p>
-</div>
-</div>
-</div>
-<p>しかし，各 <img src="https://latex.codecogs.com/png.latex?(P_%7Bt,c%7D)_%7Bt%5Cin%5B0,1%5D%7D"> が最適輸送になっていても，式 (7) で定まる <img src="https://latex.codecogs.com/png.latex?(P_t)_%7Bt%5Cin%5B0,1%5D%7D"> が最適輸送になるとは限らない．</p>
-</section>
-<section id="最適輸送-cfm-ot-cfm" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="最適輸送-cfm-ot-cfm"><span class="header-section-number">2.4</span> 最適輸送 CFM (OT-CFM)</h3>
-<p>ここで形式的に，条件付ける変数 <img src="https://latex.codecogs.com/png.latex?c"> は <a href="../../../posts/2024/Probability/Coupling.html">カップリング</a> <img src="https://latex.codecogs.com/png.latex?%5Cpi%5Cin%20C(P_0,P_1)"> に従う <img src="https://latex.codecogs.com/png.latex?C%5Csim%5Cpi"> とする： <img src="https://latex.codecogs.com/png.latex?%0AC(P_0,P_1):=%5Cleft%5C%7B%5Cpi%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed%5Ctimes%5Cmathbb%7BR%7D%5Ed)%5C:%5Cmiddle%7C%5C:%5Cbegin%7Barray%7D%7Bl%7D(%5Cmathrm%7Bpr%7D_1)_*%5Cpi=P_0,%5C%5C(%5Cmathrm%7Bpr%7D_2)_*%5Cpi=P_1%5Cend%7Barray%7D%5Cright%5C%7D.%0A"></p>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="$P_0$ も一般の分布である場合 [I-CFM @Tong+2024]">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<img src="https://latex.codecogs.com/png.latex?P_0"> も一般の分布である場合 <span class="citation" data-cites="Tong+2024">(I-CFM Tong et al., 2024)</span>
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?Q_0,Q_1"> は未知のデータ分布で， <img src="https://latex.codecogs.com/png.latex?%0AP_1=Q_1*%5Cmathrm%7BN%7D_d(0,%5Csigma%5E2I_d),%5Cqquad%20P_0=Q_0*%5Cmathrm%7BN%7D_d(0,%5Csigma%5E2I_d),%0A"> の間を架橋したいとする．このとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Cpi:=Q_0%5Cotimes%20Q_1%0A"> と定めると， <img src="https://latex.codecogs.com/png.latex?%0AP_%7Bt,c%7D=%5Cmathrm%7BN%7D_d%5Cbiggr(tc_1+(1-t)c_0,%5Csigma%5E2I_d%5Cbiggl),%5Cqquad%20F_t(x%7Cc)=c_1-c_0,%0A"> が <img src="https://latex.codecogs.com/png.latex?P_0,P_1"> の間の輸送を定める <span class="citation" data-cites="Tong+2024">(命題3.3 Tong et al., 2024)</span>．</p>
-<p>加えて，<img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto0"> の極限において，学習される輸送 <img src="https://latex.codecogs.com/png.latex?(P_t)"> は <img src="https://latex.codecogs.com/png.latex?Q_0,Q_1"> の間の輸送になる．</p>
-<p>これは <span class="citation" data-cites="Lipman+2023">(Lipman et al., 2023)</span> の例の，<img src="https://latex.codecogs.com/png.latex?P_0,P_1"> を対称に扱った拡張と見れる．</p>
-<p>また，<img src="https://latex.codecogs.com/png.latex?P_%7Bt,c%7D"> が <img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto0"> とした Delta 測度である場合が Rectified Flow <span class="citation" data-cites="Liu+2023-Flow">(Liu et al., 2023)</span> に当たる．</p>
-<p>この方法を拡張し，例えば平均を線型関数 <img src="https://latex.codecogs.com/png.latex?m(t)=tc_1+(1-t)c_0"> の代わりに <img src="https://latex.codecogs.com/png.latex?%0Am(t)=%5Ccos%5Cleft(%5Cfrac%7B%5Cpi%20t%7D%7B2%7D%5Cright)c_0+%5Csin%5Cleft(%5Cfrac%7B%5Cpi%20t%7D%7B2%7D%5Cright)c_1%0A"> とした場合が Stochastic Interpolant <span class="citation" data-cites="Albergo-Vanden-Eijnden2023">(Albergo and Vanden-Eijnden, 2023)</span> に当たる．</p>
-</div>
-</div>
-</div>
-<p>その中でも特に，<img src="https://latex.codecogs.com/png.latex?%5Cpi"> を 2-Wasserstein 距離に関する最適輸送計画 <img src="https://latex.codecogs.com/png.latex?%0A%5Cpi:=%5Coperatorname*%7Bargmin%7D_%7B%5Cpi%5Cin%20C(P_0,P_1)%7D%5Coperatorname%7BE%7D%5B%5Clvert%20X-Y%5Crvert%5E2%5D%0A"> であるとする．</p>
-<p>このとき， <img src="https://latex.codecogs.com/png.latex?%0AP_%7Bt,c%7D=%5Cmathrm%7BN%7D_d%5Cbiggr(tc_1+(1-t)c_0,%5Csigma%5E2I_d%5Cbiggl),%5Cqquad%20F_t(x%7Cc)=c_1-c_0,%0A"> を <img src="https://latex.codecogs.com/png.latex?C%5Csim%5Cpi"> に関して周辺化した輸送 <img src="https://latex.codecogs.com/png.latex?(P_t)%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> は，<img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto0"> の極限で（動的な）最適輸送になる <span class="citation" data-cites="Tong+2024">(命題3.4 Tong et al., 2024)</span>．</p>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="Schrödinger Bridge のシミュレーション [SB-CFM @Tong+2024]">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Schrödinger Bridge のシミュレーション <span class="citation" data-cites="Tong+2024">(SB-CFM Tong et al., 2024)</span>
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-3" class="callout-3-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cpi_%7B2%5Csigma%5E2%7D:=%5Coperatorname*%7Bargmin%7D_%7B%5Cpi%5Cin%20C(P_0,P_1)%7D%5Cbiggr(%5Coperatorname%7BE%7D%5B%5Clvert%20X-Y%5Crvert%5E2%5D+2%5Csigma%5E2H(%5Cpi)%5Cbiggl)%0A"> を，エントロピー正則化項 <img src="https://latex.codecogs.com/png.latex?2%5Csigma%5E2"> を持ったエントロピー最適輸送計画とする．</p>
-<p>このとき，各点を結んだ Broanian bridge <img src="https://latex.codecogs.com/png.latex?%0AP_%7Bt,c%7D:=%5Cmathrm%7BN%7D%5Cbiggr(tc_1+(1-t)c_0,t(1-t)%5Csigma%5E2I_d%5Cbiggl),%0A"> <img src="https://latex.codecogs.com/png.latex?%0AF_t(x%7Cc):=%5Cfrac%7B1-2t%7D%7B2t(1-t)%7D%5Cbiggr(x-(tc_1+(1-t)c_0)%5Cbiggl)+(c_1-c_0),%0A"> の周辺化 <img src="https://latex.codecogs.com/png.latex?(P_t)%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> は，標準 Brown 運動を <img src="https://latex.codecogs.com/png.latex?%5Csigma"> だけスケールした分布 <img src="https://latex.codecogs.com/png.latex?W"> に対する Schrödinger bridge <img src="https://latex.codecogs.com/png.latex?%0A%5Cpi%5E*:=%5Coperatorname*%7Bargmin%7D_%7B%5Csubstack%7B%5Cmu_0=P_0%5C%5C%5Cmu_1=P_1%7D%7D%5Coperatorname%7BKL%7D(%5Cmu,W)%0A"> と分布同等になる <span class="citation" data-cites="Tong+2024">(定理3.5 Tong et al., 2024)</span>．</p>
-<p><img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto0"> の極限が OT-CFM であり，<img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto%5Cinfty"> の極限が I-CFM である．</p>
-</div>
-</div>
-</div>
-<p>訓練時は，CFM の目的関数 (8) を計算するために <img src="https://latex.codecogs.com/png.latex?(X_0,X_1)%5Csim%5Cpi"> というサンプリングが必要になる．データサイズが大きい場合には，これにミニバッチ最適輸送 <span class="citation" data-cites="Fatras+2021">(Fatras et al., 2021)</span> を用いることができる．</p>
-<p>このように，２つの分布 <img src="https://latex.codecogs.com/png.latex?P_0,P_1"> を単に独立カップリングと見るのではなく，依存関係があった場合にはそれも考慮してなるべくダイナミクスが直線になるように誘導する方法 Multisample Flow Matching として <span class="citation" data-cites="Pooladian+2023">(Pooladian et al., 2023)</span> も考えている．</p>
-</section>
-<section id="sec-OT-CFM-in-GFM-perspective" class="level3" data-number="2.5">
-<h3 data-number="2.5" class="anchored" data-anchor-id="sec-OT-CFM-in-GFM-perspective"><span class="header-section-number">2.5</span> <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> 上の最適化としての見方</h3>
-<p>実は OT-CFM は，２つの確率密度 <img src="https://latex.codecogs.com/png.latex?p_0,p_1"> を結ぶ曲線 <img src="https://latex.codecogs.com/png.latex?(p_t)%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> の中で，<strong>Dirichlet エネルギー</strong> <img src="https://latex.codecogs.com/png.latex?%0AD(p):=%5Cinf_%7B(p,F)%7D%5Cfrac%7B1%7D%7B2%7D%5Cint_%7B%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ed%7D%5Clvert%20F_t(x)%5Crvert%5E2p_t(x)%5C,dxdt%0A"> を最小化する曲線 <img src="https://latex.codecogs.com/png.latex?(p_t)"> を学習していると見れる <span class="citation" data-cites="Isobe+2024">(Isobe et al., 2024)</span>．ただし，<img src="https://latex.codecogs.com/png.latex?(p,F)"> は連続方程式 (5) を満たす密度とベクトル場の組とした．</p>
-<p>条件付きフローマッチングでは，このような曲線 <img src="https://latex.codecogs.com/png.latex?(p_t)"> を次の方法で構成していた．</p>
-<div class="callout callout-style-simple callout-tip no-icon">
-<div class="callout-body d-flex">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-body-container">
-<ol type="1">
-<li>ある決定論的なダイナミクス <img src="https://latex.codecogs.com/png.latex?%5Cpsi_c:%5B0,1%5D%5Cto%5Cmathbb%7BR%7D%5Ed"> を定める．<sup>2</sup></li>
-<li><img src="https://latex.codecogs.com/png.latex?Q%5Cin%5Cmathcal%7BP%7D(C%5E1(%5B0,1%5D;%5Cmathbb%7BR%7D%5Ed))"> を確率測度とする．</li>
-<li><img src="https://latex.codecogs.com/png.latex?%5Cpsi,Q"> から， <img src="https://latex.codecogs.com/png.latex?%0AP%5EQ:=%5Coperatorname%7BE%7D_%7B%5Cpsi%5Csim%20Q%7D%5B%5Cdelta_%5Cpsi%5D%0A"> によって確率測度の曲線 <img src="https://latex.codecogs.com/png.latex?(P%5EQ_t)%5Cin%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> を定める．</li>
-</ol>
-</div>
-</div>
-</div>
-<p>実は Dirichlet 汎函数 <img src="https://latex.codecogs.com/png.latex?D:%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D%5Cto%5Cmathbb%7BR%7D_+"> が凸であるために，このように構成される <img src="https://latex.codecogs.com/png.latex?(p_t)"> の中での最適解は，<img src="https://latex.codecogs.com/png.latex?Q%5Cin%5Cmathcal%7BP%7D(C%5E1(%5B0,1%5D;%5Cmathbb%7BR%7D%5Ed))"> の全体で探す必要はなく，線型なダイナミクス <img src="https://latex.codecogs.com/png.latex?%0A%5Cpsi_c(t)=tc_1+(1-t)c_0,%5Cqquad%20c=(c_0,c_1)%5Cin%5Cmathbb%7BR%7D%5Ed%5Ctimes%5Cmathbb%7BR%7D%5Ed,%0A"> の重ね合わせの形でのみ探せば良い <span class="citation" data-cites="Brenier2003">(Brenier, 2003)</span>．</p>
-<p>従って，<img src="https://latex.codecogs.com/png.latex?(X_0,X_1)"> の分布の全体 <img src="https://latex.codecogs.com/png.latex?C(P_0,P_1)"> のみについてパラメータづけをして探せば良い．さらにこの場合， <img src="https://latex.codecogs.com/png.latex?%0AF_t(x%7Cc)=%5Cfrac%7B%5Cpartial%20%5Cpsi_c(t)%7D%7B%5Cpartial%20t%7D=c_1-c_0%0A"> であるから，<img src="https://latex.codecogs.com/png.latex?D(P)=2W_2(P_0,P_1)%5E2"> の最小化は <img src="https://latex.codecogs.com/png.latex?P_0,P_1"> の 2-Wasserstein 最適な輸送計画 <img src="https://latex.codecogs.com/png.latex?%5Cpi%5E*"> の探索に等価になる．</p>
-<p>これが OT-CFM の <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BP%7D(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5B0,1%5D%7D"> 上の最適化としての解釈である．同時に，条件付きフローマッチングの目的関数 (8) の他に，<a href="../../../posts/2024/Samplers/EBM.html#sec-DSM">DSM</a> 様の目的関数 <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5Cbiggl%5B%5Cbiggl%7CF_T(%5Cpsi(T))-%5Cpartial_t%5Cpsi_C(T)%5Cbiggr%7C%5E2%5Cbiggr%5D,%5Cqquad%20T%5Csim%5Cmathrm%7BU%7D(%5B0,1%5D),C%5Csim%5Cpi%5E*,%0A"> の最小化点としてもベクトル場 <img src="https://latex.codecogs.com/png.latex?F_t"> が学習できる．</p>
-</section>
-<section id="sec-GFM" class="level3" data-number="2.6">
-<h3 data-number="2.6" class="anchored" data-anchor-id="sec-GFM"><span class="header-section-number">2.6</span> 拡張フローマッチング (GFM)</h3>
-<p>前節での観察は次のように要約できる：</p>
-<div class="callout callout-style-simple callout-important no-icon callout-titled" title="OT-CFM の Dirichlet 汎函数最小化としての特徴付け">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-OT-CFM の Dirichlet 汎函数最小化としての特徴付け
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>OT-CFM は，条件付きフローマッチングに対して，Dirichlet エネルギーの言葉で帰納バイアスを導入することで，最適輸送を学習するための方法論である．</p>
-</div>
-</div>
-<p>こう考えると，Dirichlet エネルギーの言葉で他の帰納バイアスを導入することが考えられる．</p>
-<p>ここで条件付けの議論（第 2.1 節）に戻ってくる．最適輸送のための <img src="https://latex.codecogs.com/png.latex?c=(c_0,c_1)%5Cin%5Cmathbb%7BR%7D%5E%7B2d%7D"> に限らず，一般の <img src="https://latex.codecogs.com/png.latex?c%5Cin%5Cmathbb%7BR%7D%5Ek"> に対して連続に条件付けされるように拡張したい．</p>
-<p>これは，<img src="https://latex.codecogs.com/png.latex?(F_t),(p_t)"> の添字を <img src="https://latex.codecogs.com/png.latex?t%5Cin%5B0,1%5D"> から <img src="https://latex.codecogs.com/png.latex?%5Cxi%5Cin%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek"> に拡張することで達成される．</p>
-<p>これは新たな <img src="https://latex.codecogs.com/png.latex?(F_%5Cxi),(p_%5Cxi)"> を <img src="https://latex.codecogs.com/png.latex?M_%7Bdk%7D(%5Cmathbb%7BR%7D)">-値の行列値ベクトル場 <img src="https://latex.codecogs.com/png.latex?(F_t)"> とベクトル値密度 <img src="https://latex.codecogs.com/png.latex?(p_t)"> と見ることに等価である．すると，<strong>一般化連続方程式</strong> <span class="citation" data-cites="Brenier2003">(Brenier, 2003)</span>, <span class="citation" data-cites="Lavenant2019">(Lavenant, 2019)</span> <img src="https://latex.codecogs.com/png.latex?%0A%5Cnabla_%5Cxi%20p_%5Cxi(x)+%5Coperatorname%7Bdiv%7D_x(p_%5Cxi%20u_%5Cxi)=0%0A"> の理論を用いれば，全く同様の枠組みで可能になる <span class="citation" data-cites="Isobe+2024">(命題1 Isobe et al., 2024)</span>．</p>
-<p>これが <strong>拡張フローマッチング</strong> (EFM: Extended Flow Matching) <span class="citation" data-cites="Isobe+2024">(Isobe et al., 2024)</span> である．</p>
-</section>
-<section id="gfm-の無限次元最適化" class="level3" data-number="2.7">
-<h3 data-number="2.7" class="anchored" data-anchor-id="gfm-の無限次元最適化"><span class="header-section-number">2.7</span> GFM の無限次元最適化</h3>
-<p>ただし，拡張 Dirichlet エネルギー <span class="citation" data-cites="Lavenant2019">(Lavenant, 2019)</span> <img src="https://latex.codecogs.com/png.latex?%0AD(P):=%5Cinf_%7B(p,F)%7D%5Cfrac%7B1%7D%7B2%7D%5Cint_%7B%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek%5Ctimes%5Cmathbb%7BR%7D%5Ed%7D%5Clvert%20F_%5Cxi(x)%5Crvert%5E2p_%5Cxi(x)%5C,dxd%5Cxi%0A"> の第 2.5 節の形での最小化点は，もはや線型なダイナミクスの重ね合わせとは限らない．</p>
-<p>すると無限次元最適化になってしまうため，適切な <a href="../../../posts/2023/KernelMethods/KernelMethods4Mathematicians.html">RKHS</a> <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BF%7D%5Csubset%5Cmathrm%7BMap%7D(%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek;%5Cmathbb%7BR%7D%5Ed)"> 内で探すことが必要である： <img src="https://latex.codecogs.com/png.latex?%0A%5Cpsi=%5Cphi_%7Bx_%7B%5Cpartial%5CXi%7D%7D%5Cin%5Coperatorname*%7Bargmin%7D_%7Bf%5Cin%5Cmathcal%7BF%7D%7D%5Csum_%7B%5Cxi%5Cin%5Cpartial%5CXi%7D%5Clvert%20f(%5Cxi)-x_%5Cxi%5Crvert%5E2.%0A"> ただし，<img src="https://latex.codecogs.com/png.latex?%5Cpartial%5CXi%5Coverset%7B%5Ctext%7Bfinite%7D%7D%7B%5Csubset%7D%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek"> は境界条件が与えられる点の有限集合で，<img src="https://latex.codecogs.com/png.latex?x_%5Cxi%5Cin%5Cmathbb%7BR%7D%5Ed"> はその点での値である．</p>
-<p><img src="https://latex.codecogs.com/png.latex?(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5Clvert%5Cpartial%5CXi%5Crvert%7D"> 上での結合分布 <img src="https://latex.codecogs.com/png.latex?%5Cpi"> が与えられたならば， <img src="https://latex.codecogs.com/png.latex?%0A%5Cinf_%7BQ%5Cin%5Cmathcal%7BP%7D(C%5E1(%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek;%5Cmathbb%7BR%7D%5Ed))%7DD(P%5EQ)%5Cle%5Cinf_%5Cpi%5Cint_%7B(%5Cmathbb%7BR%7D%5Ed)%5E%7B%5Clvert%5Cpartial%5CXi%5Crvert%7D%7D%5Clvert%5Cnabla_%5Cxi%5Cphi_%7Bx_%7B%5Cpartial%5CXi%7D%7D%5Crvert%5E2%5Cpi(dx_%5Cxi)%0A"> という評価が得られるが，この右辺は最適輸送の形になっており，最小値が適切な周辺分布とコスト関数 <img src="https://latex.codecogs.com/png.latex?%0Ac(x_%7B%5Cpartial%5CXi%7D):=%5Cint_%7B%5B0,1%5D%5Ctimes%5Cmathbb%7BR%7D%5Ek%7D%5Clvert%5Cnabla_%5Cxi%5Cphi_%7Bx_%7B%5Cpartial%5CXi%7D%7D(%5Cxi)%5Crvert%5E2%5C,d%5Cxi%0A"> が定める輸送計画問題になっている．</p>
-<p>この解 <img src="https://latex.codecogs.com/png.latex?%5Cpi%5E*"> をミニバッチ最適輸送で解きながら，目的関数 <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5Cbiggl%5B%5Cbiggl%7CF_T(%5Cpsi(T))-%5Cnabla_%5Cxi%5Cphi_%7Bx_%7B%5Cpartial%5CXi%7D%7D%5Cbiggr%7C%5E2%5Cbiggr%5D,%5Cqquad%20T%5Csim%5Cmathrm%7BU%7D(%5B0,1%5D),x_%7B%5Cpartial%5CXi%7D%5Csim%5Cpi%5E*,%0A"> の最小化点としてベクトル場 <img src="https://latex.codecogs.com/png.latex?F_t"> を学習することができる <span class="citation" data-cites="Isobe+2024">(定理4 Isobe et al., 2024)</span>．</p>
-<p>これを <span class="citation" data-cites="Isobe+2024">(Isobe et al., 2024)</span> は MMOT-EFM と呼んでいる．</p>
-</section>
-</section>
-
-
-
-<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献紹介</h2><div class="quarto-appendix-contents">
-
-<p>本記事の後半第 2 節は，<span class="citation" data-cites="Tong+2024">(Tong et al., 2024)</span>, <span class="citation" data-cites="Isobe+2024">(Isobe et al., 2024)</span> の解説である．</p>
-<p>前半の内容に関して，メンダコ氏によるブログ記事 <a href="https://horomary.hatenablog.com/entry/2024/06/30/211033">AlphaFold の進化史</a> は AlphaFold3 が丁寧に解説されている．</p>
-<p>当該ブログは丁寧に書かれており，大変おすすめできる．</p>
-<blockquote class="blockquote">
-<p>Alphafold3とは長大な条件付けネットワークを備えた全原子拡散生成モデルであると前述したとおり、Alphafold3では必須入力としてタンパク質配列を、任意入力として核酸配列、SMILES形式で表現された低分子リガンド、金属イオンなどを長大な条件付けネットワークに入力することで、拡散モデルへの条件付けベクトルを作成します。</p>
-</blockquote>
-<blockquote class="blockquote">
-<p>DeepLearningで大規模分子の構造分布を予測するなんて数年前には考えられませんでしたが、拡散モデルによってすでに現実になりつつあります。一例として Distributional GraphormerというMicrosoft Researchの研究 <span class="citation" data-cites="Zheng+2024">(S. Zheng et al., 2024)</span> を紹介します。</p>
-</blockquote>
-<p>続きはぜひ，<a href="https://horomary.hatenablog.com/entry/2024/06/30/211033#AlphaFold3-2024">メンダコ氏のブログ</a>でお読みください．</p>
-<p><span class="citation" data-cites="Dao+2023">(Dao et al., 2023)</span> のプロジェクトページは <a href="https://vinairesearch.github.io/LFM/">こちら</a>．</p>
-
-
-
-
-</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
-<div id="ref-Abramson+2024" class="csl-entry">
-Abramson, J., Adler, J., Dunger, J., Evans, R., Green, T., Pritzel, A., … Jumper, J. M. (2024). <a href="https://doi.org/10.1038/s41586-024-07487-w">Accurate structure prediction of biomolecular interactions with AlphaFold 3</a>. <em>Nature</em>, <em>630</em>(8016), 493–500.
-</div>
-<div id="ref-Albergo-Vanden-Eijnden2023" class="csl-entry">
-Albergo, M. S., and Vanden-Eijnden, E. (2023). <a href="https://openreview.net/forum?id=li7qeBbCR1t"><span class="nocase">Building Normalizing Flows with Stochastic Interpolants</span></a>. In <em>The eleventh international conference on learning representations</em>.
-</div>
-<div id="ref-Brenier2003" class="csl-entry">
-Brenier, Y. (2003). <a href="https://doi.org/10.1007/978-3-540-44857-0_4">Extended monge-kantorovich theory</a>. In <em>Optimal transportation and applications: Lectures given at the c.i.m.e. Summer school, held in martina franca, italy, september 2-8, 2001</em>, pages 91–121. Berlin, Heidelberg: Springer Berlin Heidelberg.
-</div>
-<div id="ref-Chen-Lipman2024" class="csl-entry">
-Chen, R. T. Q., and Lipman, Y. (2024). <a href="https://openreview.net/forum?id=g7ohDlTITL">Flow matching on general geometries</a>. In <em>The twelfth international conference on learning representations</em>.
-</div>
-<div id="ref-Chen+2023AnalogBits" class="csl-entry">
-Chen, T., ZHANG, R., and Hinton, G. (2023). <a href="https://openreview.net/forum?id=3itjR9QxFw">Analog bits: Generating discrete data using diffusion models with self-conditioning</a>. In <em>The eleventh international conference on learning representations</em>.
-</div>
-<div id="ref-Chung+2023" class="csl-entry">
-Chung, H., Kim, J., Mccann, M. T., Klasky, M. L., and Ye, J. C. (2023). <a href="https://openreview.net/forum?id=OnD9zGAGT0k">Diffusion posterior sampling for general noisy inverse problems</a>. In <em>The eleventh international conference on learning representations</em>.
-</div>
-<div id="ref-Dao+2023" class="csl-entry">
-Dao, Q., Phung, H., Nguyen, B., and Tran, A. (2023). <a href="https://arxiv.org/abs/2307.08698">Flow matching in latent space</a>.
-</div>
-<div id="ref-Dhariwal-Nichol2021" class="csl-entry">
-Dhariwal, P., and Nichol, A. Q. (2021). <a href="https://openreview.net/forum?id=AAWuCvzaVt">Diffusion models beat <span>GAN</span>s on image synthesis</a>. In A. Beygelzimer, Y. Dauphin, P. Liang, and J. W. Vaughan, editors, <em>Advances in neural information processing systems</em>.
-</div>
-<div id="ref-Ding+2021" class="csl-entry">
-Ding, X., Wang, Y., Xu, Z., Welch, W. J., and Wang, Z. J. (2021). <a href="https://openreview.net/forum?id=PrzjugOsDeE">Cc<span>{</span>GAN<span>}</span>: Continuous conditional generative adversarial networks for image generation</a>. In <em>International conference on learning representations</em>.
-</div>
-<div id="ref-Fatras+2021" class="csl-entry">
-Fatras, K., Zine, Y., Majewski, S., Flamary, R., Gribonval, R., and Courty, N. (2021). <a href="https://arxiv.org/abs/2101.01792">Minibatch optimal transport distances; analysis and applications</a>.
-</div>
-<div id="ref-Ho+2020" class="csl-entry">
-Ho, J., Jain, A., and Abbeel, P. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html"><span>Denoising Diffusion Probabilistic Models</span></a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
-</div>
-<div id="ref-Ho+2022" class="csl-entry">
-Ho, J., Saharia, C., Chan, W., Fleet, D. J., Norouzi, M., and Salimans, T. (2022). <a href="http://jmlr.org/papers/v23/21-0635.html">Cascaded diffusion models for high fidelity image generation</a>. <em>Journal of Machine Learning Research</em>, <em>23</em>(47), 1–33.
-</div>
-<div id="ref-Ho-Salimans2021" class="csl-entry">
-Ho, J., and Salimans, T. (2021). <a href="https://openreview.net/forum?id=qw8AKxfYbI">Classifier-free diffusion guidance</a>. In <em>NeurIPS 2021 workshop on deep generative models and downstream applications</em>.
-</div>
-<div id="ref-Isobe+2024" class="csl-entry">
-Isobe, N., Koyama, M., Zhang, J., Hayashi, K., and Fukumizu, K. (2024). <a href="https://arxiv.org/abs/2402.18839">Extended flow matching: A method of conditional generation with generalized continuity equation</a>.
-</div>
-<div id="ref-Kingma+2014" class="csl-entry">
-Kingma, D. P., Mohamed, S., Jimenez Rezende, D., and Welling, M. (2014). <a href="https://proceedings.neurips.cc/paper_files/paper/2014/file/d523773c6b194f37b938d340d5d02232-Paper.pdf"><span class="nocase">Semi-supervised Learning with Deep Generative Models</span></a>. In Z. Ghahramani, M. Welling, C. Cortes, N. Lawrence, and K. Q. Weinberger, editors, <em>Advances in neural information processing systems</em>,Vol. 27. Curran Associates, Inc.
-</div>
-<div id="ref-Krishna+2024" class="csl-entry">
-Krishna, R., Wang, J., Ahern, W., Sturmfels, P., Venkatesh, P., Kalvet, I., … Baker, D. (2024). <a href="https://doi.org/10.1126/science.adl2528">Generalized biomolecular modeling and design with RoseTTAFold all-atom</a>. <em>Science</em>, <em>384</em>(6693), eadl2528.
-</div>
-<div id="ref-Lavenant2019" class="csl-entry">
-Lavenant, H. (2019). <a href="https://doi.org/10.1016/j.jfa.2019.05.003">Harmonic mappings valued in the wasserstein space</a>. <em>Journal of Functional Analysis</em>, <em>277</em>(3), 688–785.
-</div>
-<div id="ref-Lipman+2023" class="csl-entry">
-Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M., and Le, M. (2023). <a href="https://openreview.net/forum?id=PqvMRDCJT9t">Flow matching for generative modeling</a>. In <em>The eleventh international conference on learning representations</em>.
-</div>
-<div id="ref-Liu+2023-Flow" class="csl-entry">
-Liu, X., Gong, C., and liu, qiang. (2023). <a href="https://openreview.net/forum?id=XVjTT1nw5z">Flow straight and fast: Learning to generate and transfer data with rectified flow</a>. In <em>The eleventh international conference on learning representations</em>.
-</div>
-<div id="ref-McCann1997" class="csl-entry">
-McCann, R. J. (1997). <a href="https://doi.org/10.1006/aima.1997.1634">A convexity principle for interacting gases</a>. <em>Advances in Mathematics</em>, <em>128</em>(1), 153–179.
-</div>
-<div id="ref-Nichol+2022" class="csl-entry">
-Nichol, A. Q., Dhariwal, P., Ramesh, A., Shyam, P., Mishkin, P., Mcgrew, B., … Chen, M. (2022). <a href="https://proceedings.mlr.press/v162/nichol22a.html"><span>GLIDE</span>: Towards photorealistic image generation and editing with text-guided diffusion models</a>. In K. Chaudhuri, S. Jegelka, L. Song, C. Szepesvari, G. Niu, and S. Sabato, editors, <em>Proceedings of the 39th international conference on machine learning</em>,Vol. 162, pages 16784–16804. PMLR.
-</div>
-<div id="ref-Pooladian+2023" class="csl-entry">
-Pooladian, A.-A., Ben-Hamu, H., Domingo-Enrich, C., Amos, B., Lipman, Y., and Chen, R. T. Q. (2023). <a href="https://proceedings.mlr.press/v202/pooladian23a.html">Multisample flow matching: Straightening flows with minibatch couplings</a>. In A. Krause, E. Brunskill, K. Cho, B. Engelhardt, S. Sabato, and J. Scarlett, editors, <em>Proceedings of the 40th international conference on machine learning</em>,Vol. 202, pages 28100–28127. PMLR.
-</div>
-<div id="ref-Saharia+2022SIGGRAPH" class="csl-entry">
-Saharia, C., Chan, W., Chang, H., Lee, C. A., Ho, J., Salimans, T., … Norouzi, M. (2022). <a href="https://openreview.net/forum?id=FPGs276lUeq"><span class="nocase">Palette: Image-to-Image Diffusion Models</span></a>.
-</div>
-<div id="ref-Saharia+2022" class="csl-entry">
-Saharia, C., Chan, W., Saxena, S., Li, L., Whang, J., Denton, E., … Norouzi, M. (2022). <a href="https://openreview.net/forum?id=08Yk-n5l2Al">Photorealistic text-to-image diffusion models with deep language understanding</a>. In A. H. Oh, A. Agarwal, D. Belgrave, and K. Cho, editors, <em>Advances in neural information processing systems</em>.
-</div>
-<div id="ref-Saharia+2023" class="csl-entry">
-Saharia, C., Ho, J., Chan, W., Salimans, T., Fleet, D. J., and Norouzi, M. (2023). <a href="https://doi.org/10.1109/TPAMI.2022.3204461">Image super-resolution via iterative refinement</a>. <em>IEEE Transactions on Pattern Analysis and Machine Intelligence</em>, <em>45</em>(4), 4713–4726.
-</div>
-<div id="ref-Song+2023" class="csl-entry">
-Song, J., Zhang, Q., Yin, H., Mardani, M., Liu, M.-Y., Kautz, J., … Vahdat, A. (2023). <a href="https://proceedings.mlr.press/v202/song23k.html">Loss-guided diffusion models for plug-and-play controllable generation</a>. In A. Krause, E. Brunskill, K. Cho, B. Engelhardt, S. Sabato, and J. Scarlett, editors, <em>Proceedings of the 40th international conference on machine learning</em>,Vol. 202, pages 32483–32498. PMLR.
-</div>
-<div id="ref-Tong+2024" class="csl-entry">
-Tong, A., FATRAS, K., Malkin, N., Huguet, G., Zhang, Y., Rector-Brooks, J., … Bengio, Y. (2024). <a href="https://openreview.net/forum?id=CD9Snc73AW"><span class="nocase">Improving and Generalizing Flow-Based Generative Models with Minibatch Optimal Transport</span></a>. <em>Transactions on Machine Learning Research</em>.
-</div>
-<div id="ref-Watson+2023" class="csl-entry">
-Watson, J. L., Juergens, D., Bennett, N. R., Trippe, B. L., Yim, J., Eisenach, H. E., … Baker, D. (2023). <a href="https://doi.org/10.1038/s41586-023-06415-8">De novo design of protein structure and function with RFdiffusion</a>. <em>Nature</em>, <em>620</em>(7976), 1089–1100.
-</div>
-<div id="ref-Zheng+2023GuidedFlow" class="csl-entry">
-Zheng, Q., Le, M., Shaul, N., Lipman, Y., Grover, A., and Chen, R. T. Q. (2023). <a href="https://arxiv.org/abs/2311.13443">Guided flows for generative modeling and decision making</a>.
-</div>
-<div id="ref-Zheng+2024" class="csl-entry">
-Zheng, S., He, J., Liu, C., Shi, Y., Lu, Z., Feng, W., … Liu, T.-Y. (2024). <a href="https://doi.org/10.1038/s42256-024-00837-3">Predicting equilibrium distributions for molecular systems with deep learning</a>. <em>Nature Machine Intelligence</em>, <em>6</em>(5), 558–567.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><img src="https://latex.codecogs.com/png.latex?c"> が <img src="https://latex.codecogs.com/png.latex?x_t"> と同じ画像である場合は，<span class="citation" data-cites="Ho+2022">(Ho et al., 2022)</span> のように <img src="https://latex.codecogs.com/png.latex?x_t"> にそのまま連結することも考えられる．↩︎</p></li>
-<li id="fn2"><p>すべての <img src="https://latex.codecogs.com/png.latex?(P_%7Bt,c%7D)_%7Bt%5Cin%5B0,1%5D%7D"> は <img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cto0"> の極限で決定論的なダイナミクスを定めていた．これを <img src="https://latex.codecogs.com/png.latex?%5Cpsi_c(t)"> と表すこととする．↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>Deep</category>
-  <category>Sampling</category>
-  <category>P(X)</category>
-  <guid>https://162348.github.io/posts/2024/Samplers/NF3.html</guid>
-  <pubDate>Sat, 10 Aug 2024 00:00:00 GMT</pubDate>
-  <media:content url="https://162348.github.io/posts/2024/Samplers/Files/RFDiff.gif" medium="image" type="image/gif"/>
 </item>
 </channel>
 </rss>
