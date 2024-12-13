@@ -21,23 +21,82 @@ execute:
 listing: 
     -   id: lst-embedding
         type: grid
-        grid-columns: 2
-        grid-item-align: center
         contents:
             - "IdealPoint.qmd"
             - "IdealPoint2.qmd"
+            - "../Survey/BDA3.qmd"
         date-format: iso
         fields: [title,image,date,subtitle,categories]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## 前稿 {.unnumbered .unlisted}
+## 関連記事 {.unnumbered .unlisted}
 
 ::: {#lst-embedding}
 :::
 
-本稿では次の３つのパッケージを紹介する：
+本稿では実際に理想点モデルの推定を，[Martin-Quinn](http://mqscores.wustl.edu/replication.php) により公開されている連邦最高裁判所の 1937 年から 2022 年までのデータを用いて行う．
+
+```{r}
+load("Files/mqData2022.Rda")
+df <- mqData
+range(df$term)
+```
+
+このデータは保守的な判断をする場合が $y_i=1$，リベラルな判断をする場合が $y_i=0$ の２値データとなっている．
+
+## ２母数ロジットモデル
+
+### モデルの概要
+
+[@Bafumi+2005] に倣い，次の２母数ロジットモデルをデータに適用することを考える：
+$$
+g(x):=\operatorname{logit}(x)=\log\frac{x}{1-x},
+$$
+$$
+g(\mu_i)=\gamma_{k[i]}\Paren{\al_{j[i]}-\beta_{k[i]}}.
+$$
+この際 $\al_j$ は $j$ 番目の判事の **理想点** といい，$\beta_k$ は $k$ 番目の事件の性質を表すパラメータである．
+
+ものによっては判事の立場が関係ない事件もあるため，$\gamma_k$ が用意されている．
+
+基本的にこの識別パラメータが正になるように調整したいが，明示的にそうすることはしない．
+
+次節で説明する方法により，理想点 $\al_j$ が大きい場合は保守的な判断を下しやすいものと解釈できるように設計する（$\al_j$ を数直線上にプロットした際に，リベラルな場合に左に，保守的な場合に右に来るようにする）．
+
+### 識別可能性
+
+$\al_j,\beta_k$ に同じ数を足した場合と $\gamma_k$ と $(\al_j,\beta_k)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
+
+次のような事前分布と階層構造を置くことでこの問題を回避できる：
+$$
+\al_j\iidsim\rN(0,1),\qquad\beta_k=\mu_\beta+\ep_\beta,\qquad\ep_\beta\iidsim\rN(0,\sigma^2_\beta),
+$$
+$$
+\gamma_k=\mu_\gamma+\ep_\gamma,\qquad\ep_\gamma\iidsim\rN(0,\sigma^2_\gamma).
+$$
+
+最後に $\gamma_k$ の符号の問題がある．これを $-1$ 倍させることで $\al_j,\beta_k$ の役割を $-1$ 倍させることができる．このまま推定すると事後分布は $0$ に関して対称な形を持つことになる．
+
+$\gamma_k$ の符号を制約したり，特定の判事の $\al_j$ を固定して参照点とするなどの方法があるかもしれないが，ここでは [2.2.3 節 @Bafumi+2005 p.178] に倣って，階層モデルの方法により，構造的なやり方でモデルに情報を伝える．
+
+というのも，理想点 $\al_j$ に次の階層構造を入れるのである：
+$$
+\al_j=\delta_0+\delta_1 x_j+\ep_j\qquad\ep_j\iidsim\rN(0,1).
+$$
+
+$x_j$ は当該判事を示した大統領の所属政党を表す２値変数で，共和党ならば $x_j=1$ とする．そして $\delta_1$ に $\R_+$ 上に台を持つ事前分布を置く．
+
+### 共変量の追加
+
+このように共変量を適切な階層に追加することは，モデルに自然な形で正則化情報を伝えることに繋がり，モデルの識別やより現実的な推定値の獲得に繋がる．
+
+
+
+## 理想点解析パッケージ
+
+本節では次の３つのパッケージを紹介する：
 
 ::: {.callout-tip appearance="simple" icon="false"}
 
