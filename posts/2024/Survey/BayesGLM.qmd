@@ -72,4 +72,155 @@ raw_df <- raw_df %>%
   BMI >= 25 ~ "obese",
   TRUE ~ "E"
   ))
+library(brms)
+library(knitr)
 ```
+
+## 項目応答モデル
+
+### データの概観
+
+[@Boeck-Wilson2004] による「怒るかどうか？」のデータを用いる．パッケージ `lme4` で利用可能になっている．
+
+```{r}
+#| output: false
+library(lme4)
+data("VerbAgg", package = "lme4")
+df <- VerbAgg
+```
+
+応答は３段階の順序応答 `resp` とこれを２段階にしたもの `r2` である．
+
+```{r}
+kable(head(df))
+```
+
+### 固定効果１母数モデル
+
+通常の１母数モデルに，過分散を説明するための固定効果の項を加えたモデルを考える：
+
+$$
+g(\P[Y_{ik}=1])=\al_{j[i]}-\beta_{k[i]}+\ep_i,\qquad\ep_i\sim\rN(\al_0,\sigma^2_y),\quad\al_0\sim\rt(3;0,2.5),\sigma_y\sim\rt(3;0,2.5),
+$$
+$$
+\al_j=\mu_\al+\ep_\al,\qquad\ep_\al\sim\rN(0,\sigma_\al^2),\quad\sigma_\al\sim\rN(0,3),
+$$
+$$
+\beta_k=\mu_\beta+\ep_\beta,\qquad\ep_\beta\sim\rN(0,\sigma_\beta^2),\quad\sigma_\beta\sim\rN(0,3),
+$$
+$$
+\mu_\al\sim\rN(0,\infty),\quad\mu_\beta\sim\rN(0,\infty).
+$$
+
+```{r}
+#| output: false
+formula_1PL <- bf(r2 ~ 1 + (1|item) + (1|id))
+prior_1PL <-  prior("normal(0,3)", class="sd", group = "id") +
+  prior("normal(0,3)", class="sd", group = "item")
+fit_1PL <- brm(
+  formula_1PL,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+kable(prior_summary(fit_1PL))
+```
+
+```{r}
+summary(fit_1PL)
+```
+
+<!-- 
+```{r}
+sum <- summary(fit_1PL)
+row1 <- data.frame(sum$fix)
+row2 <- data.frame(sum$random[1]) %>%
+  setNames(colnames(row1))
+row3 <- data.frame(sum$random[2]) %>%
+  setNames(colnames(row1))
+kable(rbind(row1, row2, row3))
+```
+-->
+
+低い ESS から変動効果の項 $\ep_i$ の推定に苦労していることがわかる．
+
+```{r}
+plot(fit_1PL)
+```
+
+ここにはグローバルなパラメータしか表示されておらず，ランダム効果の結果は次のように見る必要がある：
+
+```{r}
+#| output: false
+library(ggplot2)
+ranef_item <- ranef(fit_1PL)$item
+posterior_means <- ranef_item[,1,1]
+lower_bounds <- ranef_item[,3,1]
+upper_bounds <- ranef_item[,4,1]
+plot_df_item <- data.frame(
+  item = rownames(ranef_item),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+```
+
+```{r}
+ggplot(plot_df_item, aes(x = mean, y = item)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Posterior Means and 95% Credible Intervals for Items",
+       x = "Posterior Estimate",
+       y = "Item")
+```
+
+多くの参加者にとって腹立たしい例とそうでない例が区別できているようである．
+
+```{r}
+#| output: false
+#| echo: false
+ranef_id <- ranef(fit_1PL)$id
+posterior_means <- ranef_id[,1,1]
+lower_bounds <- ranef_id[,3,1]
+upper_bounds <- ranef_id[,4,1]
+plot_df_id <- data.frame(
+  id = rownames(ranef_id),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+```
+
+```{r}
+plot_df_id <- plot_df_id %>% arrange(mean) %>% mutate(rank = row_number())
+ggplot(plot_df_id, aes(x = mean, y = rank)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Posterior Means and 95% Credible Intervals for Individuals",
+       x = "Posterior Estimate",
+       y = "Individual")
+```
+
+こうして怒りやすかった人を並べることができる．
+
+しかしガタガタしている区分定数的な模様が見れる．実はこれは item の分だけある．というのも，「何個の項目に Yes と答えたか」だけが $\al_j$ を決める要因になってしまっているためである．
+
+これが項目識別のできない１母数モデルの限界である．
+
+### 固定効果２母数モデル
+
+### 共変量の追加
+
+理想点モデルなど多くの項目応答モデルは，$\al_j,\beta_k$ の推定に終始してきたが，本当のリサーチクエスチョンはその先にある．
+
+このためには個人レベルの共変量を追加した階層モデルを構築することが必要である．
+
+## 文献案内 {.appendix}
+
+[@Burkner2021] に項目応答モデルのベイズ的な扱いが取り上げられている．特にパッケージ `brms` を用いた例が３つある．
