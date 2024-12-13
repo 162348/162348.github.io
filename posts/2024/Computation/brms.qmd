@@ -1,9 +1,9 @@
 ---
-title: "R によるベイズ混合モデリング入門"
-subtitle: "`brms` を用いた混合効果モデリング入門"
+title: "`brms` によるベイズ混合モデリング入門"
+subtitle: "ポアソン混合効果モデルを例に"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 12/8/2024
+date-modified: 12/13/2024
 categories: [Bayesian, MCMC, R, Stan, Statistics]
 image: ./brms_files/figure-html/unnamed-chunk-4-1.png
 bibliography: 
@@ -21,9 +21,31 @@ format:
     code-fold: false
 execute:
   cache: true
+listing: 
+    -   id: lst-brms
+        type: grid
+        sort: false
+        contents:
+            - "../Survey/BayesRegression.qmd"
+            - "../Survey/BayesGLM.qmd"
+            - "../TransDimensionalModels/BayesSelection.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-embed
+        type: grid
+        sort: false
+        contents:
+            - "../Lifestyle/FixedRandom.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
+
+## `brms` リンク集
+
+::: {#lst-brms}
+:::
 
 ::: {.callout-tip title="brms: Bayesian Regression Models using 'Stan' リンク集" appearance="simple"}
 
@@ -31,13 +53,11 @@ execute:
 * [Documentation](https://paul-buerkner.github.io/brms/)
 * [GitHub](https://github.com/paul-buerkner/brms)
 * [discourse](https://discourse.mc-stan.org/)
-* [@Burkner2017]
-* [@Burkner2018]
-* [@Burkner2021]
+* [@Burkner2017], [@Burkner2018], [@Burkner2021]
 
 :::
 
-ダウンロードは：^[R を最新バージョン 4.3.1 → 4.4.0 にアップデートしなければインストールに失敗したことに注意．]
+ダウンロードは：
 
 ```r
 install.packages("brms")
@@ -49,34 +69,45 @@ install.packages("brms")
 
 Documentation で紹介されている，[`Epilepsy Seizures Data`](https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html) [@Leppik+1987]，[@Thall-Vail1990] を用いた [例](https://paul-buerkner.github.io/brms/) を実行してみる：
 
-```r
+```{r}
+#| output: false
 library(brms)
 fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
             data = epilepsy, family = poisson())
 ```
 
-てんかん (epilepsy) 患者の発作回数`count`を被説明変数とし，処置の効果を表す説明変数`Trt`と患者毎のランダムな切片項`(1|patient)`，及び`zAge`,`zBase`への依存構造を調べたい．
+```{r}
+#| output: false
+#| echo: false
+library(knitr)
+```
 
-被説明変数`count`は離散変数であり，Poisson 分布に従うと仮定する．
+てんかん (epilepsy) 患者の発作回数 `count` を被説明変数とし，処置の有無を表す説明変数 `Trt` と患者毎のランダム誤差を表す切片項 `(1|patient)`，及び標準化された説明変数 `zAge`, `zBase` への依存構造を調べたい．
+
+被説明変数 `count` は離散変数であり，Poisson 分布に従うと仮定する．過分散への対応を次の段階で考慮する．
 
 ::: {.callout-note appearance="simple" title="説明変数"}
 
 * `zAge`：標準化された年齢
 * `zBase`：ベースの発作回数
 * `Trt`：治療の有無を表す２値変数
-* `(1|patient)`：患者ごとに異なるとした切片項
+* `(1|patient)`：患者ごとに異なるとした変動切片項
 
-`zBase * Trt`という記法は，この２つの交互作用もモデルに含めることを意味する．
+`zBase * Trt`という記法は，この２つの交互作用もモデルに含めることを意味する．この項の追加により，モデルは `zBase` の違いに応じて `Trt` の効果が変わる度合い $\beta_4$ を取り入れることができる．
 
 :::
 
-::: {.callout-note appearance="simple" icon="false" title="データの詳細"}
+```{r}
+kable(head(epilepsy))
+```
+
+::: {.callout-note appearance="simple" title="データの詳細"}
 
 `epilepsy`は59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．`patient`が患者を識別する ID であり，`(1|patient)`は患者ごとのランダム効果ということになる．
 
 :::
 
-従って本モデルは`zAge`, `zBase`, `Trt`, `Trt*zBase`という固定効果，`(1|patient)`というランダム効果を取り入れた（一般化線型）**混合効果モデル** ということになり，回帰式は次の通りである：
+従って本モデルは`zAge`, `zBase`, `Trt`, `Trt*zBase`という固定効果（係数），`(1|patient)`というランダム効果を取り入れた（一般化線型）**混合効果モデル** である．回帰式は次の通り：
 $$
 y_{it} = \beta_1 \cdot\texttt{zAge}_i+ \beta_2 \cdot \texttt{zBase}_i + \beta_3 \cdot \texttt{Trt}_i
 $$
@@ -85,24 +116,25 @@ $$
 $$
 ただし，$\texttt{count}_{it}$ の Poisson 母数を $\lambda_{it}$ として，$y_{it}:=\log(\lambda_{it})$ とした．
 
+<!-- 
 解析意図としては，ベースの発作回数が高いほど，治療効果が高い／低いのではないか？という仮説を検証する，`zBase*Trt`を曝露因子としたモデルである．
+-->
 
-::: {.callout-caution collapse="true" title="全データ"}
-```{r}
-epilepsy
+### `brm()` 関数
+
+#### `family` 引数
+
+ここでは被説明変数 $y$ に仮定するパラメトリック分布族と，リンク関数 $g$ を指定する：
+
+```r
+family = brmsfamily(family = "<family>", link = "<link>")
 ```
-:::
 
-### モデルの推定とプロット
+多くの場合 `link` 引数は省略可能である．
 
-::: {.callout-caution collapse="true" title="フィッティングの出力"}
+この２つの情報を通じて，一般化線型モデルを取り扱うことができる．
 
-```{r}
-library(brms)
-fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
-            data = epilepsy, family = poisson())
-```
-:::
+### モデルの推定と結果の解釈
 
 ```{r}
 summary(fit1)
@@ -115,6 +147,8 @@ summary(fit1)
 治療効果`Trt`の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は $0$ を跨いでいるという意味で，有意とは言えない．また，交差項`zBase*Trt`の係数は小さく，交互効果の存在を示す証拠はないと思われる．
 
 $\wh{R}$ [@Gelman-Rubin1992] は MCMC の収束に関する指標で，１より大きい場合，MCMC が収束していない可能性を意味する [@Vehtari+2021]．通説には $\wh{R}\le1.1$ などの基準がある．
+
+### プロット
 
 変数を指定して，事後分布と MCMC の軌跡をプロットできる：
 
@@ -269,6 +303,8 @@ loo(fit2,fit3)
 Sebastian Weber らにより，[新薬の治験における実際の解析事例をまとめたウェブサイト](https://opensource.nibr.com/bamdd/) が公開されている．^[Statistical Modeling, Causal Inference, and Social Science における [こちらのエントリ](https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/) も参照．]
 
 特に，[13 章](https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation)で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．
+
+`brms` は他にもスプラインや Gauss 過程を用いた一般化加法モデルの推論も可能である [@Burkner2018]．
 
 ## ランダム効果モデルの正しい使い方
 
