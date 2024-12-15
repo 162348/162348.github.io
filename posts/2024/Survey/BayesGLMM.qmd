@@ -1,0 +1,535 @@
+---
+title: "`brms` を用いたベイズ混合ロジスティック回帰分析"
+subtitle: "項目応答モデルと特異項目機能を題材として"
+author: "司馬博文"
+date: 12/14/2024
+categories: [Bayesian, Statistics, R, Stan]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract-title: 概要
+abstract: |
+    項目反応モデルとは，被験者と項目のそれぞれが独自のパラメータを持った一般化線型混合効果モデルである．
+    被験者ごとの特性の違いや，項目ごとの性質の違いが視覚化できるが，
+    本稿では能力・難易度パラメータに更なる階層構造を考える．
+    これにより能力パラメータを変化させている背後の要因や，項目特性と個人特性の交絡効果（特異項目機能）を解析することが可能になる．
+    `brms` パッケージは極めて直感的な方法でモデルのフィッティングから事後分布の推論までを実行できる．
+image: Files/DIF.png
+code-fold: false
+execute:
+    cache: true
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "BDA2.qmd"
+            - "BayesRegression.qmd"
+            - "../TransDimensionalModels/IdealPoint1.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    # -   id: lst-embedding
+    #     type: grid
+    #     grid-columns: 1
+    #     grid-item-align: center
+    #     sort: false
+    #     contents:
+    #         - "BDA2.qmd"
+    #     date-format: iso
+    #     fields: [title,image,date,subtitle]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## 項目応答モデル
+
+### データの概観
+
+[@Vansteelandt2001], [@Boeck-Wilson2004] による「怒るかどうか？」のデータ [`VerbAgg`](https://rdrr.io/cran/lme4/man/VerbAgg.html) を用いる．混合モデルの点推定のためのパッケージ `lme4` [@Bates+2015] で利用可能になっている．
+
+```{r}
+#| output: false
+library(lme4)
+data("VerbAgg", package = "lme4")
+df <- VerbAgg
+```
+
+質問票は「自分が意思表示をしたのにバスが止まってくれなかったので悪態をついた」などのもので，同意できるかを３段階 "yes", "perhaps", "no" で評価する [@Boeck-Wilson2004 pp.7-8]．
+
+応答は３段階の順序応答 `resp` とこれを２段階にしたもの `r2` である．
+
+```{r}
+kable(head(df))
+```
+
+### 固定効果１母数モデル
+
+通常の１母数モデルに，過分散を説明するための固定効果の項 $\al_0$ を加えたモデルを考える：
+
+$$
+g(\P[Y_{ik}=1])=\al_{j[i]}-\beta_{k[i]}+\al_0,\qquad\al_0\sim\rt(3;0,2.5),
+$$
+$$
+\al_j\sim\rN(\mu_\al,\sigma_\al^2),\quad\mu_\al\sim\rN(0,3),\quad\sigma_\al\sim\rN(0,3),
+$$
+$$
+\beta_k\sim\rN(\mu_\beta,\sigma_\beta^2),\quad\mu_\beta\sim\rN(0,3),\quad\sigma_\beta\sim\rN(0,3).
+$$
+
+`sd` というクラスはグループレベル変数の標準偏差を意味する．
+
+$\al_j,\beta_k$ の定数の違いに関する識別不可能性は，いずれも $0$ を中心とした
+
+```{r}
+#| output: false
+formula_1PL <- bf(r2 ~ 1 + (1|item) + (1|id))
+prior_1PL <-  prior("normal(0,3)", class="sd", group = "id") +
+  prior("normal(0,3)", class="sd", group = "item")
+fit_1PL <- brm(
+  formula_1PL,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+prior_summary(fit_1PL)
+```
+
+`vectorized` というのは，下記 Stan コード内で尤度は for 文で構成されるが，このループに入れなくて良いものがある場合をいう．
+
+::: {.callout-tip collapse="true" title="Stan コードの表示"}
+
+```r
+stancode(fit_1PL)
+```
+
+によって推定に用いられた Stan コードが表示できる．
+
+次を見る限り，確かに意図したモデルになっている：
+
+```stan
+// generated with brms 2.21.0
+functions {
+}
+data {
+  int<lower=1> N;  // total number of observations
+  array[N] int Y;  // response variable
+  // data for group-level effects of ID 1
+  int<lower=1> N_1;  // number of grouping levels
+  int<lower=1> M_1;  // number of coefficients per level
+  array[N] int<lower=1> J_1;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_1_1;
+  // data for group-level effects of ID 2
+  int<lower=1> N_2;  // number of grouping levels
+  int<lower=1> M_2;  // number of coefficients per level
+  array[N] int<lower=1> J_2;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_2_1;
+  int prior_only;  // should the likelihood be ignored?
+}
+transformed data {
+}
+parameters {
+  real Intercept;  // temporary intercept for centered predictors
+  vector<lower=0>[M_1] sd_1;  // group-level standard deviations
+  array[M_1] vector[N_1] z_1;  // standardized group-level effects
+  vector<lower=0>[M_2] sd_2;  // group-level standard deviations
+  array[M_2] vector[N_2] z_2;  // standardized group-level effects
+}
+transformed parameters {
+  vector[N_1] r_1_1;  // actual group-level effects
+  vector[N_2] r_2_1;  // actual group-level effects
+  real lprior = 0;  // prior contributions to the log posterior
+  r_1_1 = (sd_1[1] * (z_1[1]));
+  r_2_1 = (sd_2[1] * (z_2[1]));
+  lprior += student_t_lpdf(Intercept | 3, 0, 2.5);
+  lprior += normal_lpdf(sd_1 | 0,3)
+    - 1 * normal_lccdf(0 | 0,3);
+  lprior += normal_lpdf(sd_2 | 0,3)
+    - 1 * normal_lccdf(0 | 0,3);
+}
+model {
+  // likelihood including constants
+  if (!prior_only) {
+    // initialize linear predictor term
+    vector[N] mu = rep_vector(0.0, N);
+    mu += Intercept;
+    for (n in 1:N) {
+      // add more terms to the linear predictor
+      mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n];
+    }
+    target += bernoulli_logit_lpmf(Y | mu);
+  }
+  // priors including constants
+  target += lprior;
+  target += std_normal_lpdf(z_1[1]);
+  target += std_normal_lpdf(z_2[1]);
+}
+generated quantities {
+  // actual population-level intercept
+  real b_Intercept = Intercept;
+}
+```
+
+`-1*normal_lccdf(0|0,3)` というのは定数であり，推定には全く影響を与えないが，後続の `bridgesampling` パッケージ [@Gronau-Singmann-Wagenmakers2020] によるモデル比較の API 構築のために付けられたものである [@Burkner2021 p.21]．
+
+:::
+
+<!-- 
+```{r}
+sum <- summary(fit_1PL)
+row1 <- data.frame(sum$fix)
+row2 <- data.frame(sum$random[1]) %>%
+  setNames(colnames(row1))
+row3 <- data.frame(sum$random[2]) %>%
+  setNames(colnames(row1))
+kable(rbind(row1, row2, row3))
+```
+-->
+
+```{r}
+summary(fit_1PL)
+```
+
+低い ESS から変動効果の項 $\ep_i$ の推定に苦労していることがわかる．
+
+```{r}
+plot(fit_1PL)
+```
+
+ここにはグローバルなパラメータしか表示されておらず，ランダム効果の結果は次のように見る必要がある：
+
+```{r}
+#| output: false
+library(ggplot2)
+ranef_item <- ranef(fit_1PL)$item
+posterior_means <- ranef_item[,1,1]
+lower_bounds <- ranef_item[,3,1]
+upper_bounds <- ranef_item[,4,1]
+plot_df_item <- data.frame(
+  item = rownames(ranef_item),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+```
+
+```{r}
+p_PL1 <- ggplot(plot_df_item, aes(x = mean, y = item)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Posterior Means and 95% Credible Intervals for Items",
+       x = "Posterior Estimate",
+       y = "Item")
+p_PL1
+```
+
+多くの参加者にとって腹立たしい例とそうでない例が区別できているようである．
+
+```{r}
+#| output: false
+#| echo: false
+ranef_id <- ranef(fit_1PL)$id
+posterior_means <- ranef_id[,1,1]
+lower_bounds <- ranef_id[,3,1]
+upper_bounds <- ranef_id[,4,1]
+plot_df_id <- data.frame(
+  id = rownames(ranef_id),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+```
+
+```{r}
+plot_df_id <- plot_df_id %>% arrange(mean) %>% mutate(rank = row_number())
+p_PL1_id <- ggplot(plot_df_id, aes(x = mean, y = rank)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Posterior Means and 95% Credible Intervals for Individuals",
+       x = "Posterior Estimate",
+       y = "Individual")
+p_PL1_id
+```
+
+こうして怒りやすかった人を並べることができる．
+
+しかしガタガタしている区分定数的な模様が見れる．実はこれは item の分だけある．というのも，「何個の項目に Yes と答えたか」だけが $\al_j$ を決める要因になってしまっているためである．
+
+これが項目識別のできない１母数モデルの限界である．
+
+### 固定効果２母数モデル
+
+項目識別力母数 $\gamma_k$ を導入する：
+$$
+g(\mu_i)=\gamma_{k[i]}\Paren{\al_{j[i]}-\beta_{k[i]}},
+$$
+
+すると追加の制約が必要になる．ここでは理想点モデルの場合と違い，研究のデザインから $\gamma_{k[i]}$ は正として良いだろう．
+
+これを変数変換 $\gamma_k=\exp(\log\gamma_k)$ によってモデルに知らせることとする．
+
+```{r}
+formula_2PL <- bf(
+  r2 ~ exp(loggamma) * eta,
+  loggamma ~ 1 + (1|i|item),
+  eta ~ 1 + (1|i|item) + (1|id),
+  nl = TRUE
+)
+```
+
+$g(\mu_i)$ の右辺はもはや $\log\gamma_k$ の線型関数ではないので，これを `nl=TRUE` によって知らせる必要がある．
+
+`|i|` によって，$\log\gamma_k$ と $\eta_{jk}$ 内の項 $\beta_k$ には相関があることを知らせている [@Burkner2018 p.397]．項目難易度 $\beta_k$ が低いほど識別力 $\log\gamma_k$ は低いとしているのである．
+
+```{r}
+#| output: false
+prior_2PL <-  prior("normal(0,5)", class="b", nlpar = "eta") +
+  prior("normal(0,1)", class="b", nlpar = "loggamma") +
+  prior("constant(1)", class="sd", group = "id", nlpar = "eta") +
+  prior("normal(0,3)", class="sd", group = "item", nlpar = "eta") +
+  prior("normal(0,1)", class="sd", group = "item", nlpar = "loggamma")
+
+fit_2PL <- brm(
+  formula = formula_2PL,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_2PL,
+  chains = 4, cores = 4
+)
+```
+
+ついに Stan が２分ほどかかるようになった上に，収束に苦労しており，ESS が低くなっている．
+
+```{r}
+summary(fit_2PL)
+```
+
+```{r}
+ranef_item2 <- ranef(fit_2PL)$item
+posterior_means <- ranef_item2[,1,"eta_Intercept"]
+lower_bounds <- ranef_item2[,3,"eta_Intercept"]
+upper_bounds <- ranef_item2[,4,"eta_Intercept"]
+plot_df_item2 <- data.frame(
+  item = rownames(ranef_item2),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+p_PL2 <- ggplot(plot_df_item2, aes(x = mean, y = item)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "2PL Model",
+       x = "Posterior Estimate",
+       y = "Item")
+grid.arrange(p_PL1, p_PL2, nrow = 1)
+```
+
+識別力パラメータ $\gamma_k$ が $1$ より大きい値をとっており，これが変動を吸収しているため，$\al_j$ は $0$ に縮小されて推定されるようになっている．
+
+```{r}
+#| output: false
+ranef_id2 <- ranef(fit_2PL)$id
+posterior_means <- ranef_id2[,1,"eta_Intercept"]
+lower_bounds <- ranef_id2[,3,"eta_Intercept"]
+upper_bounds <- ranef_id2[,4,"eta_Intercept"]
+plot_df_id2 <- data.frame(
+  id = rownames(ranef_id2),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+```
+
+```{r}
+plot_df_id2 <- plot_df_id2 %>% arrange(mean) %>% mutate(rank = row_number())
+p_PL2_id <- ggplot(plot_df_id2, aes(x = mean, y = rank)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "2PL Model",
+       x = "Posterior Estimate",
+       y = "Individual")
+grid.arrange(p_PL1_id, p_PL2_id, nrow = 1)
+```
+
+少し滑らかになっている．
+
+```{r}
+cor(ranef_id[,1,"Intercept"], ranef_id2[,1,"eta_Intercept"])
+```
+
+しかし線型の相関になっており，軟化以上の変化は導入されなかったことがわかる．
+
+それもそうである．モデルの表現力はあげたから解像度は高くなったが，モデルに新しい情報を入れたわけではないのである．
+
+### 共変量の追加
+
+理想点モデルなど多くの項目応答モデルは，$\al_j,\beta_k$ の推定に終始してきたが，本当のリサーチクエスチョンはその先にある．
+
+個人レベルの共変量を追加した階層モデルを構築して，$\al_j$ の位置や応答の傾向への影響を調べることが真の目標であった．
+
+#### 項目共変量の追加
+
+本データにおいて項目は $2\times2\times3$ の split-plot デザインがなされている．
+
+`mode` とは「悪態をつきたい」と「咄嗟についてしまう」という２種の行動を区別するためのものである．この２つの行動容態は，本人の抑制的な意識が実際に働いたかどうかにおいて全く質的に異なる．モデルにこれを教えたらどうなるだろうか？
+
+`situ` とはシチュエーションであり，自分に責任があるか（「店に入ろうとした瞬間閉店時間になった」など）他人に責任があるか（「バスが止まってくれなかった」など）の２項目がある．
+
+`btype` は行動様式であり，「悪態をつく」「叱る」「怒鳴りつける」の３項目がある．後に行くほど他人への攻撃性が強い．
+
+最初に考えられるモデル
+
+```r
+r2 ~ btype + situ + mode + (1|item) + (1 + mode|id)
+```
+
+は，元々の１母数モデルに変動切片項を３つ追加した上に，`mode` の係数を個人ごとに変えることを許したものである．これは `mode` の効果が個人ごとに異なるだろうという信念による．
+
+しかしこのモデルに至る前に，`1` を `0` にすることで `modedo` と `modewant` 双方の標準偏差を推定することを考える（`1` の場合は `modewant` の標準偏差の代わりに `Intercept` の標準偏差を推定する）．
+
+```{r}
+#| output: false
+formula_1PL_cov <- bf(
+  r2 ~ btype + situ + mode + (1|item) + (0 + mode|id)
+)
+fit_1PL_cov <- brm(
+  formula = formula_1PL_cov,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit_1PL_cov)
+```
+
+`modedo` の係数が負になっており，悪態をつきたくなっても，実際にする人の割合は下がることがわかる．
+
+だが係数の `-0.77` が大きいかどうかがわからない．これには対数オッズ比のスケールから元のスケールに戻す便利な関数がある：
+
+```{r}
+conditional_effects(fit_1PL_cov, "mode")
+```
+
+確率としての減少は軽微だがあることがわかる．次に気づくことは `do` の方がエラーバーが長いことである．２つの係数は相関しているので，頻度論的な検定は難しいかもしれないが，２つの標準偏差の差の事後分布を見ることでチェックすることができる：
+
+```{r}
+hyp <- "modedo - modewant > 0"
+hypothesis(fit_1PL_cov, hyp, class = "sd", group = "id")
+```
+
+`0.96` の確率で `modedo` の標準偏差の方が大きいことがわかるが，その差も `0.2` ほどで，対数オッズ比としては大したことがないと思われる．
+
+#### 個人共変量の追加
+
+Trait Anger スコア [@Spielberger2010] が個人ごとに算出されており（`Anger` 変数），そのスコアによってどのように項目への反応が違うかを調べる．こうするとどんどん心理学の研究っぽくなる．
+
+```{r}
+#| output: false
+formula_1PL_cov_id <- bf(
+  r2 ~ Anger + Gender + btype + situ + mode + mode:Gender + (0+Gender|item) + (0+mode|id)
+)
+fit_1PL_cov_id <- brm(
+  formula = formula_1PL_cov_id,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit_1PL_cov_id)
+```
+
+```{r}
+conditional_effects(fit_1PL_cov_id, c("Anger", "mode:Gender"))
+```
+
+`Anger` の値が大きいほど悪態をつく確率が綺麗に上がっていく様子がわかる．
+
+加えて，女性の方が悪態を吐こうと思っても，実際に行動に移すには大きな壁があることがわかる．こうして `mode` と `Gender` の間の交絡が陽の下に明らかになった．
+
+このような，項目共変量と個人共変量の間の交絡は **特異項目機能** (DIF: Differential Item Functioning) と呼ばれる．項目の特性が，被験者のグループによって違った機能を示すことは，例えばテスト理論では個人の潜在特性を推定する際の重大なノイズ要因となっており，これを統制することが重要な課題になる．
+
+### 特異項目機能の解析
+
+この特異項目機能を，項目の特性ごとにさらに詳しく見ていく．
+
+特に怒鳴りつける行動様式を除き，悪態をつく行為と叱る行為は，男性と女性において違う機能を持っているのではないか？という仮説を検証してみる．
+
+女性が実際に悪態をつく／叱る行為にだけマークをつけるダミー変数 `dif` を用意する：
+
+```{r}
+df$dif <- as.numeric(with(
+  df,
+  Gender == "F" & mode == "do" & btype %in% c("curse", "scold")
+))
+```
+
+```{r}
+#| output: false
+formula_1PL_dif <- bf(
+  r2 ~ Gender + dif + (1|item) + (1|id)
+)
+fit_1PL_dif <- brm(
+  formula = formula_1PL_dif,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit_1PL_dif)
+```
+
+`dif` の係数 `-0.94` を見ることで，殊に「女性」と「実際に悪態を吐いたり叱ったりする」という組み合わせは特異な項目機能を持っていることがわかる．
+
+<!--
+
+### 極大階層モデルの推論
+
+関連のある共変量を全てモデルに含めて推論する方法が，最終的にはやはり好ましいとされる [@Barr+2013]．
+
+複雑な階層モデルであっても，Stan が実装する HMC サンプラーは効率的に推論を実行してくれるようである．これを見ていこう．
+
+```{r}
+#| output: false
+formula_1PL_maximal <- bf(
+  r2 ~ 1 + Anger + Gender + btype + situ + mode + (1 + Anger + Gender | item) + (1 + btype + situ + mode | id)
+)
+fit_1PL_maximal <- brm(
+  formula = formula_1PL_maximal,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  prior = prior_1PL,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit_1PL_maximal)
+```
+
+-->
+
+## 文献案内 {.appendix}
+
+[@Burkner2021] に項目応答モデルのベイズ的な扱いが取り上げられている．特にパッケージ `brms` を用いた例が３つある．
+
+DIF に関する日本語文献に [@熊谷龍一2012] がある．
