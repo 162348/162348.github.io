@@ -30,15 +30,15 @@ listing:
             - "BayesGLMM.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-    # -   id: lst-embedding
-    #     type: grid
-    #     grid-columns: 1
-    #     grid-item-align: center
-    #     sort: false
-    #     contents:
-    #         - "BDA2.qmd"
-    #     date-format: iso
-    #     fields: [title,image,date,subtitle]
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "../TransDimensionalModels/BayesSelection.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -66,6 +66,12 @@ raw_df <- raw_df %>%
 library(brms)
 library(knitr)
 library(gridExtra)
+raw_df <- raw_df %>%
+  mutate(obesity = case_when(
+  BMI < 18.5 ~ 1,  # underweight
+  BMI < 25 ~ 2,    # normal
+  BMI >= 25 ~ 3    # obese
+  ))
 ```
 
 ## 多項ロジスティック回帰
@@ -93,7 +99,7 @@ cor(raw_df$BMI, raw_df$LDL)
 ```{r}
 boxplot(
   raw_df$LDL ~ raw_df$obesity,
-  col = c("gray", "pink", "skyblue"),
+  col = c("pink", "lightgreen", "skyblue"),
   main = "LDL classified by BMI",
   xlab = "BMI",
   ylab = "LDL"
@@ -132,23 +138,24 @@ BMI と LDL の関数関係は非線型性が予期される [@Li+2021]．
 
 そこで BMI を直接被説明変数とするのではなく，離散化した順序変数 `obesity` を導入する：
 
-```{r}
+```r
 raw_df <- raw_df %>%
   mutate(obesity = case_when(
-  BMI < 18.5 ~ 1,
-  BMI < 25 ~ 2,
-  BMI >= 25 ~ 3
+  BMI < 18.5 ~ 1,  # underweight
+  BMI < 25 ~ 2,    # normal
+  BMI >= 25 ~ 3    # obese
   ))
 ```
 
-### ロジスティック回帰
-
-#### LDL の予測力
+### LDL の予測力
 
 LDL を直接用いて推定すると係数が極めて小さくなるため，対数変換によりスケールを変換して説明変数に入れる：
 
 $$
-\P[\texttt{obesity}>1]=g^{-1}(\beta_{\texttt{LDL}}\log(\texttt{LDL}))
+\P[\texttt{obesity}>1]=g^{-1}(\beta_{\texttt{LDL}}\cdot\log(\texttt{LDL})-c_1)
+$$
+$$
+\P[\texttt{obesity}>2]=g^{-1}(\beta_{\texttt{LDL}}\cdot\log(\texttt{LDL})-c_2)
 $$
 
 ```{r}
@@ -157,10 +164,12 @@ formula_LDL <- bf(
   obesity ~ log(LDL),
   family = cumulative(link = "logit")
 )
+# prior_LDL <- prior(normal(0,0.1), class = b, coef = "logLDL")
 fit_LDL <- brm(
   formula_LDL,
   data = raw_df,
   chains = 4, cores = 4
+#  prior = prior_LDL
 )
 ```
 
@@ -168,14 +177,170 @@ fit_LDL <- brm(
 summary(fit_LDL)
 ```
 
+LDL が上がるごとに，`normal` や `underweight` から `obese` に移る確率が上がるのが見える．
+
+```{r}
+conditional_effects(fit_LDL, "LDL", categorical = TRUE)
+```
+
 ```{r}
 prior_summary(fit_LDL)
 ```
 
-### 共変量
+$c_1,c_2$ には $0$ を中心とした $t$-事前分布が置かれているため，識別性は保たれると考えて良い．
 
+### LAB との比較
+
+実は LDL よりも LAB の方が少し予測力が高い．しかも LAB は $[1,10]$ に値を取るので，対数変換をするよりも平方根変換をする方が自然である：
+
+```{r}
+#| output: false
+formula_LAB <- bf(
+  obesity ~ sqrt(LAB),
+  family = cumulative(link = "logit")
+)
+fit_LAB <- brm(
+  formula_LAB,
+  data = raw_df,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+loo_compare(loo(fit_LDL), loo(fit_LAB))
+```
+
+```{r}
+conditional_effects(fit_LAB, "LAB", categorical = TRUE)
+```
+
+LAB が上昇すると `underweight`, `normal` から `obese` に移る確率がグンと上がるのが見える．
+
+### 双方の採用
+
+前節で `LAB` と `LDL` を比較すると，前者のみを用いたモデルの方が予測力が高いことを見た．
+
+では両方をモデルに入れてベイズ推論をすることで，２つの情報を統合したより良いモデルができるだろうか？
+
+```{r}
+#| output: false
+df_double <- data.frame(
+  obesity = raw_df$obesity,
+  z_sqrt_LAB = scale(sqrt(raw_df$LAB)),
+  z_log_LDL = scale(log(raw_df$LDL))
+)
+formula_double <- bf(
+  obesity ~ z_sqrt_LAB + z_log_LDL,
+  family = cumulative(link = "logit")
+)
+fit_double <- brm(
+  formula_double,
+  data = df_double,
+  chains = 4, cores = 4
+)
+```
+
+実際予測性能の面では両方入れたモデルの方が良いようである：
+
+```{r}
+loo_compare(loo(fit_LAB), loo(fit_double))
+```
+
+```{r}
+plot(fit_double, variable = c("b_z_sqrt_LAB", "b_z_log_LDL"))
+```
+
+LDL の方が僅かに縮小されて推定されていることがわかる．
+
+さらには `LAB` と `LDL` がモデルに入っている確率を出す方法は別稿で追求する：
+
+::: {#lst-embedding}
+:::
+
+### 名目モデルを使ってしまったら？
+
+`underweight`, `normal`, `obese` 間の順序構造を無視して，カテゴリカル分布を通じてモデリングをしても，実は当てはまりは必ずしも悪くない．
+
+```{r}
+#| output: false
+formula_nominal <- bf(
+  obesity ~ LAB,
+  family = categorical(link = "logit")
+)
+fit_nominal <- brm(
+  formula_nominal,
+  data = raw_df,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+waic(fit_LAB)
+waic(fit_nominal)
+```
+
+ほとんど質的には一致した結果を得る：
+
+```{r}
+conditional_effects(fit_nominal, "LAB", categorical = TRUE)
+```
+
+ひょっとしたら，BMI を離散化したという点で順序変数に思えるかもしれないが，これは単なる思い込みで，「痩せている」ことと「太っている」ことに順序関係を仮定することはむしろノイズになっているのかもしれない．
 
 <!-- 
+```{r}
+p1_ppc <- pp_check(fit_nominal, ndraws = 100)
+p2_ppc <- pp_check(fit_LAB, ndraws = 100)
+grid.arrange(p1_ppc, p2_ppc, nrow = 1)
+```
+-->
+
+### 共変量の追加と効果の観察
+
+```{r}
+#| output: false
+raw_df$sqrt_LAB <- sqrt(raw_df$LAB)
+raw_df$log_Age <- log(raw_df$Age)
+formula_LAB_cov <- bf(
+  obesity ~ log_Age + SEX + log_Age:SEX + (0 + SEX | sqrt_LAB),
+  family = categorical(link = "logit")
+)
+fit_LAB_cov <- brm(
+  formula_LAB_cov,
+  data = raw_df,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit_LAB_cov)
+```
+
+```{r}
+conditional_effects(fit_LAB_cov, "SEX", categorical = TRUE)
+```
+
+一般に男性の方が太っている確率が高くなる．これはよく知られているようである．
+
+```{r}
+conditional_effects(fit_LAB_cov, "log_Age", conditions = list(SEX = "male"), categorical = TRUE)
+conditional_effects(fit_LAB_cov, "log_Age", conditions = list(SEX = "female"), categorical = TRUE)
+```
+
+女性は年齢とともに太る傾向が見えるが，男性はそうでもない（むしろ逆である）ようである．
+
+そして共変量を追加したことでモデルの予測力が大きく良くなっている：
+
+```{r}
+loo_compare(loo(fit_LAB), loo(fit_LAB_cov))
+```
+
+```{r}
+pp_check(fit_LAB_cov)
+```
+
+### その他の共変量の探索
+
 BMI と LDL は，骨ミネラル密度 (BMD: Bone Mineral Density) に因果的な影響を与えることが知られている [@Wu+2024]．
 
 `P1NP` は骨形成マーカー，`ALP` は骨の形成や骨疾患の評価に役立つ酵素である．
@@ -183,4 +348,47 @@ BMI と LDL は，骨ミネラル密度 (BMD: Bone Mineral Density) に因果的
 `deoxypyridinolin` (DPD) は骨を構成するⅠ型コラーゲンを束ねる蛋白質で、骨吸収の指標になる．
 
 他に `Ca`, `Mg` などの値もある．
--->
+
+## 階層ロジットモデル
+
+### はじめに
+
+データの不均衡性に着想を得て，「太っているかいないか？」の後に「痩せ気味かどうか？」という２つのロジット回帰の連続とみることを考える．
+
+```{r}
+#| output: false
+#| eval: false
+raw_df <- raw_df %>%
+  mutate(obesity_former = case_when(
+  BMI < 25 ~ 0,    # normal
+  BMI >= 25 ~ 1    # obese
+  ))
+raw_df <- raw_df %>%
+  mutate(obesity_latter = case_when(
+  BMI < 18.5 ~ 0,    # underweight
+  BMI >= 18.5 ~ 1    # normal
+  ))
+```
+
+```{r}
+#| output: false
+#| eval: false
+formula_former <- bf(
+  obesity_former ~ LAB,
+  family = bernoulli(link = "logit")
+)
+fit_former <- brm(
+  formula_former,
+  data = raw_df,
+  chains = 4, cores = 4
+)
+formula_latter <- bf(
+  obesity_latter ~ LAB,
+  family = bernoulli(link = "logit")
+)
+fit_latter <- brm(
+  formula_latter,
+  data = raw_df,
+  chains = 4, cores = 4
+)
+```
