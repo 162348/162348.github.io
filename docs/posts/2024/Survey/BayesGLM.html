@@ -662,15 +662,20 @@ fit_LDL -2.2       3.9   </code></pre>
 <p>前節で <code>LAB</code> と <code>LDL</code> を比較すると，前者のみを用いたモデルの方が予測力が高いことを見た．</p>
 <p>では両方をモデルに入れてベイズ推論をすることで，２つの情報を統合したより良いモデルができるだろうか？</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>formula_double <span class="ot">&lt;-</span> <span class="fu">bf</span>(</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  obesity <span class="sc">~</span> <span class="fu">sqrt</span>(LAB) <span class="sc">+</span> <span class="fu">log</span>(LDL),</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">cumulative</span>(<span class="at">link =</span> <span class="st">"logit"</span>)</span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>fit_double <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  formula_double,</span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> raw_df,</span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>, <span class="at">iter =</span> <span class="dv">10000</span>, <span class="at">warmup =</span> <span class="dv">5000</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>df_double <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">obesity =</span> raw_df<span class="sc">$</span>obesity,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">z_sqrt_LAB =</span> <span class="fu">scale</span>(<span class="fu">sqrt</span>(raw_df<span class="sc">$</span>LAB)),</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">z_log_LDL =</span> <span class="fu">scale</span>(<span class="fu">log</span>(raw_df<span class="sc">$</span>LDL))</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>formula_double <span class="ot">&lt;-</span> <span class="fu">bf</span>(</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  obesity <span class="sc">~</span> z_sqrt_LAB <span class="sc">+</span> z_log_LDL,</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">cumulative</span>(<span class="at">link =</span> <span class="st">"logit"</span>)</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>fit_double <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  formula_double,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> df_double,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>実際予測性能の面では両方入れたモデルの方が良いようである：</p>
 <div class="cell">
@@ -682,13 +687,42 @@ fit_LAB    -0.3       1.7   </code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit_double, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_sqrtLAB"</span>, <span class="st">"b_logLDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit_double, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_z_sqrt_LAB"</span>, <span class="st">"b_z_log_LDL"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="BayesGLM_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
+</div>
+</div>
+<p>LDL の方が僅かに縮小されて推定されていることがわかる．</p>
+<p>さらには <code>LAB</code> と <code>LDL</code> がモデルに入っている確率を出す方法は別稿で追求する：</p>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1734251343884" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top"><img src="Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+BMI データの重線型回帰を題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
 </div>
 </div>
 </section>
@@ -926,33 +960,7 @@ fit_LAB     -11.2       8.1  </code></pre>
 </section>
 </section>
 
-<div class="quarto-listing quarto-listing-container-grid" id="listing-lst-embedding">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1734251343884" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="102">
-<a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top"><img src="Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ベイズ変数選択
-</h5>
-<div class="card-subtitle listing-subtitle">
-BMI データの重線型回帰を題材として
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-12-10
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-Hussai+2019" class="csl-entry" role="listitem">
 Hussain, A., Ali, iftikhar, Kaleem, W. A., and Yasmeen, F. (2019). <a href="https://doi.org/10.12669/pjms.35.3.7">Correlation between body mass index and lipid profile in patients with type 2 diabetes attending a tertiary care hospital in peshawar: Correlation between BMI &amp;amp; lipid profile in patients with T2DM</a>. <em>Pakistan Journal of Medical Sciences</em>, <em>35</em>(3).
 </div>
