@@ -39,6 +39,15 @@ listing:
             - "../TransDimensionalModels/BayesSelection.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-embedding-nonlinear
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        sort: false
+        contents:
+            - "BayesNonparametrics.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -257,6 +266,40 @@ LDL の方が僅かに縮小されて推定されていることがわかる．
 ::: {#lst-embedding}
 :::
 
+### 交絡の存在
+
+```{r}
+#| output: false
+formula_double_confound <- bf(
+  obesity ~ z_sqrt_LAB * z_log_LDL,
+  family = cumulative(link = "logit")
+)
+fit_double_confound <- brm(
+  formula_double_confound,
+  data = df_double,
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+plot(fit_double_confound, variable = c("b_z_sqrt_LAB", "b_z_log_LDL", "b_z_sqrt_LAB:z_log_LDL"))
+```
+
+若干の交絡の存在が疑われる．LDL が大きいほど，LAB と BMI との関係は減少していき，逆もまた然りである．
+
+これは共線型性が強いので当然とも思われる：
+
+```{r}
+cor(df_double$z_sqrt_LAB, df_double$z_log_LDL)
+```
+
+しかし必ずしも条件数が大きいわけではない．
+
+```{r}
+X <- model.matrix(~ z_sqrt_LAB + z_log_LDL, data = df_double)
+kappa(X)
+```
+
 ### 名目モデルを使ってしまったら？
 
 `underweight`, `normal`, `obese` 間の順序構造を無視して，カテゴリカル分布を通じてモデリングをしても，実は当てはまりは必ずしも悪くない．
@@ -294,6 +337,11 @@ p2_ppc <- pp_check(fit_LAB, ndraws = 100)
 grid.arrange(p1_ppc, p2_ppc, nrow = 1)
 ```
 -->
+
+### 非線型関係の追求
+
+::: {#lst-embedding-nonlinear}
+:::
 
 ### 共変量の追加と効果の観察
 

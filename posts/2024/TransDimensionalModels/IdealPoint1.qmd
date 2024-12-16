@@ -3,7 +3,7 @@ title: "理想点解析のハンズオン"
 subtitle: "`pscl`, `MCMCpack`, `emIRT` パッケージ"
 author: "司馬 博文"
 date: 10/2/2024
-date-modified: 11/22/2024
+date-modified: 12/13/2024
 categories: [Bayesian, Statistics, MCMC, R]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -27,6 +27,13 @@ listing:
             - "../Survey/BDA3.qmd"
         date-format: iso
         fields: [title,image,date,subtitle,categories]
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 1
+        contents:
+            - "../Survey/BayesGLMM.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -40,11 +47,22 @@ listing:
 
 ```{r}
 load("Files/mqData2022.Rda")
-df <- mqData
-range(df$term)
+range(mqData$term)
+```
+
+```{r}
+#| output: false
+#| echo: false
+library(brms)
+library(knitr)
+library(gridExtra)
 ```
 
 このデータは保守的な判断をする場合が $y_i=1$，リベラルな判断をする場合が $y_i=0$ の２値データとなっている．
+
+```{r}
+kable(head(mqData))
+```
 
 ## ２母数ロジットモデル
 
@@ -65,7 +83,7 @@ $$
 
 次節で説明する方法により，理想点 $\al_j$ が大きい場合は保守的な判断を下しやすいものと解釈できるように設計する（$\al_j$ を数直線上にプロットした際に，リベラルな場合に左に，保守的な場合に右に来るようにする）．
 
-### 識別可能性
+### 識別可能性 {#sec-identification}
 
 $\al_j,\beta_k$ に同じ数を足した場合と $\gamma_k$ と $(\al_j,\beta_k)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
 
@@ -88,13 +106,266 @@ $$
 
 $x_j$ は当該判事を示した大統領の所属政党を表す２値変数で，共和党ならば $x_j=1$ とする．そして $\delta_1$ に $\R_+$ 上に台を持つ事前分布を置く．
 
-### 共変量の追加
+::: {.callout-important appearance="simple" icon="false" title="[@Bafumi+2005] による理想点モデルの階層化"}
 
 このように共変量を適切な階層に追加することは，モデルに自然な形で正則化情報を伝えることに繋がり，モデルの識別やより現実的な推定値の獲得に繋がる．
 
+:::
+
+### 時系列理想点モデルのベイズ推定
+
+最初に `MCMCpack` パッケージを通じた方法を見る．まず識別のために Stevens 判事と Thomas 判事の位置を固定する方法を用いてみよう．
+
+```{r}
+data(Rehnquist)  # MCMCpackに含まれるSupreme Court（最高裁）の投票データ
+kable(head(Rehnquist))
+```
+
+`MCMCpack` パッケージでは，時系列理想点モデルの推定に [`MCMCdynamicIRT1d()`](https://github.com/cran/MCMCpack/blob/master/man/MCMCdynamicIRT1d.Rd) 関数が用意されている．
+
+```{r}
+#| eval: false
+# 初期値の設定
+theta.start <- rep(0, 9)  # 9人の裁判官の初期値
+theta.start[2] <- -3      # Stevens裁判官の初期値
+theta.start[7] <- 2       # Thomas裁判官の初期値
+
+# MCMCの実行
+out <- MCMCdynamicIRT1d(
+    t(Rehnquist[,1:9]),           # データ行列（転置して裁判官×案件の形に）
+    item.time.map=Rehnquist$time, # 各案件の時期情報
+    theta.start=theta.start,      # 初期値
+    mcmc=50000,                   # MCMCの反復回数
+    burnin=20000,                 # バーンイン期間
+    thin=5,                       # 間引き数
+    verbose=500,                  # 進捗表示間隔
+    tau2.start=rep(0.1, 9),      # τ²の初期値
+    e0=0, E0=1,                  # θの事前分布パラメータ
+    a0=0, A0=1,                  # αの事前分布パラメータ
+    b0=0, B0=1,                  # βの事前分布パラメータ
+    c0=-1, d0=-1,               # τ²の事前分布パラメータ
+    store.item=FALSE,            # アイテムパラメータを保存しない
+    theta.constraints=list(Stevens="-", Thomas="+")  # 識別制約
+)
+
+theta_cols <- grep("theta", colnames(out), value=TRUE)
+theta_mcmc <- out[, theta_cols]
+
+# library(coda)
+# summary(theta_mcmc)  # codaのsummary関数で要約
+plot(theta_mcmc)
+```
+
+![](Images/plot.png){width=70% fig-align=center}
+
+```{r}
+#| eval: false
+theta_means <- colMeans(theta_mcmc)
+time_points <- unique(Rehnquist$time)
+n_subjects <- 9  # 裁判官の数
+
+# 各裁判官の軌跡をプロット
+plot(time_points, theta_means[1:length(time_points)], 
+     type="l", ylim=range(theta_means),
+     xlab="Time", ylab="Ideal Point",
+     main="Estimated Ideal Points Over Time")
+
+# 各裁判官を異なる色で追加
+colors <- rainbow(n_subjects)
+colors[9] <- "blue"
+for(i in c(1,8,9)) {
+    lines(time_points, 
+          theta_means[((i-1)*length(time_points)+1):(i*length(time_points))],
+          col=colors[i],
+          lwd=3)
+}
+
+# 凡例を追加
+legend("topright", 
+       legend=unique(colnames(Rehnquist)[c(1,8,9)]),  # 裁判官の名前
+       col=colors[c(1,8,9)], 
+       lty=1)
+```
+
+![](Images/plot3.png){width=70% fig-align=center}
+
+たしかに [William Rehnquist](https://en.wikipedia.org/wiki/William_Rehnquist) は共和党，[Ruth Bader Ginsburg](https://en.wikipedia.org/wiki/Ruth_Bader_Ginsburg) と [Stephen Breyer](https://en.wikipedia.org/wiki/Stephen_Breyer) は民主党である．
+
+```{r}
+#| eval: false
+#| echo: false
+# プロットの基本設定
+plot(time_points, theta_means[1:length(time_points)], 
+     type="l", 
+     ylim=range(theta_means),
+     xlab="Time", 
+     ylab="Ideal Point",
+     main="Estimated Ideal Points Over Time",
+     lwd=2)  # ← 基本の線の太さを2に設定
+
+# 各裁判官の軌跡をプロット
+colors <- rainbow(n_subjects)
+for(i in 1:n_subjects) {
+    lines(time_points, 
+          theta_means[((i-1)*length(time_points)+1):(i*length(time_points))],
+          col=colors[i],
+          lwd=2)  # ← 各線の太さを2に設定
+}
+
+# 凡例を追加（凡例の線も太くする）
+legend("topright", 
+       legend=unique(colnames(Rehnquist)[1:9]),
+       col=colors, 
+       lty=1,
+       lwd=2)  # ← 凡例の線の太さも2に設定
+```
+
+![](Images/plot2.png){width=70% fig-align=center}
+
+$0$ の上に位置している [Anthony Kennedy](https://ja.wikipedia.org/wiki/アンソニー・ケネディ) や [Sandra Day O'Connor](https://en.wikipedia.org/wiki/Sandra_Day_O%27Connor) はほとんど中道的だが，やや保守党寄りである． [Antonin Scalia](https://en.wikipedia.org/wiki/Antonin_Scalia) は特に保守的な立場であることが知られている．
+
+$0$ よりも下に位置するもう一人は [David Souter](https://en.wikipedia.org/wiki/David_Souter) であるが，彼はもともと保守系と木されていたが，後年リベラルな傾向を示したとされる．^["Souter was nominated to the Supreme Court without a significant "paper trail" but was expected to be a conservative justice. Within a few years of his appointment, Souter moved towards the ideological center. He eventually came to vote reliably with the Court's liberal wing." [Wikipedia](https://en.wikipedia.org/wiki/David_Souter) より引用．]
+
+### 階層ベイズ推定
+
+#### はじめに
+
+続いて [-@sec-identification] で検討した，[@Bafumi+2005] による階層ベイズモデルにより緩やかに情報を伝えることで識別可能性を保つ方法を検討する．
+
+```{r}
+#| output: false
+library(tidyverse)
+df <- Rehnquist %>%
+  # データを長形式に変換
+  pivot_longer(cols = -c(term, time), names_to = "name", values_to = "y") %>%
+  # ケース ID を追加
+  mutate(case = (row_number() - 1) %/% 9 + 1)
+```
+
+#### 指名大統領の政党属性
+
+```{r}
+df <- df %>%
+  mutate(
+    nominator = case_when(
+      name %in% c("Rehnquist", "Stevens") ~ "Nixon",
+      name %in% c("O.Connor", "Scalia", "Kennedy") ~ "Reagan",
+      name %in% c("Souter", "Thomas") ~ "Bush",
+      name %in% c("Breyer", "Ginsburg") ~ "Clinton"
+    )
+  )
+df$x <- ifelse(
+  df$nominator %in% c("Nixon", "Reagan", "Bush", "Trump"),
+  1, -1)
+```
+
+#### １母数モデル
+
+```{r}
+#| output: false
+library(brms)
+formula <- bf(
+  y ~ 1 + (1 | case) + (1 | name)
+)
+fit <- brm(
+  formula,
+  data = df,
+  family = brmsfamily("bernoulli", link = "logit"),
+  chains = 4, cores = 4
+)
+```
+
+```{r}
+summary(fit)
+```
+
+簡単なモデルであるが切片項の ESS が低く，すでに暗雲が立ち込めている．
+
+```{r}
+plot(fit)
+```
+
+ここには変動係数（我々の欲しい潜在変数）はパラメータとみなされておらず，推定値が表示されないので次のようにしてプロットする必要がある：
+
+```{r}
+ranef_legislator <- ranef(fit)$name
+posterior_means <- ranef_legislator[,1,"Intercept"]
+lower_bounds <- ranef_legislator[,3,"Intercept"]
+upper_bounds <- ranef_legislator[,4,"Intercept"]
+plot_legislator <- data.frame(
+  legislator = rownames(ranef_legislator),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+p_1PL <- ggplot(plot_legislator, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "1PL Model",
+       x = "Posterior Estimate",
+       y = "Legislator")
+p_1PL
+```
+
+Thomas や Scalia，そして Stevens が極端であることはとらえているが，Stevens や Ginsburg らリベラルな判事は左側に来て欲しいのであった．
+
+誘導が成功しておらず，片方の峯からサンプリングしてしまっている．
+
+#### ２母数モデル
+
+```{r}
+#| output: false
+formula_2PL <- bf(
+  y ~ 0 + (1 | case) + (case | name)
+)
+fit_2PL <- update(fit, formula = formula_2PL, cores = 4)
+```
+
+```{r}
+summary(fit_2PL)
+```
 
 
-## 理想点解析パッケージ
+```{r}
+plot(fit_2PL)
+```
+
+```{r}
+ranef_legislator <- ranef(fit_2PL)$name
+posterior_means <- ranef_legislator[,1,"Intercept"]
+lower_bounds <- ranef_legislator[,3,"Intercept"]
+upper_bounds <- ranef_legislator[,4,"Intercept"]
+plot_legislator <- data.frame(
+  legislator = rownames(ranef_legislator),
+  mean = posterior_means,
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+p_2PL <- ggplot(plot_legislator, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "2PL Model",
+       x = "Posterior Estimate",
+       y = "Legislator")
+grid.arrange(p_1PL, p_2PL, nrow = 1)
+```
+
+よりモデルの不確実性が減って，$0$ の周りに縮小されたことがわかる．これは一般の項目反応モデルで見られる：
+
+::: {#lst-embedding}
+:::
+
+左派が右に表示されてしまっていることは変わらない．
+
+#### 階層２母数モデル
+
+`x` の情報を階層的に伝えるには，もはや `brms` パッケージでは実行できないようである．
+
+
+
+## 理想点解析パッケージ一覧
 
 本節では次の３つのパッケージを紹介する：
 
@@ -106,13 +377,13 @@ $x_j$ は当該判事を示した大統領の所属政党を表す２値変数�
 
 :::
 
-## `pscl` パッケージ
+### `pscl` パッケージ
 
 ```r
 install.packages("pscl")
 ```
 
-### `voteview` データ
+#### `voteview` データ
 
 このパッケージでは，Keith T. Poole と Howard Rosenthal が 1995 年から運営しているサイト [`voteview.com`](https://voteview.com/) のデータを利用するための関数 `readKH()` が提供されている．
 
@@ -133,7 +404,7 @@ s117 <- readKH("https://voteview.com/static/data/out/votes/S117_votes.ord",
 summary(s117)
 ```
 
-### 点呼投票データ
+#### 点呼投票データ
 
 点呼投票データとは $n\times m$ の行列で，そのエントリーは２値変数である（今回は $1$ か $6$）．
 
@@ -154,7 +425,7 @@ votes_long <- votes_df %>% pivot_longer(cols = -Legislator, names_to = "Vote", v
 ggplot(votes_long, aes(x = Vote, y = Legislator, fill = value)) + geom_tile() + scale_fill_gradient(low = "white", high = "red") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + labs(x = "Votes", y = "Legislators", title = "Voting Patterns")  # ヒートマップを作成
 ```
 
-### 政党毎の賛成率
+#### 政党毎の賛成率
 
 政党でソートし，賛成率を最初の 15 法案についてプロットしたものは次の通り：
 
@@ -204,7 +475,7 @@ s109 <- readKH("https://voteview.com/static/data/out/votes/S109_votes.ord",
                 desc="109th U.S. Senate")
 ```
 
-### ベイズ推定
+#### ベイズ推定
 
 `pscl` パッケージでは，`rollcall` オブジェクトに対して `ideal()` 関数を用いてデータ拡張に基づく Gibbs サンプラーを通じた理想点解析を行うことができる．
 
@@ -247,9 +518,9 @@ summary(id1)  # 全議員の正確な推定値が見れる．
 
 もっとも保守的な議員として Trump，５番目にリベラルな議員として Biden の名前がみえる．Harris は中道である．
 
-## `MCMCpack` パッケージ
+### `MCMCpack` パッケージ
 
-### ロジットモデルの推定
+#### ロジットモデルの推定
 
 ```{r}
 #| output: false
@@ -280,129 +551,11 @@ summary(posterior)
 plot(posterior)
 ```
 
-### 時系列理想点モデルの推定
-
-`MCMCpack` パッケージでは，時系列理想点モデルの推定に [`MCMCdynamicIRT1d()`](https://github.com/cran/MCMCpack/blob/master/man/MCMCdynamicIRT1d.Rd) 関数が用意されている．
-
-```{r}
-#| eval: false
-# データの読み込み
-data(Rehnquist)  # MCMCpackに含まれるSupreme Court（最高裁）の投票データ
-
-# 初期値の設定
-theta.start <- rep(0, 9)  # 9人の裁判官の初期値
-theta.start[2] <- -3      # Stevens裁判官の初期値
-theta.start[7] <- 2       # Thomas裁判官の初期値
-
-# MCMCの実行
-out <- MCMCdynamicIRT1d(
-    t(Rehnquist[,1:9]),           # データ行列（転置して裁判官×案件の形に）
-    item.time.map=Rehnquist$time, # 各案件の時期情報
-    theta.start=theta.start,      # 初期値
-    mcmc=50000,                   # MCMCの反復回数
-    burnin=20000,                 # バーンイン期間
-    thin=5,                       # 間引き数
-    verbose=500,                  # 進捗表示間隔
-    tau2.start=rep(0.1, 9),      # τ²の初期値
-    e0=0, E0=1,                  # θの事前分布パラメータ
-    a0=0, A0=1,                  # αの事前分布パラメータ
-    b0=0, B0=1,                  # βの事前分布パラメータ
-    c0=-1, d0=-1,               # τ²の事前分布パラメータ
-    store.item=FALSE,            # アイテムパラメータを保存しない
-    theta.constraints=list(Stevens="-", Thomas="+")  # 識別制約
-)
-
-theta_cols <- grep("theta", colnames(out), value=TRUE)
-theta_mcmc <- out[, theta_cols]
-
-# library(coda)
-# summary(theta_mcmc)  # codaのsummary関数で要約
-plot(theta_mcmc)
-```
-
-![](Images/plot.png)
-
-```{r}
-#| eval: false
-theta_means <- colMeans(theta_mcmc)
-time_points <- unique(Rehnquist$time)
-n_subjects <- 9  # 裁判官の数
-
-# 各裁判官の軌跡をプロット
-plot(time_points, theta_means[1:length(time_points)], 
-     type="l", ylim=range(theta_means),
-     xlab="Time", ylab="Ideal Point",
-     main="Estimated Ideal Points Over Time")
-
-# 各裁判官を異なる色で追加
-colors <- rainbow(n_subjects)
-colors[9] <- "blue"
-for(i in c(1,8,9)) {
-    lines(time_points, 
-          theta_means[((i-1)*length(time_points)+1):(i*length(time_points))],
-          col=colors[i],
-          lwd=3)
-}
-
-# 凡例を追加
-legend("topright", 
-       legend=unique(colnames(Rehnquist)[c(1,8,9)]),  # 裁判官の名前
-       col=colors[c(1,8,9)], 
-       lty=1)
-```
-
-![](Images/plot3.png)
-
-たしかに [William Rehnquist](https://en.wikipedia.org/wiki/William_Rehnquist) は共和党，[Ruth Bader Ginsburg](https://en.wikipedia.org/wiki/Ruth_Bader_Ginsburg) と [Stephen Breyer](https://en.wikipedia.org/wiki/Stephen_Breyer) は民主党である．
-
-```{r}
-#| eval: false
-#| echo: false
-# プロットの基本設定
-plot(time_points, theta_means[1:length(time_points)], 
-     type="l", 
-     ylim=range(theta_means),
-     xlab="Time", 
-     ylab="Ideal Point",
-     main="Estimated Ideal Points Over Time",
-     lwd=2)  # ← 基本の線の太さを2に設定
-
-# 各裁判官の軌跡をプロット
-colors <- rainbow(n_subjects)
-for(i in 1:n_subjects) {
-    lines(time_points, 
-          theta_means[((i-1)*length(time_points)+1):(i*length(time_points))],
-          col=colors[i],
-          lwd=2)  # ← 各線の太さを2に設定
-}
-
-# 凡例を追加（凡例の線も太くする）
-legend("topright", 
-       legend=unique(colnames(Rehnquist)[1:9]),
-       col=colors, 
-       lty=1,
-       lwd=2)  # ← 凡例の線の太さも2に設定
-```
-
-![](Images/plot2.png)
-
-$0$ の上に位置している [Antonin Scalia](https://en.wikipedia.org/wiki/Antonin_Scalia) や [Sandra Day O'Connor](https://en.wikipedia.org/wiki/Sandra_Day_O%27Connor) は保守党である．
-
-$0$ よりも下に位置するもう一人は [David Souter](https://en.wikipedia.org/wiki/David_Souter) であるが，彼はもともと保守系と木されていたが，後年リベラルな傾向を示したとされる．^["Souter was nominated to the Supreme Court without a significant "paper trail" but was expected to be a conservative justice. Within a few years of his appointment, Souter moved towards the ideological center. He eventually came to vote reliably with the Court's liberal wing." [Wikipedia](https://en.wikipedia.org/wiki/David_Souter) より引用．]
-
-### Martin-Quinn スコア
-
-::: {.callout-tip appearance="simple" icon="false"}
-
-* [`mqscores.wustl.edu`](http://mqscores.wustl.edu/) にて Martin-Quinn スコアが提供されている．
-
-:::
-
-### 変化点解析
+#### 変化点解析
 
 [@Chib1998] に基づく変化点モデルのベイズ推定の関数 `MCMCpoissonChange()` も実装されている．詳しくは [@Martin+2011] 第4節参照．
 
-## `emIRT` パッケージ
+### `emIRT` パッケージ
 
 ```r
 install.packages("emIRT")
