@@ -8,7 +8,7 @@
 
 <meta name="author" content="司馬 博文">
 
-<title>粒子フィルターの実装 – Hirofumi Shiba</title>
+<title>超次元 MCMC – Hirofumi Shiba</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -90,20 +90,20 @@ div.csl-indent {
 <script>
 
   window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-lst-embedding .list');
+    const listingTargetEl = window.document.querySelector('#listing-lst-trans .list');
     if (!listingTargetEl) {
       // No listing discovered, do not attach.
       return; 
     }
 
     const options = {
-      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
       
       searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
     };
 
     window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-lst-embedding'] = new List('listing-lst-embedding', options);
+    window['quarto-listings']['listing-lst-trans'] = new List('listing-lst-trans', options);
 
     if (window['quarto-listing-loaded']) {
       window['quarto-listing-loaded']();
@@ -188,18 +188,18 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="粒子フィルターの実装 – Hirofumi Shiba">
-<meta property="og:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．">
-<meta property="og:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta property="og:title" content="超次元 MCMC – Hirofumi Shiba">
+<meta property="og:description" content="ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta property="og:image:height" content="480">
-<meta property="og:image:width" content="672">
-<meta name="twitter:title" content="粒子フィルターの実装 – Hirofumi Shiba">
-<meta name="twitter:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta property="og:image:height" content="1096">
+<meta property="og:image:width" content="1510">
+<meta name="twitter:title" content="超次元 MCMC – Hirofumi Shiba">
+<meta name="twitter:description" content="ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
 <meta name="twitter:creator" content="@ano2math5">
-<meta name="twitter:image-height" content="480">
-<meta name="twitter:image-width" content="672">
+<meta name="twitter:image-height" content="1096">
+<meta name="twitter:image-width" content="1510">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -252,11 +252,12 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">粒子フィルターの実装</h1>
-            <p class="subtitle lead">リサンプリング編</p>
+      <h1 class="title">超次元 MCMC</h1>
+            <p class="subtitle lead">モデル選択のためのマルコフ連鎖モンテカルロ法</p>
                                 <div class="quarto-categories">
-                <div class="quarto-category">Particles</div>
-                <div class="quarto-category">Julia</div>
+                <div class="quarto-category">Bayesian</div>
+                <div class="quarto-category">MCMC</div>
+                <div class="quarto-category">Statistics</div>
               </div>
                   </div>
   </div>
@@ -274,17 +275,23 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">1/14/2024</p>
+        <p class="date">9/22/2024</p>
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">9/22/2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．
+      <p>ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．</p>
     </div>
   </div>
   
@@ -296,10 +303,17 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#リサンプリング法の形式化" id="toc-リサンプリング法の形式化" class="nav-link active" data-scroll-target="#リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</a>
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a>
   <ul class="collapse">
-  <li><a href="#リサンプリングとは" id="toc-リサンプリングとは" class="nav-link" data-scroll-target="#リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</a></li>
+  <li><a href="#問題設定" id="toc-問題設定" class="nav-link" data-scroll-target="#問題設定"><span class="header-section-number">1.1</span> 問題設定</a></li>
+  <li><a href="#例" id="toc-例" class="nav-link" data-scroll-target="#例"><span class="header-section-number">1.2</span> 例</a></li>
   </ul></li>
+  <li><a href="#可逆な方法" id="toc-可逆な方法" class="nav-link" data-scroll-target="#可逆な方法"><span class="header-section-number">2</span> 可逆な方法</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#一般論" id="toc-一般論" class="nav-link" data-scroll-target="#一般論"><span class="header-section-number">2.2</span> 一般論</a></li>
+  </ul></li>
+  
   </ul>
 </nav>
     </div>
@@ -310,62 +324,73 @@ window.Quarto = {
 
 
 
-<section id="関連記事" class="level2 unnumbered unlisted">
-<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
-<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="関連ページ" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
+<div id="listing-lst-trans" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDSnVsaWE=" data-listing-date-sort="1729900800000" data-listing-file-modified-sort="1734420491643" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="31">
-<a href="../../../posts/2024/Particles/AdvancedPS.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1734420494647" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
+<a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../Julia/MCMCChains.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/TransDimensionalModels/Images/IdeologyPosition.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-<code>AdvancedPS.jl</code> パッケージ
+理想点解析・多次元展開法・項目応答理論
 </h5>
 <div class="card-subtitle listing-subtitle">
-Turing エコシステムにおける粒子フィルター
-</div>
-<div class="listing-categories">
-<div class="listing-category" onclick="window.quartoListingCategory('UGFydGljbGVz'); return false;">
-Particles
-</div>
-<div class="listing-category" onclick="window.quartoListingCategory('SnVsaWE='); return false;">
-Julia
-</div>
+空間モデルの特定を目指して
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
-2024-10-26
+2024-07-16
 </div>
 </div>
 </div>
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDUHl0aG9u" data-listing-date-sort="1702252800000" data-listing-file-modified-sort="1734420490951" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="12" data-listing-word-count-sort="2261">
-<a href="../../../posts/2023/Particles/ParticleFilter.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1734420494807" data-listing-date-modified-sort="1728259200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="391">
+<a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
-<img loading="lazy" src="../../../posts/2023/Particles/sample_plot.png" class="thumbnail-image card-img" style="height: 150px;">
+<img loading="lazy" src="../../../posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="thumbnail-image card-img" style="height: 150px;">
 </p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-粒子フィルターの実装 | Particles Package
+ベイズ生存時間解析
 </h5>
 <div class="card-subtitle listing-subtitle">
-<code>NumPy</code> と <code>SciPy</code> で粒子フィルターを実装する
-</div>
-<div class="listing-categories">
-<div class="listing-category" onclick="window.quartoListingCategory('UGFydGljbGVz'); return false;">
-Particles
-</div>
-<div class="listing-category" onclick="window.quartoListingCategory('UHl0aG9u'); return false;">
-Python
-</div>
+生存曲線のベイズ階層モデルによる外挿
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
-2023-12-11
+2024-09-12
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1734420494647" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="158">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+BMI データの重線型回帰を題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-10
 </div>
 </div>
 </div>
@@ -377,140 +402,70 @@ Python
 No matching items
 </div>
 </div>
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
 </section>
-<section id="リサンプリング法の形式化" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</h2>
-<p>リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="問題設定と記法">
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<section id="問題設定" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="問題設定"><span class="header-section-number">1.1</span> 問題設定</h3>
+<p>本稿では，状態空間が</p>
+<p><span id="eq-state-space"><span class="math display">\[
+E=\bigcup_{k\in[K]}E_k,\qquad E_k:=\{k\}\times\mathbb{R}^{n_k},
+\tag{1}\]</span></span></p>
+<p>により定義される場合を考える．</p>
+<p><span class="math inline">\(E_k=\{k\}\times U_k\;(U_k\subset\mathbb{R}^{n_k})\)</span> という一般の場合も簡単な修正により議論可能だろうから，まずは (<a href="#eq-state-space" class="quarto-xref">1</a>) に集中する．</p>
+<p>このような設定はベイズ統計においてモデル選択や大きな階層モデルを考える場合に自然に現れ，通常のパラメータ推定よりも困難な設定を与える．</p>
+</section>
+<section id="例" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="例"><span class="header-section-number">1.2</span> 例</h3>
+</section>
+</section>
+<section id="可逆な方法" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="可逆な方法"><span class="header-section-number">2</span> 可逆な方法</h2>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>本稿ではまず，詳細釣り合い条件を満たすような MCMC のみに焦点を絞って，次元を超える MCMC をどのように構成できるかを議論する．</p>
+<p>このような議論は，MCMC の黎明期である <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> などで議論されたものである．</p>
+</section>
+<section id="一般論" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="一般論"><span class="header-section-number">2.2</span> 一般論</h3>
+<p>目標分布 <span class="math inline">\(\pi\in\mathcal{P}(E)\)</span> に対して提案核が <span class="math display">\[
+q(x,-)=\sum_{m=1}^Mq_m(x,-)
+\]</span> という形で用意されている場合に，棄却率 <span class="math inline">\(\alpha_m(x,x')\)</span> をどう設定すれば所望の Metropolis-Hastings サンプラーが得られるかを考える．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Green1995 p.715]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-問題設定と記法
+<span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995, p. 715</a>)</span>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<ol type="1">
-<li>状態空間を Polish 空間 <span class="math inline">\(E\)</span> とし，この上の Markov 過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;E)\)</span> を既知とし，<strong>参照過程</strong> と呼ぶ．</li>
-<li>この Markov 過程の，時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> までの見本道の分布を <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> と表す．</li>
-<li>非負値な有界可測関数の列 <span class="math inline">\(\{G_n\}_{n=0}^t\subset \mathcal{L}_b(E^2)_+\)</span> に関して， <span class="math display">\[
-\mathbb{Q}_{t}(dx_{0:t}):=\frac{1}{L_t}G_0(x_0)\left(\prod_{s=1}^tG_s(x_{s-1},x_s)\right)\mathbb{M}_t(dx_{0:t})
-\]</span> という形で表現される分布 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> を，<strong>ポテンシャル関数</strong> <span class="math inline">\((G_n)_{n=0}^t\)</span> に関する <strong>Feynman-Kac 測度</strong> という．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></li>
-<li>積測度の確率核による分解 <span class="math display">\[
-\mathbb{M}_t(dx_{0:t})=\mathbb{M}_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
-\]</span> を用いる．黒板ボールド <span class="math inline">\(\mathbb{M}_0,\cdots,\mathbb{M}_t\)</span> は積確率測度で，イタリック体 <span class="math inline">\(M_1,\cdots,M_t\)</span> は確率核を表す．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
-</ol>
+<p><span class="math inline">\(\pi\otimes q_m\)</span> がある <span class="math inline">\(E^2\)</span> 上の対称な測度に関して密度 <span class="math inline">\(f_m\)</span> を持つとする．このとき， <span class="math display">\[
+\alpha_m(x,x')f_m(x,x')=\alpha_m(x',x)f_m(x',x)
+\]</span> を満たすならば，Metropolis-Hastings サンプラーは <span class="math inline">\(\pi\)</span> を不変分布にもつ．</p>
 </div>
 </div>
-<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="例（フィルタリング問題と Feynman-Kac 測度）">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-例（フィルタリング問題と Feynman-Kac 測度）
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\{X_n\}\)</span> をシステムダイナミクス，<span class="math inline">\(\{Y_n\}\subset\mathcal{L}(\Omega;\mathbb{R}^d)\)</span> を観測モデル <span class="math display">\[
-\operatorname{P}[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
-\]</span> <span class="math display">\[
-A\in\mathcal{B}(\mathbb{R}^d),\quad x\in E,
-\]</span> に従った観測の過程とした，<a href="../../../posts/2023/Surveys/SSM.html">状態空間モデル</a> <span class="math inline">\((X_n,Y_n)\)</span> におけるフィルタリング問題とは，<span class="math inline">\(y_1,\cdots,y_n\in\mathbb{R}^d\)</span> を観測として <span class="math display">\[
-G_n(x_{n-1},x_n):=f_n(y_n|x_n)
-\]</span> と定めた場合の Feynman-Kac 測度 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\)</span> がフィルタリング分布に他ならないから，これを時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> 毎に観測 <span class="math inline">\(y_1,\cdots,y_t\)</span> から逐次推定する問題と解釈できる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
-</div>
-</div>
-<section id="リサンプリングとは" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</h3>
-<p>Feynman-Kac 測度を <span class="math inline">\(\mathbb{Q}_0,\mathbb{Q}_1,\cdots\)</span> と逐次的に推定していく問題を考える．</p>
-<ol type="1">
-<li>時刻 <span class="math inline">\(t=0\)</span> にて，提案分布を <span class="math inline">\(\mathbb{M}_0\)</span>，目標分布を <span class="math inline">\(\mathbb{Q}_0(dx_0)\propto G_0(x_0)\mathbb{M}_0(dx_0)\)</span> とした重点サンプリングを行って，<span class="math inline">\(\mathbb{Q}_0\)</span> の重点サンプリング推定量 <span class="math display">\[
-\mathbb{Q}_0^N(dx_0):=\sum_{i=1}^NW_0^{i}\delta_{X_0^{i}}(dx_0),
-\]</span> <span class="math display">\[
-X_0^i\overset{\text{i.i.d.}}{\sim}\mathbb{M}_0,\quad W^i_0:=\frac{G_0(X_0^i)}{\sum_{j=1}^NG_0(X_0^j)}
-\]</span> を得る．</li>
-<li>時刻 <span class="math inline">\(t=1\)</span> では目標分布 <span class="math inline">\(\mathbb{Q}_1(dx_{0:1})\propto G_1(x_0,x_1)\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> を，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> から重点サンプリングすることを考える．</li>
-</ol>
-<p>そこで，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> に従う標本 <span class="math inline">\(\{(X_0^i,X_1^i)\}_{i=1}^N\)</span> をどう得るかが問題になる．これを得たならば，残る重点サンプリングのステップとは，ポテンシャル <span class="math inline">\(G_1(x_0,x_1)\propto\frac{d \mathbb{Q}_1}{d \mathbb{Q}_0\otimes M_1}\)</span> に関して重み付けするのみである．</p>
-<p>まず，リサンプリングをしない粒子フィルターは，逐次重点サンプリングに等しい．その考え方は次の通りである：</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="逐次重点サンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-逐次重点サンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\mathbb{Q}_0\)</span> の近似 <span class="math inline">\(\mathbb{Q}_0^N\)</span> を得た Step 1. はこの提案分布を計算する途中だったと見做す．</p>
-<p>つまり，Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させて得る粒子の荷重和 <span class="math display">\[
-\sum_{i=1}^NW^i_0(\delta_{X_0^i}\otimes\delta_{X_1^i}),
-\]</span> <span class="math display">\[
-X_1^i\sim M_1(X_0^i,-)
-\]</span> を，<span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の良い近似として利用することが出来る．</p>
-<p>これは極めて計算効率が良い戦略である．</p>
-</div>
-</div>
-<p>しかし荷重 <span class="math inline">\(W_0^i\le1\)</span> が引き継がれている点に注目して欲しい．ここに新たに <span class="math inline">\(W_0^iW_1^i\cdots\)</span> と連なっていくことになる．これでは，時間が経つ <span class="math inline">\(t\to\infty\)</span> につれて荷重の分散が拡大し，殆ど１つの粒子しか Feynman-Kac 分布 <span class="math inline">\(\mathbb{Q}_t\)</span> の推定に寄与しないことになる．これでは，たくさん粒子を用意した意味がない．</p>
-<p>そこで，定期的にリサンプリングを行い，<span class="math inline">\(\mathbb{Q}_t^N\)</span> の表現を荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> に頼り切るのではなく，粒子の濃密で代替して，荷重の方は一様化に戻すという段階を挟む．</p>
-<p>このリサンプリングの段階は，実用上はほとんどの場合，荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> の状態を監視して適応的に行うことが多い．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="リサンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-リサンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>計算が効率的である点を除けば，前段階 Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させる必要はなかったのである．</p>
-<p>むしろ，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> から直接 i.i.d. サンプリング（のようなもの）を行えば，追加の計算は必要になろうと，荷重が一様な <span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の近似を得ることが出来る．</p>
-<p>これはリサンプリングによって実現できる．</p>
-<p>というのは，まず <span class="math inline">\(\mathbb{Q}_0^N\)</span> からサンプリングを行う！．（完全に無駄なステップに見えるかも知れないが！）．</p>
-<p>正確に言えば，粒子番号 <span class="math inline">\([N]=\left\{1,\cdots,N\right\}\)</span> から，その重み <span class="math inline">\(W_0^1,\cdots,W_0^N\)</span> に従って，重複を許して <span class="math inline">\(N\)</span> 個の番号 <span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> をサンプリングする．すなわち，<span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> を多項分布 <span class="math inline">\(\mathrm{Mult}_N(W_0^{1:N})\)</span> のサンプルとする．すると，元の近似と分布同等である： <span class="math display">\[
-\mathbb{Q}^N_0=\sum_{n=1}^NW_0^n\delta_{X_0^n}\overset{\text{d}}{=}\sum_{n=1}^N\delta_{X_0^{A_1^n}}.
-\]</span> この操作を <strong>リサンプリング</strong> という．</p>
-<p>続いて，これを発展させる： <span class="math display">\[
-X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
-\]</span></p>
-<p>こうして得る粒子系 <span class="math inline">\(\{(X_0^{A_1^n},X_1^n)\}_{n=1}^N\)</span> は <span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> を一様な荷重で近似している： <span class="math display">\[
-\mathbb{Q}^N_0\otimes M_1\approx\frac{1}{N}\sum_{n=1}^N\delta_{(X_0^{A_1^n},X_1^n)}.
-\]</span></p>
-<p>ただし，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> の <strong>i.i.d. サンプルではない</strong> 点に注意すべきである．新たな粒子 <span class="math inline">\(X_1^n\)</span> の祖先番号 <span class="math inline">\(A_1^{n}\)</span> に重複を許しているため，いずれか２つのサンプルは依存関係をもち得る．</p>
-</div>
-</div>
-
-
-
-
 </section>
 </section>
 
 
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
-Chopin, N., and Papaspiliopoulos, O. (2020). <em><a href="https://link.springer.com/book/10.1007/978-3-030-47845-2">An introduction to sequential monte carlo</a></em>. Springer Cham.
-</div>
-<div id="ref-DelMoral-Penev14-StochasticProcesses" class="csl-entry" role="listitem">
-Del&nbsp;Moral, P., and Penev, S. (2014). <em>Stochastic processes. From applications to theory</em>. Chapman; Hall/CRC Press.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+<div id="quarto-appendix" class="default"><section id="文献案内" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献案内</h2><div class="quarto-appendix-contents">
 
-<ol>
-<li id="fn1"><p><span class="math inline">\(L_t\)</span> は積分を <span class="math inline">\(1\)</span> にするための正規化定数である．詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, pp. 51–52</a>)</span>, <span class="citation" data-cites="DelMoral-Penev14-StochasticProcesses">(<a href="#ref-DelMoral-Penev14-StochasticProcesses" role="doc-biblioref">Del&nbsp;Moral and Penev, 2014, p. 239</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>確率核に関する記法は <a href="../../../static/Notations.html#sec-kernels">本サイトの数学記法一覧</a> を参照．<span class="math inline">\(E\)</span> を Polish 空間としたため，全ての確率測度 <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\)</span> はこのように分解 (disintegration) できる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, p. 53</a>)</span> 参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+<p>Trans-dimensional MCMC のトピックは，MCMC の黎明期の歴史に深く関わっている．</p>
+<p><span class="citation" data-cites="Besag-Green1993">(<a href="#ref-Besag-Green1993" role="doc-biblioref">Besag and Green, 1993</a>)</span></p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Besag-Green1993" class="csl-entry" role="listitem">
+Besag, J., and Green, P. J. (1993). <a href="https://doi.org/10.1111/j.2517-6161.1993.tb01467.x">Spatial statistics and bayesian computation</a>. <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>, <em>55</em>(1), 25–37.
+</div>
+<div id="ref-Green1995" class="csl-entry" role="listitem">
+Green, P. J. (1995). <a href="http://www.jstor.org/stable/2337340">Reversible jump markov chain monte carlo computation and bayesian model determination</a>. <em>Biometrika</em>, <em>82</em>(4), 711–732.
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
