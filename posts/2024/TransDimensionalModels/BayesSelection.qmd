@@ -46,13 +46,21 @@ listing:
             - "../Survey/BayesGLM.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+    -   id: lst-embedding3
+        type: grid
+        grid-columns: 1
+        sort: false
+        contents:
+            - "BayesTrans.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
 ## はじめに
 
-### ベイズデータ解析の第一歩
+### （復習）ベイズデータ解析の第一歩
 
 データの非線型変換も取り入れたベイズ線型重回帰分析は，多くの場合，データを理解するための最初の解析手法として選択される．
 
@@ -71,6 +79,40 @@ listing:
 
 事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd [@Vehtari+2017] があることを学んだ．
 
+### ベイズから見た変数選択
+
+こうして予測力を基にモデル選択をする方法は得たわけであるが，純粋にベイズ的な観点から変数選択を行う方法が大きく分けて２つある．
+
+#### 事前分布による方法
+
+１つ目が「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である（第 [-@sec-Bayesian-regularization] 節）．
+
+これにはまず馬蹄事前分布 [@Carlos+2010]，Laplace 事前分布 / Bayesian Lasso [@Park-Casella2008] などの global-local shrinkage prior を用いる方法がある．
+
+あるいは spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] という $0$ にマスを持つ事前分布を用いれば，当該変数の **事後包含確率** (PIP: Posterior Inclusion Probability) を導出することができる．
+
+PIP を用いることで「当該変数がモデルに含まれるか？」に直接ベイズ的に答えることができる．これを **ベイズ変数選択** という [-@sec-Bayesian-variable-selection]．
+
+一方で前述の global-local shrinkage prior でも，post-processing を通じて同様に PIP を近似的に算出することができる [@Hahn-Carvalho2015]．
+
+#### パラメータの追加による方法
+
+### ベイズモデル平均を見据えて
+
+このように，そもそもベイズでは変数選択も統計的推論によって解くべき問題のうちである．
+
+最終的には，適切に構造と事前分布が設定されたベイズモデルを用いて，ベイズ推論により変数の関連度を自動で判断して結果を出すことが理想である．その意味では全ての変数を（適切に）入れたモデルを用いることが好ましい．^[例えば [@Barr+2013] では検証的仮説検定の設定で，どこまでランダム効果をモデルに入れるかを議論しており，「全部入れるべき」という結論を一定の前提の下で導いている．]
+
+ベイズ変数選択はこの最終目標に向かうまでの探索的な中途解析と見ることもできる．
+
+実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (Bayesian Model Averaging) に用いることができる．
+
+変数選択・モデル選択を実行し，選ばれた単一のモデルで推論・予測を実行するよりも，尤度が必ずしも最も高いわけではないモデルも捨てずに推論に用いることで精度を上げることができる．
+
+これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．
+
+## 事前情報による変数選択 {#sec-Bayesian-regularization}
+
 ```{r}
 #| echo: false
 #| output: false
@@ -81,18 +123,6 @@ library(dplyr)
 raw_df <- raw_df %>%
   rename(LAB = LAB_color_100)
 ```
-
-### 変数選択の問題
-
-こうして予測力を基にモデル選択をする方法は得たわけであるが，純粋にベイズ的な観点から変数選択を行う方法が２つある．
-
-まずは「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である [-@sec-Bayesian-regularization]．これには spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] と馬蹄事前分布 [@Carlos+2010] の２つの方法がある．
-
-「特定の変数がモデルに含まれるか？」という問題自体にベイズ的に答えようとする方法もある．これを **ベイズ変数選択** という [-@sec-Bayesian-variable-selection]．
-
-ここでは予測性能を elpd で見ることでモデルを選択するのではなく，ベイズ的な方法を取り入れて「モデルに当該の変数が含まれる確率」を出してもらえるように変数選択を行う方法をみる．
-
-## 事前情報による変数選択 {#sec-Bayesian-regularization}
 
 ### 多くの説明変数が存在する場合の事前分布
 
@@ -126,9 +156,16 @@ Stan においては `prior=hs` によって指定できる [@Gelman-Hill-Vehtar
 
 ### はじめに
 
-本節では [@George-McCulloch1993] による変数選択法を取り上げる．
+**ベイズ変数選択** では，説明変数の全体 $\{x_i\}_{i=1}^p$ の部分集合の空間 $P(\{x_i\}_{i=1}^p)$ 上の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．
 
+最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．
 
+本節では [@George-McCulloch1993] による変数選択法 SSVS (Stochastic Search Variable Selection) を取り上げる．
+
+Reversible-Jump MCMC [@Green1995] も有力な変数選択法であるが，これは別稿で取り上げる．
+
+::: {#lst-embedding3}
+:::
 
 ## 文献紹介 {.appendix}
 
