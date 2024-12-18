@@ -6,10 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬博文">
-<meta name="description" content="スライドはこちら．">
+<meta name="author" content="司馬 博文">
 
-<title>Zig-Zag サンプラーのモデル選択への応用 – Hirofumi Shiba</title>
+<title>超次元 MCMC – Hirofumi Shiba</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -52,6 +51,8 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
 <link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -86,6 +87,35 @@ div.csl-indent {
     "search-label": "Search"
   }
 }</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-trans .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-trans'] = new List('listing-lst-trans', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
 <script type="text/javascript">
@@ -127,22 +157,8 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   }
 </style> -->
 
-  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
-  <script>document.addEventListener("DOMContentLoaded", function () {
- var mathElements = document.getElementsByClassName("math");
- var macros = [];
- for (var i = 0; i < mathElements.length; i++) {
-  var texText = mathElements[i].firstChild;
-  if (mathElements[i].tagName == "SPAN") {
-   katex.render(texText.data, mathElements[i], {
-    displayMode: mathElements[i].classList.contains('display'),
-    throwOnError: false,
-    macros: macros,
-    fleqn: false
-   });
-}}});
-  </script>
-  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -172,14 +188,18 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Zig-Zag サンプラーのモデル選択への応用 – Hirofumi Shiba">
-<meta property="og:description" content="スライドはこちら．">
-<meta property="og:image" content="https://162348.github.io/posts/2024/Slides/Files/ZigZag_Banana3D.gif">
+<meta property="og:title" content="超次元 MCMC – Hirofumi Shiba">
+<meta property="og:description" content="ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Zig-Zag サンプラーのモデル選択への応用 – Hirofumi Shiba">
-<meta name="twitter:description" content="スライドはこちら．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/Slides/Files/ZigZag_Banana3D.gif">
+<meta property="og:image:height" content="1096">
+<meta property="og:image:width" content="1510">
+<meta name="twitter:title" content="超次元 MCMC – Hirofumi Shiba">
+<meta name="twitter:description" content="ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
 <meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:image-height" content="1096">
+<meta name="twitter:image-width" content="1510">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -232,52 +252,46 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Zig-Zag サンプラーのモデル選択への応用</h1>
-            <p class="subtitle lead">総研大５年一貫博士課程・中間評価</p>
-                  <div>
-        <div class="description">
-          <p>スライドは<a href="Master_Slides.html"><u>こちら</u></a>．</p>
-        </div>
-      </div>
-                          <div class="quarto-categories">
-                <div class="quarto-category">Slide</div>
+      <h1 class="title">超次元 MCMC</h1>
+            <p class="subtitle lead">モデル選択のためのマルコフ連鎖モンテカルロ法</p>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Bayesian</div>
                 <div class="quarto-category">MCMC</div>
-                <div class="quarto-category">Julia</div>
+                <div class="quarto-category">Statistics</div>
               </div>
                   </div>
   </div>
     
-  <div class="quarto-title-meta-author">
-    <div class="quarto-title-meta-heading">Author</div>
-    <div class="quarto-title-meta-heading">Affiliation</div>
-    
-      <div class="quarto-title-meta-contents">
-      <p class="author">司馬博文 </p>
-    </div>
-    <div class="quarto-title-meta-contents">
-          <p class="affiliation">
-              総合研究大学院大学 / 統計数理研究所
-            </p>
-        </div>
-    </div>
-
+  
   <div class="quarto-title-meta">
 
-        
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬 博文 </p>
+            </div>
+    </div>
+      
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">1/10/2025</p>
+        <p class="date">9/22/2024</p>
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">9/22/2024</p>
+      </div>
+    </div>
       
     </div>
     
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p>統計数理研究所． スライドは<a href="Master_Slides.html"><u>こちら</u></a>．</p>
+      <p>ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．</p>
     </div>
   </div>
   
@@ -289,16 +303,19 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#gauss-集中不等式" id="toc-gauss-集中不等式" class="nav-link active" data-scroll-target="#gauss-集中不等式"><span class="header-section-number">1</span> Gauss 集中不等式</a>
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a>
   <ul class="collapse">
-  <li><a href="#等周不等式" id="toc-等周不等式" class="nav-link" data-scroll-target="#等周不等式"><span class="header-section-number">1.1</span> 等周不等式</a></li>
+  <li><a href="#問題設定" id="toc-問題設定" class="nav-link" data-scroll-target="#問題設定"><span class="header-section-number">1.1</span> 問題設定</a></li>
+  <li><a href="#例" id="toc-例" class="nav-link" data-scroll-target="#例"><span class="header-section-number">1.2</span> 例</a></li>
   </ul></li>
-  <li><a href="#markov-過程の収束" id="toc-markov-過程の収束" class="nav-link" data-scroll-target="#markov-過程の収束"><span class="header-section-number">2</span> Markov 過程の収束</a></li>
-  <li><a href="#最適輸送" id="toc-最適輸送" class="nav-link" data-scroll-target="#最適輸送"><span class="header-section-number">3</span> 最適輸送</a></li>
-  <li><a href="#zig-zag-サンプラー" id="toc-zig-zag-サンプラー" class="nav-link" data-scroll-target="#zig-zag-サンプラー"><span class="header-section-number">4</span> Zig-Zag サンプラー</a></li>
-  <li><a href="#今後の展望モデル選択への応用" id="toc-今後の展望モデル選択への応用" class="nav-link" data-scroll-target="#今後の展望モデル選択への応用"><span class="header-section-number">5</span> 今後の展望：モデル選択への応用</a></li>
+  <li><a href="#可逆な方法" id="toc-可逆な方法" class="nav-link" data-scroll-target="#可逆な方法"><span class="header-section-number">2</span> 可逆な方法</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#一般論" id="toc-一般論" class="nav-link" data-scroll-target="#一般論"><span class="header-section-number">2.2</span> 一般論</a></li>
+  </ul></li>
+  
   </ul>
-<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="Master_Slides.html"><i class="bi bi-file-slides"></i>RevealJS</a></li></ul></div></nav>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -312,85 +329,143 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="gauss-集中不等式" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="gauss-集中不等式"><span class="header-section-number">1</span> Gauss 集中不等式</h2>
-<section id="等周不等式" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="等周不等式"><span class="header-section-number">1.1</span> 等周不等式</h3>
-<p>体積測度 <span class="math inline">\mu</span> が等しい可測集合のうち，球が最小の測度を持つ．</p>
-<div class="callout callout-style-simple callout-tip no-icon">
-<div class="callout-body d-flex">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
+<section id="関連ページ" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
+<div id="listing-lst-trans" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1721055600000" data-listing-file-modified-sort="1734071076959" data-listing-date-modified-sort="1727794800000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
+<a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/TransDimensionalModels/Images/IdeologyPosition.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+理想点解析・多次元展開法・項目応答理論
+</h5>
+<div class="card-subtitle listing-subtitle">
+空間モデルの特定を目指して
 </div>
-<div class="callout-body-container">
-<ul>
-<li>Borel 可測集合 <span class="math inline">A\subset\mathbb{R}^n</span> に関して，<strong><span class="math inline">\epsilon</span>-閉近傍</strong> を次のように定める： <span class="math display">
-A_\epsilon:=\left\{x\in\mathbb{R}^n\mid d(x,A)\le t\right\},\qquad t&gt;0.
-</span></li>
-<li>実は <span class="math inline">A</span> は Borel 可測とは限らないが，Lebesgue 可測ではある．</li>
-</ul>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-16
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="古典的集中不等式 [@Schmidt48]-[@Levy51]">
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726066800000" data-listing-file-modified-sort="1733356848467" data-listing-date-modified-sort="1728226800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="391">
+<a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズ生存時間解析
+</h5>
+<div class="card-subtitle listing-subtitle">
+生存曲線のベイズ階層モデルによる外挿
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-12
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1734426959703" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="163">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+BMI データの重線型回帰を題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<section id="問題設定" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="問題設定"><span class="header-section-number">1.1</span> 問題設定</h3>
+<p>本稿では，状態空間が</p>
+<p><span id="eq-state-space"><span class="math display">\[
+E=\bigcup_{k\in[K]}E_k,\qquad E_k:=\{k\}\times\mathbb{R}^{n_k},
+\tag{1}\]</span></span></p>
+<p>により定義される場合を考える．</p>
+<p><span class="math inline">\(E_k=\{k\}\times U_k\;(U_k\subset\mathbb{R}^{n_k})\)</span> という一般の場合も簡単な修正により議論可能だろうから，まずは (<a href="#eq-state-space" class="quarto-xref">1</a>) に集中する．</p>
+<p>このような設定はベイズ統計においてモデル選択や大きな階層モデルを考える場合に自然に現れ，通常のパラメータ推定よりも困難な設定を与える．</p>
+</section>
+<section id="例" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="例"><span class="header-section-number">1.2</span> 例</h3>
+</section>
+</section>
+<section id="可逆な方法" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="可逆な方法"><span class="header-section-number">2</span> 可逆な方法</h2>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p>本稿ではまず，詳細釣り合い条件を満たすような MCMC のみに焦点を絞って，次元を超える MCMC をどのように構成できるかを議論する．</p>
+<p>このような議論は，MCMC の黎明期である <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> などで議論されたものである．</p>
+</section>
+<section id="一般論" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="一般論"><span class="header-section-number">2.2</span> 一般論</h3>
+<p>目標分布 <span class="math inline">\(\pi\in\mathcal{P}(E)\)</span> に対して提案核が <span class="math display">\[
+q(x,-)=\sum_{m=1}^Mq_m(x,-)
+\]</span> という形で用意されている場合に，棄却率 <span class="math inline">\(\alpha_m(x,x')\)</span> をどう設定すれば所望の Metropolis-Hastings サンプラーが得られるかを考える．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Green1995 p.715]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-古典的集中不等式 <span class="citation" data-cites="Schmidt48">(<a href="#ref-Schmidt48" role="doc-biblioref">Schmidt, 1948</a>)</span>-<span class="citation" data-cites="Levy51">(<a href="#ref-Levy51" role="doc-biblioref">Lévy, 1951</a>)</span>
+<span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995, p. 715</a>)</span>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">n</span>-次元球面 <span class="math inline">S^n\subset\mathbb{R}^{n+1}</span> に関して，<span class="math inline">A\subset S^n</span> を Borel 可測，<span class="math inline">C</span> を同体積の（測地）球とすると， <span class="math display">
-\mu(C_\epsilon)\le\mu(A_\epsilon),\qquad\epsilon&gt;0.
-</span></p>
+<p><span class="math inline">\(\pi\otimes q_m\)</span> がある <span class="math inline">\(E^2\)</span> 上の対称な測度に関して密度 <span class="math inline">\(f_m\)</span> を持つとする．このとき， <span class="math display">\[
+\alpha_m(x,x')f_m(x,x')=\alpha_m(x',x)f_m(x',x)
+\]</span> を満たすならば，Metropolis-Hastings サンプラーは <span class="math inline">\(\pi\)</span> を不変分布にもつ．</p>
 </div>
 </div>
 </section>
 </section>
-<section id="markov-過程の収束" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="markov-過程の収束"><span class="header-section-number">2</span> Markov 過程の収束</h2>
-</section>
-<section id="最適輸送" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="最適輸送"><span class="header-section-number">3</span> 最適輸送</h2>
-</section>
-<section id="zig-zag-サンプラー" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="zig-zag-サンプラー"><span class="header-section-number">4</span> Zig-Zag サンプラー</h2>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="Files/ZigZag_Banana3D_background.gif" class="img-fluid figure-img"></p>
-<figcaption>Output from <code>anim_traj()</code> in <code>PDMPFlux.jl</code> package</figcaption>
-</figure>
+
+
+<div id="quarto-appendix" class="default"><section id="文献案内" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献案内</h2><div class="quarto-appendix-contents">
+
+<p>Trans-dimensional MCMC のトピックは，MCMC の黎明期の歴史に深く関わっている．</p>
+<p><span class="citation" data-cites="Besag-Green1993">(<a href="#ref-Besag-Green1993" role="doc-biblioref">Besag and Green, 1993</a>)</span></p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Besag-Green1993" class="csl-entry" role="listitem">
+Besag, J., and Green, P. J. (1993). <a href="https://doi.org/10.1111/j.2517-6161.1993.tb01467.x">Spatial statistics and bayesian computation</a>. <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>, <em>55</em>(1), 25–37.
 </div>
-</section>
-<section id="今後の展望モデル選択への応用" class="level2" data-number="5">
-
-
-
-
-</section>
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">5 今後の展望：モデル選択への応用</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Levy51" class="csl-entry" role="listitem">
-Lévy, P. (1951). <em>Problèmes concrets d’analyse fonctionelle</em>. Gauthier-Villars.
+<div id="ref-Green1995" class="csl-entry" role="listitem">
+Green, P. J. (1995). <a href="http://www.jstor.org/stable/2337340">Reversible jump markov chain monte carlo computation and bayesian model determination</a>. <em>Biometrika</em>, <em>82</em>(4), 711–732.
 </div>
-<div id="ref-Schmidt48" class="csl-entry" role="listitem">
-Schmidt, E. (1948). Die brunn-minkowskische ungleichung und ihr spiegelbild sowie die isoperimetrische eigenschaft der kugel in der euklidischen und nichteuklidischen geometrie. i. <em>Mathematische Nachrichten</em>, <em>1</em>(2-3), 81–157.
-</div>
-</div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@unpublished{2025,
-  author = {, 司馬博文},
-  title = {Zig-Zag {サンプラーのモデル選択への応用}},
-  date = {2025-01-10},
-  url = {https://162348.github.io/posts/2024/Slides/Master.html},
-  langid = {en},
-  abstract = {統計数理研究所．
-    スライドは{[}{[}こちら{]}\{.underline\}{]}(Master\_Slides.html)．}
-}
-</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-2025" class="csl-entry quarto-appendix-citeas" role="listitem">
-司馬博文. (2025, January). <em><a href="https://162348.github.io/posts/2024/Slides/Master.html">Zig-Zag
-サンプラーのモデル選択への応用</a></em>. <em>中間評価（総研大）</em>.
-</div></div></section></div></main> <!-- /main -->
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
