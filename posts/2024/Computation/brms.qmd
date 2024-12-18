@@ -3,7 +3,7 @@ title: "`brms` によるベイズ混合モデリング入門"
 subtitle: "ポアソン混合効果モデルを例に"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 12/13/2024
+date-modified: 12/18/2024
 categories: [Bayesian, MCMC, R, Stan, Statistics]
 image: ./brms_files/figure-html/unnamed-chunk-4-1.png
 bibliography: 
@@ -13,9 +13,12 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-  `brms` はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，`brms` の基本的な使い方と，その実装を紹介する．
-  
-  また，ランダム効果モデルとは何であるか，固定効果モデル・混合効果モデル・一般化推定方程式などとの違いをレビューする．ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．
+  `brms` はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行う R パッケージである．
+  基本的な線型回帰から固定・変量効果の追加まで極めて簡単に実行できる，大変実用的なパッケージである．
+  本稿では，`brms` の基本的な使い方とその実装を紹介する．
+  その中で混合効果モデルについてレビューをする．
+  ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．
+keywords: [固定効果モデル, 混合効果モデル, 一般化推定方程式]
 format:
   html:
     code-fold: false
@@ -28,12 +31,12 @@ listing:
         contents:
             - "../Survey/BayesRegression.qmd"
             - "../Survey/BayesGLM.qmd"
-            - "../TransDimensionalModels/BayesSelection.qmd"
+            - "../Survey/BayesGLMM.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
     -   id: lst-embed
         type: grid
-        sort: false
+        grid-columns: 1
         contents:
             - "../Lifestyle/FixedRandom.qmd"
         date-format: iso
@@ -42,7 +45,7 @@ listing:
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## `brms` リンク集
+## `brms` リンク集 {.unnumbered .unlisted}
 
 ::: {#lst-brms}
 :::
@@ -63,17 +66,17 @@ listing:
 install.packages("brms")
 ```
 
-## 例で学ぶ `brms` の使い方
+## カウントデータで学ぶ `brms` の使い方
 
-### カウントデータのモデリング {#sec-example}
+### モデルの概要 {#sec-example}
 
-Documentation で紹介されている，[`Epilepsy Seizures Data`](https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html) [@Leppik+1987]，[@Thall-Vail1990] を用いた [例](https://paul-buerkner.github.io/brms/) を実行してみる：
+Documentation で紹介されている [Epilepsy Seizures Data](https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html) [@Leppik+1987]，[@Thall-Vail1990] を用いた [例](https://paul-buerkner.github.io/brms/) を実行してみる：
 
 ```{r}
 #| output: false
 library(brms)
-fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
-            data = epilepsy, family = poisson())
+formula1 <- bf(count ~ zAge + zBase * Trt + (1|patient))
+fit1 <- brm(formula = formula1, data = epilepsy, family = poisson())
 ```
 
 ```{r}
@@ -82,9 +85,9 @@ fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
 library(knitr)
 ```
 
-てんかん (epilepsy) 患者の発作回数 `count` を被説明変数とし，処置の有無を表す説明変数 `Trt` と患者毎のランダム誤差を表す切片項 `(1|patient)`，及び標準化された説明変数 `zAge`, `zBase` への依存構造を調べたい．
+#### `formula` について
 
-被説明変数 `count` は離散変数であり，Poisson 分布に従うと仮定する．過分散への対応を次の段階で考慮する．
+てんかん (epilepsy) 患者の発作回数 `count` を被説明変数とし，処置の有無を表す説明変数 `Trt` と患者毎のランダム誤差を表す切片項 `(1|patient)`，及び標準化された説明変数 `zAge`, `zBase` への依存構造を調べたい．
 
 ::: {.callout-note appearance="simple" title="説明変数"}
 
@@ -97,6 +100,8 @@ library(knitr)
 
 :::
 
+このような処置効果 $\beta_3$ を調べるモデルでは，回帰係数を（因果）**効果** (effect) とも呼ぶことに注意．
+
 ```{r}
 kable(head(epilepsy))
 ```
@@ -107,6 +112,10 @@ kable(head(epilepsy))
 
 :::
 
+#### `family=poisson()` について
+
+被説明変数 `count` は離散変数であり，Poisson 分布に従うと仮定する．過分散への対応を次の段階で考慮する．
+
 従って本モデルは`zAge`, `zBase`, `Trt`, `Trt*zBase`という固定効果（係数），`(1|patient)`というランダム効果を取り入れた（一般化線型）**混合効果モデル** である．回帰式は次の通り：
 $$
 y_{it} = \beta_1 \cdot\texttt{zAge}_i+ \beta_2 \cdot \texttt{zBase}_i + \beta_3 \cdot \texttt{Trt}_i
@@ -116,52 +125,51 @@ $$
 $$
 ただし，$\texttt{count}_{it}$ の Poisson 母数を $\lambda_{it}$ として，$y_{it}:=\log(\lambda_{it})$ とした．
 
-<!-- 
-解析意図としては，ベースの発作回数が高いほど，治療効果が高い／低いのではないか？という仮説を検証する，`zBase*Trt`を曝露因子としたモデルである．
--->
-
-### `brm()` 関数
-
-#### `family` 引数
-
-ここでは被説明変数 $y$ に仮定するパラメトリック分布族と，リンク関数 $g$ を指定する：
+`family=poisson()` は次の略記である：
 
 ```r
 family = brmsfamily(family = "<family>", link = "<link>")
 ```
 
-多くの場合 `link` 引数は省略可能である．
-
-この２つの情報を通じて，一般化線型モデルを取り扱うことができる．
+多くの場合 `link` 引数は省略可能である．この２つの情報を通じて，一般化線型モデルを取り扱うことができる．
 
 ### モデルの推定と結果の解釈
+
+`brm()` 関数による推定結果は，返り値として渡される `brmsfit` オブジェクトに対して `summary()` メソッドを適用して見ることができる：
 
 ```{r}
 summary(fit1)
 ```
 
-基本的な解析の前提がまず出力され，推定結果はグループ毎（今回は患者毎）の変数（今回は $\al_i$）から表示される．
+基本的な解析の前提がまず出力され，推定結果はグループレベル変数（今回は患者ごとの変量効果 $\al_i$，コードだと `(1|patient)`）から表示される．
 
-後半に固定効果の係数，すなわち回帰係数の推定結果が表示される．
+後半に固定効果の係数，特にユニットレベルの回帰係数と切片項の推定結果が表示される．
 
-治療効果`Trt`の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は $0$ を跨いでいるという意味で，有意とは言えない．また，交差項`zBase*Trt`の係数は小さく，交互効果の存在を示す証拠はないと思われる．
+結果の解釈をしてみる．治療効果`Trt`の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は $0$ を跨いでいるという意味では，有意とは言えない．
 
-$\wh{R}$ [@Gelman-Rubin1992] は MCMC の収束に関する指標で，１より大きい場合，MCMC が収束していない可能性を意味する [@Vehtari+2021]．通説には $\wh{R}\le1.1$ などの基準がある．
+また交差項`zBase*Trt`の係数は小さく，交互効果の存在を示す証拠はないと思われる．
+
+$\wh{R}$ [@Gelman-Rubin1992] とは MCMC の収束に関する指標で，１より大きい場合，MCMC が収束していない可能性を意味する [@Vehtari+2021]．通説には $\wh{R}\le1.1$ などの基準がある．
 
 ### プロット
 
 変数を指定して，事後分布と MCMC の軌跡をプロットできる：
 
 ```{r}
-plot(fit1, variable = c("b_Trt1", "b_zBase"))
+plot(fit1, variable = c("b_Trt1", "b_zBase", "b_zBase:Trt1"))
 ```
 
-より詳しく見るには`conditional_effects`関数を用いることもできる．交差項の効果はほとんどないことがわかる：
+より詳しく見るには`conditional_effects`関数を用いることもできる．
 
 ```{r}
 #| label: fig-conditional_effects
-plot(conditional_effects(fit1, effects = "zBase:Trt"))
+#| fig-cap: "交差項の効果（ベースレートの違いによる処置効果の違い）"
+conditional_effects(fit1, effects = "zBase:Trt")
 ```
+
+処置群 `Trt=1` の方がカウントは減っているのは見えるが，モデルの不確実性に比べてその減少量は十分に大きいとは言えない．
+
+ベースレート `zBase` が大きいほどカウントは大きい．しかしベースレートが大きいほど処置効果も大きい（交互効果がある）ようには見えない．
 
 ### モデルによる予測
 
@@ -172,22 +180,11 @@ newdata <- data.frame(Trt = c(0, 1), zAge = 0, zBase = 0)
 predict(fit1, newdata = newdata, re_formula = NA)
 ```
 
-関数[`predict()`](https://paul-buerkner.github.io/brms/reference/predict.brmsfit.html)は事後予測分布からのサンプリングを行う．一方で，関数[`fitted()`](https://paul-buerkner.github.io/brms/reference/fitted.brmsfit.html)は平均を返す．
+関数[`predict()`](https://paul-buerkner.github.io/brms/reference/predict.brmsfit.html) は事後予測分布からのサンプリングを１回行う．一方で，関数[`fitted()`](https://paul-buerkner.github.io/brms/reference/fitted.brmsfit.html) は事後予測分布の平均を返す．^[この区別については [こちら](https://discourse.mc-stan.org/t/expected-value-of-posterior-vs-posterior-of-expected-value-with-epred/28502/6) も参照．]
 
 ```{r}
 fitted(fit1, newdata = newdata, re_formula = NA)
 ```
-
-::: {.callout-caution collapse="true" title="予測の出力"}
-
-従って，もう１度ずつ実行すると，`predict`では値が変わるが，`fitted`では同じ値が出力される．
-
-```{r}
-predict(fit1, newdata = newdata, re_formula = NA)
-fitted(fit1, newdata = newdata, re_formula = NA)
-```
-
-:::
 
 ### モデルの比較 {#sec-model-comparison}
 
@@ -201,27 +198,19 @@ $$
 
 #### 観測レベルランダム効果
 
-ということで，他の説明変数が存在した場合を想定して， Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
+ということで，他の未観測の説明変数が存在した場合を想定して， Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．
 
-そこで，追加の変動をモデルに追加するべく，モデル`fit1`に観測ごとの切片項 $\eta_{it}$ を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 [-@sec-subsec-count-data] 節参照）．
-
-```r
-fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
-            data = epilepsy, family = poisson())
-```
-
-::: {.callout-caution collapse="true" title="フィッティングの出力"}
+そこで追加の変動をモデルに追加するべく，モデル`fit1`に観測ごとの切片項 $\eta_{it}$ を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 [-@sec-subsec-count-data] 節参照）．
 
 ```{r}
+#| output: false
 fit2 <- brm(count ~ zAge + zBase * Trt + (1|patient) + (1|obs),
             data = epilepsy, family = poisson())
 ```
 
-:::
+こうして得た２つのモデル `fit1`,`fit2` を比較する．
 
-こうして得た２つのモデル`fit1`,`fit2`を比較する．
-
-LLO (Leave-One-Out) cross-validation が関数`loo`によって実行できる：
+LLO (Leave-One-Out) 交差検証 (cross-validation) が関数 `loo` によって実行できる：
 
 ```r
 loo(fit1, fit2)
@@ -235,9 +224,9 @@ loo(fit1, fit2)
 
 :::
 
-`elpd_diff` は expected log posterior density の差異を表す．`fit2`の方が大きく当てはまりが良いことが見て取れる．
+`elpd_diff` は expected log posterior density の差異を表す．`fit2` の方が大きく当てはまりが良いことが見て取れる．
 
-また，WAIC (Watanabe-Akaike Information Criterion) も実装されている：
+また WAIC (Watanabe-Akaike Information Criterion) も実装されている：
 
 ```r
 print(waic(fit1))
@@ -264,29 +253,20 @@ methods(class="brmsfit")
 
 #### 患者内の相関構造のモデリング
 
-また，`fit1`において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．^[通常は時間的に離れている観測は相関が薄いとしても，直近の観測と関連性が高いだろう．]
+また `fit1` において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．^[通常は時間的に離れている観測は相関が薄いとしても，直近の観測と関連性が高いだろう．]
 
-患者内の相関構造は，`brm()`関数の`autocor`引数で指定できる（第 [-@sec-autocor-argument] 節）．
+患者内の相関構造は，`brm()` 関数の `autocor` 引数で指定できる（第 [-@sec-autocor-argument] 節）．
 
-例えば，全く構造を仮定しない場合は，[`unstr`](http://paul-buerkner.github.io/brms/reference/unstr.html)を指定する：
-
-```r
-fit3 <- brm(count ~ zAge + zBase * Trt + (1|patient),
-            autocor = ~unstr(time=visit, gr=patient),
-            data = epilepsy, family = poisson())
-```
-
-::: {.callout-caution collapse="true" title="フィッティングの出力"}
+例えば，全く構造を仮定しない場合は [`unstr`](http://paul-buerkner.github.io/brms/reference/unstr.html)を指定する：
 
 ```{r}
+#| output: false
 fit3 <- brm(count ~ zAge + zBase * Trt + (1|patient),
             autocor = ~unstr(time=visit, gr=patient),
             data = epilepsy, family = poisson())
 ```
 
-:::
-
-このモデルも`fit1`より遥かに当てはまりが良く，`fit2`とほとんど同じ当てはまりの良さが見られる：
+このモデルも `fit1` より遥かに当てはまりが良く，`fit2` とほとんど同じ当てはまりの良さが見られる：
 
 ::: {.callout-caution collapse="true" title="LOO-CV の結果"}
 
@@ -296,13 +276,13 @@ loo(fit2,fit3)
 
 :::
 
-思ったよりも`fit2`の当てはまりが良いため，Poisson-対数正規混合モデリングを本格的に実施してみることが，次の選択肢になり得る（第 [-@sec-subsec-count-data] 節参照）．
+思ったよりも `fit2` の当てはまりが良いため，Poisson-対数正規混合モデリングを本格的に実施してみることが次の選択肢になり得る（第 [-@sec-subsec-count-data] 節参照）．
 
 ### その他の例
 
 Sebastian Weber らにより，[新薬の治験における実際の解析事例をまとめたウェブサイト](https://opensource.nibr.com/bamdd/) が公開されている．^[Statistical Modeling, Causal Inference, and Social Science における [こちらのエントリ](https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/) も参照．]
 
-特に，[13 章](https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation)で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．
+特にその [13 章](https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation) では同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．
 
 `brms` は他にもスプラインや Gauss 過程を用いた一般化加法モデルの推論も可能である [@Burkner2018]．
 
@@ -310,20 +290,19 @@ Sebastian Weber らにより，[新薬の治験における実際の解析事例
 
 ::: {.callout-important appearance="simple" icon="false" title="概要"}
 
-* **ランダム効果モデル** とは，グループ毎に異なる切片項 $\al_{s[i]}$ を追加し，これにも誤差を仮定してモデルに入れて得る階層モデルである．
-* しかし，$\al_{s[i]}$ が（ユニットレベルの）説明変数 $x_i$ と相関を持つ場合，推定量の一致性が失われる．これを回避するために，$x_i$ の係数 $\beta$ にのみ関心がある場合は，固定効果モデルが用いられることも多い．
-* だが，簡単なトリック（$\al_{s[i]}$ の説明変数に $\ov{x}_s$ を追加すること）で，推定量の一致性を回復することができる．
-* このトリックを取り入れたランダム効果モデルは，$x_i$ と $\al_{s[i]}$ に相関がない場合は固定効果モデルと等価な $\beta$ の推定量を与え，相関がある場合でも，$\beta$ を一致推定し，各変動切片項 $\al_{s[i]}$ の構造にも洞察を与えてくれる．
+* **ランダム効果モデル** とは，グループ毎に異なる切片項 $\al_{s[i]}$ を追加し，これにも誤差を仮定してモデルに入れて得る階層モデルである（狭義の用法）．この意味では変動切片モデルともいう．
+* しかしランダム効果 $\al_{s[i]}$ が（ユニットレベルの）説明変数 $x_i$ と相関を持つ場合，推定量の一致性が失われる．これを回避するために，$x_i$ の係数 $\beta$ にのみ関心がある場合は固定効果推定量や一般化推定方程式 (GEE) が用いられることも多い．
+* だが，ランダム効果モデルにおいても未観測の説明変数が存在する場合でも，簡単なトリック（ランダム効果 $\al_{s[i]}$ のグループレベル説明変数に $\ov{x}_s$ を追加すること）で，推定量の一致性を回復することができる．
+* このトリックを取り入れたランダム効果モデルは，$x_i$ と $\al_{s[i]}$ に相関がない場合は固定効果モデルと等価な $\beta$ の推定量を与え，相関がある場合でも $\beta$ を一致推定し，各変動切片項 $\al_{s[i]}$ の構造にも洞察を与えてくれる．さらには内生性の度合いを推定するといった構造的な洞察も可能である [@Chan-Tobias2020 p.14]．
+* 以上のランダム効果モデルや固定効果モデルは，異なるモデルに対するベイズ推定と見れる．どのモデルを採用するのが良いか，実経計画の時点からは判らない場合，ベイズ階層モデルの方法で探索的に実行することも可能である．
 
 :::
 
-ランダム効果モデルは線型混合モデル (Linear Mixed Model; LMM) とも呼ばれる．
-
-> LMM は，母数の共通化によるデータのプーリングと変動効果による標本平均の縮小作用を生み出すことのできるモデルであり，その結果生ずる予測量が EBLUE になる．したがって，EBLUE は，各々の地域の標本平均とプールされた回帰推定量との加重平均になっており，データ数が少ないときには標本平均をプールされた推定量の方向へ縮小することにより，推定精度の改善を図っている．[@久保川達也2006]
+ランダム効果モデルは「通常の固定効果のみを含んだ線型回帰モデルにランダム項を導入したもの」という意味でも用いられる．この場合は **線型混合モデル** (Linear Mixed Model; LMM) の別名と理解できる．
 
 ### ランダム効果モデル {#sec-RF}
 
-**ランダム効果** は，変動する切片項と呼んだ方がわかりやすい [@Bafumi-Gelman2007] と言われるように，サブグループ毎に異なる切片項のことである．^[すなわち，ある確率変数の従う項と考えており，**変量効果** とも呼ばれる．一方で未知母数とみなす場合は **母数効果** ともいう [@久保川達也2006]．]
+**ランダム効果** は，変動する切片項 [@Gelman2005] [@Bafumi-Gelman2007] という別名も提案されているように，サブグループ毎に異なる切片項のことである．^[すなわち，ある super population を想定して，その確率分布の従う項と考えており，**変量効果** とも呼ばれる．一方で未知母数とみなす場合は **母数効果** ともいう [@久保川達也2006]．]
 
 ユニット（個人などの最小単位）レベルの回帰式を書き下すと，グループ選択関数 $s:[n]\to[S]\;(S\le n)$ を通じて，
 $$
@@ -341,7 +320,7 @@ $$ {#eq-stage-2}
 
 #### 問題の所在
 
-ランダム効果では，ユニットレベルの説明変数 $x_i$ と変動切片項 $\al_{s[i]}$ が相関を持たないという仮定が Gauss-Markov の定理の仮定に等価になるため，これが違反されると推定量の不偏性・一致性が約束されず，推定量の分散も大きくなる．^[[@Hansen2022 p.333] 第12.3節，[@Bafumi-Gelman2007 p.3], [@Hansen2022 p.604]，[@Gardiner+2009 p.228]．]
+ランダム効果では，ユニットレベルの説明変数 $x_i$ と変動切片項 $\al_{s}$ が相関を持たないという仮定が Gauss-Markov の定理の仮定に等価になるため，これが違反されると $\beta$ の OLS 推定量の不偏性・一致性が約束されず，推定量の分散も大きくなる．^[[@Hansen2022 p.333] 第12.3節，[@Bafumi-Gelman2007 p.3], [@Hansen2022 p.604]，[@Gardiner+2009 p.228]．]
 
 ::: {.callout-tip appearance="simple" icon="false" title="Gauss-Markov の仮定"}
 
@@ -359,17 +338,17 @@ y_i=\al_0+\beta x_i+\underbrace{\ep_i'}_{\ep_i+\eta_{s[i]}}
 $$ {#eq-RF}
 を得る．
 
-このような誤差項の構造 $e_{it}=\al_i+\ep_{it}$ を **一元配置モデル** (one-way error component model) ともいう [@Hansen2022 p.600], [@久保川達也2006 p.155]．
+<!-- このような誤差項の構造 $e_{it}=\al_i+\ep_{it}$ を **一元配置モデル** (one-way error component model) ともいう [@Hansen2022 p.600], [@久保川達也2006 p.155]． -->
 
 $x_i$ と $\al_{s[i]}$ に相関がある場合，$x_i$ と $\eta_s$ にも相関があるため，結果として ([-@eq-RF]) では説明変数と誤差 $\ep_i'$ に相関が生じてしまう．これは計量経済学では **内生性** (endogeneity) の問題と呼ばれているものに他ならない．
 
-#### 業界の現状：母数効果モデル
+#### 代替モデル１：母数効果モデル {#sec-complete-pooling-model}
 
 そのため，ランダム効果モデルは避けられる傾向にあり，切片項 $\al_{s[i]}\equiv\al_0$ は変動しないとし，グループレベルの効果を無視してモデリングすることも多い：
 $$
 y_i=\al_0+\beta x_i+\ep_i.
 $$
-このことを **完全プーリングモデル** (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを **部分プーリングモデル** (partial pooling model) と呼んで対比させることがある．^[[@Bafumi-Gelman2007 p.5] や [@久保川達也2006 p.141] も参照．[@Cunningham21-Mixtape] は pooled OLS と呼んでいる．]
+このことを **完全プーリングモデル** (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを **部分プーリングモデル** (partial pooling model) と呼んで対比させることがある．^[[@Bafumi-Gelman2007 p.5] や [@久保川達也2006 p.141], [@Gelman-Hill-Vehtari2020] も参照．[@Cunningham21-Mixtape] は pooled OLS と呼んでいる．]
 
 周辺モデル (marginal model) や **母平均モデル** (population-average model) とも呼ばれる [@Gardiner+2009 p.228]．
 
@@ -379,11 +358,11 @@ $$
 $$
 g(\E[y_i|x_i])=\beta x_i
 $$
-であっても，指数型分布族を仮定すれば，$\beta$ の一致推定が可能である．
+であっても，指数型分布族を仮定すれば（すなわち一般化線型モデルについては），$\beta$ の一致推定が可能である．
 
-だが，切片項の変動を消してしまうことで，回帰係数 $\beta$ の推定に対する縮小効果（第 [-@sec-shrinkage-estimation] 節）が得られないという欠点もあり，小地域推定などにおいては $\al_{s[i]}$ を確率変数とみなす積極的理由もある．この点については [@久保川達也2006] も参照．
+だが，切片項の変動を消してしまうことで，回帰係数 $\beta$ の推定に対する縮小効果（第 [-@sec-shrinkage-estimation] 節）が得られないという欠点もあり，小地域推定などにおいては $\al_{s[i]}$ を確率変数とみなす積極的理由もある．この点については [@久保川達也2006], [@菅澤-久保川2023] も参照．
 
-#### 固定効果モデルという解決 {#sec-fixed-effects-model}
+#### 代替モデル２：固定効果モデル {#sec-fixed-effects-model}
 
 問題を起こさずに，しかしながらグループレベルの効果をモデリングしたい場合，
 $$
@@ -395,16 +374,6 @@ $$
 
 すなわち，グループの数だけ，グループへの所属を表す２値変数 $1_{\Brace{s[i]=s}}$ を導入し，$S$ 個の項 $\sum_{s=1}^S1_{\Brace{s[i]=s}}\al_{s[i]}^{\text{unmodeled}}$ を説明変数に加えて回帰分析を行うことに等しい．
 
-ベイズ的には，変動係数の場合は更なる構造
-$$
-\al_s=\al_0+\eta_s,\qquad s\in[S],
-$$
-に基づきグループレベルにばらつく確率構造が仮定されているのと対照的に，improper な一様事前分布
-$$
-\al_s^{\text{unmodeled}}\iidsim\rN(\al_0,\infty)
-$$
-を仮定した場合が固定効果モデルであると理解される [@BDA p.383]．
-
 また群内平均を引いた値 $y_i-\ov{y}_{s[i]}$ を目的変数として，説明変数 $x_i-\ov{x}_{s[i]}$ により回帰分析を行うこととも等価である．この変換により $\al_{s[i]}^{\text{unmodeled}}$ が消去されると考えられるのである．
 
 ::: {.callout-caution title="固定効果モデルの別名" icon="false" appearance="simple"}
@@ -415,19 +384,21 @@ $$
 
 :::
 
-### 固定効果 vs. 変量効果
+#### 固定効果 vs. 変量効果
 
-::: {.callout-caution title="利点" icon="false" appearance="simple"}
+::: {.callout-caution title="固定効果モデルの利点" icon="false" appearance="simple"}
 
 $x_i$ と $\al_{s[i]}$ が相関を持ち得る場合も，固定効果モデルでは問題が生じない．^[[@Hansen2022 p.624] 17.25節．]
 
 :::
 
-::: {.callout-caution title="問題点" icon="false" appearance="simple"}
+::: {.callout-caution title="変量効果モデルの利点" icon="false" appearance="simple"}
 
-異なるグループのデータが相互作用する機構がランダム効果モデルに比べて貧しい．
+固定効果モデルでは異なるグループのデータが相互作用する機構がランダム効果モデルに比べて貧しい．
 
-例えばランダム効果モデルを用いた場合，外れ値グループが存在するなどノイズの大きなデータに対しても，$\eta_s$ を通じて緩やかに情報が伝達され，$\beta$ の値は平均へ縮小されて推定される（第 [-@sec-shrinkage-estimation] 節）．固定効果モデルではそのような頑健性を持たない [@Bafumi-Gelman2007 pp.4-5]．
+一方でランダム効果モデルを用いた場合，外れ値グループが存在するなどノイズの大きなデータに対しても，$\eta_s$ を通じて緩やかに情報が伝達され，$\beta$ の値は平均へ縮小されて推定される（第 [-@sec-shrinkage-estimation] 節）．これは Stein 効果とも呼ばれる [@Hoff2009 p.146]．固定効果モデルではそのような頑健性を持たない [@Bafumi-Gelman2007 pp.4-5]．
+
+さらには変量効果モデルにおいては $\ep_i$ と $\eta_s$ の相関を推定することができ，これは内生性の強さの尺度として使える [@Chan-Tobias2020 p.14]．
 
 :::
 
@@ -439,24 +410,48 @@ $x_i$ と $\al_{s[i]}$ が相関を持ち得る場合も，固定効果モデル
 
 逆に言えば，固定効果モデルは $x_i$ と $\al_{s[i]}$ の構造のモデリングを放棄したモデリング法であり，各 $\al_{s[i]}$ の値にも興味がある場合，または $\beta$ のより精度の高い推定が実行したい場合には，やはり $\al_{s[i]}$ の誤差と相関構造もモデルに取り入れたランダム効果モデルを用いたいということになる．
 
+
+### 階層モデルによる総合 {#sec-synthesis}
+
+ランダム効果モデルは，
+$$
+\al_s=\al_0+\eta_s,\qquad \eta_s\iidsim\rN(0,\sigma^2),
+$$
+というグループレベルの回帰モデルの想定された階層モデルと見れるのであった（第 [-@sec-RF] 節）．
+
+すると完全プーリングモデル（第 [-@sec-complete-pooling-model] 節）は $\sigma^2\to0$ の場合，固定効果モデル（第 [-@sec-fixed-effects-model] 節）は $\sigma^2\to\infty$ の場合の，特定の点推定法と見れる．
+
+換言すれば，improper な一様事前分布
+$$
+\al_s^{\text{unmodeled}}\iidsim\rN(\al_0,\infty)
+$$
+を仮定した場合が固定効果モデルであると理解される [@BDA p.383]．
+
+この点については次稿も参照：
+
+::: {#lst-embed}
+:::
+
 ### ランダム効果モデルにおける相関のモデリング
 
-$x_i$ と $\al_{s[i]}$ が相関を持つ場合に一致推定が保証されないことがランダム効果モデルの欠陥だと述べたが，実はこれは簡単な方法で解決できる．
+$x_i$ と $\al_{s[i]}$ が相関を持つ場合に，効果 $\beta$ の OLS 推定量の一致性が保証されないことがランダム効果モデルの欠陥だと述べたが，実はこれは簡単な方法で解決できる．
 
-$x_i$ と $\al_{s[i]}$ との相関は，欠落変数が存在するため，と考えることができる．
+$x_i$ と $\al_{s[i]}$ との相関は，欠落変数（未観測の交絡因子）が存在するため，と考えることができる．
 
-そしてこの相関は，説明変数の平均 $\ov{x}_s$ を変動する切片項 $\al_s$ の説明変数として追加することで除去できる：^[[@Bafumi-Gelman2007 p.6]．]
+ランダム効果モデリングではこの欠落変数に対する操作変数を人工的に作り出すことができる．
+
+というのも，説明変数の平均 $\ov{x}_s$ を変動する切片項 $\al_s$ の説明変数として追加することで除去できる：^[[@Bafumi-Gelman2007 p.6]．]
 
 $$
 y_i=\al_{s[i]}+\beta x_i+\ep_i
 $$
 $$
 \al_s=\al_0+\al_1\ov{x}_s+\eta_s
-$$
+$$ {#eq-RF-exogenous}
 
 これにより，Gauss-Markov の仮定（外生性）が回復される．
 
-[@Bafumi-Gelman2007 pp.7-9] にシミュレーションによる検証が掲載されている．
+[@Bafumi-Gelman2007 pp.7-9] ではこの効果をシミュレーションによって検証している．
 
 > Practitioners can get around this problem by taking advantage of the **multilevel structure** of their regression equation. [@Bafumi-Gelman2007 p.12]
 
@@ -472,9 +467,11 @@ $$
 
 そしてこう見ると全体として固定効果と変量効果が同居した **混合（効果）モデル** とも呼べそうである．
 
-現代的には，必要ならば $\beta$ を確率変数とみなしても良いだろうが，慣習的にそう呼ぶため，これに従わざるを得ない，というのが [@Hansen2022 p.625] などを見る限り共通了解であるようである．
+これは変動切片項だけを変量効果と呼ぶのではなく，一般の回帰係数 $\beta x$ もグループ $s\in[S]$ ごとに異なるものを許す場合は広義の変量効果と呼べることから生じる．
 
-これが計量経済学における固定効果モデル（第 [-@sec-fixed-effects-model] 節）の名前の由来である．^[[@Hansen2022 p.625] 17.25節．疫学・生物統計学では，実験計画法でしか「固定効果」「変量効果モデル」とは言わない，という認識であることも筆者は聞いたことがある．] 実際，固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）．
+<!-- 現代的には，必要ならば $\beta$ を確率変数とみなしても良いだろうが，慣習的にそう呼ぶため，これに従わざるを得ない，というのが [@Hansen2022 p.625] などを見る限り共通了解であるようである． -->
+
+<!-- これが計量経済学における固定効果モデル（第 [-@sec-fixed-effects-model] 節）の名前の由来である．^[[@Hansen2022 p.625] 17.25節．疫学・生物統計学では，実験計画法でしか「固定効果」「変量効果モデル」とは言わない，という認識であることも筆者は聞いたことがある．] 実際，固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）． -->
 
 ::: {.callout-caution title="線型混合モデルの別名" icon="false" appearance="simple"}
 
@@ -499,23 +496,26 @@ $$
 
 **一般化推定方程式** (GEE: Generalized Estimating Equation) では，ランダム効果モデルにおける階層的な議論を全て「局外母数」として捨象し，母数 $\beta$ の推定に集中する見方をする．
 
+なお，GEE そのものはあらゆる一般化されたスコア方程式を指し得る．そのため分散成分の推定にも応用可能であろう．例えば [@菅澤-久保川2023 p.13] など．
+
 ::: {.callout-caution title="GEE との違い" icon="false"}
 
 1. [回帰式が違う]{.underline}
 
-      線型の場合の GEE は
+      GEE の文脈ではよくモデル式
       $$
       Y_{it}=\al+\beta_1x_{1,i,t}+\cdots+\beta_px_{p,i,t}
       $$
-      とも表され，ランダムな切片項というものは見当たらない．その代わり，グループ間の影響は相関係数行列としてモデル化を行う．ランダム効果モデルでは，この相関構造をランダムな切片項を追加することで表現し，回帰式を複数立てることでモデルを表現する．
+      にはランダムな切片項というものは見当たらない．その代わり，グループ間の依存関係は相関係数行列としてモデル化を行う．ランダム効果モデルでは，この相関構造をランダムな切片項を追加することで表現し，回帰式を複数立てることでモデルを表現するのと対照的である．
 
 2. [推定目標が違う]{.underline}
 
-      GEE は population average model でよく用いられる [@Hubbard+2010] ように，あくまで応答 $Y_{it}$ の平均の不偏推定が目標であり，共分散構造はいわば局外母数である．一方，混合効果モデルは，その階層モデルとしての性質の通り，平均構造と分散構造のいずれも推定対象として扱う志向性がある．
+      GEE は population average model でよく用いられる [@Hubbard+2010] ように，あくまで応答 $Y_{it}$ の平均 $\beta$ の不偏推定が目標であり，共分散構造はいわば局外母数である．一方混合効果モデルは，その階層モデルとしての性質の通り，平均構造と分散構造のいずれも推定するという志向性がある．
 
 3. [推定方法が違う]{.underline}
 
-      混合効果モデルは主に最尤法により推定される [@Hubbard+2010]．GEE はモーメント法により推定され，最尤法ベースではないため，完全にランダムとは言えない欠測がある場合は弱く，欠測データに対しては IPW などの方法が用いられる．
+      頻度論的には，混合効果モデルは主に最尤法により推定される [@Hubbard+2010]．一方で GEE はモーメント法により推定され，最尤法ベースではない．
+      <!-- 完全にランダムとは言えない欠測がある場合は弱く，欠測データに対しては IPW などの方法が用いられる． -->
 
 :::
 
@@ -523,9 +523,9 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 一方で混合効果モデルは，階層モデルとして平均構造と分散構造のいずれにも明示的な仮定をおくため，片方（例えば共分散構造）の特定を間違えていた場合，もう片方の解釈性が失われる，というリスクがあると論じることができる．特に [@Hubbard+2010] に見られる論調である．
 
-しかし小地域推定や，「子供の身長の成長曲線の描画」が主な研究目的である場合など，ユニットの平均効果ではなく個別効果に注目したい場合には混合効果モデルの方が適していることになる [@Gardiner+2009]．実際，モデルの特定に成功していれば，いずれのパラメータも最尤推定されるため，一致性を持つ．
+しかし小地域推定や地域ごとのばらつきに注目した研究など，ユニットの平均効果ではなく個別効果に注目したい場合には混合効果モデルの方が適していることになる [@Gardiner+2009]．実際，モデルの特定に成功していれば，いずれのパラメータも最尤推定されるため一致性を持つ．
 
-従って，モデル選択において用いられる基準も違う．GEE における作業相関係数行列と説明変数の選択には QIC (Quasi-likelihood Information Criterion) が，混合効果モデルには AIC や BIC （または cAIC や mAIC [@Vaida-Blanchard2005]）が用いられる [@Gardiner+2009 p.228]．
+<!-- 従ってモデル選択において用いられる基準も違い得る．GEE における作業相関係数行列と説明変数の選択には QIC (Quasi-likelihood Information Criterion) が，混合効果モデルには AIC や BIC （または cAIC や mAIC [@Vaida-Blanchard2005]）が用いられる [@Gardiner+2009 p.228]． -->
 
 <!--
 
@@ -533,13 +533,17 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 -->
 
-### ベイズ混合効果モデルという光……？
+### ベイズ混合効果モデルという光
 
-しかし，結局ベイズ統計学の立場からは，２つの違いはほとんど重要ではなく，混合効果モデルを推定した後に，周辺化をして平均構造に関する marginal estimator を構成すれば，GEE の代用になっているのではないか？
+第 [-@sec-synthesis] 節で見た通り，ベイズ統計学の立場からは，変量効果モデル・固定効果モデル・完全プーリングモデルはいずれもモデルの違いとして理解できる．
+
+それぞれに自然な点推定法は違うかもしれないが，それだって特定の事前分布に関するベイズ推論の特殊な場合に過ぎない．
+
+それぞれのモデルに関してベイズ推論をし，周辺化をして平均構造に関する marginal estimator を構成すれば GEE や固定効果推定量の代用になる上に，どのような構造的な仮定を置いてしまっているか反省する契機にもなる．
 
 計算機の性能と，計算統計手法の発展が目まぐるしい現代にて，過去の議論を踏襲しすぎることは，問題の本質を誤るということもあるのだろう．
 
-ということで，以上議論したグループレベル構造を持ったデータに対する２階の階層モデルを，本稿では「混合効果モデル」と呼ぶことにする．
+<!-- ということで，以上議論したグループレベル構造を持ったデータに対する２階の階層モデルを，本稿では「混合効果モデル」と呼ぶことにする． -->
 
 この節はこれで終わり．
 
@@ -547,7 +551,8 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 ::: {.callout-important appearance="simple" icon="false" title="概要"}
 
-* 混合効果モデルの推定において，グループレベル変動 $\al_{s[i]}$ の共分散行列 $\V[\eta_s]$ の推定が不安定になり得る．特に，グループ数 $S$ が小さい場合に顕著である．
+* 混合効果モデルの最尤推定・ベイズ推定において，グループレベル変動 $\al_{s[i]}$ の共分散行列 $\V[\eta_s]$ の推定が不安定になり得る．特に，グループ数 $S$ が小さい場合に顕著である．
+* 分散成分を推定したあと，これを係数 $\beta$ の推定量に代入することで，縮小効果を持った効率的な推定量を得ることができる．
 * カウントデータの Poisson モデルでは，「観測レベルのランダム効果」を追加することで，実質的に Poisson-対数正規混合モデリングを実行できる．
 
 :::
@@ -556,7 +561,7 @@ GEE にとって相関構造は局外母数であり，正確な特定は目的�
 
 #### 問題
 
-混合効果モデル（階層モデル）
+変量効果モデル
 $$
 y_i=\al_{s[i]}+\beta x_i+\ep_i,\qquad i\in[n],\tag{1}
 $$
@@ -578,6 +583,8 @@ EM アルゴリズムが提案されたばかりの頃 [@Laird-Ware1982] では�
 モデルのサイズによっては，完全なベイズ推定を実行することが難しく，一部は等価な頻度論的な方法や近似を用いることもある．その際，最適化ソルバーの収束を速めるために，共分散構造に（データや計画とは無関係に）パラメトリックモデルを仮定してしまうこともある [@Kincaid2005]．
 
 ### 係数の縮小推定 {#sec-shrinkage-estimation}
+
+#### 係数の２段階推定
 
 分散 $\V[\eta_s]$ を推定して分散比 $\rho:=\sigma_v^2/\sigma_e^2$ の推定量 $\wh{\rho}$ を得て，これを最良線型不偏推定量 (BLUE) $\wh{\beta}$ に代入して得られる，グループごとの $y_s$ の推定量に
 $$
@@ -696,7 +703,7 @@ $$
 
 ### 変量係数モデルによる非線型モデリング
 
-::: {.callout-caution icon="false" title="混合モデルの種々の拡張" collapse="true" appearance="simple"}
+::: {.callout-caution icon="false" title="混合モデルの種々の拡張" appearance="simple"}
 
 前節 [-@sec-subsec-count-data] では，カウントデータに適用するための一般化線型混合モデルをみた．
 
@@ -791,37 +798,39 @@ Stan コードを扱っている関数は [`.stancode()`](https://github.com/pau
 
 ### 事前分布
 
-[`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) では，デフォルトでは無情報事前分布が用いられる．
+[`brm` 関数](https://paul-buerkner.github.io/brms/reference/brm.html) では，デフォルトでは無情報事前分布が用いられる．
 
 > Default priors are chosen to be non or very weakly informative so that their influence on the results will be negligible and you usually don't have to worry about them. However, after getting more familiar with Bayesian statistics, I recommend you to start thinking about reasonable informative priors for your model parameters: Nearly always, there is at least some prior information available that can be used to improve your inference.<br>[brm(): Fit Bayesian Generalized (Non-)Linear Multivariate Multilevel Models](https://paul-buerkner.github.io/brms/reference/brm.html)
 
+具体的には，ユニットレベルの回帰係数（クラス `b`）には一様分布が置かれる．
+
 ### 回帰式
 
-`brm()`関数の第一引数は，`validate_formula`関数に渡される．
+`brm()` 関数の第一引数 `formula` は，`validate_formula` 関数に渡される．
 
-この関数は S3 のメソッドのディスパッチを用いて実装されており，`brmsformula`オブジェクトに対しては，`validate_formula.brmsformula`関数が呼び出される．
+この関数は S3 のメソッドのディスパッチを用いて実装されており，`brmsformula` オブジェクトに対しては，`validate_formula.brmsformula` 関数が呼び出される．
 
-ここでは`autocor`引数が引かれている場合，出力の`formula`属性に追加される：^[[Line 1363](https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363)．]
+ここでは `autocor` 引数が引かれている場合，出力の `formula` 属性に追加される：^[[Line 1363](https://github.com/paul-buerkner/brms/blob/deb56d02d0f897422a4d1d5a43d18e99400f80a0/R/brmsformula.R#L1363)．]
 
 ```{r}
 fit3$formula
 ```
 
-なお，`brmsformula`オブジェクトのコンストラクタは [`brmsformula()`関数](http://paul-buerkner.github.io/brms/reference/brmsformula.html) である．これは，R の`formula`オブジェクトを通じて，階層モデルを定義できるようになっている（実装は[リスト](../R/R3.qmd)）．
+なお，`brmsformula` オブジェクトのコンストラクタは [`brmsformula()` 関数](http://paul-buerkner.github.io/brms/reference/brmsformula.html) である．これは，R の `formula` オブジェクトを通じて，階層モデルを定義できるようになっている（実装は[リスト](../R/R3.qmd)）．
 
 ### 共分散構造 {#sec-ubsubsec-covariance-structure}
 
-共分散構造は２つの観点から，`brmsformula`オブジェクトから自動的に指定される．
+共分散構造は２つの観点から，`brmsformula` オブジェクトから自動的に指定される．
 
 １つ目がグルーピング構造（共分散行列のブロック構造）であり，これは[`gr`関数](https://paul-buerkner.github.io/brms/reference/gr.html) が使用される．
 
-２つ目がグループ内の相関構造であり，これは`brm()`関数の`autocor`引数を用いる．
+２つ目がグループ内の相関構造であり，これは `brm()` 関数の `autocor` 引数を用いる．
 
-#### `gr`関数
+#### `gr` 関数
 
-この関数は`brm`関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．
+この関数は `brm` 関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．
 
-例えば，回帰式に`(1|patient)`が含まれていた場合，`gr(patient)`が呼び出される．
+例えば，回帰式に `(1|patient)` が含まれていた場合， `gr(patient)` が呼び出される．
 
 共分散構造におく仮定について，重要なデフォルト設定が２つある：
 
@@ -830,7 +839,7 @@ fit3$formula
 
     > If `TRUE` (the default), group-level terms will be modelled as correlated.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
-* 一方で，グループ内の相関構造は想定されておらず，独立とされている．具体的に指定したい場合は引数`cov`を用いる．
+* 一方で，グループ内の相関構造は想定されておらず，独立とされている．具体的に指定したい場合は引数 `cov` を用いる．
 
     > By default, levels of the same grouping factor are modeled as independent of each other.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
@@ -841,11 +850,11 @@ fit3$formula
 
 > dist: Name of the distribution of the group-level effects. Currently "gaussian" is the only option.<br>[gr(): Set up basic grouping terms in brms](https://paul-buerkner.github.io/brms/reference/gr.html)
 
-#### `autocor`引数 {#sec-autocor-argument}
+#### `autocor` 引数 {#sec-autocor-argument}
 
-`brm()`関数には，[`autocor`引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．
+`brm()` 関数には，[`autocor` 引数](http://paul-buerkner.github.io/brms/reference/autocor-terms.html) が用意されている．
 
-`gr()`のデフォルト値では独立とされていたグループ内の相関構造を，具体的に指定するのに用いられる．
+`gr()` のデフォルト値では独立とされていたグループ内の相関構造を，具体的に指定するのに用いられる．
 
 ::: {.callout-tip appearance="simple" icon="false"}
 * `unstr`：一才の仮定を置かない．
@@ -854,7 +863,7 @@ fit3$formula
 
 ### 推論エンジン
 
-[`brm`関数](https://paul-buerkner.github.io/brms/reference/brm.html) は，Stan による MCMC サンプリングを通じて，事後分布を計算する．
+[`brm` 関数](https://paul-buerkner.github.io/brms/reference/brm.html) は，Stan による MCMC サンプリングを通じて，事後分布を計算する．
 
 ## 文献紹介 {.appendix}
 

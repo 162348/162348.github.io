@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬博文">
+<meta name="keywords" content="固定効果モデル, 混合効果モデル, 一般化推定方程式">
 
 <title>brms によるベイズ混合モデリング入門 – Hirofumi Shiba</title>
 <style>
@@ -251,13 +252,13 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="brms によるベイズ混合モデリング入門 – Hirofumi Shiba">
-<meta property="og:description" content="`brms` はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，`brms`…">
+<meta property="og:description" content="brms はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行う R パッケージである． 基本的な線型回帰から固定・変量効果の追加まで極めて簡単に実行できる，大変実用的なパッケージである． 本稿では，brms の基本的な使い方とその実装を紹介する． その中で混合効果モデルについてレビューをする． ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/Computation/brms_files/figure-html/unnamed-chunk-4-1.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta property="og:image:height" content="960">
 <meta property="og:image:width" content="1344">
 <meta name="twitter:title" content="brms によるベイズ混合モデリング入門 – Hirofumi Shiba">
-<meta name="twitter:description" content="`brms` はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，`brms`…">
+<meta name="twitter:description" content="brms はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行う R パッケージである． 基本的な線型回帰から固定・変量効果の追加まで極めて簡単に実行できる，大変実用的なパッケージである． 本稿では，brms の基本的な使い方とその実装を紹介する． その中で混合効果モデルについてレビューをする． ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/Computation/brms_files/figure-html/unnamed-chunk-4-1.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:image-height" content="960">
@@ -346,7 +347,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">12/13/2024</p>
+        <p class="date-modified">12/18/2024</p>
       </div>
     </div>
       
@@ -355,8 +356,14 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      <p><code>brms</code> はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行うための R パッケージである．本稿では，<code>brms</code> の基本的な使い方と，その実装を紹介する．</p>
-      <p>また，ランダム効果モデルとは何であるか，固定効果モデル・混合効果モデル・一般化推定方程式などとの違いをレビューする．ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．</p>
+      <p><code>brms</code> はベイズ階層モデリングを，確率的プログラミング言語 Stan をエンジンとして行う R パッケージである． 基本的な線型回帰から固定・変量効果の追加まで極めて簡単に実行できる，大変実用的なパッケージである． 本稿では，<code>brms</code> の基本的な使い方とその実装を紹介する． その中で混合効果モデルについてレビューをする． ランダム効果の追加は縮小推定などの自動的な正則化を可能とする美点がある一方で，係数の不偏推定やロバスト推定に拘る場合はこれを避ける判断もあり得る．</p>
+    </div>
+  </div>
+
+  <div>
+    <div class="keywords">
+      <div class="block-title">Keywords</div>
+      <p>固定効果モデル, 混合効果モデル, 一般化推定方程式</p>
     </div>
   </div>
   
@@ -368,40 +375,38 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#brms-リンク集" id="toc-brms-リンク集" class="nav-link active" data-scroll-target="#brms-リンク集"><span class="header-section-number">1</span> <code>brms</code> リンク集</a></li>
-  <li><a href="#例で学ぶ-brms-の使い方" id="toc-例で学ぶ-brms-の使い方" class="nav-link" data-scroll-target="#例で学ぶ-brms-の使い方"><span class="header-section-number">2</span> 例で学ぶ <code>brms</code> の使い方</a>
+  <li><a href="#カウントデータで学ぶ-brms-の使い方" id="toc-カウントデータで学ぶ-brms-の使い方" class="nav-link active" data-scroll-target="#カウントデータで学ぶ-brms-の使い方"><span class="header-section-number">1</span> カウントデータで学ぶ <code>brms</code> の使い方</a>
   <ul class="collapse">
-  <li><a href="#sec-example" id="toc-sec-example" class="nav-link" data-scroll-target="#sec-example"><span class="header-section-number">2.1</span> カウントデータのモデリング</a></li>
-  <li><a href="#brm-関数" id="toc-brm-関数" class="nav-link" data-scroll-target="#brm-関数"><span class="header-section-number">2.2</span> <code>brm()</code> 関数</a></li>
-  <li><a href="#モデルの推定と結果の解釈" id="toc-モデルの推定と結果の解釈" class="nav-link" data-scroll-target="#モデルの推定と結果の解釈"><span class="header-section-number">2.3</span> モデルの推定と結果の解釈</a></li>
-  <li><a href="#プロット" id="toc-プロット" class="nav-link" data-scroll-target="#プロット"><span class="header-section-number">2.4</span> プロット</a></li>
-  <li><a href="#モデルによる予測" id="toc-モデルによる予測" class="nav-link" data-scroll-target="#モデルによる予測"><span class="header-section-number">2.5</span> モデルによる予測</a></li>
-  <li><a href="#sec-model-comparison" id="toc-sec-model-comparison" class="nav-link" data-scroll-target="#sec-model-comparison"><span class="header-section-number">2.6</span> モデルの比較</a></li>
-  <li><a href="#その他の例" id="toc-その他の例" class="nav-link" data-scroll-target="#その他の例"><span class="header-section-number">2.7</span> その他の例</a></li>
+  <li><a href="#sec-example" id="toc-sec-example" class="nav-link" data-scroll-target="#sec-example"><span class="header-section-number">1.1</span> モデルの概要</a></li>
+  <li><a href="#モデルの推定と結果の解釈" id="toc-モデルの推定と結果の解釈" class="nav-link" data-scroll-target="#モデルの推定と結果の解釈"><span class="header-section-number">1.2</span> モデルの推定と結果の解釈</a></li>
+  <li><a href="#プロット" id="toc-プロット" class="nav-link" data-scroll-target="#プロット"><span class="header-section-number">1.3</span> プロット</a></li>
+  <li><a href="#モデルによる予測" id="toc-モデルによる予測" class="nav-link" data-scroll-target="#モデルによる予測"><span class="header-section-number">1.4</span> モデルによる予測</a></li>
+  <li><a href="#sec-model-comparison" id="toc-sec-model-comparison" class="nav-link" data-scroll-target="#sec-model-comparison"><span class="header-section-number">1.5</span> モデルの比較</a></li>
+  <li><a href="#その他の例" id="toc-その他の例" class="nav-link" data-scroll-target="#その他の例"><span class="header-section-number">1.6</span> その他の例</a></li>
   </ul></li>
-  <li><a href="#ランダム効果モデルの正しい使い方" id="toc-ランダム効果モデルの正しい使い方" class="nav-link" data-scroll-target="#ランダム効果モデルの正しい使い方"><span class="header-section-number">3</span> ランダム効果モデルの正しい使い方</a>
+  <li><a href="#ランダム効果モデルの正しい使い方" id="toc-ランダム効果モデルの正しい使い方" class="nav-link" data-scroll-target="#ランダム効果モデルの正しい使い方"><span class="header-section-number">2</span> ランダム効果モデルの正しい使い方</a>
   <ul class="collapse">
-  <li><a href="#sec-RF" id="toc-sec-RF" class="nav-link" data-scroll-target="#sec-RF"><span class="header-section-number">3.1</span> ランダム効果モデル</a></li>
-  <li><a href="#説明変数との相関の問題" id="toc-説明変数との相関の問題" class="nav-link" data-scroll-target="#説明変数との相関の問題"><span class="header-section-number">3.2</span> 説明変数との相関の問題</a></li>
-  <li><a href="#固定効果-vs.-変量効果" id="toc-固定効果-vs.-変量効果" class="nav-link" data-scroll-target="#固定効果-vs.-変量効果"><span class="header-section-number">3.3</span> 固定効果 vs.&nbsp;変量効果</a></li>
-  <li><a href="#ランダム効果モデルにおける相関のモデリング" id="toc-ランダム効果モデルにおける相関のモデリング" class="nav-link" data-scroll-target="#ランダム効果モデルにおける相関のモデリング"><span class="header-section-number">3.4</span> ランダム効果モデルにおける相関のモデリング</a></li>
-  <li><a href="#第三の名前混合効果モデル" id="toc-第三の名前混合効果モデル" class="nav-link" data-scroll-target="#第三の名前混合効果モデル"><span class="header-section-number">3.5</span> 第三の名前：混合効果モデル</a></li>
-  <li><a href="#sec-GEE" id="toc-sec-GEE" class="nav-link" data-scroll-target="#sec-GEE"><span class="header-section-number">3.6</span> GEE との違い</a></li>
-  <li><a href="#ベイズ混合効果モデルという光" id="toc-ベイズ混合効果モデルという光" class="nav-link" data-scroll-target="#ベイズ混合効果モデルという光"><span class="header-section-number">3.7</span> ベイズ混合効果モデルという光……？</a></li>
+  <li><a href="#sec-RF" id="toc-sec-RF" class="nav-link" data-scroll-target="#sec-RF"><span class="header-section-number">2.1</span> ランダム効果モデル</a></li>
+  <li><a href="#説明変数との相関の問題" id="toc-説明変数との相関の問題" class="nav-link" data-scroll-target="#説明変数との相関の問題"><span class="header-section-number">2.2</span> 説明変数との相関の問題</a></li>
+  <li><a href="#sec-synthesis" id="toc-sec-synthesis" class="nav-link" data-scroll-target="#sec-synthesis"><span class="header-section-number">2.3</span> 階層モデルによる総合</a></li>
+  <li><a href="#ランダム効果モデルにおける相関のモデリング" id="toc-ランダム効果モデルにおける相関のモデリング" class="nav-link" data-scroll-target="#ランダム効果モデルにおける相関のモデリング"><span class="header-section-number">2.4</span> ランダム効果モデルにおける相関のモデリング</a></li>
+  <li><a href="#第三の名前混合効果モデル" id="toc-第三の名前混合効果モデル" class="nav-link" data-scroll-target="#第三の名前混合効果モデル"><span class="header-section-number">2.5</span> 第三の名前：混合効果モデル</a></li>
+  <li><a href="#sec-GEE" id="toc-sec-GEE" class="nav-link" data-scroll-target="#sec-GEE"><span class="header-section-number">2.6</span> GEE との違い</a></li>
+  <li><a href="#ベイズ混合効果モデルという光" id="toc-ベイズ混合効果モデルという光" class="nav-link" data-scroll-target="#ベイズ混合効果モデルという光"><span class="header-section-number">2.7</span> ベイズ混合効果モデルという光</a></li>
   </ul></li>
-  <li><a href="#混合効果モデリングのテクニック集" id="toc-混合効果モデリングのテクニック集" class="nav-link" data-scroll-target="#混合効果モデリングのテクニック集"><span class="header-section-number">4</span> 混合効果モデリングのテクニック集</a>
+  <li><a href="#混合効果モデリングのテクニック集" id="toc-混合効果モデリングのテクニック集" class="nav-link" data-scroll-target="#混合効果モデリングのテクニック集"><span class="header-section-number">3</span> 混合効果モデリングのテクニック集</a>
   <ul class="collapse">
-  <li><a href="#sec-group-level-variance-estimation" id="toc-sec-group-level-variance-estimation" class="nav-link" data-scroll-target="#sec-group-level-variance-estimation"><span class="header-section-number">4.1</span> グループレベル分散の推定</a></li>
-  <li><a href="#sec-shrinkage-estimation" id="toc-sec-shrinkage-estimation" class="nav-link" data-scroll-target="#sec-shrinkage-estimation"><span class="header-section-number">4.2</span> 係数の縮小推定</a></li>
-  <li><a href="#sec-subsec-count-data" id="toc-sec-subsec-count-data" class="nav-link" data-scroll-target="#sec-subsec-count-data"><span class="header-section-number">4.3</span> カウントデータ過分散へのお手軽対処法</a></li>
-  <li><a href="#変量係数モデルによる非線型モデリング" id="toc-変量係数モデルによる非線型モデリング" class="nav-link" data-scroll-target="#変量係数モデルによる非線型モデリング"><span class="header-section-number">4.4</span> 変量係数モデルによる非線型モデリング</a></li>
+  <li><a href="#sec-group-level-variance-estimation" id="toc-sec-group-level-variance-estimation" class="nav-link" data-scroll-target="#sec-group-level-variance-estimation"><span class="header-section-number">3.1</span> グループレベル分散の推定</a></li>
+  <li><a href="#sec-shrinkage-estimation" id="toc-sec-shrinkage-estimation" class="nav-link" data-scroll-target="#sec-shrinkage-estimation"><span class="header-section-number">3.2</span> 係数の縮小推定</a></li>
+  <li><a href="#sec-subsec-count-data" id="toc-sec-subsec-count-data" class="nav-link" data-scroll-target="#sec-subsec-count-data"><span class="header-section-number">3.3</span> カウントデータ過分散へのお手軽対処法</a></li>
+  <li><a href="#変量係数モデルによる非線型モデリング" id="toc-変量係数モデルによる非線型モデリング" class="nav-link" data-scroll-target="#変量係数モデルによる非線型モデリング"><span class="header-section-number">3.4</span> 変量係数モデルによる非線型モデリング</a></li>
   </ul></li>
-  <li><a href="#brmsの実装" id="toc-brmsの実装" class="nav-link" data-scroll-target="#brmsの実装"><span class="header-section-number">5</span> <code>brms</code>の実装</a>
+  <li><a href="#brmsの実装" id="toc-brmsの実装" class="nav-link" data-scroll-target="#brmsの実装"><span class="header-section-number">4</span> <code>brms</code>の実装</a>
   <ul class="collapse">
-  <li><a href="#事前分布" id="toc-事前分布" class="nav-link" data-scroll-target="#事前分布"><span class="header-section-number">5.1</span> 事前分布</a></li>
-  <li><a href="#回帰式" id="toc-回帰式" class="nav-link" data-scroll-target="#回帰式"><span class="header-section-number">5.2</span> 回帰式</a></li>
-  <li><a href="#sec-ubsubsec-covariance-structure" id="toc-sec-ubsubsec-covariance-structure" class="nav-link" data-scroll-target="#sec-ubsubsec-covariance-structure"><span class="header-section-number">5.3</span> 共分散構造</a></li>
-  <li><a href="#推論エンジン" id="toc-推論エンジン" class="nav-link" data-scroll-target="#推論エンジン"><span class="header-section-number">5.4</span> 推論エンジン</a></li>
+  <li><a href="#事前分布" id="toc-事前分布" class="nav-link" data-scroll-target="#事前分布"><span class="header-section-number">4.1</span> 事前分布</a></li>
+  <li><a href="#回帰式" id="toc-回帰式" class="nav-link" data-scroll-target="#回帰式"><span class="header-section-number">4.2</span> 回帰式</a></li>
+  <li><a href="#sec-ubsubsec-covariance-structure" id="toc-sec-ubsubsec-covariance-structure" class="nav-link" data-scroll-target="#sec-ubsubsec-covariance-structure"><span class="header-section-number">4.3</span> 共分散構造</a></li>
+  <li><a href="#推論エンジン" id="toc-推論エンジン" class="nav-link" data-scroll-target="#推論エンジン"><span class="header-section-number">4.4</span> 推論エンジン</a></li>
   </ul></li>
   
   
@@ -420,8 +425,8 @@ window.Quarto = {
 <p>$$</p>
 <p>$$</p>
 </div>
-<section id="brms-リンク集" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="brms-リンク集"><span class="header-section-number">1</span> <code>brms</code> リンク集</h2>
+<section id="brms-リンク集" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="brms-リンク集"><code>brms</code> リンク集</h2>
 <div id="listing-lst-brms" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
 <div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1734000439317" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="942">
@@ -446,12 +451,10 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1733929200000" data-listing-file-modified-sort="1734231077258" data-listing-date-modified-sort="1734188400000" data-listing-reading-time-sort="1" data-listing-word-count-sort="105">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1733929200000" data-listing-file-modified-sort="1734315482993" data-listing-date-modified-sort="1734188400000" data-listing-reading-time-sort="4" data-listing-word-count-sort="688">
 <a href="../../../posts/2024/Survey/BayesGLM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/Survey/Files/DIF.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
+<p class="card-img-top"><img src="../Survey/Files/BayesianWorkflow.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
 <code>brms</code> を用いたベイズロジスティック回帰分析
@@ -468,20 +471,22 @@ BMI データと順序ロジスティック回帰を題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1734076463886" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="84">
-<a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734102000000" data-listing-file-modified-sort="1734251384260" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1353">
+<a href="../../../posts/2024/Survey/BayesGLMM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Survey/Files/DIF.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-ベイズ変数選択
+<code>brms</code> を用いたベイズ混合ロジスティック回帰分析
 </h5>
 <div class="card-subtitle listing-subtitle">
-BMI データの重線型回帰を題材として
+項目応答モデルと特異項目機能を題材として
 </div>
 <div class="card-attribution card-text-small end">
 <div class="listing-date">
-2024-12-10
+2024-12-14
 </div>
 </div>
 </div>
@@ -515,18 +520,19 @@ brms: Bayesian Regression Models using ‘Stan’ リンク集
 <p>ダウンロードは：</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"brms"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="例で学ぶ-brms-の使い方" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="例で学ぶ-brms-の使い方"><span class="header-section-number">2</span> 例で学ぶ <code>brms</code> の使い方</h2>
-<section id="sec-example" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="sec-example"><span class="header-section-number">2.1</span> カウントデータのモデリング</h3>
-<p>Documentation で紹介されている，<a href="https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html"><code>Epilepsy Seizures Data</code></a> <span class="citation" data-cites="Leppik+1987">(<a href="#ref-Leppik+1987" role="doc-biblioref">Leppik et al., 1987</a>)</span>，<span class="citation" data-cites="Thall-Vail1990">(<a href="#ref-Thall-Vail1990" role="doc-biblioref">Thall and Vail, 1990</a>)</span> を用いた <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
+<section id="カウントデータで学ぶ-brms-の使い方" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="カウントデータで学ぶ-brms-の使い方"><span class="header-section-number">1</span> カウントデータで学ぶ <code>brms</code> の使い方</h2>
+<section id="sec-example" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="sec-example"><span class="header-section-number">1.1</span> モデルの概要</h3>
+<p>Documentation で紹介されている <a href="https://search.r-project.org/CRAN/refmans/dhglm/html/epilepsy.html">Epilepsy Seizures Data</a> <span class="citation" data-cites="Leppik+1987">(<a href="#ref-Leppik+1987" role="doc-biblioref">Leppik et al., 1987</a>)</span>，<span class="citation" data-cites="Thall-Vail1990">(<a href="#ref-Thall-Vail1990" role="doc-biblioref">Thall and Vail, 1990</a>)</span> を用いた <a href="https://paul-buerkner.github.io/brms/">例</a> を実行してみる：</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(brms)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>formula1 <span class="ot">&lt;-</span> <span class="fu">bf</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">brm</span>(<span class="at">formula =</span> formula1, <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<section id="formula-について" class="level4" data-number="1.1.1">
+<h4 data-number="1.1.1" class="anchored" data-anchor-id="formula-について"><span class="header-section-number">1.1.1</span> <code>formula</code> について</h4>
 <p>てんかん (epilepsy) 患者の発作回数 <code>count</code> を被説明変数とし，処置の有無を表す説明変数 <code>Trt</code> と患者毎のランダム誤差を表す切片項 <code>(1|patient)</code>，及び標準化された説明変数 <code>zAge</code>, <code>zBase</code> への依存構造を調べたい．</p>
-<p>被説明変数 <code>count</code> は離散変数であり，Poisson 分布に従うと仮定する．過分散への対応を次の段階で考慮する．</p>
 <div class="callout callout-style-simple callout-note callout-titled" title="説明変数">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -546,6 +552,7 @@ brms: Bayesian Regression Models using ‘Stan’ リンク集
 <p><code>zBase * Trt</code>という記法は，この２つの交互作用もモデルに含めることを意味する．この項の追加により，モデルは <code>zBase</code> の違いに応じて <code>Trt</code> の効果が変わる度合い <span class="math inline">\(\beta_4\)</span> を取り入れることができる．</p>
 </div>
 </div>
+<p>このような処置効果 <span class="math inline">\(\beta_3\)</span> を調べるモデルでは，回帰係数を（因果）<strong>効果</strong> (effect) とも呼ぶことに注意．</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">head</span>(epilepsy))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
@@ -647,69 +654,25 @@ brms: Bayesian Regression Models using ‘Stan’ リンク集
 <p><code>epilepsy</code>は59 人の患者に関して，４回の入院時の発作回数を記録した，全 236 データからなる．<code>patient</code>が患者を識別する ID であり，<code>(1|patient)</code>は患者ごとのランダム効果ということになる．</p>
 </div>
 </div>
+</section>
+<section id="familypoisson-について" class="level4" data-number="1.1.2">
+<h4 data-number="1.1.2" class="anchored" data-anchor-id="familypoisson-について"><span class="header-section-number">1.1.2</span> <code>family=poisson()</code> について</h4>
+<p>被説明変数 <code>count</code> は離散変数であり，Poisson 分布に従うと仮定する．過分散への対応を次の段階で考慮する．</p>
 <p>従って本モデルは<code>zAge</code>, <code>zBase</code>, <code>Trt</code>, <code>Trt*zBase</code>という固定効果（係数），<code>(1|patient)</code>というランダム効果を取り入れた（一般化線型）<strong>混合効果モデル</strong> である．回帰式は次の通り： <span class="math display">\[
 y_{it} = \beta_1 \cdot\texttt{zAge}_i+ \beta_2 \cdot \texttt{zBase}_i + \beta_3 \cdot \texttt{Trt}_i
 \]</span> <span class="math display">\[
 + \beta_4 \cdot (\texttt{zBase}_i \cdot \texttt{Trt}_i) + \alpha_i +\epsilon_{it}.
 \]</span> ただし，<span class="math inline">\(\texttt{count}_{it}\)</span> の Poisson 母数を <span class="math inline">\(\lambda_{it}\)</span> として，<span class="math inline">\(y_{it}:=\log(\lambda_{it})\)</span> とした．</p>
-<!-- 
-解析意図としては，ベースの発作回数が高いほど，治療効果が高い／低いのではないか？という仮説を検証する，`zBase*Trt`を曝露因子としたモデルである．
--->
-</section>
-<section id="brm-関数" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="brm-関数"><span class="header-section-number">2.2</span> <code>brm()</code> 関数</h3>
-<section id="family-引数" class="level4" data-number="2.2.1">
-<h4 data-number="2.2.1" class="anchored" data-anchor-id="family-引数"><span class="header-section-number">2.2.1</span> <code>family</code> 引数</h4>
-<p>ここでは被説明変数 <span class="math inline">\(y\)</span> に仮定するパラメトリック分布族と，リンク関数 <span class="math inline">\(g\)</span> を指定する：</p>
+<p><code>family=poisson()</code> は次の略記である：</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>family <span class="ot">=</span> <span class="fu">brmsfamily</span>(<span class="at">family =</span> <span class="st">"&lt;family&gt;"</span>, <span class="at">link =</span> <span class="st">"&lt;link&gt;"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>多くの場合 <code>link</code> 引数は省略可能である．</p>
-<div class="callout callout-style-default callout-caution callout-titled" title="利用可能な分布族の一覧">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-利用可能な分布族の一覧
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-4" class="callout-4-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>brmsfamily</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>function (family, link = NULL, link_sigma = "log", link_shape = "log", 
-    link_nu = "logm1", link_phi = "log", link_kappa = "log", 
-    link_beta = "log", link_zi = "logit", link_hu = "logit", 
-    link_zoi = "logit", link_coi = "logit", link_disc = "log", 
-    link_bs = "log", link_ndt = "log", link_bias = "logit", link_xi = "log1p", 
-    link_alpha = "identity", link_quantile = "logit", threshold = "flexible", 
-    refcat = NULL, bhaz = NULL) 
-{
-    slink &lt;- substitute(link)
-    .brmsfamily(family, link = link, slink = slink, link_sigma = link_sigma, 
-        link_shape = link_shape, link_nu = link_nu, link_phi = link_phi, 
-        link_kappa = link_kappa, link_beta = link_beta, link_zi = link_zi, 
-        link_hu = link_hu, link_zoi = link_zoi, link_coi = link_coi, 
-        link_disc = link_disc, link_bs = link_bs, link_ndt = link_ndt, 
-        link_bias = link_bias, link_alpha = link_alpha, link_xi = link_xi, 
-        link_quantile = link_quantile, threshold = threshold, 
-        refcat = refcat, bhaz = bhaz)
-}
-&lt;bytecode: 0x13fdc5fe0&gt;
-&lt;environment: namespace:brms&gt;</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<p>この２つの情報を通じて，一般化線型モデルを取り扱うことができる．</p>
+<p>多くの場合 <code>link</code> 引数は省略可能である．この２つの情報を通じて，一般化線型モデルを取り扱うことができる．</p>
 </section>
 </section>
-<section id="モデルの推定と結果の解釈" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="モデルの推定と結果の解釈"><span class="header-section-number">2.3</span> モデルの推定と結果の解釈</h3>
+<section id="モデルの推定と結果の解釈" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="モデルの推定と結果の解釈"><span class="header-section-number">1.2</span> モデルの推定と結果の解釈</h3>
+<p><code>brm()</code> 関数による推定結果は，返り値として渡される <code>brmsfit</code> オブジェクトに対して <code>summary()</code> メソッドを適用して見ることができる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit1)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit1)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> Family: poisson 
   Links: mu = log 
@@ -736,237 +699,85 @@ and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 </div>
 </div>
-<p>基本的な解析の前提がまず出力され，推定結果はグループ毎（今回は患者毎）の変数（今回は <span class="math inline">\(\alpha_i\)</span>）から表示される．</p>
-<p>後半に固定効果の係数，すなわち回帰係数の推定結果が表示される．</p>
-<p>治療効果<code>Trt</code>の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は <span class="math inline">\(0\)</span> を跨いでいるという意味で，有意とは言えない．また，交差項<code>zBase*Trt</code>の係数は小さく，交互効果の存在を示す証拠はないと思われる．</p>
-<p><span class="math inline">\(\widehat{R}\)</span> <span class="citation" data-cites="Gelman-Rubin1992">(<a href="#ref-Gelman-Rubin1992" role="doc-biblioref">Gelman and Rubin, 1992</a>)</span> は MCMC の収束に関する指標で，１より大きい場合，MCMC が収束していない可能性を意味する <span class="citation" data-cites="Vehtari+2021">(<a href="#ref-Vehtari+2021" role="doc-biblioref">Vehtari et al., 2021</a>)</span>．通説には <span class="math inline">\(\widehat{R}\le1.1\)</span> などの基準がある．</p>
+<p>基本的な解析の前提がまず出力され，推定結果はグループレベル変数（今回は患者ごとの変量効果 <span class="math inline">\(\alpha_i\)</span>，コードだと <code>(1|patient)</code>）から表示される．</p>
+<p>後半に固定効果の係数，特にユニットレベルの回帰係数と切片項の推定結果が表示される．</p>
+<p>結果の解釈をしてみる．治療効果<code>Trt</code>の係数は負で，平均的に処置効果はある可能性があるが，95% 信頼区間は <span class="math inline">\(0\)</span> を跨いでいるという意味では，有意とは言えない．</p>
+<p>また交差項<code>zBase*Trt</code>の係数は小さく，交互効果の存在を示す証拠はないと思われる．</p>
+<p><span class="math inline">\(\widehat{R}\)</span> <span class="citation" data-cites="Gelman-Rubin1992">(<a href="#ref-Gelman-Rubin1992" role="doc-biblioref">Gelman and Rubin, 1992</a>)</span> とは MCMC の収束に関する指標で，１より大きい場合，MCMC が収束していない可能性を意味する <span class="citation" data-cites="Vehtari+2021">(<a href="#ref-Vehtari+2021" role="doc-biblioref">Vehtari et al., 2021</a>)</span>．通説には <span class="math inline">\(\widehat{R}\le1.1\)</span> などの基準がある．</p>
 </section>
-<section id="プロット" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="プロット"><span class="header-section-number">2.4</span> プロット</h3>
+<section id="プロット" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="プロット"><span class="header-section-number">1.3</span> プロット</h3>
 <p>変数を指定して，事後分布と MCMC の軌跡をプロットできる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit1, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Trt1"</span>, <span class="st">"b_zBase"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit1, <span class="at">variable =</span> <span class="fu">c</span>(<span class="st">"b_Trt1"</span>, <span class="st">"b_zBase"</span>, <span class="st">"b_zBase:Trt1"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="brms_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="brms_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>より詳しく見るには<code>conditional_effects</code>関数を用いることもできる．交差項の効果はほとんどないことがわかる：</p>
+<p>より詳しく見るには<code>conditional_effects</code>関数を用いることもできる．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">conditional_effects</span>(fit1, <span class="at">effects =</span> <span class="st">"zBase:Trt"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">conditional_effects</span>(fit1, <span class="at">effects =</span> <span class="st">"zBase:Trt"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div id="fig-conditional_effects" class="quarto-float quarto-figure quarto-figure-center anchored" width="672">
+<div id="fig-conditional_effects" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-conditional_effects-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="brms_files/figure-html/fig-conditional_effects-1.png" id="fig-conditional_effects" class="img-fluid figure-img" width="672">
+<img src="brms_files/figure-html/fig-conditional_effects-1.png" class="img-fluid figure-img" width="672">
 </div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-conditional_effects-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-図&nbsp;1
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-conditional_effects-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+図&nbsp;1: 交差項の効果（ベースレートの違いによる処置効果の違い）
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
+<p>処置群 <code>Trt=1</code> の方がカウントは減っているのは見えるが，モデルの不確実性に比べてその減少量は十分に大きいとは言えない．</p>
+<p>ベースレート <code>zBase</code> が大きいほどカウントは大きい．しかしベースレートが大きいほど処置効果も大きい（交互効果がある）ようには見えない．</p>
 </section>
-<section id="モデルによる予測" class="level3" data-number="2.5">
-<h3 data-number="2.5" class="anchored" data-anchor-id="モデルによる予測"><span class="header-section-number">2.5</span> モデルによる予測</h3>
+<section id="モデルによる予測" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="モデルによる予測"><span class="header-section-number">1.4</span> モデルによる予測</h3>
 <p>fit したモデル <code>fit1</code> を用いて，平均年齢と平均ベースレートを持つ患者に対する治療効果を予測する：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Trt =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">zAge =</span> <span class="dv">0</span>, <span class="at">zBase =</span> <span class="dv">0</span>)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">predict</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Trt =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">zAge =</span> <span class="dv">0</span>, <span class="at">zBase =</span> <span class="dv">0</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">predict</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>     Estimate Est.Error Q2.5  Q97.5
 [1,]   5.9710  2.530960    2 11.025
 [2,]   4.5425  2.178275    1  9.000</code></pre>
 </div>
 </div>
-<p>関数<a href="https://paul-buerkner.github.io/brms/reference/predict.brmsfit.html"><code>predict()</code></a>は事後予測分布からのサンプリングを行う．一方で，関数<a href="https://paul-buerkner.github.io/brms/reference/fitted.brmsfit.html"><code>fitted()</code></a>は平均を返す．</p>
+<p>関数<a href="https://paul-buerkner.github.io/brms/reference/predict.brmsfit.html"><code>predict()</code></a> は事後予測分布からのサンプリングを１回行う．一方で，関数<a href="https://paul-buerkner.github.io/brms/reference/fitted.brmsfit.html"><code>fitted()</code></a> は事後予測分布の平均を返す．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fitted</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fitted</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>     Estimate Est.Error     Q2.5    Q97.5
 [1,] 5.953824  0.712907 4.682468 7.518386
 [2,] 4.525703  0.545437 3.518021 5.614800</code></pre>
-</div>
-</div>
-<div class="callout callout-style-default callout-caution callout-titled" title="予測の出力">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-予測の出力
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-5" class="callout-5-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>従って，もう１度ずつ実行すると，<code>predict</code>では値が変わるが，<code>fitted</code>では同じ値が出力される．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">predict</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>     Estimate Est.Error Q2.5 Q97.5
-[1,]  5.90800  2.532418    2    11
-[2,]  4.57725  2.256725    1    10</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fitted</span>(fit1, <span class="at">newdata =</span> newdata, <span class="at">re_formula =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>     Estimate Est.Error     Q2.5    Q97.5
-[1,] 5.953824  0.712907 4.682468 7.518386
-[2,] 4.525703  0.545437 3.518021 5.614800</code></pre>
-</div>
-</div>
-</div>
 </div>
 </div>
 </section>
-<section id="sec-model-comparison" class="level3" data-number="2.6">
-<h3 data-number="2.6" class="anchored" data-anchor-id="sec-model-comparison"><span class="header-section-number">2.6</span> モデルの比較</h3>
-<p>モデル<code>fit1</code>で行った Poisson 回帰分析は，<code>fit1</code>に含めた説明変数の違いを除けば，個々の観測が独立になる，という仮定の上に成り立っている（第 <a href="#sec-ubsubsec-covariance-structure" class="quarto-xref">5.3</a> 節）．</p>
+<section id="sec-model-comparison" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="sec-model-comparison"><span class="header-section-number">1.5</span> モデルの比較</h3>
+<p>モデル<code>fit1</code>で行った Poisson 回帰分析は，<code>fit1</code>に含めた説明変数の違いを除けば，個々の観測が独立になる，という仮定の上に成り立っている（第 <a href="#sec-ubsubsec-covariance-structure" class="quarto-xref">4.3</a> 節）．</p>
 <p>この仮定が破れているとき＝全ての説明変数をモデルに含めきれていないとき，Poisson 分布の性質 <span class="math display">\[
 \operatorname{E}[X]=\mathrm{V}[X]=\lambda\qquad (X\sim\mathrm{Pois}(\lambda))
 \]</span> からの離反として現れ，この現象は <strong>過分散</strong>（overdispersion）とも呼ばれる．</p>
-<section id="観測レベルランダム効果" class="level4" data-number="2.6.1">
-<h4 data-number="2.6.1" class="anchored" data-anchor-id="観測レベルランダム効果"><span class="header-section-number">2.6.1</span> 観測レベルランダム効果</h4>
-<p>ということで，他の説明変数が存在した場合を想定して， Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．</p>
-<p>そこで，追加の変動をモデルに追加するべく，モデル<code>fit1</code>に観測ごとの切片項 <span class="math inline">\(\eta_{it}\)</span> を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 <a href="#sec-subsec-count-data" class="quarto-xref">4.3</a> 節参照）．</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>obs),</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="callout callout-style-default callout-caution callout-titled" title="フィッティングの出力">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-フィッティングの出力
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-6" class="callout-6-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
+<section id="観測レベルランダム効果" class="level4" data-number="1.5.1">
+<h4 data-number="1.5.1" class="anchored" data-anchor-id="観測レベルランダム効果"><span class="header-section-number">1.5.1</span> 観測レベルランダム効果</h4>
+<p>ということで，他の未観測の説明変数が存在した場合を想定して， Poisson 分布族ではなく，分散が平均よりも大きいような別の分布族を用いて，フィット度合いを比較してみることを考えたい．</p>
+<p>そこで追加の変動をモデルに追加するべく，モデル<code>fit1</code>に観測ごとの切片項 <span class="math inline">\(\eta_{it}\)</span> を追加してみる（この手法は観測レベルランダム効果と呼ばれる．第 <a href="#sec-subsec-count-data" class="quarto-xref">3.3</a> 節参照）．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>obs),</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Compiling Stan program...</code></pre>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient) <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>obs),</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Start sampling</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-Chain 1: 
-Chain 1: Gradient evaluation took 7.5e-05 seconds
-Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.75 seconds.
-Chain 1: Adjust your expectations accordingly!
-Chain 1: 
-Chain 1: 
-Chain 1: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 1: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 1: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 1: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 1: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 1: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 1: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 1: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 1: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 1: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 1: 
-Chain 1:  Elapsed Time: 1.921 seconds (Warm-up)
-Chain 1:                1.224 seconds (Sampling)
-Chain 1:                3.145 seconds (Total)
-Chain 1: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-Chain 2: 
-Chain 2: Gradient evaluation took 2e-05 seconds
-Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.2 seconds.
-Chain 2: Adjust your expectations accordingly!
-Chain 2: 
-Chain 2: 
-Chain 2: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 2: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 2: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 2: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 2: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 2: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 2: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 2: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 2: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 2: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 2: 
-Chain 2:  Elapsed Time: 2.043 seconds (Warm-up)
-Chain 2:                1.508 seconds (Sampling)
-Chain 2:                3.551 seconds (Total)
-Chain 2: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
-Chain 3: 
-Chain 3: Gradient evaluation took 1.8e-05 seconds
-Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.18 seconds.
-Chain 3: Adjust your expectations accordingly!
-Chain 3: 
-Chain 3: 
-Chain 3: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 3: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 3: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 3: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 3: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 3: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 3: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 3: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 3: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 3: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 3: 
-Chain 3:  Elapsed Time: 1.829 seconds (Warm-up)
-Chain 3:                1.111 seconds (Sampling)
-Chain 3:                2.94 seconds (Total)
-Chain 3: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
-Chain 4: 
-Chain 4: Gradient evaluation took 2.4e-05 seconds
-Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.24 seconds.
-Chain 4: Adjust your expectations accordingly!
-Chain 4: 
-Chain 4: 
-Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 4: 
-Chain 4:  Elapsed Time: 1.784 seconds (Warm-up)
-Chain 4:                1.121 seconds (Sampling)
-Chain 4:                2.905 seconds (Total)
-Chain 4: </code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<p>こうして得た２つのモデル<code>fit1</code>,<code>fit2</code>を比較する．</p>
-<p>LLO (Leave-One-Out) cross-validation が関数<code>loo</code>によって実行できる：</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>こうして得た２つのモデル <code>fit1</code>,<code>fit2</code> を比較する．</p>
+<p>LLO (Leave-One-Out) 交差検証 (cross-validation) が関数 <code>loo</code> によって実行できる：</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="callout callout-style-default callout-caution callout-titled" title="LOO-CV の結果">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -975,17 +786,17 @@ LOO-CV の結果
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit1, fit2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Warning: Found 9 observations with a pareto_k &gt; 0.7 in model 'fit1'. We
+<pre><code>Warning: Found 8 observations with a pareto_k &gt; 0.7 in model 'fit1'. We
 recommend to set 'moment_match = TRUE' in order to perform moment matching for
 problematic observations.</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Warning: Found 61 observations with a pareto_k &gt; 0.7 in model 'fit2'. We
+<pre><code>Warning: Found 68 observations with a pareto_k &gt; 0.7 in model 'fit2'. We
 recommend to set 'moment_match = TRUE' in order to perform moment matching for
 problematic observations.</code></pre>
 </div>
@@ -995,17 +806,17 @@ problematic observations.</code></pre>
 Computed from 4000 by 236 log-likelihood matrix.
 
          Estimate   SE
-elpd_loo   -670.5 35.9
-p_loo        93.4 13.7
-looic      1341.1 71.9
+elpd_loo   -672.1 37.0
+p_loo        94.9 14.9
+looic      1344.2 74.1
 ------
 MCSE of elpd_loo is NA.
-MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.9]).
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 2.2]).
 
 Pareto k diagnostic values:
                          Count Pct.    Min. ESS
-(-Inf, 0.7]   (good)     227   96.2%   135     
-   (0.7, 1]   (bad)        8    3.4%   &lt;NA&gt;    
+(-Inf, 0.7]   (good)     228   96.6%   140     
+   (0.7, 1]   (bad)        7    3.0%   &lt;NA&gt;    
    (1, Inf)   (very bad)   1    0.4%   &lt;NA&gt;    
 See help('pareto-k-diagnostic') for details.
 
@@ -1014,34 +825,34 @@ Output of model 'fit2':
 Computed from 4000 by 236 log-likelihood matrix.
 
          Estimate   SE
-elpd_loo   -594.9 13.8
-p_loo       107.4  7.0
-looic      1189.8 27.7
+elpd_loo   -596.2 13.9
+p_loo       108.4  7.1
+looic      1192.4 27.9
 ------
 MCSE of elpd_loo is NA.
-MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.5]).
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.7]).
 
 Pareto k diagnostic values:
                          Count Pct.    Min. ESS
-(-Inf, 0.7]   (good)     175   74.2%   169     
-   (0.7, 1]   (bad)       57   24.2%   &lt;NA&gt;    
-   (1, Inf)   (very bad)   4    1.7%   &lt;NA&gt;    
+(-Inf, 0.7]   (good)     168   71.2%   201     
+   (0.7, 1]   (bad)       62   26.3%   &lt;NA&gt;    
+   (1, Inf)   (very bad)   6    2.5%   &lt;NA&gt;    
 See help('pareto-k-diagnostic') for details.
 
 Model comparisons:
      elpd_diff se_diff
 fit2   0.0       0.0  
-fit1 -75.7      26.5  </code></pre>
+fit1 -75.9      27.6  </code></pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<p><code>elpd_diff</code> は expected log posterior density の差異を表す．<code>fit2</code>の方が大きく当てはまりが良いことが見て取れる．</p>
-<p>また，WAIC (Watanabe-Akaike Information Criterion) も実装されている：</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><code>elpd_diff</code> は expected log posterior density の差異を表す．<code>fit2</code> の方が大きく当てはまりが良いことが見て取れる．</p>
+<p>また WAIC (Watanabe-Akaike Information Criterion) も実装されている：</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="callout callout-style-default callout-caution callout-titled" title="WAIC の結果">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -1050,40 +861,40 @@ WAIC の結果
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit1))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: 
-53 (22.5%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
+51 (21.6%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Computed from 4000 by 236 log-likelihood matrix.
 
           Estimate   SE
-elpd_waic   -668.6 36.8
-p_waic        91.4 14.7
-waic        1337.2 73.6
+elpd_waic   -669.0 36.9
+p_waic        91.8 14.8
+waic        1338.0 73.8
 
-53 (22.5%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
+51 (21.6%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit2))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">waic</span>(fit2))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: 
-63 (26.7%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
+68 (28.8%) p_waic estimates greater than 0.4. We recommend trying loo instead.</code></pre>
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Computed from 4000 by 236 log-likelihood matrix.
 
           Estimate   SE
-elpd_waic   -572.5 12.0
-p_waic        85.0  5.2
-waic        1144.9 24.0
+elpd_waic   -573.0 12.0
+p_waic        85.3  5.1
+waic        1146.0 24.0
 
-63 (26.7%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
+68 (28.8%) p_waic estimates greater than 0.4. We recommend trying loo instead. </code></pre>
 </div>
 </div>
 </div>
@@ -1091,7 +902,7 @@ waic        1144.9 24.0
 </div>
 <p>他にも，<code>reloo</code>, <code>kfold</code> などの関数もある．</p>
 <div class="callout callout-style-default callout-caution callout-titled" title="他の関数一覧">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -1100,10 +911,10 @@ waic        1144.9 24.0
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-9" class="callout-9-contents callout-collapse collapse">
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">methods</span>(<span class="at">class=</span><span class="st">"brmsfit"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">methods</span>(<span class="at">class=</span><span class="st">"brmsfit"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> [1] add_criterion           add_ic                  as_draws_array         
  [4] as_draws_df             as_draws_list           as_draws_matrix        
@@ -1144,159 +955,19 @@ see '?methods' for accessing help and source code</code></pre>
 </div>
 </div>
 </section>
-<section id="患者内の相関構造のモデリング" class="level4" data-number="2.6.2">
-<h4 data-number="2.6.2" class="anchored" data-anchor-id="患者内の相関構造のモデリング"><span class="header-section-number">2.6.2</span> 患者内の相関構造のモデリング</h4>
-<p>また，<code>fit1</code>において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
-<p>患者内の相関構造は，<code>brm()</code>関数の<code>autocor</code>引数で指定できる（第 <a href="#sec-autocor-argument" class="quarto-xref">5.3.2</a> 節）．</p>
-<p>例えば，全く構造を仮定しない場合は，<a href="http://paul-buerkner.github.io/brms/reference/unstr.html"><code>unstr</code></a>を指定する：</p>
-<div class="sourceCode" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
-<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">autocor =</span> <span class="sc">~</span><span class="fu">unstr</span>(<span class="at">time=</span>visit, <span class="at">gr=</span>patient),</span>
-<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="callout callout-style-default callout-caution callout-titled" title="フィッティングの出力">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-フィッティングの出力
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-10" class="callout-10-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
+<section id="患者内の相関構造のモデリング" class="level4" data-number="1.5.2">
+<h4 data-number="1.5.2" class="anchored" data-anchor-id="患者内の相関構造のモデリング"><span class="header-section-number">1.5.2</span> 患者内の相関構造のモデリング</h4>
+<p>また <code>fit1</code> において，同一患者の異なる訪問の間には全く相関がないと仮定されており，これは全く非現実的な仮定をおいてしまっていると言える．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>患者内の相関構造は，<code>brm()</code> 関数の <code>autocor</code> 引数で指定できる（第 <a href="#sec-autocor-argument" class="quarto-xref">4.3.2</a> 節）．</p>
+<p>例えば，全く構造を仮定しない場合は <a href="http://paul-buerkner.github.io/brms/reference/unstr.html"><code>unstr</code></a>を指定する：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
-<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">autocor =</span> <span class="sc">~</span><span class="fu">unstr</span>(<span class="at">time=</span>visit, <span class="at">gr=</span>patient),</span>
-<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning: Argument 'autocor' should be specified within the 'formula' argument.
-See ?brmsformula for help.</code></pre>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">brm</span>(count <span class="sc">~</span> zAge <span class="sc">+</span> zBase <span class="sc">*</span> Trt <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>patient),</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">autocor =</span> <span class="sc">~</span><span class="fu">unstr</span>(<span class="at">time=</span>visit, <span class="at">gr=</span>patient),</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">data =</span> epilepsy, <span class="at">family =</span> <span class="fu">poisson</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Compiling Stan program...</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Start sampling</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-Chain 1: 
-Chain 1: Gradient evaluation took 0.000156 seconds
-Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 1.56 seconds.
-Chain 1: Adjust your expectations accordingly!
-Chain 1: 
-Chain 1: 
-Chain 1: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 1: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 1: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 1: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 1: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 1: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 1: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 1: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 1: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 1: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 1: 
-Chain 1:  Elapsed Time: 3.895 seconds (Warm-up)
-Chain 1:                2.466 seconds (Sampling)
-Chain 1:                6.361 seconds (Total)
-Chain 1: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-Chain 2: 
-Chain 2: Gradient evaluation took 3.5e-05 seconds
-Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
-Chain 2: Adjust your expectations accordingly!
-Chain 2: 
-Chain 2: 
-Chain 2: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 2: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 2: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 2: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 2: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 2: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 2: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 2: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 2: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 2: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 2: 
-Chain 2:  Elapsed Time: 3.683 seconds (Warm-up)
-Chain 2:                2.587 seconds (Sampling)
-Chain 2:                6.27 seconds (Total)
-Chain 2: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
-Chain 3: 
-Chain 3: Gradient evaluation took 3.4e-05 seconds
-Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.34 seconds.
-Chain 3: Adjust your expectations accordingly!
-Chain 3: 
-Chain 3: 
-Chain 3: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 3: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 3: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 3: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 3: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 3: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 3: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 3: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 3: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 3: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 3: 
-Chain 3:  Elapsed Time: 4.36 seconds (Warm-up)
-Chain 3:                2.661 seconds (Sampling)
-Chain 3:                7.021 seconds (Total)
-Chain 3: 
-
-SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
-Chain 4: 
-Chain 4: Gradient evaluation took 3.7e-05 seconds
-Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.37 seconds.
-Chain 4: Adjust your expectations accordingly!
-Chain 4: 
-Chain 4: 
-Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 4: 
-Chain 4:  Elapsed Time: 3.937 seconds (Warm-up)
-Chain 4:                2.28 seconds (Sampling)
-Chain 4:                6.217 seconds (Total)
-Chain 4: </code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
-Running the chains for more iterations may help. See
-https://mc-stan.org/misc/warnings.html#bulk-ess</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-Running the chains for more iterations may help. See
-https://mc-stan.org/misc/warnings.html#tail-ess</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<p>このモデルも<code>fit1</code>より遥かに当てはまりが良く，<code>fit2</code>とほとんど同じ当てはまりの良さが見られる：</p>
+<p>このモデルも <code>fit1</code> より遥かに当てはまりが良く，<code>fit2</code> とほとんど同じ当てはまりの良さが見られる：</p>
 <div class="callout callout-style-default callout-caution callout-titled" title="LOO-CV の結果">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -1305,17 +976,17 @@ LOO-CV の結果
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit2,fit3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loo</span>(fit2,fit3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Warning: Found 61 observations with a pareto_k &gt; 0.7 in model 'fit2'. We
+<pre><code>Warning: Found 68 observations with a pareto_k &gt; 0.7 in model 'fit2'. We
 recommend to set 'moment_match = TRUE' in order to perform moment matching for
 problematic observations.</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Warning: Found 62 observations with a pareto_k &gt; 0.7 in model 'fit3'. We
+<pre><code>Warning: Found 57 observations with a pareto_k &gt; 0.7 in model 'fit3'. We
 recommend to set 'moment_match = TRUE' in order to perform moment matching for
 problematic observations.</code></pre>
 </div>
@@ -1325,18 +996,18 @@ problematic observations.</code></pre>
 Computed from 4000 by 236 log-likelihood matrix.
 
          Estimate   SE
-elpd_loo   -594.9 13.8
-p_loo       107.4  7.0
-looic      1189.8 27.7
+elpd_loo   -596.2 13.9
+p_loo       108.4  7.1
+looic      1192.4 27.9
 ------
 MCSE of elpd_loo is NA.
-MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.5]).
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.7]).
 
 Pareto k diagnostic values:
                          Count Pct.    Min. ESS
-(-Inf, 0.7]   (good)     175   74.2%   169     
-   (0.7, 1]   (bad)       57   24.2%   &lt;NA&gt;    
-   (1, Inf)   (very bad)   4    1.7%   &lt;NA&gt;    
+(-Inf, 0.7]   (good)     168   71.2%   201     
+   (0.7, 1]   (bad)       62   26.3%   &lt;NA&gt;    
+   (1, Inf)   (very bad)   6    2.5%   &lt;NA&gt;    
 See help('pareto-k-diagnostic') for details.
 
 Output of model 'fit3':
@@ -1344,40 +1015,41 @@ Output of model 'fit3':
 Computed from 4000 by 236 log-likelihood matrix.
 
          Estimate   SE
-elpd_loo   -601.1 14.6
-p_loo       112.2  7.8
-looic      1202.2 29.3
+elpd_loo   -600.8 15.0
+p_loo       112.1  8.2
+looic      1201.6 29.9
 ------
 MCSE of elpd_loo is NA.
-MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.6]).
+MCSE and ESS estimates assume MCMC draws (r_eff in [0.4, 1.5]).
 
 Pareto k diagnostic values:
                          Count Pct.    Min. ESS
-(-Inf, 0.7]   (good)     174   73.7%   157     
-   (0.7, 1]   (bad)       54   22.9%   &lt;NA&gt;    
-   (1, Inf)   (very bad)   8    3.4%   &lt;NA&gt;    
+(-Inf, 0.7]   (good)     179   75.8%   196     
+   (0.7, 1]   (bad)       47   19.9%   &lt;NA&gt;    
+   (1, Inf)   (very bad)  10    4.2%   &lt;NA&gt;    
 See help('pareto-k-diagnostic') for details.
 
 Model comparisons:
      elpd_diff se_diff
 fit2  0.0       0.0   
-fit3 -6.2       2.6   </code></pre>
+fit3 -4.6       2.9   </code></pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<p>思ったよりも<code>fit2</code>の当てはまりが良いため，Poisson-対数正規混合モデリングを本格的に実施してみることが，次の選択肢になり得る（第 <a href="#sec-subsec-count-data" class="quarto-xref">4.3</a> 節参照）．</p>
+<p>思ったよりも <code>fit2</code> の当てはまりが良いため，Poisson-対数正規混合モデリングを本格的に実施してみることが次の選択肢になり得る（第 <a href="#sec-subsec-count-data" class="quarto-xref">3.3</a> 節参照）．</p>
 </section>
 </section>
-<section id="その他の例" class="level3" data-number="2.7">
-<h3 data-number="2.7" class="anchored" data-anchor-id="その他の例"><span class="header-section-number">2.7</span> その他の例</h3>
-<p>Sebastian Weber らにより，<a href="https://opensource.nibr.com/bamdd/">新薬の治験における実際の解析事例をまとめたウェブサイト</a> が公開されている．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
-<p>特に，<a href="https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation">13 章</a>で，同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．</p>
+<section id="その他の例" class="level3" data-number="1.6">
+<h3 data-number="1.6" class="anchored" data-anchor-id="その他の例"><span class="header-section-number">1.6</span> その他の例</h3>
+<p>Sebastian Weber らにより，<a href="https://opensource.nibr.com/bamdd/">新薬の治験における実際の解析事例をまとめたウェブサイト</a> が公開されている．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>特にその <a href="https://opensource.nibr.com/bamdd/src/02h_mmrm.html#brms-implementation">13 章</a> では同様の経時的繰り返し観測データを扱っているが，ここではカウントデータではなく連続な応用変数が扱われている．</p>
+<p><code>brms</code> は他にもスプラインや Gauss 過程を用いた一般化加法モデルの推論も可能である <span class="citation" data-cites="Burkner2018">(<a href="#ref-Burkner2018" role="doc-biblioref">Bürkner, 2018</a>)</span>．</p>
 </section>
 </section>
-<section id="ランダム効果モデルの正しい使い方" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="ランダム効果モデルの正しい使い方"><span class="header-section-number">3</span> ランダム効果モデルの正しい使い方</h2>
+<section id="ランダム効果モデルの正しい使い方" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="ランダム効果モデルの正しい使い方"><span class="header-section-number">2</span> ランダム効果モデルの正しい使い方</h2>
 <div class="callout callout-style-simple callout-important no-icon callout-titled" title="概要">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1389,20 +1061,18 @@ fit3 -6.2       2.6   </code></pre>
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>ランダム効果モデル</strong> とは，グループ毎に異なる切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> を追加し，これにも誤差を仮定してモデルに入れて得る階層モデルである．</li>
-<li>しかし，<span class="math inline">\(\alpha_{s[i]}\)</span> が（ユニットレベルの）説明変数 <span class="math inline">\(x_i\)</span> と相関を持つ場合，推定量の一致性が失われる．これを回避するために，<span class="math inline">\(x_i\)</span> の係数 <span class="math inline">\(\beta\)</span> にのみ関心がある場合は，固定効果モデルが用いられることも多い．</li>
-<li>だが，簡単なトリック（<span class="math inline">\(\alpha_{s[i]}\)</span> の説明変数に <span class="math inline">\(\overline{x}_s\)</span> を追加すること）で，推定量の一致性を回復することができる．</li>
-<li>このトリックを取り入れたランダム効果モデルは，<span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> に相関がない場合は固定効果モデルと等価な <span class="math inline">\(\beta\)</span> の推定量を与え，相関がある場合でも，<span class="math inline">\(\beta\)</span> を一致推定し，各変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の構造にも洞察を与えてくれる．</li>
+<li><strong>ランダム効果モデル</strong> とは，グループ毎に異なる切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> を追加し，これにも誤差を仮定してモデルに入れて得る階層モデルである（狭義の用法）．この意味では変動切片モデルともいう．</li>
+<li>しかしランダム効果 <span class="math inline">\(\alpha_{s[i]}\)</span> が（ユニットレベルの）説明変数 <span class="math inline">\(x_i\)</span> と相関を持つ場合，推定量の一致性が失われる．これを回避するために，<span class="math inline">\(x_i\)</span> の係数 <span class="math inline">\(\beta\)</span> にのみ関心がある場合は固定効果推定量や一般化推定方程式 (GEE) が用いられることも多い．</li>
+<li>だが，ランダム効果モデルにおいても未観測の説明変数が存在する場合でも，簡単なトリック（ランダム効果 <span class="math inline">\(\alpha_{s[i]}\)</span> のグループレベル説明変数に <span class="math inline">\(\overline{x}_s\)</span> を追加すること）で，推定量の一致性を回復することができる．</li>
+<li>このトリックを取り入れたランダム効果モデルは，<span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> に相関がない場合は固定効果モデルと等価な <span class="math inline">\(\beta\)</span> の推定量を与え，相関がある場合でも <span class="math inline">\(\beta\)</span> を一致推定し，各変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の構造にも洞察を与えてくれる．さらには内生性の度合いを推定するといった構造的な洞察も可能である <span class="citation" data-cites="Chan-Tobias2020">(<a href="#ref-Chan-Tobias2020" role="doc-biblioref">Chan and Tobias, 2020, p. 14</a>)</span>．</li>
+<li>以上のランダム効果モデルや固定効果モデルは，異なるモデルに対するベイズ推定と見れる．どのモデルを採用するのが良いか，実経計画の時点からは判らない場合，ベイズ階層モデルの方法で探索的に実行することも可能である．</li>
 </ul>
 </div>
 </div>
-<p>ランダム効果モデルは線型混合モデル (Linear Mixed Model; LMM) とも呼ばれる．</p>
-<blockquote class="blockquote">
-<p>LMM は，母数の共通化によるデータのプーリングと変動効果による標本平均の縮小作用を生み出すことのできるモデルであり，その結果生ずる予測量が EBLUE になる．したがって，EBLUE は，各々の地域の標本平均とプールされた回帰推定量との加重平均になっており，データ数が少ないときには標本平均をプールされた推定量の方向へ縮小することにより，推定精度の改善を図っている．<span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span></p>
-</blockquote>
-<section id="sec-RF" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="sec-RF"><span class="header-section-number">3.1</span> ランダム効果モデル</h3>
-<p><strong>ランダム効果</strong> は，変動する切片項と呼んだ方がわかりやすい <span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007</a>)</span> と言われるように，サブグループ毎に異なる切片項のことである．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>ランダム効果モデルは「通常の固定効果のみを含んだ線型回帰モデルにランダム項を導入したもの」という意味でも用いられる．この場合は <strong>線型混合モデル</strong> (Linear Mixed Model; LMM) の別名と理解できる．</p>
+<section id="sec-RF" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="sec-RF"><span class="header-section-number">2.1</span> ランダム効果モデル</h3>
+<p><strong>ランダム効果</strong> は，変動する切片項 <span class="citation" data-cites="Gelman2005">(<a href="#ref-Gelman2005" role="doc-biblioref">Gelman, 2005</a>)</span> <span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007</a>)</span> という別名も提案されているように，サブグループ毎に異なる切片項のことである．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
 <p>ユニット（個人などの最小単位）レベルの回帰式を書き下すと，グループ選択関数 <span class="math inline">\(s:[n]\to[S]\;(S\le n)\)</span> を通じて， <span id="eq-stage-1"><span class="math display">\[
 y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 \tag{1}\]</span></span> というようになる．</p>
@@ -1410,11 +1080,11 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],
 \alpha_s=\alpha_0+\eta_s,\qquad s\in[S]
 \tag{2}\]</span></span> が背後にある <strong>階層モデル</strong> (multilevel / hierarchical model) だとみなすこともできる．</p>
 </section>
-<section id="説明変数との相関の問題" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="説明変数との相関の問題"><span class="header-section-number">3.2</span> 説明変数との相関の問題</h3>
-<section id="問題の所在" class="level4" data-number="3.2.1">
-<h4 data-number="3.2.1" class="anchored" data-anchor-id="問題の所在"><span class="header-section-number">3.2.1</span> 問題の所在</h4>
-<p>ランダム効果では，ユニットレベルの説明変数 <span class="math inline">\(x_i\)</span> と変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> が相関を持たないという仮定が Gauss-Markov の定理の仮定に等価になるため，これが違反されると推定量の不偏性・一致性が約束されず，推定量の分散も大きくなる．<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<section id="説明変数との相関の問題" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="説明変数との相関の問題"><span class="header-section-number">2.2</span> 説明変数との相関の問題</h3>
+<section id="問題の所在" class="level4" data-number="2.2.1">
+<h4 data-number="2.2.1" class="anchored" data-anchor-id="問題の所在"><span class="header-section-number">2.2.1</span> 問題の所在</h4>
+<p>ランダム効果では，ユニットレベルの説明変数 <span class="math inline">\(x_i\)</span> と変動切片項 <span class="math inline">\(\alpha_{s}\)</span> が相関を持たないという仮定が Gauss-Markov の定理の仮定に等価になるため，これが違反されると <span class="math inline">\(\beta\)</span> の OLS 推定量の不偏性・一致性が約束されず，推定量の分散も大きくなる．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
 <div class="callout callout-style-simple callout-tip no-icon callout-titled" title="Gauss-Markov の仮定">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1433,33 +1103,28 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 <p>実際，ランダム効果モデルの階層構造を，(<a href="#eq-stage-2" class="quarto-xref">2</a>) を (<a href="#eq-stage-1" class="quarto-xref">1</a>) に代入することで一つの式にまとめると <span id="eq-RF"><span class="math display">\[
 y_i=\alpha_0+\beta x_i+\underbrace{\epsilon_i'}_{\epsilon_i+\eta_{s[i]}}
 \tag{3}\]</span></span> を得る．</p>
-<p>このような誤差項の構造 <span class="math inline">\(e_{it}=\alpha_i+\epsilon_{it}\)</span> を <strong>一元配置モデル</strong> (one-way error component model) ともいう <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 600</a>)</span>, <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 155</a>)</span>．</p>
+<!-- このような誤差項の構造 $e_{it}=\al_i+\ep_{it}$ を **一元配置モデル** (one-way error component model) ともいう [@Hansen2022 p.600], [@久保川達也2006 p.155]． -->
 <p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> に相関がある場合，<span class="math inline">\(x_i\)</span> と <span class="math inline">\(\eta_s\)</span> にも相関があるため，結果として (<a href="#eq-RF" class="quarto-xref">3</a>) では説明変数と誤差 <span class="math inline">\(\epsilon_i'\)</span> に相関が生じてしまう．これは計量経済学では <strong>内生性</strong> (endogeneity) の問題と呼ばれているものに他ならない．</p>
 </section>
-<section id="業界の現状母数効果モデル" class="level4" data-number="3.2.2">
-<h4 data-number="3.2.2" class="anchored" data-anchor-id="業界の現状母数効果モデル"><span class="header-section-number">3.2.2</span> 業界の現状：母数効果モデル</h4>
+<section id="sec-complete-pooling-model" class="level4" data-number="2.2.2">
+<h4 data-number="2.2.2" class="anchored" data-anchor-id="sec-complete-pooling-model"><span class="header-section-number">2.2.2</span> 代替モデル１：母数効果モデル</h4>
 <p>そのため，ランダム効果モデルは避けられる傾向にあり，切片項 <span class="math inline">\(\alpha_{s[i]}\equiv\alpha_0\)</span> は変動しないとし，グループレベルの効果を無視してモデリングすることも多い： <span class="math display">\[
 y_i=\alpha_0+\beta x_i+\epsilon_i.
-\]</span> このことを <strong>完全プーリングモデル</strong> (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを <strong>部分プーリングモデル</strong> (partial pooling model) と呼んで対比させることがある．<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+\]</span> このことを <strong>完全プーリングモデル</strong> (complete pooling model) または母数効果モデルと呼び，ランダム効果モデルを <strong>部分プーリングモデル</strong> (partial pooling model) と呼んで対比させることがある．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
 <p>周辺モデル (marginal model) や <strong>母平均モデル</strong> (population-average model) とも呼ばれる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．</p>
-<p>実際，これ以上の仮定を置かず，ランダム効果は局外母数として（<strong>母数効果</strong>ともいう）一般化推定方程式の方法（第 <a href="#sec-GEE" class="quarto-xref">3.6</a> 節）によれば，<span class="math inline">\(\beta\)</span> の不偏推定が可能である．</p>
+<p>実際，これ以上の仮定を置かず，ランダム効果は局外母数として（<strong>母数効果</strong>ともいう）一般化推定方程式の方法（第 <a href="#sec-GEE" class="quarto-xref">2.6</a> 節）によれば，<span class="math inline">\(\beta\)</span> の不偏推定が可能である．</p>
 <p>リンク関数 <span class="math inline">\(g\)</span> を通じた非線型モデル <span class="math display">\[
 g(\operatorname{E}[y_i|x_i])=\beta x_i
-\]</span> であっても，指数型分布族を仮定すれば，<span class="math inline">\(\beta\)</span> の一致推定が可能である．</p>
-<p>だが，切片項の変動を消してしまうことで，回帰係数 <span class="math inline">\(\beta\)</span> の推定に対する縮小効果（第 <a href="#sec-shrinkage-estimation" class="quarto-xref">4.2</a> 節）が得られないという欠点もあり，小地域推定などにおいては <span class="math inline">\(\alpha_{s[i]}\)</span> を確率変数とみなす積極的理由もある．この点については <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span> も参照．</p>
+\]</span> であっても，指数型分布族を仮定すれば（すなわち一般化線型モデルについては），<span class="math inline">\(\beta\)</span> の一致推定が可能である．</p>
+<p>だが，切片項の変動を消してしまうことで，回帰係数 <span class="math inline">\(\beta\)</span> の推定に対する縮小効果（第 <a href="#sec-shrinkage-estimation" class="quarto-xref">3.2</a> 節）が得られないという欠点もあり，小地域推定などにおいては <span class="math inline">\(\alpha_{s[i]}\)</span> を確率変数とみなす積極的理由もある．この点については <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span>, <span class="citation" data-cites="菅澤-久保川2023">(<a href="#ref-菅澤-久保川2023" role="doc-biblioref">Sugasawa and Kubokawa, 2023</a>)</span> も参照．</p>
 </section>
-<section id="sec-fixed-effects-model" class="level4" data-number="3.2.3">
-<h4 data-number="3.2.3" class="anchored" data-anchor-id="sec-fixed-effects-model"><span class="header-section-number">3.2.3</span> 固定効果モデルという解決</h4>
+<section id="sec-fixed-effects-model" class="level4" data-number="2.2.3">
+<h4 data-number="2.2.3" class="anchored" data-anchor-id="sec-fixed-effects-model"><span class="header-section-number">2.2.3</span> 代替モデル２：固定効果モデル</h4>
 <p>問題を起こさずに，しかしながらグループレベルの効果をモデリングしたい場合， <span class="math display">\[
 y_i=\alpha_{s[i]}^{\text{unmodeled}}+\beta x_i+\epsilon_i
 \]</span> として，グループ毎に変動する切片項 <span class="math inline">\(\alpha_{s[i]}^{\text{unmodeled}}\)</span> を許すが，この変数自体にモデルは仮定しない，とすることもできる．</p>
 <p>したがってグループ毎に別々の回帰分析を実行し，別々の切片 <span class="math inline">\(\alpha_{s[i]}^{\text{unmodeled}}\)</span> を得て，<span class="math inline">\(\beta\)</span> の値はこれらのグループの間で適切に重みづけて最終的な推定値としているに等しい．</p>
 <p>すなわち，グループの数だけ，グループへの所属を表す２値変数 <span class="math inline">\(1_{\left\{s[i]=s\right\}}\)</span> を導入し，<span class="math inline">\(S\)</span> 個の項 <span class="math inline">\(\sum_{s=1}^S1_{\left\{s[i]=s\right\}}\alpha_{s[i]}^{\text{unmodeled}}\)</span> を説明変数に加えて回帰分析を行うことに等しい．</p>
-<p>ベイズ的には，変動係数の場合は更なる構造 <span class="math display">\[
-\alpha_s=\alpha_0+\eta_s,\qquad s\in[S],
-\]</span> に基づきグループレベルにばらつく確率構造が仮定されているのと対照的に，improper な一様事前分布 <span class="math display">\[
-\alpha_s^{\text{unmodeled}}\overset{\text{i.i.d.}}{\sim}\mathrm{N}(\alpha_0,\infty)
-\]</span> を仮定した場合が固定効果モデルであると理解される <span class="citation" data-cites="BDA">(<a href="#ref-BDA" role="doc-biblioref">Gelman et al., 2014, p. 383</a>)</span>．</p>
 <p>また群内平均を引いた値 <span class="math inline">\(y_i-\overline{y}_{s[i]}\)</span> を目的変数として，説明変数 <span class="math inline">\(x_i-\overline{x}_{s[i]}\)</span> により回帰分析を行うこととも等価である．この変換により <span class="math inline">\(\alpha_{s[i]}^{\text{unmodeled}}\)</span> が消去されると考えられるのである．</p>
 <div class="callout callout-style-simple callout-caution no-icon callout-titled" title="固定効果モデルの別名">
 <div class="callout-header d-flex align-content-center">
@@ -1472,75 +1137,118 @@ y_i=\alpha_{s[i]}^{\text{unmodeled}}+\beta x_i+\epsilon_i
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022</a>)</span> をはじめ，計量経済学では fixed effects model と呼ばれる．<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></li>
+<li><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022</a>)</span> をはじめ，計量経済学では fixed effects model と呼ばれる．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></li>
 <li><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007</a>)</span> は unmodeled varying intercept と呼んでいる．</li>
-<li>least squares dummy variable regression とも呼べる．<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></li>
+<li>least squares dummy variable regression とも呼べる．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></li>
 </ul>
 </div>
 </div>
 </section>
-</section>
-<section id="固定効果-vs.-変量効果" class="level3" data-number="3.3">
-<h3 data-number="3.3" class="anchored" data-anchor-id="固定効果-vs.-変量効果"><span class="header-section-number">3.3</span> 固定効果 vs.&nbsp;変量効果</h3>
-<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="利点">
+<section id="固定効果-vs.-変量効果" class="level4" data-number="2.2.4">
+<h4 data-number="2.2.4" class="anchored" data-anchor-id="固定効果-vs.-変量効果"><span class="header-section-number">2.2.4</span> 固定効果 vs.&nbsp;変量効果</h4>
+<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="固定効果モデルの利点">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-利点
+固定効果モデルの利点
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> が相関を持ち得る場合も，固定効果モデルでは問題が生じない．<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> が相関を持ち得る場合も，固定効果モデルでは問題が生じない．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
 </div>
 </div>
-<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="問題点">
+<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="変量効果モデルの利点">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-問題点
+変量効果モデルの利点
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>異なるグループのデータが相互作用する機構がランダム効果モデルに比べて貧しい．</p>
-<p>例えばランダム効果モデルを用いた場合，外れ値グループが存在するなどノイズの大きなデータに対しても，<span class="math inline">\(\eta_s\)</span> を通じて緩やかに情報が伝達され，<span class="math inline">\(\beta\)</span> の値は平均へ縮小されて推定される（第 <a href="#sec-shrinkage-estimation" class="quarto-xref">4.2</a> 節）．固定効果モデルではそのような頑健性を持たない <span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, pp. 4–5</a>)</span>．</p>
+<p>固定効果モデルでは異なるグループのデータが相互作用する機構がランダム効果モデルに比べて貧しい．</p>
+<p>一方でランダム効果モデルを用いた場合，外れ値グループが存在するなどノイズの大きなデータに対しても，<span class="math inline">\(\eta_s\)</span> を通じて緩やかに情報が伝達され，<span class="math inline">\(\beta\)</span> の値は平均へ縮小されて推定される（第 <a href="#sec-shrinkage-estimation" class="quarto-xref">3.2</a> 節）．これは Stein 効果とも呼ばれる <span class="citation" data-cites="Hoff2009">(<a href="#ref-Hoff2009" role="doc-biblioref">Hoff, 2009, p. 146</a>)</span>．固定効果モデルではそのような頑健性を持たない <span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, pp. 4–5</a>)</span>．</p>
+<p>さらには変量効果モデルにおいては <span class="math inline">\(\epsilon_i\)</span> と <span class="math inline">\(\eta_s\)</span> の相関を推定することができ，これは内生性の強さの尺度として使える <span class="citation" data-cites="Chan-Tobias2020">(<a href="#ref-Chan-Tobias2020" role="doc-biblioref">Chan and Tobias, 2020, p. 14</a>)</span>．</p>
 </div>
 </div>
-<p>固定効果モデルは <span class="math inline">\(\beta\)</span> （のみ）に関心がある場合，<span class="math inline">\(\alpha_{s[i]}\)</span> と <span class="math inline">\(x_i\)</span> の相関の存在に対してロバストな推定法として有用であり，その理由で計量経済学（特に線型パネルデータ）では主流の推定手法となっている．<a href="#fn9" class="footnote-ref" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+<p>固定効果モデルは <span class="math inline">\(\beta\)</span> （のみ）に関心がある場合，<span class="math inline">\(\alpha_{s[i]}\)</span> と <span class="math inline">\(x_i\)</span> の相関の存在に対してロバストな推定法として有用であり，その理由で計量経済学（特に線型パネルデータ）では主流の推定手法となっている．<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
 <p>実際，<span class="math inline">\(\alpha_{s[i]}\)</span> と <span class="math inline">\(x_i\)</span> が無相関であるとき，変量効果モデルと固定効果モデルは <span class="math inline">\(\beta\)</span> に関しては等価な推定量を与える．</p>
 <blockquote class="blockquote">
 <p>Current econometric practice is to prefer robustness over efficiency. Consequently, current practice is (nearly uniformly) to use the fixed effects estmimator for linear panel data models. <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span></p>
 </blockquote>
 <p>逆に言えば，固定効果モデルは <span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> の構造のモデリングを放棄したモデリング法であり，各 <span class="math inline">\(\alpha_{s[i]}\)</span> の値にも興味がある場合，または <span class="math inline">\(\beta\)</span> のより精度の高い推定が実行したい場合には，やはり <span class="math inline">\(\alpha_{s[i]}\)</span> の誤差と相関構造もモデルに取り入れたランダム効果モデルを用いたいということになる．</p>
 </section>
-<section id="ランダム効果モデルにおける相関のモデリング" class="level3" data-number="3.4">
-<h3 data-number="3.4" class="anchored" data-anchor-id="ランダム効果モデルにおける相関のモデリング"><span class="header-section-number">3.4</span> ランダム効果モデルにおける相関のモデリング</h3>
-<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> が相関を持つ場合に一致推定が保証されないことがランダム効果モデルの欠陥だと述べたが，実はこれは簡単な方法で解決できる．</p>
-<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> との相関は，欠落変数が存在するため，と考えることができる．</p>
-<p>そしてこの相関は，説明変数の平均 <span class="math inline">\(\overline{x}_s\)</span> を変動する切片項 <span class="math inline">\(\alpha_s\)</span> の説明変数として追加することで除去できる：<a href="#fn10" class="footnote-ref" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+</section>
+<section id="sec-synthesis" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-synthesis"><span class="header-section-number">2.3</span> 階層モデルによる総合</h3>
+<p>ランダム効果モデルは， <span class="math display">\[
+\alpha_s=\alpha_0+\eta_s,\qquad \eta_s\overset{\text{i.i.d.}}{\sim}\mathrm{N}(0,\sigma^2),
+\]</span> というグループレベルの回帰モデルの想定された階層モデルと見れるのであった（第 <a href="#sec-RF" class="quarto-xref">2.1</a> 節）．</p>
+<p>すると完全プーリングモデル（第 <a href="#sec-complete-pooling-model" class="quarto-xref">2.2.2</a> 節）は <span class="math inline">\(\sigma^2\to0\)</span> の場合，固定効果モデル（第 <a href="#sec-fixed-effects-model" class="quarto-xref">2.2.3</a> 節）は <span class="math inline">\(\sigma^2\to\infty\)</span> の場合の，特定の点推定法と見れる．</p>
+<p>換言すれば，improper な一様事前分布 <span class="math display">\[
+\alpha_s^{\text{unmodeled}}\overset{\text{i.i.d.}}{\sim}\mathrm{N}(\alpha_0,\infty)
+\]</span> を仮定した場合が固定効果モデルであると理解される <span class="citation" data-cites="BDA">(<a href="#ref-BDA" role="doc-biblioref">Gelman et al., 2014, p. 383</a>)</span>．</p>
+<p>この点については次稿も参照：</p>
+<div id="listing-lst-embed" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733842800000" data-listing-file-modified-sort="1734066634280" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Lifestyle/Files/Hierarchical.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+変量効果と固定効果
+</h5>
+<div class="card-subtitle listing-subtitle">
+統一的見解を目指して
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-11
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="ランダム効果モデルにおける相関のモデリング" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="ランダム効果モデルにおける相関のモデリング"><span class="header-section-number">2.4</span> ランダム効果モデルにおける相関のモデリング</h3>
+<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> が相関を持つ場合に，効果 <span class="math inline">\(\beta\)</span> の OLS 推定量の一致性が保証されないことがランダム効果モデルの欠陥だと述べたが，実はこれは簡単な方法で解決できる．</p>
+<p><span class="math inline">\(x_i\)</span> と <span class="math inline">\(\alpha_{s[i]}\)</span> との相関は，欠落変数（未観測の交絡因子）が存在するため，と考えることができる．</p>
+<p>ランダム効果モデリングではこの欠落変数に対する操作変数を人工的に作り出すことができる．</p>
+<p>というのも，説明変数の平均 <span class="math inline">\(\overline{x}_s\)</span> を変動する切片項 <span class="math inline">\(\alpha_s\)</span> の説明変数として追加することで除去できる：<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
 <p><span class="math display">\[
 y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i
-\]</span> <span class="math display">\[
+\]</span> <span id="eq-RF-exogenous"><span class="math display">\[
 \alpha_s=\alpha_0+\alpha_1\overline{x}_s+\eta_s
-\]</span></p>
+\tag{4}\]</span></span></p>
 <p>これにより，Gauss-Markov の仮定（外生性）が回復される．</p>
-<p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, pp. 7–9</a>)</span> にシミュレーションによる検証が掲載されている．</p>
+<p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, pp. 7–9</a>)</span> ではこの効果をシミュレーションによって検証している．</p>
 <blockquote class="blockquote">
 <p>Practitioners can get around this problem by taking advantage of the <strong>multilevel structure</strong> of their regression equation. <span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 12</a>)</span></p>
 </blockquote>
 </section>
-<section id="第三の名前混合効果モデル" class="level3" data-number="3.5">
-<h3 data-number="3.5" class="anchored" data-anchor-id="第三の名前混合効果モデル"><span class="header-section-number">3.5</span> 第三の名前：混合効果モデル</h3>
-<p>以上，解説してきたランダム効果モデル／変量効果モデルであるが，<strong>混合効果モデル</strong> とも呼ばれる．<a href="#fn11" class="footnote-ref" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+<section id="第三の名前混合効果モデル" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="第三の名前混合効果モデル"><span class="header-section-number">2.5</span> 第三の名前：混合効果モデル</h3>
+<p>以上，解説してきたランダム効果モデル／変量効果モデルであるが，<strong>混合効果モデル</strong> とも呼ばれる．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a></p>
 <p>何を言っているのかわからないかもしれないが，式 (<a href="#eq-stage-1" class="quarto-xref">1</a>) <span class="math display">\[
 y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 \]</span> において，<span class="math inline">\(\alpha_{s[i]}\)</span> がランダム効果であるが，回帰係数 <span class="math inline">\(\beta\)</span> を <strong>固定効果</strong> とも呼ぶことがあるのである．</p>
 <p>そしてこう見ると全体として固定効果と変量効果が同居した <strong>混合（効果）モデル</strong> とも呼べそうである．</p>
-<p>現代的には，必要ならば <span class="math inline">\(\beta\)</span> を確率変数とみなしても良いだろうが，慣習的にそう呼ぶため，これに従わざるを得ない，というのが <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 625</a>)</span> などを見る限り共通了解であるようである．</p>
-<p>これが計量経済学における固定効果モデル（第 <a href="#sec-fixed-effects-model" class="quarto-xref">3.2.3</a> 節）の名前の由来である．<a href="#fn12" class="footnote-ref" id="fnref12" role="doc-noteref"><sup>12</sup></a> 実際，固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）．</p>
+<p>これは変動切片項だけを変量効果と呼ぶのではなく，一般の回帰係数 <span class="math inline">\(\beta x\)</span> もグループ <span class="math inline">\(s\in[S]\)</span> ごとに異なるものを許す場合は広義の変量効果と呼べることから生じる．</p>
+<!-- 現代的には，必要ならば $\beta$ を確率変数とみなしても良いだろうが，慣習的にそう呼ぶため，これに従わざるを得ない，というのが [@Hansen2022 p.625] などを見る限り共通了解であるようである． -->
+<!-- これが計量経済学における固定効果モデル（第 [-@sec-fixed-effects-model] 節）の名前の由来である．^[[@Hansen2022 p.625] 17.25節．疫学・生物統計学では，実験計画法でしか「固定効果」「変量効果モデル」とは言わない，という認識であることも筆者は聞いたことがある．] 実際，固定効果モデルは，たしかに（ユニットレベルでの回帰係数という意味での）「固定効果」を表す変数しか含んでいない（少なくとも見た目上は）． -->
 <div class="callout callout-style-simple callout-caution no-icon callout-titled" title="線型混合モデルの別名">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1566,9 +1274,10 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 </div>
 <p>詳しくは <span class="citation" data-cites="Gelman2005">(第6章 <a href="#ref-Gelman2005" role="doc-biblioref">Gelman, 2005, pp. 20–</a>)</span> も参照．</p>
 </section>
-<section id="sec-GEE" class="level3" data-number="3.6">
-<h3 data-number="3.6" class="anchored" data-anchor-id="sec-GEE"><span class="header-section-number">3.6</span> GEE との違い</h3>
+<section id="sec-GEE" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="sec-GEE"><span class="header-section-number">2.6</span> GEE との違い</h3>
 <p><strong>一般化推定方程式</strong> (GEE: Generalized Estimating Equation) では，ランダム効果モデルにおける階層的な議論を全て「局外母数」として捨象し，母数 <span class="math inline">\(\beta\)</span> の推定に集中する見方をする．</p>
+<p>なお，GEE そのものはあらゆる一般化されたスコア方程式を指し得る．そのため分散成分の推定にも応用可能であろう．例えば <span class="citation" data-cites="菅澤-久保川2023">(<a href="#ref-菅澤-久保川2023" role="doc-biblioref">Sugasawa and Kubokawa, 2023, p. 13</a>)</span> など．</p>
 <div class="callout callout-style-default callout-caution no-icon callout-titled" title="GEE との違い">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1581,36 +1290,38 @@ GEE との違い
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li><p><u>回帰式が違う</u></p>
-<p>線型の場合の GEE は <span class="math display">\[
+<p>GEE の文脈ではよくモデル式 <span class="math display">\[
    Y_{it}=\alpha+\beta_1x_{1,i,t}+\cdots+\beta_px_{p,i,t}
-   \]</span> とも表され，ランダムな切片項というものは見当たらない．その代わり，グループ間の影響は相関係数行列としてモデル化を行う．ランダム効果モデルでは，この相関構造をランダムな切片項を追加することで表現し，回帰式を複数立てることでモデルを表現する．</p></li>
+   \]</span> にはランダムな切片項というものは見当たらない．その代わり，グループ間の依存関係は相関係数行列としてモデル化を行う．ランダム効果モデルでは，この相関構造をランダムな切片項を追加することで表現し，回帰式を複数立てることでモデルを表現するのと対照的である．</p></li>
 <li><p><u>推定目標が違う</u></p>
-<p>GEE は population average model でよく用いられる <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> ように，あくまで応答 <span class="math inline">\(Y_{it}\)</span> の平均の不偏推定が目標であり，共分散構造はいわば局外母数である．一方，混合効果モデルは，その階層モデルとしての性質の通り，平均構造と分散構造のいずれも推定対象として扱う志向性がある．</p></li>
+<p>GEE は population average model でよく用いられる <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> ように，あくまで応答 <span class="math inline">\(Y_{it}\)</span> の平均 <span class="math inline">\(\beta\)</span> の不偏推定が目標であり，共分散構造はいわば局外母数である．一方混合効果モデルは，その階層モデルとしての性質の通り，平均構造と分散構造のいずれも推定するという志向性がある．</p></li>
 <li><p><u>推定方法が違う</u></p>
-<p>混合効果モデルは主に最尤法により推定される <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span>．GEE はモーメント法により推定され，最尤法ベースではないため，完全にランダムとは言えない欠測がある場合は弱く，欠測データに対しては IPW などの方法が用いられる．</p></li>
+<p>頻度論的には，混合効果モデルは主に最尤法により推定される <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span>．一方で GEE はモーメント法により推定され，最尤法ベースではない． <!-- 完全にランダムとは言えない欠測がある場合は弱く，欠測データに対しては IPW などの方法が用いられる． --></p></li>
 </ol>
 </div>
 </div>
 <p>GEE にとって相関構造は局外母数であり，正確な特定は目的に含まれない．この意味で GEE の相関係数⾏列におく仮定は「間違えていてもよい便宜的な仮定」であるため，<strong>作業相関係数行列</strong> (working correlation coefficient matrix) とも呼ばれる．相関構造を誤特定していても，平均構造は一致推定が可能であり，ロバストである．両方の特定に成功した場合はセミパラメトリック有効性が達成される．</p>
 <p>一方で混合効果モデルは，階層モデルとして平均構造と分散構造のいずれにも明示的な仮定をおくため，片方（例えば共分散構造）の特定を間違えていた場合，もう片方の解釈性が失われる，というリスクがあると論じることができる．特に <span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> に見られる論調である．</p>
-<p>しかし小地域推定や，「子供の身長の成長曲線の描画」が主な研究目的である場合など，ユニットの平均効果ではなく個別効果に注目したい場合には混合効果モデルの方が適していることになる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009</a>)</span>．実際，モデルの特定に成功していれば，いずれのパラメータも最尤推定されるため，一致性を持つ．</p>
-<p>従って，モデル選択において用いられる基準も違う．GEE における作業相関係数行列と説明変数の選択には QIC (Quasi-likelihood Information Criterion) が，混合効果モデルには AIC や BIC （または cAIC や mAIC <span class="citation" data-cites="Vaida-Blanchard2005">(<a href="#ref-Vaida-Blanchard2005" role="doc-biblioref">Vaida and Blanchard, 2005</a>)</span>）が用いられる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．</p>
+<p>しかし小地域推定や地域ごとのばらつきに注目した研究など，ユニットの平均効果ではなく個別効果に注目したい場合には混合効果モデルの方が適していることになる <span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009</a>)</span>．実際，モデルの特定に成功していれば，いずれのパラメータも最尤推定されるため一致性を持つ．</p>
+<!-- 従ってモデル選択において用いられる基準も違い得る．GEE における作業相関係数行列と説明変数の選択には QIC (Quasi-likelihood Information Criterion) が，混合効果モデルには AIC や BIC （または cAIC や mAIC [@Vaida-Blanchard2005]）が用いられる [@Gardiner+2009 p.228]． -->
 <!--
 
 本データを扱った論文 [@Thall-Vail1990] では，[@Liang-Zeger1986] の一般化推定方程式の枠組みに則り，共分散の構造にどのようなパラメトリック分布を仮定するのが良いかが，漸近論の観点から議論されている．
 
 -->
 </section>
-<section id="ベイズ混合効果モデルという光" class="level3" data-number="3.7">
-<h3 data-number="3.7" class="anchored" data-anchor-id="ベイズ混合効果モデルという光"><span class="header-section-number">3.7</span> ベイズ混合効果モデルという光……？</h3>
-<p>しかし，結局ベイズ統計学の立場からは，２つの違いはほとんど重要ではなく，混合効果モデルを推定した後に，周辺化をして平均構造に関する marginal estimator を構成すれば，GEE の代用になっているのではないか？</p>
+<section id="ベイズ混合効果モデルという光" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="ベイズ混合効果モデルという光"><span class="header-section-number">2.7</span> ベイズ混合効果モデルという光</h3>
+<p>第 <a href="#sec-synthesis" class="quarto-xref">2.3</a> 節で見た通り，ベイズ統計学の立場からは，変量効果モデル・固定効果モデル・完全プーリングモデルはいずれもモデルの違いとして理解できる．</p>
+<p>それぞれに自然な点推定法は違うかもしれないが，それだって特定の事前分布に関するベイズ推論の特殊な場合に過ぎない．</p>
+<p>それぞれのモデルに関してベイズ推論をし，周辺化をして平均構造に関する marginal estimator を構成すれば GEE や固定効果推定量の代用になる上に，どのような構造的な仮定を置いてしまっているか反省する契機にもなる．</p>
 <p>計算機の性能と，計算統計手法の発展が目まぐるしい現代にて，過去の議論を踏襲しすぎることは，問題の本質を誤るということもあるのだろう．</p>
-<p>ということで，以上議論したグループレベル構造を持ったデータに対する２階の階層モデルを，本稿では「混合効果モデル」と呼ぶことにする．</p>
+<!-- ということで，以上議論したグループレベル構造を持ったデータに対する２階の階層モデルを，本稿では「混合効果モデル」と呼ぶことにする． -->
 <p>この節はこれで終わり．</p>
 </section>
 </section>
-<section id="混合効果モデリングのテクニック集" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="混合効果モデリングのテクニック集"><span class="header-section-number">4</span> 混合効果モデリングのテクニック集</h2>
+<section id="混合効果モデリングのテクニック集" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="混合効果モデリングのテクニック集"><span class="header-section-number">3</span> 混合効果モデリングのテクニック集</h2>
 <div class="callout callout-style-simple callout-important no-icon callout-titled" title="概要">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -1622,16 +1333,17 @@ GEE との違い
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li>混合効果モデルの推定において，グループレベル変動 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になり得る．特に，グループ数 <span class="math inline">\(S\)</span> が小さい場合に顕著である．</li>
+<li>混合効果モデルの最尤推定・ベイズ推定において，グループレベル変動 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になり得る．特に，グループ数 <span class="math inline">\(S\)</span> が小さい場合に顕著である．</li>
+<li>分散成分を推定したあと，これを係数 <span class="math inline">\(\beta\)</span> の推定量に代入することで，縮小効果を持った効率的な推定量を得ることができる．</li>
 <li>カウントデータの Poisson モデルでは，「観測レベルのランダム効果」を追加することで，実質的に Poisson-対数正規混合モデリングを実行できる．</li>
 </ul>
 </div>
 </div>
-<section id="sec-group-level-variance-estimation" class="level3" data-number="4.1">
-<h3 data-number="4.1" class="anchored" data-anchor-id="sec-group-level-variance-estimation"><span class="header-section-number">4.1</span> グループレベル分散の推定</h3>
-<section id="問題" class="level4" data-number="4.1.1">
-<h4 data-number="4.1.1" class="anchored" data-anchor-id="問題"><span class="header-section-number">4.1.1</span> 問題</h4>
-<p>混合効果モデル（階層モデル） <span class="math display">\[
+<section id="sec-group-level-variance-estimation" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="sec-group-level-variance-estimation"><span class="header-section-number">3.1</span> グループレベル分散の推定</h3>
+<section id="問題" class="level4" data-number="3.1.1">
+<h4 data-number="3.1.1" class="anchored" data-anchor-id="問題"><span class="header-section-number">3.1.1</span> 問題</h4>
+<p>変量効果モデル <span class="math display">\[
 y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 \]</span> の推定において，特にグループ数 <span class="math inline">\(S\)</span> が小さい場合，グループレベルの変動切片項 <span class="math inline">\(\alpha_{s[i]}\)</span> の共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> の推定が不安定になったり，分散が負の値をとったりするという問題点が古くからある <span class="citation" data-cites="Harville1977">(<a href="#ref-Harville1977" role="doc-biblioref">Harville, 1977</a>)</span>．<a href="#fn14" class="footnote-ref" id="fnref14" role="doc-noteref"><sup>14</sup></a></p>
 <p>変量効果 <span class="math inline">\(\eta_s\)</span> を <span class="math inline">\(\eta_s\overset{\text{i.i.d.}}{\sim}(0,\sigma^2_s)\)</span>，誤差を <span class="math inline">\(\epsilon_i\overset{\text{i.i.d.}}{\sim}(0,\sigma^2_e)\)</span> とすると，この <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> は次の形をもち，グループ間の相関構造のモデリングを一手に引き受けている： <span class="math display">\[
@@ -1639,15 +1351,17 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 \]</span></p>
 <p>EM アルゴリズムが提案されたばかりの頃 <span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird and Ware, 1982</a>)</span> では，共分散構造にパラメトリックな仮定をおいていたが，現代ではこれを取り去った最尤推定法・ベイズ推定法が主流である．</p>
 </section>
-<section id="退化しない共分散行列推定" class="level4" data-number="4.1.2">
-<h4 data-number="4.1.2" class="anchored" data-anchor-id="退化しない共分散行列推定"><span class="header-section-number">4.1.2</span> 退化しない共分散行列推定</h4>
+<section id="退化しない共分散行列推定" class="level4" data-number="3.1.2">
+<h4 data-number="3.1.2" class="anchored" data-anchor-id="退化しない共分散行列推定"><span class="header-section-number">3.1.2</span> 退化しない共分散行列推定</h4>
 <p>しかし，最尤推定法と，一定の事前分布を仮定したベイズ MAP 推定法では，推定された共分散行列が退化してしまったり，分散が負の値を取ってしまうことがある．</p>
-<p>打ち切り推定量 <span class="citation" data-cites="Kubokawa-Srivastava1999">(<a href="#ref-Kubokawa-Srivastava1999" role="doc-biblioref">T. Kubokawa and Srivastava, 1999</a>)</span>, <span class="citation" data-cites="Kubokawa2000">(<a href="#ref-Kubokawa2000" role="doc-biblioref">Tatsuya Kubokawa, 2000</a>)</span> なども提案されているが，ベイズでは Wishart 事前分布を仮定することでこれが回避される <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a> これは最尤法の文脈では，penalized likelihood と等価になる <span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>．</p>
+<p>打ち切り推定量 <span class="citation" data-cites="Kubokawa-Srivastava1999">(<a href="#ref-Kubokawa-Srivastava1999" role="doc-biblioref">Kubokawa and Srivastava, 1999</a>)</span>, <span class="citation" data-cites="Kubokawa2000">(<a href="#ref-Kubokawa2000" role="doc-biblioref">Kubokawa, 2000</a>)</span> なども提案されているが，ベイズでは Wishart 事前分布を仮定することでこれが回避される <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fn15" class="footnote-ref" id="fnref15" role="doc-noteref"><sup>15</sup></a> これは最尤法の文脈では，penalized likelihood と等価になる <span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>．</p>
 <p>モデルのサイズによっては，完全なベイズ推定を実行することが難しく，一部は等価な頻度論的な方法や近似を用いることもある．その際，最適化ソルバーの収束を速めるために，共分散構造に（データや計画とは無関係に）パラメトリックモデルを仮定してしまうこともある <span class="citation" data-cites="Kincaid2005">(<a href="#ref-Kincaid2005" role="doc-biblioref">Kincaid, 2005</a>)</span>．</p>
 </section>
 </section>
-<section id="sec-shrinkage-estimation" class="level3" data-number="4.2">
-<h3 data-number="4.2" class="anchored" data-anchor-id="sec-shrinkage-estimation"><span class="header-section-number">4.2</span> 係数の縮小推定</h3>
+<section id="sec-shrinkage-estimation" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-shrinkage-estimation"><span class="header-section-number">3.2</span> 係数の縮小推定</h3>
+<section id="係数の２段階推定" class="level4" data-number="3.2.1">
+<h4 data-number="3.2.1" class="anchored" data-anchor-id="係数の２段階推定"><span class="header-section-number">3.2.1</span> 係数の２段階推定</h4>
 <p>分散 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を推定して分散比 <span class="math inline">\(\rho:=\sigma_v^2/\sigma_e^2\)</span> の推定量 <span class="math inline">\(\widehat{\rho}\)</span> を得て，これを最良線型不偏推定量 (BLUE) <span class="math inline">\(\widehat{\beta}\)</span> に代入して得られる，グループごとの <span class="math inline">\(y_s\)</span> の推定量に <span class="math display">\[
 \widehat{y}_s:=\frac{\widehat{\rho}n_s}{1+\widehat{\rho}n_s}\overline{y}_s+\frac{1}{1+\widehat{\rho}n_s}\overline{x}_s^\top\widetilde{\beta}(\widehat{\rho})
 \]</span> というものがあり，これを <strong>経験 BLUE</strong> という <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 143</a>)</span>．</p>
@@ -1655,8 +1369,9 @@ y_i=\alpha_{s[i]}+\beta x_i+\epsilon_i,\qquad i\in[n],\tag{1}
 <p>このことにより，各グループ <span class="math inline">\(s\in[S]\)</span> のデータ数が少なく，経験平均 <span class="math inline">\(\overline{y}_s\)</span> では分散が大きくなってしまう場合でも，安定した推定量を得ることができる．</p>
 <p>縮小推定は小地域推定 <span class="citation" data-cites="Battese+1988">(<a href="#ref-Battese+1988" role="doc-biblioref">Battese et al., 1988</a>)</span> に応用を持つ．例えば <span class="math inline">\(s\in[S]\)</span> をアメリカ合衆国の各州とし，投票行動のデータに応用した例が <span class="citation" data-cites="Gelman2014">(<a href="#ref-Gelman2014" role="doc-biblioref">Gelman, 2014</a>)</span> にある．</p>
 <p>このように，変量効果 <span class="math inline">\(\alpha_{s[i]}\)</span> を追加したモデリングを実行することにより，グループごとの被説明変数を縮小推定することができる．</p>
-<section id="sec-empirical-bayes" class="level4" data-number="4.2.1">
-<h4 data-number="4.2.1" class="anchored" data-anchor-id="sec-empirical-bayes"><span class="header-section-number">4.2.1</span> 経験ベイズ</h4>
+</section>
+<section id="sec-empirical-bayes" class="level4" data-number="3.2.2">
+<h4 data-number="3.2.2" class="anchored" data-anchor-id="sec-empirical-bayes"><span class="header-section-number">3.2.2</span> 経験ベイズ</h4>
 <p>縮小推定の効用は初め，経験ベイズの枠組みで説明された．</p>
 <blockquote class="blockquote">
 <p>以上の考え方は，経験ベイズの枠組みで <span class="citation" data-cites="Efron-Morris1975">(<a href="#ref-Efron-Morris1975" role="doc-biblioref">Efron and Morris, 1975</a>)</span> の一連の論文の中で示されてきたものであり，ベイズ的アプローチの現実的な有用性は基本的には上述の考え方に基づいている．</p>
@@ -1669,12 +1384,12 @@ y_{ij}\sim\mathrm{N}(\theta_{ij},\sigma^2_e),\qquad\theta_{ij}\sim\mathrm{N}(x_{
 <p><span class="math inline">\(\beta,\sigma^2_v,\sigma^2_e\)</span> を未知母数として扱った場合を <strong>経験ベイズモデル</strong>，変量として扱って更なる分布を仮定した場合を（狭義の） <strong>階層ベイズ</strong> ともいう <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 155</a>)</span>．</p>
 </section>
 </section>
-<section id="sec-subsec-count-data" class="level3" data-number="4.3">
-<h3 data-number="4.3" class="anchored" data-anchor-id="sec-subsec-count-data"><span class="header-section-number">4.3</span> カウントデータ過分散へのお手軽対処法</h3>
+<section id="sec-subsec-count-data" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-subsec-count-data"><span class="header-section-number">3.3</span> カウントデータ過分散へのお手軽対処法</h3>
 <p>これはカウントデータのモデリング限定のテクニックである．</p>
 <p>カウントデータも，一般化線型（混合）モデルの範疇で扱うことができるため，リンク関数 <span class="math inline">\(g\)</span> を通じてほとんど同等の扱いが可能である．</p>
-<section id="負の二項分布によるモデリング" class="level4" data-number="4.3.1">
-<h4 data-number="4.3.1" class="anchored"><span class="header-section-number">4.3.1</span> 負の二項分布によるモデリング</h4>
+<section id="負の二項分布によるモデリング" class="level4" data-number="3.3.1">
+<h4 data-number="3.3.1" class="anchored"><span class="header-section-number">3.3.1</span> 負の二項分布によるモデリング</h4>
 <p>カウントデータの基本は Poisson 分布であろうが，過分散を考慮するために負の二項分布でモデリングすることもできる．<span class="citation" data-cites="BDA">(17.2節 <a href="#ref-BDA" role="doc-biblioref">Gelman et al., 2014</a>)</span> なども参照．</p>
 <p>負の二項分布は例えばマーケティングにおいて，顧客の購買回数をモデル化する際に用いられる <span class="citation" data-cites="森岡-今西16-確率思考の戦略論">(<a href="#ref-森岡-今西16-確率思考の戦略論" role="doc-biblioref">森岡毅，今西聖貴, 2016</a>)</span>．</p>
 <p>この行為は，Poisson 分布の Gamma 分布による混合分布族を用いた，混合モデリングを行っているとみなせる：</p>
@@ -1695,7 +1410,7 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 </div>
 </div>
 <div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-21-contents" aria-controls="callout-21" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-17-contents" aria-controls="callout-17" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
@@ -1704,7 +1419,7 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-21" class="callout-21-contents callout-collapse collapse">
+<div id="callout-17" class="callout-17-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>確率分布の変換則より，次のように計算できる：</p>
 <p><span class="math display">\[\begin{align*}
@@ -1733,36 +1448,34 @@ p(x;\nu,p)=\begin{pmatrix}x+\nu-1\\x\end{pmatrix}p^\nu(1-p)^x.
 y_{it}\sim\mathrm{Pois}(\theta)
 \]</span> <span class="math display">\[
 \theta\sim\mathrm{Gamma}(\alpha,\nu)
-\]</span> という Gamma 分布を仮定した経験ベイズモデル（第 <a href="#sec-empirical-bayes" class="quarto-xref">4.2.1</a> 節）に当たる．</p>
+\]</span> という Gamma 分布を仮定した経験ベイズモデル（第 <a href="#sec-empirical-bayes" class="quarto-xref">3.2.2</a> 節）に当たる．</p>
 <p>Gamma 分布は Poisson 分布の共役事前分布であるため計算が容易であり，早くから質病地図の作成などにも用いられていた <span class="citation" data-cites="Clayton-Kaldor1987">(<a href="#ref-Clayton-Kaldor1987" role="doc-biblioref">Clayton and Kaldor, 1987</a>)</span>, <span class="citation" data-cites="丹後俊郎1988">(<a href="#ref-丹後俊郎1988" role="doc-biblioref">丹後俊郎, 1988</a>)</span>．</p>
 </section>
-<section id="poisson-対数正規混合によるモデリング" class="level4" data-number="4.3.2">
-<h4 data-number="4.3.2" class="anchored" data-anchor-id="poisson-対数正規混合によるモデリング"><span class="header-section-number">4.3.2</span> Poisson-対数正規混合によるモデリング</h4>
+<section id="poisson-対数正規混合によるモデリング" class="level4" data-number="3.3.2">
+<h4 data-number="3.3.2" class="anchored" data-anchor-id="poisson-対数正規混合によるモデリング"><span class="header-section-number">3.3.2</span> Poisson-対数正規混合によるモデリング</h4>
 <p>Poisson 回帰</p>
 <p><span class="math display">\[
 \begin{align*} y_{it} &amp; \sim \operatorname{Pois}(\lambda_{s[i]}) \\ \log(\lambda_{s[i]}) &amp; = \alpha_i + \eta_{it} \\ \eta_{it} &amp; \sim \operatorname{N}(0, \sigma). \end{align*}
 \]</span></p>
 <p>を考えると，各 <span class="math inline">\(y_{it}\)</span> を，（グループ毎に条件付ければ）Poisson 分布の対数正規分布による混合分布を用いてモデル化していることにあたる．</p>
 <p>この，Poisson-対数正規分布族は，<span class="citation" data-cites="Bulmer1974">(<a href="#ref-Bulmer1974" role="doc-biblioref">Bulmer, 1974</a>)</span> により生物種の個体数分布のモデリングで，過分散を説明するために用いられている．</p>
-<p>すなわち，第 <a href="#sec-example" class="quarto-xref">2.1</a> 節のモデルの比較 <a href="#sec-model-comparison" class="quarto-xref">2.6</a> で扱った，<strong>観測レベルランダム効果</strong> (OLRE: Observation-level Random Effects) の方法は，<u>観測毎に <span class="math inline">\(\eta_{it}\)</span> というランダム切片項を追加するだけで，本質的には Poisson-対数正規混合モデリングを実施する</u> という，いわばハックのような使い方である．<a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a></p>
+<p>すなわち，第 <a href="#sec-example" class="quarto-xref">1.1</a> 節のモデルの比較 <a href="#sec-model-comparison" class="quarto-xref">1.5</a> で扱った，<strong>観測レベルランダム効果</strong> (OLRE: Observation-level Random Effects) の方法は，<u>観測毎に <span class="math inline">\(\eta_{it}\)</span> というランダム切片項を追加するだけで，本質的には Poisson-対数正規混合モデリングを実施する</u> という，いわばハックのような使い方である．<a href="#fn16" class="footnote-ref" id="fnref16" role="doc-noteref"><sup>16</sup></a></p>
 <p>今回はモデル比較の結果が良かったため，本格的に対数正規混合を実施してみるのも良いかもしれない．</p>
 </section>
 </section>
-<section id="変量係数モデルによる非線型モデリング" class="level3" data-number="4.4">
-<h3 data-number="4.4" class="anchored" data-anchor-id="変量係数モデルによる非線型モデリング"><span class="header-section-number">4.4</span> 変量係数モデルによる非線型モデリング</h3>
+<section id="変量係数モデルによる非線型モデリング" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="変量係数モデルによる非線型モデリング"><span class="header-section-number">3.4</span> 変量係数モデルによる非線型モデリング</h3>
 <div class="callout callout-style-simple callout-caution no-icon callout-titled" title="混合モデルの種々の拡張">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-22-contents" aria-controls="callout-22" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
 混合モデルの種々の拡張
 </div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-22" class="callout-22-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>前節 <a href="#sec-subsec-count-data" class="quarto-xref">4.3</a> では，カウントデータに適用するための一般化線型混合モデルをみた．</p>
+<p>前節 <a href="#sec-subsec-count-data" class="quarto-xref">3.3</a> では，カウントデータに適用するための一般化線型混合モデルをみた．</p>
 <p><span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span> では，ここまで考慮した１元配置混合線型モデルの拡張をいくつか紹介している：</p>
 <ul>
 <li>各グループ <span class="math inline">\(s\in[S]\)</span> の中でもいくつかのクラスターに分けられる場合，<strong>２元配置混合モデル</strong> が考えられる： <span class="math display">\[
@@ -1775,16 +1488,15 @@ y_{ijk}=x_{ijk}^\top\beta+v_i+u_{ij}+e_{ijk}.
 </ul>
 </div>
 </div>
-</div>
-<section id="例投票行動の州ごとの違い" class="level4" data-number="4.4.1">
-<h4 data-number="4.4.1" class="anchored" data-anchor-id="例投票行動の州ごとの違い"><span class="header-section-number">4.4.1</span> 例：投票行動の州ごとの違い</h4>
+<section id="例投票行動の州ごとの違い" class="level4" data-number="3.4.1">
+<h4 data-number="3.4.1" class="anchored" data-anchor-id="例投票行動の州ごとの違い"><span class="header-section-number">3.4.1</span> 例：投票行動の州ごとの違い</h4>
 <p><span class="citation" data-cites="Gelman2014">(<a href="#ref-Gelman2014" role="doc-biblioref">Gelman, 2014</a>)</span> では州ごとの投票行動の違いを説明するために，まずは次のロジスティック混合モデルを考えている： <span class="math display">\[
 \operatorname{Pr}(y_i=1)=\operatorname{logit}^{-1}(\alpha_{s[i]}+x_i\beta)
 \]</span> <span class="math display">\[
 \alpha_s=W_s^\top\gamma+\epsilon_s,\qquad\epsilon_s\overset{\text{i.i.d.}}{\sim}\mathrm{N}(0,\sigma^2_\alpha).
 \]</span></p>
 <div class="callout callout-style-simple callout-tip no-icon callout-titled" title="各変数の説明">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-23-contents" aria-controls="callout-23" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-19-contents" aria-controls="callout-19" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
@@ -1793,7 +1505,7 @@ y_{ijk}=x_{ijk}^\top\beta+v_i+u_{ij}+e_{ijk}.
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-23" class="callout-23-contents callout-collapse collapse">
+<div id="callout-19" class="callout-19-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ul>
 <li><span class="math inline">\(y_i\in\{0,1\}\)</span> は共和党に投票したか，民主党に投票したかを表す２値変数．</li>
@@ -1805,27 +1517,27 @@ y_{ijk}=x_{ijk}^\top\beta+v_i+u_{ij}+e_{ijk}.
 </div>
 <p>しかしこのままではモデルの当てはまりが良くなかった．これは州ごとに収入が投票に与える影響が異なるためであった．これを考慮するために，<span class="citation" data-cites="Gelman2014">(<a href="#ref-Gelman2014" role="doc-biblioref">Gelman, 2014</a>)</span> は変量係数モデルを用いた．</p>
 </section>
-<section id="混合モデルの変量係数モデル化" class="level4" data-number="4.4.2">
-<h4 data-number="4.4.2" class="anchored" data-anchor-id="混合モデルの変量係数モデル化"><span class="header-section-number">4.4.2</span> 混合モデルの変量係数モデル化</h4>
+<section id="混合モデルの変量係数モデル化" class="level4" data-number="3.4.2">
+<h4 data-number="3.4.2" class="anchored" data-anchor-id="混合モデルの変量係数モデル化"><span class="header-section-number">3.4.2</span> 混合モデルの変量係数モデル化</h4>
 <p><span class="math inline">\(\beta\)</span> を州ごとに変化させ，これに <span class="math display">\[
 \beta_s=W_s^\top\gamma'+\epsilon'_s,\qquad \epsilon'_s\overset{\text{i.i.d.}}{\sim}\mathrm{N}(0,\sigma^2_\beta),
 \]</span> というモデルをおく．</p>
 <p>これにより，州ごとに変化する収入-投票関係をモデリングできる．</p>
 </section>
-<section id="非線型モデル化" class="level4" data-number="4.4.3">
-<h4 data-number="4.4.3" class="anchored" data-anchor-id="非線型モデル化"><span class="header-section-number">4.4.3</span> 非線型モデル化</h4>
+<section id="非線型モデル化" class="level4" data-number="3.4.3">
+<h4 data-number="3.4.3" class="anchored" data-anchor-id="非線型モデル化"><span class="header-section-number">3.4.3</span> 非線型モデル化</h4>
 <p>これに加えて，<span class="math inline">\(\beta_s\)</span> を収入カテゴリのアイテム <span class="math inline">\(x_i\in\{\pm2,\pm1,0\}\)</span> ごとに変化させることも考えられる．</p>
 <p>これは値も持つダミー変数 <span class="math display">\[
 \boldsymbol{x}_i^j=(j-3)1_{\left\{x_i=j\right\}},\qquad j\in\{1,2,3,4,5\},
 \]</span> を成分にもつ <span class="math inline">\(\boldsymbol{x}_i\in\mathbb{Z}^5\)</span> を用いて， <span id="eq-nonlinear-logistic-model"><span class="math display">\[
 \operatorname{Pr}(y_i=1)=\operatorname{logit}^{-1}(\alpha_{s[i]}+\boldsymbol{x}_i^\top\boldsymbol{\beta}_{s[i]})
-\tag{4}\]</span></span> というモデルを考えることにあたる．</p>
+\tag{5}\]</span></span> というモデルを考えることにあたる．</p>
 <p>この小さな変更により，非線型な関係もモデリングできるようになる．</p>
 </section>
-<section id="多重共線型性の霧消" class="level4" data-number="4.4.4">
-<h4 data-number="4.4.4" class="anchored" data-anchor-id="多重共線型性の霧消"><span class="header-section-number">4.4.4</span> 多重共線型性の霧消</h4>
+<section id="多重共線型性の霧消" class="level4" data-number="3.4.4">
+<h4 data-number="3.4.4" class="anchored" data-anchor-id="多重共線型性の霧消"><span class="header-section-number">3.4.4</span> 多重共線型性の霧消</h4>
 <p>このようなトリックが可能な理由は，ベイズ回帰においては多重線型性が問題にならないためである．</p>
-<p>モデル (<a href="#eq-nonlinear-logistic-model" class="quarto-xref">4</a>) では，３通りで収入が説明変数に入っている：</p>
+<p>モデル (<a href="#eq-nonlinear-logistic-model" class="quarto-xref">5</a>) では，３通りで収入が説明変数に入っている：</p>
 <ol type="1">
 <li>各収入カテゴリのダミー変数 <span class="math inline">\(1_{\left\{x_i=j\right\}}\)</span> として</li>
 <li>収入カテゴリの値 <span class="math inline">\(\boldsymbol{x}_i^j\)</span> として．</li>
@@ -1836,8 +1548,8 @@ y_{ijk}=x_{ijk}^\top\beta+v_i+u_{ij}+e_{ijk}.
 </section>
 </section>
 </section>
-<section id="brmsの実装" class="level2" data-number="5">
-<h2 data-number="5" class="anchored" data-anchor-id="brmsの実装"><span class="header-section-number">5</span> <code>brms</code>の実装</h2>
+<section id="brmsの実装" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="brmsの実装"><span class="header-section-number">4</span> <code>brms</code>の実装</h2>
 <p><a href="https://paul-buerkner.github.io/brms/reference/brm.html"><code>brm</code> 関数</a>（コードは <a href="https://github.com/paul-buerkner/brms/blob/master/R/brm.R">こちら</a>）の実装を調べる．</p>
 <div class="callout callout-style-simple callout-important no-icon">
 <div class="callout-body d-flex">
@@ -1855,36 +1567,37 @@ y_{ijk}=x_{ijk}^\top\beta+v_i+u_{ij}+e_{ijk}.
 </div>
 </div>
 </div>
-<section id="事前分布" class="level3" data-number="5.1">
-<h3 data-number="5.1" class="anchored" data-anchor-id="事前分布"><span class="header-section-number">5.1</span> 事前分布</h3>
-<p><a href="https://paul-buerkner.github.io/brms/reference/brm.html"><code>brm</code>関数</a> では，デフォルトでは無情報事前分布が用いられる．</p>
+<section id="事前分布" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="事前分布"><span class="header-section-number">4.1</span> 事前分布</h3>
+<p><a href="https://paul-buerkner.github.io/brms/reference/brm.html"><code>brm</code> 関数</a> では，デフォルトでは無情報事前分布が用いられる．</p>
 <blockquote class="blockquote">
 <p>Default priors are chosen to be non or very weakly informative so that their influence on the results will be negligible and you usually don’t have to worry about them. However, after getting more familiar with Bayesian statistics, I recommend you to start thinking about reasonable informative priors for your model parameters: Nearly always, there is at least some prior information available that can be used to improve your inference.<br><a href="https://paul-buerkner.github.io/brms/reference/brm.html">brm(): Fit Bayesian Generalized (Non-)Linear Multivariate Multilevel Models</a></p>
 </blockquote>
+<p>具体的には，ユニットレベルの回帰係数（クラス <code>b</code>）には一様分布が置かれる．</p>
 </section>
-<section id="回帰式" class="level3" data-number="5.2">
-<h3 data-number="5.2" class="anchored" data-anchor-id="回帰式"><span class="header-section-number">5.2</span> 回帰式</h3>
-<p><code>brm()</code>関数の第一引数は，<code>validate_formula</code>関数に渡される．</p>
-<p>この関数は S3 のメソッドのディスパッチを用いて実装されており，<code>brmsformula</code>オブジェクトに対しては，<code>validate_formula.brmsformula</code>関数が呼び出される．</p>
-<p>ここでは<code>autocor</code>引数が引かれている場合，出力の<code>formula</code>属性に追加される：<a href="#fn17" class="footnote-ref" id="fnref17" role="doc-noteref"><sup>17</sup></a></p>
+<section id="回帰式" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="回帰式"><span class="header-section-number">4.2</span> 回帰式</h3>
+<p><code>brm()</code> 関数の第一引数 <code>formula</code> は，<code>validate_formula</code> 関数に渡される．</p>
+<p>この関数は S3 のメソッドのディスパッチを用いて実装されており，<code>brmsformula</code> オブジェクトに対しては，<code>validate_formula.brmsformula</code> 関数が呼び出される．</p>
+<p>ここでは <code>autocor</code> 引数が引かれている場合，出力の <code>formula</code> 属性に追加される：<a href="#fn17" class="footnote-ref" id="fnref17" role="doc-noteref"><sup>17</sup></a></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>fit3<span class="sc">$</span>formula</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>fit3<span class="sc">$</span>formula</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>count ~ zAge + zBase * Trt + (1 | patient) 
 autocor ~ unstr(time = visit, gr = patient)</code></pre>
 </div>
 </div>
-<p>なお，<code>brmsformula</code>オブジェクトのコンストラクタは <a href="http://paul-buerkner.github.io/brms/reference/brmsformula.html"><code>brmsformula()</code>関数</a> である．これは，R の<code>formula</code>オブジェクトを通じて，階層モデルを定義できるようになっている（実装は<a href="../../../posts/2024/R/R3.html">リスト</a>）．</p>
+<p>なお，<code>brmsformula</code> オブジェクトのコンストラクタは <a href="http://paul-buerkner.github.io/brms/reference/brmsformula.html"><code>brmsformula()</code> 関数</a> である．これは，R の <code>formula</code> オブジェクトを通じて，階層モデルを定義できるようになっている（実装は<a href="../../../posts/2024/R/R3.html">リスト</a>）．</p>
 </section>
-<section id="sec-ubsubsec-covariance-structure" class="level3" data-number="5.3">
-<h3 data-number="5.3" class="anchored" data-anchor-id="sec-ubsubsec-covariance-structure"><span class="header-section-number">5.3</span> 共分散構造</h3>
-<p>共分散構造は２つの観点から，<code>brmsformula</code>オブジェクトから自動的に指定される．</p>
+<section id="sec-ubsubsec-covariance-structure" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="sec-ubsubsec-covariance-structure"><span class="header-section-number">4.3</span> 共分散構造</h3>
+<p>共分散構造は２つの観点から，<code>brmsformula</code> オブジェクトから自動的に指定される．</p>
 <p>１つ目がグルーピング構造（共分散行列のブロック構造）であり，これは<a href="https://paul-buerkner.github.io/brms/reference/gr.html"><code>gr</code>関数</a> が使用される．</p>
-<p>２つ目がグループ内の相関構造であり，これは<code>brm()</code>関数の<code>autocor</code>引数を用いる．</p>
-<section id="gr関数" class="level4" data-number="5.3.1">
-<h4 data-number="5.3.1" class="anchored" data-anchor-id="gr関数"><span class="header-section-number">5.3.1</span> <code>gr</code>関数</h4>
-<p>この関数は<code>brm</code>関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．</p>
-<p>例えば，回帰式に<code>(1|patient)</code>が含まれていた場合，<code>gr(patient)</code>が呼び出される．</p>
+<p>２つ目がグループ内の相関構造であり，これは <code>brm()</code> 関数の <code>autocor</code> 引数を用いる．</p>
+<section id="gr-関数" class="level4" data-number="4.3.1">
+<h4 data-number="4.3.1" class="anchored" data-anchor-id="gr-関数"><span class="header-section-number">4.3.1</span> <code>gr</code> 関数</h4>
+<p>この関数は <code>brm</code> 関数の第一引数として与えられたモデル定義式から，暗黙のうちに内部で呼び出される．</p>
+<p>例えば，回帰式に <code>(1|patient)</code> が含まれていた場合， <code>gr(patient)</code> が呼び出される．</p>
 <p>共分散構造におく仮定について，重要なデフォルト設定が２つある：</p>
 <div class="callout callout-style-simple callout-tip no-icon">
 <div class="callout-body d-flex">
@@ -1902,17 +1615,17 @@ autocor ~ unstr(time = visit, gr = patient)</code></pre>
 <p>By default, levels of the same grouping factor are modeled as independent of each other.<br><a href="https://paul-buerkner.github.io/brms/reference/gr.html">gr(): Set up basic grouping terms in brms</a></p>
 </blockquote></li>
 </ul>
-<p>すなわち，<span class="math inline">\(\mathrm{V}[\eta_s]\)</span> には一切仮定が置かれておらず（第 <a href="#sec-group-level-variance-estimation" class="quarto-xref">4.1</a> 節），一方で <span class="math inline">\(\{\epsilon_{it}\}_{t=1}^T\)</span> は互いに独立とされている．</p>
+<p>すなわち，<span class="math inline">\(\mathrm{V}[\eta_s]\)</span> には一切仮定が置かれておらず（第 <a href="#sec-group-level-variance-estimation" class="quarto-xref">3.1</a> 節），一方で <span class="math inline">\(\{\epsilon_{it}\}_{t=1}^T\)</span> は互いに独立とされている．</p>
 </div>
 </div>
 </div>
-<p>また，この二階層目の分布族（第 <a href="#sec-RF" class="quarto-xref">3.1</a> 節での <span class="math inline">\(\alpha_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，分散共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
+<p>また，この二階層目の分布族（第 <a href="#sec-RF" class="quarto-xref">2.1</a> 節での <span class="math inline">\(\alpha_i\)</span> と <span class="math inline">\(\eta_{it}\)</span>）は，分散共分散行列 <span class="math inline">\(\mathrm{V}[\eta_s]\)</span> を持った正規分布がデフォルトで，現状他の分布族は指定できないでいる．</p>
 <blockquote class="blockquote">
 <p>dist: Name of the distribution of the group-level effects. Currently “gaussian” is the only option.<br><a href="https://paul-buerkner.github.io/brms/reference/gr.html">gr(): Set up basic grouping terms in brms</a></p>
 </blockquote>
 </section>
-<section id="sec-autocor-argument" class="level4" data-number="5.3.2">
-<h4 data-number="5.3.2" class="anchored" data-anchor-id="sec-autocor-argument"><span class="header-section-number">5.3.2</span> <code>autocor</code>引数</h4>
+<section id="sec-autocor-argument" class="level4" data-number="4.3.2">
+<h4 data-number="4.3.2" class="anchored" data-anchor-id="sec-autocor-argument"><span class="header-section-number">4.3.2</span> <code>autocor</code>引数</h4>
 <p><code>brm()</code>関数には，<a href="http://paul-buerkner.github.io/brms/reference/autocor-terms.html"><code>autocor</code>引数</a> が用意されている．</p>
 <p><code>gr()</code>のデフォルト値では独立とされていたグループ内の相関構造を，具体的に指定するのに用いられる．</p>
 <div class="callout callout-style-simple callout-tip no-icon">
@@ -1930,8 +1643,8 @@ autocor ~ unstr(time = visit, gr = patient)</code></pre>
 </div>
 </section>
 </section>
-<section id="推論エンジン" class="level3" data-number="5.4">
-<h3 data-number="5.4" class="anchored" data-anchor-id="推論エンジン"><span class="header-section-number">5.4</span> 推論エンジン</h3>
+<section id="推論エンジン" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="推論エンジン"><span class="header-section-number">4.4</span> 推論エンジン</h3>
 <p><a href="https://paul-buerkner.github.io/brms/reference/brm.html"><code>brm</code>関数</a> は，Stan による MCMC サンプリングを通じて，事後分布を計算する．</p>
 </section>
 </section>
@@ -1939,38 +1652,10 @@ autocor ~ unstr(time = visit, gr = patient)</code></pre>
 
 
 
-<div class="quarto-listing quarto-listing-container-grid" id="listing-lst-embed">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733842800000" data-listing-file-modified-sort="1734066634280" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
-<a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/Lifestyle/Files/Hierarchical.svg" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-変量効果と固定効果
-</h5>
-<div class="card-subtitle listing-subtitle">
-統一的見解を目指して
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-12-11
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div><div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6</span> 文献紹介</h2><div class="quarto-appendix-contents">
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 文献紹介</h2><div class="quarto-appendix-contents">
 
 <p>ここでは計量経済学の呼称に従い，固定効果モデルと変量効果モデルと呼んだが，同じモデルを母数モデル (fixed effect model) と変量モデル (random effect model) と呼んだりもする <span class="citation" data-cites="足立浩平2000">(<a href="#ref-足立浩平2000" role="doc-biblioref">足立浩平, 2000</a>)</span>．</p>
-</div></section><section id="acknowledgements" class="level2 appendix" data-number="7"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">7</span> Acknowledgements</h2><div class="quarto-appendix-contents">
+</div></section><section id="acknowledgements" class="level2 appendix" data-number="6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6</span> Acknowledgements</h2><div class="quarto-appendix-contents">
 
 <p>I would like to extend my gratitude to Robert Long, who kindly shared me the knowledge about the covariance structure implicitly defined via <code>brms</code> formula on <a href="https://stats.stackexchange.com/questions/649358/the-default-covariance-structure-implicitly-assumed-in-the-brms-formula/650015#650015">this Cross Validated post</a>. His insights were instrumental in enhancing this work.</p>
 
@@ -1995,6 +1680,9 @@ Bürkner, P.-C. (2018). <a href="https://doi.org/10.32614/RJ-2018-017"><span cla
 </div>
 <div id="ref-Burkner2021" class="csl-entry" role="listitem">
 Bürkner, P.-C. (2021). <a href="https://doi.org/10.18637/jss.v100.i05">Bayesian item response modeling in r with brms and stan</a>. <em>Journal of Statistical Software</em>, <em>100</em>(5), 1–54.
+</div>
+<div id="ref-Chan-Tobias2020" class="csl-entry" role="listitem">
+Chan, J., and Tobias, J. L. (2020). <em><a href="https://joshuachan.org/papers/BayesMicroeconometrics.pdf">Bayesian econometric methods</a></em>.
 </div>
 <div id="ref-Chung+2015" class="csl-entry" role="listitem">
 Chung, Y., Gelman, A., Rabe-Hesketh, S., Liu, J., and Dorie, V. (2015). <a href="https://doi.org/10.3102/1076998615570945">Weakly informative prior for point estimation of covariance matrices in hierarchical models</a>. <em>Journal of Educational and Behavioral Statistics</em>, <em>40</em>(2), 136–157.
@@ -2023,6 +1711,9 @@ Gelman, A. (2014). <a href="https://doi.org/10.1214/13-STS458"><span class="noca
 <div id="ref-BDA" class="csl-entry" role="listitem">
 Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., and Rubin, D. B. (2014). <em><a href="http://www.stat.columbia.edu/~gelman/book/">Bayesian data analysis</a></em>. Boca Raton : CRC Press.
 </div>
+<div id="ref-Gelman-Hill-Vehtari2020" class="csl-entry" role="listitem">
+Gelman, A., Hill, J., and Vehtari, A. (2020). <em><a href="https://avehtari.github.io/ROS-Examples/">Regression and other stories</a></em>. Cambridge University Press.
+</div>
 <div id="ref-Gelman-Rubin1992" class="csl-entry" role="listitem">
 Gelman, A., and Rubin, D. B. (1992). <a href="https://doi.org/10.1214/ss/1177011136"><span class="nocase">Inference from Iterative Simulation Using Multiple Sequences</span></a>. <em>Statistical Science</em>, <em>7</em>(4), 457–472.
 </div>
@@ -2032,6 +1723,9 @@ Hansen, B. E. (2022). <em>Econometrics</em>. Princeton University Press.
 <div id="ref-Harville1977" class="csl-entry" role="listitem">
 Harville, D. A. (1977). <a href="https://doi.org/10.1080/01621459.1977.10480998">Maximum likelihood approaches to variance component estimation and to related problems</a>. <em>Journal of the American Statistical Association</em>, <em>72</em>(358), 320–338.
 </div>
+<div id="ref-Hoff2009" class="csl-entry" role="listitem">
+Hoff, P. D. (2009). <em><a href="https://doi.org/10.1007/978-0-387-92407-6">A first course in bayesian statistical methods</a></em>. Springer New York.
+</div>
 <div id="ref-Hubbard+2010" class="csl-entry" role="listitem">
 Hubbard, A. E., Ahern, J., Fleischer, N. L., Laan, M. V. der, Lippman, S. A., Jewell, N., … Satariano, W. A. (2010). <a href="https://journals.lww.com/epidem/fulltext/2010/07000/to_gee_or_not_to_gee__comparing_population_average.7.aspx">To GEE or not to GEE: Comparing population average and mixed models for estimating the associations between neighborhood risk factors and health</a>. <em>Epidemiology</em>, <em>21</em>(4).
 </div>
@@ -2039,7 +1733,7 @@ Hubbard, A. E., Ahern, J., Fleischer, N. L., Laan, M. V. der, Lippman, S. A., Je
 Kincaid, C. D. (2005). <a href="https://support.sas.com/resources/papers/proceedings/proceedings/sugi30/198-30.pdf"><span class="nocase">Guidelines for Selecting the Covariance Structure in Mixed Model Analysis</span></a>. In <em>SAS user group international</em>,Vol. 30, pages 198–30.
 </div>
 <div id="ref-Kubokawa2000" class="csl-entry" role="listitem">
-Kubokawa, Tatsuya. (2000). <a href="https://doi.org/10.14490/jjss1995.30.143">ESTIMATION OF VARIANCE AND COVARIANCE COMPONENTS IN ELLIPTICALLY CONTOURED DISTRIBUTIONS</a>. <em>JOURNAL OF THE JAPAN STATISTICAL SOCIETY</em>, <em>30</em>(2), 143–176.
+Kubokawa, T. (2000). <a href="https://doi.org/10.14490/jjss1995.30.143">ESTIMATION OF VARIANCE AND COVARIANCE COMPONENTS IN ELLIPTICALLY CONTOURED DISTRIBUTIONS</a>. <em>JOURNAL OF THE JAPAN STATISTICAL SOCIETY</em>, <em>30</em>(2), 143–176.
 </div>
 <div id="ref-Kubokawa-Srivastava1999" class="csl-entry" role="listitem">
 Kubokawa, T., and Srivastava, M. S. (1999). <a href="https://doi.org/10.1214/aos/1017939248"><span class="nocase">Improved nonnegative estimation of multivariate components of variance</span></a>. <em>The Annals of Statistics</em>, <em>27</em>(6), 2008–2032.
@@ -2050,11 +1744,11 @@ Laird, N. M., and Ware, J. H. (1982). <a href="http://www.jstor.org/stable/25298
 <div id="ref-Leppik+1987" class="csl-entry" role="listitem">
 Leppik, I. E., Dreifuss, F. E., Porter, R., Bowman, T., Santilli, N., Jacobs, M., … Gutierrez, A. (1987). <a href="https://doi.org/10.1212/WNL.37.6.963">A controlled study of progabide in partial seizures</a>. <em>Neurology</em>, <em>37</em>(6), 963–963.
 </div>
+<div id="ref-菅澤-久保川2023" class="csl-entry" role="listitem">
+Sugasawa, S., and Kubokawa, T. (2023). <em><a href="https://doi.org/10.1007/978-981-19-9486-9">Mixed-effects models and small area estimation</a></em>. Springer Singapore.
+</div>
 <div id="ref-Thall-Vail1990" class="csl-entry" role="listitem">
 Thall, P. F., and Vail, S. C. (1990). <a href="http://www.jstor.org/stable/2532086">Some covariance models for longitudinal count data with overdispersion</a>. <em>Biometrics</em>, <em>46</em>(3), 657–671.
-</div>
-<div id="ref-Vaida-Blanchard2005" class="csl-entry" role="listitem">
-Vaida, F., and Blanchard, S. (2005). <a href="http://www.jstor.org/stable/20441193">Conditional akaike information for mixed-effects models</a>. <em>Biometrika</em>, <em>92</em>(2), 351–370.
 </div>
 <div id="ref-Vehtari+2021" class="csl-entry" role="listitem">
 Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., and Bürkner, P.-C. (2021). <a href="https://doi.org/10.1214/20-BA1221"><span class="nocase">Rank-Normalization, Folding, and Localization: An Improved <span class="math inline">\(\widehat{R}\)</span> for Assessing Convergence of MCMC (with Discussion)</span></a>. <em>Bayesian Analysis</em>, <em>16</em>(2), 667–718.
@@ -2074,18 +1768,18 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., and Bürkner, P.-C. (2021).
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>通常は時間的に離れている観測は相関が薄いとしても，直近の観測と関連性が高いだろう．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>Statistical Modeling, Causal Inference, and Social Science における <a href="https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/">こちらのエントリ</a> も参照．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>すなわち，ある確率変数の従う項と考えており，<strong>変量効果</strong> とも呼ばれる．一方で未知母数とみなす場合は <strong>母数効果</strong> ともいう <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span>．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn4"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 333</a>)</span> 第12.3節，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 3</a>)</span>, <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 604</a>)</span>，<span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn5"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 5</a>)</span> や <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 141</a>)</span> も参照．<span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span> は pooled OLS と呼んでいる．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn6"><p>特にパネルデータの文脈では within estimator ともいう <span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span>．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn7"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 5</a>)</span>，<span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 609</a>)</span> 17.11節 など．狭義では，fixed effects model は within transformation を行い，グループ間の影響を引いたあとに回帰を実行する……という手続きを指すこともあるが，２つは等価な結果を生む．詳しくは <span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span> なども参照．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn8"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span> 17.25節．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn9"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span>，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 6</a>)</span>．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn10"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 6</a>)</span>．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn11"><p><span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> では両方の名前で呼んでいる．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn12"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 625</a>)</span> 17.25節．疫学・生物統計学では，実験計画法でしか「固定効果」「変量効果モデル」とは言わない，という認識であることも筆者は聞いたことがある．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>この区別については <a href="https://discourse.mc-stan.org/t/expected-value-of-posterior-vs-posterior-of-expected-value-with-epred/28502/6">こちら</a> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>通常は時間的に離れている観測は相関が薄いとしても，直近の観測と関連性が高いだろう．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>Statistical Modeling, Causal Inference, and Social Science における <a href="https://statmodeling.stat.columbia.edu/2024/05/08/bamdd/">こちらのエントリ</a> も参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>すなわち，ある super population を想定して，その確率分布の従う項と考えており，<strong>変量効果</strong> とも呼ばれる．一方で未知母数とみなす場合は <strong>母数効果</strong> ともいう <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006</a>)</span>．<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 333</a>)</span> 第12.3節，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 3</a>)</span>, <span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 604</a>)</span>，<span class="citation" data-cites="Gardiner+2009">(<a href="#ref-Gardiner+2009" role="doc-biblioref">Gardiner et al., 2009, p. 228</a>)</span>．<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 5</a>)</span> や <span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 141</a>)</span>, <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(<a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020</a>)</span> も参照．<span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span> は pooled OLS と呼んでいる．<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>特にパネルデータの文脈では within estimator ともいう <span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span>．<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 5</a>)</span>，<span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 609</a>)</span> 17.11節 など．狭義では，fixed effects model は within transformation を行い，グループ間の影響を引いたあとに回帰を実行する……という手続きを指すこともあるが，２つは等価な結果を生む．詳しくは <span class="citation" data-cites="Cunningham21-Mixtape">(<a href="#ref-Cunningham21-Mixtape" role="doc-biblioref">Cunningham, 2021</a>)</span> なども参照．<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span> 17.25節．<a href="#fnref9" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p><span class="citation" data-cites="Hansen2022">(<a href="#ref-Hansen2022" role="doc-biblioref">Hansen, 2022, p. 624</a>)</span>，<span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 6</a>)</span>．<a href="#fnref10" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p><span class="citation" data-cites="Bafumi-Gelman2007">(<a href="#ref-Bafumi-Gelman2007" role="doc-biblioref">Bafumi and Gelman, 2007, p. 6</a>)</span>．<a href="#fnref11" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn12"><p><span class="citation" data-cites="Hubbard+2010">(<a href="#ref-Hubbard+2010" role="doc-biblioref">Hubbard et al., 2010</a>)</span> では両方の名前で呼んでいる．<a href="#fnref12" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn13"><p><span class="math inline">\(\mathrm{V}[\eta_s]\)</span> はブロック行列の構造を持つためこう呼ばれる．<span class="citation" data-cites="久保川達也2006">(<a href="#ref-久保川達也2006" role="doc-biblioref">久保川達也, 2006, p. 141</a>)</span> でも LMM と併記されている．<a href="#fnref13" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn14"><p><span class="citation" data-cites="Laird-Ware1982">(<a href="#ref-Laird-Ware1982" role="doc-biblioref">Laird and Ware, 1982</a>)</span>，<span class="citation" data-cites="Chung+2013">(<a href="#ref-Chung+2013" role="doc-biblioref">Chung et al., 2013</a>)</span>，<span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>，<a href="https://statmodeling.stat.columbia.edu/2023/06/02/blme-bayesian-linear-mixed-effects-models/">Statistical Modeling, Causal Inference, and Social Science ブログ 6/2/2023</a>．<a href="#fnref14" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn15"><p>逆 Wishart ではないらしい <span class="citation" data-cites="Chung+2015">(<a href="#ref-Chung+2015" role="doc-biblioref">Chung et al., 2015</a>)</span>．<a href="#fnref15" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
