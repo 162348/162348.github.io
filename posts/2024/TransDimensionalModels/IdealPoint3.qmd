@@ -36,3 +36,55 @@ listing:
 
 ## モデル
 
+### 構造
+
+議会での点呼投票データ $\{Y_{i,j}\}_{i\in[N],j\in[J]}$ を考える．２母数ロジットモデル
+$$
+\P[Y_{i,j}=1]=\Phi(\al_j+\beta_jX_i)
+$$ {#eq-model1}
+によって各議員 $i\in[N]$ の理想点 $X_i\in\R$ を推定することを考える．さらにここに階層モデル
+$$
+X_i=Z_i^\top\gamma_{g(i)}+\ep_i,\qquad\ep_i\sim\rN(0,\sigma^2),
+$$ {#eq-model2}
+を考える．ただし $Z_i\in\R^p$ は議員ごとの共変量，
+$$
+g:[N]\to[G]
+$$
+は議員の項目応答特性のクラスタリングとする．
+
+### 事前分布
+
+第一階層 ([-@eq-model1]) の２母数ロジットモデルには
+$$
+\al_j\sim\rN(0,\sigma_\al^2),\quad\beta_j\sim\rN(0,\sigma_\beta^2)
+$$
+という正規事前分布を仮定する．
+
+第二階層 ([-@eq-model2]) の共変量にはスパース性を促進する spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] を仮定する：
+$$
+p(d\gamma_{g(i)})=\omega_{g(i)}\delta_0(d\gamma_{g(i)})+(1-\omega_{g(i)})p_0(d\gamma_{g(i)}).
+$$
+$$
+\omega_{g(i)}\sim\Beta(a,b).
+$$
+
+最後にグループ所属 $g$ には，最大クラスタ数 $G_\max=10$ を仮定し，
+$$
+\P[g(i)=g]=\frac{1}{G},\qquad G\sim U([G_\max])
+$$
+とする．
+
+## 計算
+
+基本的には $\gamma\in\R^p$ と $\al_j,\beta_j\in\R$ をサンプリングする Sticky PDMP サンプラー [@Chevallier+2023], [@Bierkens+2023] に，次の２つの時計を追加する：
+$$
+\Lambda^S(t):=\Lambda_0^S\paren{1\land\frac{p(g')}{p(g)}},
+$$
+$$
+\Lambda^K(t)=\Lambda_0^K.
+$$
+
+$\Lambda^S$ により候補 $g'\in [G]^{[N]}$ への遷移を行い，$\Lambda^K$ により候補 $g'\in [G]^{[N]}$ の更新をある確率核 $q_g(g,-)$ に従って行う．
+
+広大な離散空間 $[G]^{[N]}$ 上を Poisson 跳躍により歩き回る．これは Zig-Zag within Gibbs [@Sachs+2023], [@Hardcastle+2024] の考え方である．
+
