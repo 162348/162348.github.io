@@ -1,9 +1,9 @@
 ---
 title: "理想点解析のハンズオン"
-subtitle: "`pscl`, `MCMCpack`, `emIRT` パッケージ"
+subtitle: "`MCMCpack` パッケージとオリジナル `Stan` コードを使って"
 author: "司馬 博文"
 date: 10/2/2024
-date-modified: 12/13/2024
+date-modified: 12/22/2024
 categories: [Bayesian, Statistics, MCMC, R]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -13,27 +13,32 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-    理想点解析とは，政治学において国会議員のイデオロギーを定量化・視覚化する方法論である．この手法は多くの側面を持ち，[多次元展開法](../Kernels/Manifold.qmd#sec-MDU) (MDU: Multidimensional Unfolding) であると同時に項目反応モデルでもある．ここでは既存のパッケージを用いて理想点解析を行う方法を紹介する．
-image: Images/IdealPoint.png
+    政治学における理想点解析とは，項目反応モデルを用いて裁判官や国会議員などの価値判断基準や「イデオロギー」を定量化・視覚化する方法である．
+    ここでは既存のパッケージを用いて簡単に理想点解析を行う方法から始め，
+    自分で Stan コードを書いてモデルを推定する方法を紹介する．
+    その際に最も重要な理想点モデルの性質として，**識別可能性** の議論がある．
+    これが保たれていないと，モデルの事後分布は多峰性を持ってしまい，推定をするたびに結果が異なったり，統計量の長期間平均が $0$ になってしまったりしてしまう．
+image: Images/IPE_experiment.png
 code-fold: false
 execute:
     cache: true
 listing: 
     -   id: lst-embedding
         type: grid
+        sort: false
         contents:
             - "IdealPoint.qmd"
             - "IdealPoint2.qmd"
-            - "../Survey/BDA3.qmd"
+            - "IdealPoint3.qmd"
         date-format: iso
         fields: [title,image,date,subtitle,categories]
-    -   id: lst-embedding
-        type: grid
-        grid-columns: 1
-        contents:
-            - "../Survey/BayesGLMM.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle,categories]
+    # -   id: lst-embedding1
+    #     type: grid
+    #     grid-columns: 1
+    #     contents:
+    #         - "../Survey/BayesGLMM.qmd"
+    #     date-format: iso
+    #     fields: [title,image,date,subtitle,categories]
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -52,6 +57,7 @@ library(brms)
 library(knitr)
 library(gridExtra)
 library(ggplot2)
+library(MCMCpack)
 ```
 
 ```{r}
@@ -378,22 +384,22 @@ data {
 }
 parameters {
   vector[N] X;  // ideal points
-  vector[J] alpha_zero;  // intercepts
+  real alpha_zero;  // intercepts
   vector[J] alpha;  // item effects
 }
 transformed parameters {
   real lprior = 0;
 
   lprior += student_t_lpdf(alpha_zero | 3, 0, 2.5);
-  lprior += std_normal_lpdf(alpha);
-  lprior += std_normal_lpdf(X);
+  lprior += student_t_lpdf(alpha | 3, 0, 2.5);
+  lprior += student_t_lpdf(X | 3, 0, 2.5);
 }
 model {
   vector[n] mu = rep_vector(0, n);
   for (k in 1:n) {
-    mu[k] = alpha_zero[j[k]] + alpha[j[k]] - X[i[k]];
+    mu[k] = alpha[j[k]] - X[i[k]];
   }
-  target += bernoulli_logit_lpmf(Y | mu);
+  target += bernoulli_logit_lpmf(Y | mu + alpha_zero);
   target += lprior;
 }
 "
@@ -410,7 +416,8 @@ fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose 
 ```
 
 ```r
-x_samples <- extract(fit, pars = "X")$X
+all_samples <- extract(fit, pars = "X")$X
+x_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
 
 plot_dataframe <- data.frame(
   legislator = colnames(Rehnquist)[1:9],
@@ -418,26 +425,29 @@ plot_dataframe <- data.frame(
   lower = apply(x_samples, 2, quantile, probs = 0.025),
   upper = apply(x_samples, 2, quantile, probs = 0.975)
 )
-ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+p <- ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(x = "Mean", y = "Legislator", title = "1PL Model (RStan)")
-
 ```
 
-![](Images/stan1.png){width=70% fig-align=center}
+![](Images/1PL.png)
 
-係数 $\al_j,x_i$ の事前分布を正規分布にしているため，事後分散が短くなっている．
+`brms` による推定結果と，左右が逆になっている．これはモデル式を `alpha[j[k]] - X[i[k]]` と Stan コードに記入しており，`brms` の設定と（たまたま）逆になったためである．
 
-#### ２母数モデル
+余談であるが，$\al_0$ を固定された切片項でなくて，変動させる（変量効果にする）ことで，事後分散は大きく縮まる．
+
+係数 $\al_j,x_i$ の事前分布を正規分布に変更したりしても結果はほとんど変わらない．
+
+### ２母数モデル {#sec-2PL}
 
 [@Bafumi+2005] など，多くの理想点モデルでは２母数ロジットモデルが用いられる：
 $$
 g(x):=\operatorname{logit}(x)=\log\frac{x}{1-x},
 $$
 $$
-g(\mu_{i,j})=\al_j+\beta_j x_i=\beta_j\Paren{\wt{\al}_j-x_i}.
+g(\mu_{i,j})=\al_j+\beta_j x_i=\beta_j\Paren{\wt{\al}_j+x_i}.
 $$
 この際 $x_i$ は $i$ 番目の判事の **理想点** といい，$\al_j,\beta_j$ は $j$ 番目の事件の性質を表すパラメータである．
 
@@ -493,7 +503,8 @@ fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose 
 ```
 
 ```r
-x_samples <- extract(fit, pars = "X")$X
+all_samples <- extract(fit, pars = "X")$X
+x_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
 
 plot_dataframe <- data.frame(
   legislator = colnames(Rehnquist)[1:9],
@@ -506,12 +517,27 @@ ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
-
 ```
 
-![](Images/stan2.png){width=70% fig-align=center}
+![](Images/2PL.png)
 
-なぜだか不思議な結果になってしまった．どうしてだろうか？
+２つを並べてみると
+
+::: {layout-ncol=2}
+![1PL Model](Images/1PL.png)
+
+![2PL Model](Images/2PL.png)
+:::
+
+モデルの自由度が上がったことにより，事後分散が大幅に小さくなっていることがわかる．
+
+また，1PL の場合と再び左右が反転し，最後のリベラルな判事の２人 Ginsburg と Breyer が右に来てしまっている．
+
+これはモデル式を `mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];` と足し算に戻したからだろうか？
+
+実はそうではない．実際，何度か MCMC を回し直すと，ちゃんとリベラルな判事が左に来てくれることもある．
+
+即ち，**事後分布が多峰性を持つ** のである！
 
 <!-- 
 
@@ -588,8 +614,25 @@ grid.arrange(p_1PL, p_2PL, nrow = 1)
 
 ### 識別可能性 {#sec-identification}
 
-実は２母数ロジットモデルでは $\wt{\al}_j,x_i$ に同じ数を足した場合と $\beta_j$ と $(\wt{\al}_j,x_i)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
+実は２母数ロジットモデルでは３つ識別不可能性を引き起こす対称性がある：
 
+::: {.callout-tip appearance="simple" icon="false" title="[Section 2 @Bafumi+2005]"}
+
+* 加法的別名 (additive aliasing)
+
+  $\wt{\al}_j,x_i$ に同じ数を足した場合と $\beta_j$ と $(\wt{\al}_j,x_i)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
+
+* 乗法的別名 (additive aliasing)
+
+  $\beta_j$ を $a>0$ 倍し，$\wt{\al}_j,x_i$ を $1/a$ 倍すると等価な尤度を定める．
+
+* 反転対称性 (reflection invariance)
+
+  最後に $\beta_j$ の符号の問題があるためである．$\beta_j$ を $-1$ 倍させることで $\wt{\al}_j,x_i$ の役割を $-1$ 倍させることができる．このまま推定すると事後分布は $0$ に関して対称な形を持つことになる．
+
+:::
+
+<!-- 
 ベイズ推定では，次のような事前分布と階層構造を置くことでこの問題を回避できる：
 $$
 x_i\iidsim\rN(0,1),\qquad \al_j=\mu_\al+\ep_\al,\qquad\ep_\al\iidsim\rN(0,\sigma^2_\al),
@@ -597,7 +640,7 @@ $$
 $$
 \beta_j=\mu_\beta+\ep_\beta,\qquad\ep_\beta\iidsim\rN(0,\sigma^2_\beta).
 $$
-<!-- 
+
 ```r
 library(rstan)
 stan_code <- "
@@ -654,7 +697,8 @@ fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose 
 ```
 
 ```r
-x_samples <- extract(fit, pars = "X")$X
+all_samples <- extract(fit, pars = "X")$X
+x_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
 
 plot_dataframe <- data.frame(
   legislator = colnames(Rehnquist)[1:9],
@@ -668,14 +712,14 @@ ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
 ```
+
+::: {layout-ncol=2}
+![2PL Model](Images/stan2.png)
+
+![Identified 2PL hierarchical model](Images/stan3.png)
+:::
 -->
 
-
-![](Images/stan3.png){width=70% fig-align=center}
-
-これにより少しは傾向が見られるようになったが，それでも事後分散が大きい．なぜだろうか？
-
-最後に $\beta_j$ の符号の問題があるためである．$\beta_j$ を $-1$ 倍させることで $\wt{\al}_j,x_i$ の役割を $-1$ 倍させることができる．このまま推定すると事後分布は $0$ に関して対称な形を持つことになる．
 
 $\beta_j$ の符号を制約したり，特定の判事の $x_i$ を固定して参照点とするなどの方法があるかもしれないが，ここでは [2.2.3 節 @Bafumi+2005 p.178] に倣って，階層モデルの方法により，構造的なやり方でモデルに情報を伝える．
 
@@ -691,7 +735,6 @@ $z_i$ は当該判事を示した大統領の所属政党を表す２値変数�
 このように共変量を適切な階層に追加することは，モデルに自然な形で正則化情報を伝えることに繋がり，モデルの識別やより現実的な推定値の獲得に繋がる．
 
 :::
-
 
 ### 階層ベイズ推定
 
@@ -718,7 +761,7 @@ df$x <- ifelse(
 
 `x` の情報を階層的に伝えるには，もはや `brms` パッケージでは実行できないようである．
 
-::: {.callout-caution title="Stan コードの出力" collapse="true" icon="false"}
+::: {.callout-caution title="`fit_2PL::brmsfit` で用いた Stan コードの出力" collapse="true" icon="false"}
 
 `brms` パッケージでは [`stancode()`](https://paulbuerkner.com/brms/reference/stancode.html) 関数を用いて Stan コードを出力できる．
 
@@ -837,9 +880,7 @@ mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n] + r_2_2[J_2[n]] * Z
 
 :::
 
-```r
-library(rstan)
-stan_code <- "
+```{.r filename="Files/bafumi.stan"}
 data {
   int<lower=1> n;  // n = N * J - #(NA responses)
   int<lower=1> N;  // number of judges
@@ -856,19 +897,22 @@ parameters {
   vector[J] beta;
 
   real delta;
-  real<lower=0> gamma;
+  real gamma;
+  real<lower=0> sigma;
 }
 transformed parameters {
   real lprior = 0;
 
-  lprior += std_normal_lpdf(delta);
-  lprior += std_normal_lpdf(gamma);
-  lprior += std_normal_lpdf(alpha);
-  lprior += std_normal_lpdf(beta);
+  lprior += student_t_lpdf(delta | 3, 0, 2.5);
+  lprior += student_t_lpdf(gamma | 3, 0, 2.5);
+  lprior += student_t_lpdf(alpha | 3, 0, 2.5);
+  lprior += student_t_lpdf(beta | 3, 0, 2.5);
   lprior += std_normal_lpdf(X);
+  lprior += student_t_lpdf(sigma | 3, 0, 2.5)
+    - 1 * student_t_lccdf(0 | 3, 0, 2.5);
 }
 model {
-  X ~ normal(delta + Z * gamma, 1);
+  X ~ normal(delta + Z * exp(gamma), sigma);
 
   vector[n] mu = rep_vector(0, n);
   for (k in 1:n) {
@@ -877,7 +921,13 @@ model {
   target += bernoulli_logit_lpmf(Y | mu);
   target += lprior;
 }
-"
+```
+
+<!-- 
+```r
+## fit without initial values
+
+library(rstan)
 case_number <- as.integer(nrow(df) / 9)
 indicator_i <- rep(1:9, times = case_number)
 indicator_j <- rep(1:case_number, each = 9)
@@ -887,13 +937,30 @@ df$j <- indicator_j
 df_NA <- df %>% filter(!is.na(y))
 
 data <- list(Y = df_NA$y, n = nrow(df_NA), N = 9, J = case_number, Z = df_NA$x[1:9], i = df_NA$i, j = df_NA$j)
-fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+
+fit <- stan("Files/bafumi_modified.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
 ```
 
-`ESS` が低く，`R-hat` が大きく，さらに `maximum-treedepth` を越して発散したものがあるという．`X[1]` のサンプルを見てみると $10^7$ というオーダーが出現していた．そこから `X` に事前分布を置き忘れていたことに気づいた．
+```r
+## fit with erronous initial values
+
+init_values <- list(X = c(-1.0,1.0,1.0,-1.0,-1.0,0.0,0.0,1.0,1.0), alpha = rep(0.0, case_number), beta = rep(0.0, case_number), delta = 0.0, gamma = 0.0, sigma = 1.0)
+fit <- stan("Files/bafumi.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000, init = rep(list(init_values), 4))
+```
 
 ```r
-x_samples <- extract(fit, pars = "X")$X
+## fit with correct initial values
+
+#| output: false
+init_values <- list(X = -1.0 * c(-1.0,1.0,1.0,-1.0,-1.0,0.0,0.0,1.0,1.0), alpha = rep(0.0, case_number), beta = rep(0.0, case_number), delta = 0.0, gamma = 0.0, sigma = 1.0)
+fit <- stan("Files/bafumi.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000, init = rep(list(init_values), 4))
+```
+
+```r
+## plot X (ideal points)
+
+all_samples <- extract(fit, pars = "X")$X
+x_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
 
 plot_dataframe <- data.frame(
   legislator = colnames(Rehnquist)[1:9],
@@ -901,13 +968,179 @@ plot_dataframe <- data.frame(
   lower = apply(x_samples, 2, quantile, probs = 0.025),
   upper = apply(x_samples, 2, quantile, probs = 0.975)
 )
-ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+p <- ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
-
+p
+# ggsave("Files/Bafumi_Model1.png", p)
 ```
+-->
+
+![階層モデルの推定結果](Images/stan4.png)
+
+::: {layout-ncol=2}
+
+![今回の推定結果](Images/stan4.png)
+
+![２母数モデル [-@sec-2PL] の推定結果](Images/2PL.png)
+
+:::
+
+### 識別性の影響
+
+実は階層的に緩やかにしか情報を伝えていないために，今回の $\gamma$ への事前分布の設定では，まだ $0$ の近くに密集することでもう一つの峰を作り出してしまうようである．
+
+例えば，Stevens, Souter, Ginsburg, Breyer らリベラルな判事の初期位置を右側の $1$ に，Thomas, Scalia ら保守派の判事の初期位置を $-1$ に，そのほか中道的な判事の初期位置を $0$ にしてサンプリングをすると，ほぼ確実に左右が逆になった結果が出てくる．
+
+その際は $\gamma$ の事後分布が大きく違う．
+
+```r
+init_values <- list(X = c(-1.0,1.0,1.0,-1.0,-1.0,0.0,0.0,1.0,1.0), alpha = rep(0.0, case_number), beta = rep(0.0, case_number), delta = 0.0, gamma = 0.0, sigma = 1.0)
+fit <- stan("Files/bafumi.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000, init = rep(list(init_values), 4))
+```
+
+<!-- 
+```r
+gamma_all_samples <- extract(fit, pars = "gamma")$gamma
+gamma_samples <- gamma_all_samples[(nrow(gamma_all_samples) - 999):nrow(gamma_all_samples)]
+p <- ggplot(data.frame(gamma = exp(gamma_samples)), aes(x = gamma)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+  geom_density(color = "red") +
+  # xlim(0, 1) +
+  labs(x = "Gamma", y = "Density", title = "Posterior Distribution of Gamma")
+# ggsave("Files/Bafumi_Model_erronous_Gamma.png", p)
+p
+```
+-->
+
+
+::: {layout-ncol=2}
+
+![理想点の事後平均の位置が正しい場合の回帰係数 $\gamma$ の事後分布](Files/Bafumi_Model1_Gamma.png)
+
+![理想点の事後平均の位置が間違っている場合の回帰係数 $\gamma$ の事後分布](Files/Bafumi_Model_erronous_Gamma.png)
+
+:::
+
+<!--
+```r
+delta_all_samples <- extract(fit, pars = "delta")$delta
+delta_samples <- delta_all_samples[(nrow(delta_all_samples) - 999):nrow(delta_all_samples)]
+p <- ggplot(data.frame(delta = delta_samples), aes(x = delta)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+  geom_density(color = "red") +
+  labs(x = "Delta", y = "Density", title = "Posterior Distribution of Delta")
+# ggsave("Files/Bafumi_Model_erronous_Delta.png", p)
+p
+```
+-->
+
+::: {layout-ncol=2}
+
+![理想点の事後平均の位置が正しい場合の回帰係数 $\delta$ の事後分布](Files/Bafumi_Model1_Delta.png)
+
+![理想点の事後平均の位置が間違っている場合の回帰係数 $\delta$ の事後分布](Files/Bafumi_Model_erronous_Delta.png)
+
+:::
+<!-- 
+```r
+X_calc <- delta_samples + df_NA$x[1:9] * exp(gamma_samples)
+p <- ggplot(data.frame(x = X_calc), aes(x = x)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+  geom_density(color = "red") +
+  labs(x = "X", y = "Density", title = "Posterior Distribution of X")
+# ggsave("Files/Bafumi_Model_erronous_X.png", p)
+p
+```
+-->
+::: {layout-ncol=2}
+
+![理想点の事後平均の位置が正しい場合の理想点の事後分布](Files/Bafumi_Model1_X.png)
+
+![理想点の事後平均の位置が間違っている場合の理想点の事後分布](Files/Bafumi_Model_erronous_X.png)
+
+:::
+
+### 事後分布の２峰性
+
+<!-- この階層モデルは極めて事前分布の影響を受けやすい． -->
+
+しかし $\al_j,\beta_j,\delta,\gamma$ の事前分布はあまり大きな影響はないようである．$\gamma$ の中心も少しズラしたくらいでは関係ない．$\gamma$ を分散 $1$ で平均 $10$ の正規分布などにすると，$\gamma$ の事後分布は右に引っ張れる．
+
+::: {layout-ncol=2}
+
+![元々の事前分布](Files/Bafumi_Model_erronous_Gamma.png)
+
+![$\gamma$ を右に引っ張った場合の事後分布](Files/Bafumi_Model_artificial_Gamma.png)
+
+:::
+
+しかし理想点の結果自体は（左右の別を除いて）ほとんど変わらない：
+
+::: {layout-ncol=2}
+
+![元々のモデルの結果](Files/Bafumi_Model.png)
+
+![$\gamma$ の事後分布を右に引っ張った場合](Files/Bafumi_Model_artificial.png)
+
+:::
+
+次は初期値をランダムとして９回実行して得る結果である：
+
+```{.r filename="experiment.r"}
+for (i in 1:9) {
+  execution_time <- system.time({
+    fit <- stan("Files/bafumi_normal.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+  })['elapsed']
+  all_samples <- extract(fit, pars = "X")$X
+  last_1000_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
+  plot_dataframe <- data.frame(
+      legislator = colnames(Rehnquist)[1:9],
+      mean = apply(last_1000_samples, 2, mean),
+      lower = apply(last_1000_samples, 2, quantile, probs = 0.025),
+      upper = apply(last_1000_samples, 2, quantile, probs = 0.975)
+  )
+  title <- paste0("Elapsed time: ", execution_time, " seconds")
+  p <- ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+      geom_point() +
+      geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+      labs(x = "Mean", y = "Legislator", title = title)
+  ggsave(paste0("Files/experiment_", i, ".png"), p)
+}
+```
+
+::: {layout-ncol=3}
+![Elapsed time: 16.99 seconds](Files/experiment_1.png)
+
+![Elapsed time: 17.01 seconds](Files/experiment_2.png)
+
+![Elapsed time: 16.30 seconds](Files/experiment_3.png)
+:::
+
+::: {layout-ncol=3}
+![Elapsed time: 15.00 seconds](Files/experiment_4.png)
+
+![Elapsed time: 14.98 seconds](Files/experiment_5.png)
+
+![Elapsed time: 15.06 seconds](Files/experiment_6.png)
+:::
+
+::: {layout-ncol=3}
+![Elapsed time: 16.42 seconds](Files/experiment_7.png)
+
+![Elapsed time: 16.57 seconds](Files/experiment_8.png)
+
+![Elapsed time: 17.18 seconds](Files/experiment_9.png)
+:::
+
+なんと，緩やかな情報伝達に拘らず，判事の理想点はほぼ完全に識別されているが，**方向が違う**！
+
+サンプリングを繰り返すことで結果がよく移り変わる．即ち，この事後分布は２峰あるようである．
+
+そして burn-in 後の 1000 回のサンプリング期間では，異なる峰の間を移り変わることはほとんどないようである．
 
 ## 理想点解析パッケージ一覧
 

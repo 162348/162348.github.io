@@ -15,7 +15,416 @@
 <link>https://162348.github.io/blog.html</link>
 </image>
 <generator>quarto-1.6.39</generator>
-<lastBuildDate>Fri, 13 Dec 2024 15:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sat, 21 Dec 2024 15:00:00 GMT</lastBuildDate>
+<item>
+  <title>On the Identifiability of the Bafumi et. al. Ideal Point Model</title>
+  <dc:creator>Hiforumi Shiba</dc:creator>
+  <link>https://162348.github.io/posts/2024/TransDimensionalModels/Bafumi.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="introduction" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="introduction"><span class="header-section-number">1</span> Introduction</h2>
+<section id="the-2pl-model" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="the-2pl-model"><span class="header-section-number">1.1</span> The 2PL Model</h3>
+<p>Suppose we have a binary response variable <img src="https://latex.codecogs.com/png.latex?Y_%7Bi,j%7D"> for the <img src="https://latex.codecogs.com/png.latex?i%5Cin%5BN%5D">-th judge and the <img src="https://latex.codecogs.com/png.latex?j%5Cin%5BJ%5D">-th case.</p>
+<p>2-parameter logistic model (2PL) can be written as follows: <img src="https://latex.codecogs.com/png.latex?%0AY_%7Bi,j%7D%5Csim%5Coperatorname%7BBernoulli%7D(%5Cmu_%7Bi,j%7D),%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7Blogit%7D(%5Cmu_%7Bi,j%7D)=%5Calpha_j+%5Cbeta_j%20x_i=:%5Cbeta_j%5Cbiggr(%5Cwidetilde%7B%5Calpha%7D_j+x_i%5Cbiggl).%0A"></p>
+<p>In IRT (Item Response Theory) vocabulary, we call <img src="https://latex.codecogs.com/png.latex?%5Calpha_j"> the <em>difficulty</em>, and <img src="https://latex.codecogs.com/png.latex?%5Cbeta_j"> the <em>discrimination</em> parameter of the <img src="https://latex.codecogs.com/png.latex?j">-th item. <img src="https://latex.codecogs.com/png.latex?x_i"> may be called the <em>latent trait</em> or <em>ability</em> parameter, but here we call it the <em>ideal point</em> of the <img src="https://latex.codecogs.com/png.latex?i">-th judge.</p>
+<p><span class="citation" data-cites="Bafumi+2005">(Bafumi et al., 2005)</span></p>
+</section>
+</section>
+<section id="estimation-by-stan" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="estimation-by-stan"><span class="header-section-number">2</span> Estimation by Stan</h2>
+<div class="code-with-filename">
+<div class="code-with-filename-file">
+<pre><strong>bafumi_normal.stan</strong></pre>
+</div>
+<div class="sourceCode" id="cb1" data-filename="bafumi_normal.stan" style="background: #f1f3f5;"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb1-1"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">data</span> {</span>
+<span id="cb1-2">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; n;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// n = N * J - #(NA responses)</span></span>
+<span id="cb1-3">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// number of judges</span></span>
+<span id="cb1-4">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; J;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// number of cases</span></span>
+<span id="cb1-5"></span>
+<span id="cb1-6">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">upper</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>&gt; Y;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// response variable</span></span>
+<span id="cb1-7">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[N] Z;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// covariates for judges</span></span>
+<span id="cb1-8">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">upper</span>=N&gt; i;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// indicator for judges i in [N]</span></span>
+<span id="cb1-9">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">upper</span>=J&gt; j;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// indicator for cases j in [J]</span></span>
+<span id="cb1-10">}</span>
+<span id="cb1-11"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">parameters</span> {</span>
+<span id="cb1-12">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[N] X;  <span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// ideal points for judges</span></span>
+<span id="cb1-13">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[J] alpha;</span>
+<span id="cb1-14">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[J] beta;</span>
+<span id="cb1-15"></span>
+<span id="cb1-16">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> delta;</span>
+<span id="cb1-17">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> gamma;</span>
+<span id="cb1-18">}</span>
+<span id="cb1-19"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">transformed parameters</span> {</span>
+<span id="cb1-20">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">real</span> lprior = <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>;</span>
+<span id="cb1-21"></span>
+<span id="cb1-22">  lprior += std_normal_lpdf(delta);</span>
+<span id="cb1-23">  lprior += std_normal_lpdf(gamma);</span>
+<span id="cb1-24">  lprior += std_normal_lpdf(alpha);</span>
+<span id="cb1-25">  lprior += std_normal_lpdf(beta);</span>
+<span id="cb1-26">  lprior += std_normal_lpdf(X);</span>
+<span id="cb1-27">}</span>
+<span id="cb1-28"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">model</span> {</span>
+<span id="cb1-29">  X ~ normal(delta + Z * exp(gamma), <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>);</span>
+<span id="cb1-30"></span>
+<span id="cb1-31">  <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">vector</span>[n] mu = rep_vector(<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span>, n);</span>
+<span id="cb1-32">  <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>:n) {</span>
+<span id="cb1-33">    mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];</span>
+<span id="cb1-34">  }</span>
+<span id="cb1-35">  <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
+<span id="cb1-36">  <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">target +=</span> lprior;</span>
+<span id="cb1-37">}</span></code></pre></div>
+</div>
+<div class="code-with-filename">
+<div class="code-with-filename-file">
+<pre><strong>Files/experiment.r</strong></pre>
+</div>
+<div class="sourceCode" id="cb2" data-filename="Files/experiment.r" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">100</span>) {</span>
+<span id="cb2-2">  fit <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">stan</span>(<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"bafumi_normal.stan"</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">data =</span> data, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">verbose =</span> <span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">TRUE</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">4000</span>, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">warmup =</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3000</span>)</span>
+<span id="cb2-3"></span>
+<span id="cb2-4">  all_samples <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">extract</span>(fit, <span class="at" style="color: #657422;
+background-color: null;
+font-style: inherit;">pars =</span> <span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"X"</span>)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">$</span>X</span>
+<span id="cb2-5">  last_1000_samples <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> all_samples[(<span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">nrow</span>(all_samples) <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">999</span>)<span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">nrow</span>(all_samples), ]</span>
+<span id="cb2-6">  mean <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">apply</span>(last_1000_samples, <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, mean)</span>
+<span id="cb2-7">  <span class="cf" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">if</span> (mean[<span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">9</span>] <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&gt;</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.5</span>) {</span>
+<span id="cb2-8">    count <span class="ot" style="color: #003B4F;
+background-color: null;
+font-style: inherit;">&lt;-</span> count <span class="sc" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span></span>
+<span id="cb2-9">  }</span>
+<span id="cb2-10">}</span>
+<span id="cb2-11"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">print</span>(count)</span></code></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 52</code></pre>
+</div>
+</div>
+<p>The following plots are some (first 9) of the results from the experiment.</p>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_1.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 16.99 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_2.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 17.01 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_3.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 16.30 seconds</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_4.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 15.00 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_5.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 14.98 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_6.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 15.06 seconds</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_7.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 16.42 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_8.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 16.57 seconds</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Files/experiment_9.png" class="img-fluid figure-img"></p>
+<figcaption>Elapsed time: 17.18 seconds</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Bafumi+2005" class="csl-entry">
+Bafumi, J., Gelman, A., Park, D. K., and Kaplan, N. (2005). <a href="https://doi.org/10.1093/pan/mpi010">Practical issues in implementing and understanding bayesian ideal point estimation</a>. <em>Political Analysis</em>, <em>13</em>(2), 171–187.
+</div>
+</div></section></div> ]]></description>
+  <category>Bayesian</category>
+  <category>Statistics</category>
+  <category>MCMC</category>
+  <category>R</category>
+  <guid>https://162348.github.io/posts/2024/TransDimensionalModels/Bafumi.html</guid>
+  <pubDate>Sat, 21 Dec 2024 15:00:00 GMT</pubDate>
+</item>
 <item>
   <title>brms を用いたベイズ混合ロジスティック回帰分析</title>
   <dc:creator>司馬博文 </dc:creator>
@@ -12333,7 +12742,7 @@ YUIMA と Stan を用いた確率過程のベイズ推定入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715871600000" data-listing-file-modified-sort="1734844110637" data-listing-date-modified-sort="1726498800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715871600000" data-listing-file-modified-sort="1734850284998" data-listing-date-modified-sort="1726498800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
 <a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15098,235 +15507,6 @@ Vincent, P. (2011). <a href="https://direct.mit.edu/neco/article/23/7/1661/7677/
   <guid>https://162348.github.io/posts/2024/Samplers/DD1.html</guid>
   <pubDate>Sun, 25 Aug 2024 15:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/Samplers/Files/DSM.svg" medium="image" type="image/svg+xml"/>
-</item>
-<item>
-  <title>Skilling-Hutchinson の跡推定量</title>
-  <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2024/Probability/Trace.html</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-<section id="命題" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="命題"><span class="header-section-number">1</span> 命題</h2>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Skilling1989]-[@Hutchinson1990]">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="citation" data-cites="Skilling1989">(Skilling, 1989)</span>-<span class="citation" data-cites="Hutchinson1990">(Hutchinson, 1990)</span>
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>任意の正方行列 <img src="https://latex.codecogs.com/png.latex?A%5Cin%20M_n(%5Cmathbb%7BR%7D)"> と，<img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BV%7D%5BX%5D=I_n"> を満たす確率ベクトル <img src="https://latex.codecogs.com/png.latex?X%5Cin%5Cmathcal%7BL%7D(%5COmega;%5Cmathbb%7BR%7D%5En)"> について，</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BTr%7D(A)=%5Coperatorname%7BE%7D%5BX%5E%5Ctop%20AX%5D.%0A"></p>
-</div>
-</div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-証明
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?%0AX%5E%5Ctop%20AX=%5Coperatorname%7BTr%7D(AXX%5E%5Ctop)%0A"> に注意する．これは，一般に <img src="https://latex.codecogs.com/png.latex?x,y%5Cin%5Cmathbb%7BR%7D%5En"> に対して <img src="https://latex.codecogs.com/png.latex?%0Ayx%5E%5Ctop=%5Cbegin%7Bpmatrix%7Dy_1%5C%5C%5Cvdots%5C%5Cy_n%5Cend%7Bpmatrix%7D(x_1%5C;%5Ccdots%5C;x_n)=%5Cbegin%7Bpmatrix%7Dy_1x_1&amp;%5Ccdots&amp;y_1x_n%5C%5C%5Cvdots&amp;%5Cddots&amp;%5Cvdots%5C%5Cy_nx_1&amp;%5Ccdots&amp;y_nx_n%5Cend%7Bpmatrix%7D%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Ctherefore%5Cqquad%5Coperatorname%7BTr%7D(yx%5E%5Ctop)=x%5E%5Ctop%20y%0A"> が成り立つためである．</p>
-<p>よって，次のように計算できる：</p>
-<p><img src="https://latex.codecogs.com/png.latex?%5Cbegin%7Balign*%7D%0A%20%20%20%20%5Coperatorname%7BE%7D%5BX%5E%5Ctop%20AX%5D&amp;=%5Coperatorname%7BE%7D%5B%5Coperatorname%7BTr%7D(AXX%5E%5Ctop)%5D%5C%5C%0A%20%20%20%20&amp;=%5Coperatorname%7BTr%7D(%5Coperatorname%7BE%7D%5BAXX%5E%5Ctop%5D)%5C%5C%0A%20%20%20%20&amp;=%5Coperatorname%7BTr%7D(A%5Coperatorname%7BE%7D%5BXX%5E%5Ctop%5D)=%5Coperatorname%7BTr%7D(A).%0A%5Cend%7Balign*%7D"></p>
-</div>
-</div>
-</div>
-<p><span class="citation" data-cites="Hutchinson1990">(Hutchinson, 1990)</span> では <img src="https://latex.codecogs.com/png.latex?A"> を対称行列に，<img src="https://latex.codecogs.com/png.latex?X"> を中心化された確率変数に限って示されている．</p>
-<p><span class="citation" data-cites="Skilling1989">(Skilling, 1989)</span> では <span class="citation" data-cites="Hutchinson1990">(Hutchinson, 1990)</span> のように命題の形では提示していないが，同様の推定量を提案しており，これと一般化跡 (generalized trace) と Chebyshev 多項式の議論を通じて，<img src="https://latex.codecogs.com/png.latex?A"> のスペクトルのベイズ推定を議論している．</p>
-</section>
-<section id="推定量の性質" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="推定量の性質"><span class="header-section-number">2</span> 推定量の性質</h2>
-<p>実用上，<img src="https://latex.codecogs.com/png.latex?X"> の分布は標準 Gauss や Rademacher 分布などが用いられる．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題（推定量の分散）">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-命題（推定量の分散）
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?A%5Cin%20S_n(%5Cmathbb%7BR%7D)"> を対称行列とする．</p>
-<ol type="1">
-<li><p><img src="https://latex.codecogs.com/png.latex?X%5Csim%5Cmathrm%7BN%7D(0,I_n)"> のとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BV%7D%5BX%5E%5Ctop%20AX%5D=2%5Coperatorname%7BTr%7D(A%5E2)=2%5C%7CA%5C%7C%5E2_%5Cmathrm%7BHS%7D.%0A"></p></li>
-<li><p><img src="https://latex.codecogs.com/png.latex?X%5Csim%5Cmathrm%7BRad%7D%5E%7B%5Cotimes%20n%7D"> のとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BV%7D%5BX%5E%5Ctop%20AX%5D=2%5Csum_%7Bi%5Cne%20j%7Da_%7Bij%7D%5E2.%0A"></p></li>
-</ol>
-</div>
-</div>
-<div class="callout callout-style-default callout-note no-icon callout-titled" title="証明^[[@Hutchinson1990 p.437], [@Avron-Toledo2011 補題9], [@Adams+2018 命題4.2] も参照．]">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-証明<sup>1</sup>
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-4" class="callout-4-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li><img src="https://latex.codecogs.com/png.latex?A%5Cin%20S_n(%5Cmathbb%7BR%7D)"> が正定値対称であるとき，ある直交行列 <img src="https://latex.codecogs.com/png.latex?U%5Cin%20O_n(%5Cmathbb%7BR%7D)"> と対角行列 <img src="https://latex.codecogs.com/png.latex?%5CLambda=%5Cmathrm%7Bdiag%7D(%5Clambda_1,%5Cdots,%5Clambda_n)"> が存在して， <img src="https://latex.codecogs.com/png.latex?%0AA=U%5CLambda%20U%5E%5Ctop.%0A"> <img src="https://latex.codecogs.com/png.latex?Y:=U%5E%5Ctop%20X"> と定めるとやはり <img src="https://latex.codecogs.com/png.latex?Y%5Csim%5Cmathrm%7BN%7D(0,I_n)"> であり， <img src="https://latex.codecogs.com/png.latex?%0AX%5E%5Ctop%20AX=X%5E%5Ctop%20U%5CLambda%20U%5E%5Ctop%20X=Y%5E%5Ctop%5CLambda%20Y,%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Ctherefore%5Cqquad%5Cmathrm%7BV%7D%5BX%5E%5Ctop%20AX%5D=2%5Csum_%7Bi=1%7D%5En%5Clambda_i%5E2=2%5Coperatorname%7BTr%7D(%5CLambda%5E2)=2%5Coperatorname%7BTr%7D(A%5E2).%0A"></li>
-<li>一般の <img src="https://latex.codecogs.com/png.latex?X%5Cin%5Cmathcal%7BL%7D(%5COmega;%5Cmathbb%7BR%7D%5En)"> に関して， <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BV%7D%5BX%5E%5Ctop%20AX%5D=%5Csum_%7Bi,j,k,l=1%7D%5Ena_%7Bij%7Da_%7Bkl%7D%5Cbiggr(%5Coperatorname%7BE%7D%5BX_iX_jX_kX_l%5D-%5Coperatorname%7BE%7D%5BX_iX_j%5D%5Coperatorname%7BE%7D%5BX_kX_l%5D%5Cbiggl).%0A"></li>
-</ol>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="系">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-系
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><img src="https://latex.codecogs.com/png.latex?A"> が対称行列で <img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BE%7D%5BX%5D=0"> であるとき，<img src="https://latex.codecogs.com/png.latex?X"> は Rademacher とした場合が最小分散不偏推定量を定める <span class="citation" data-cites="Hutchinson1990">(Hutchinson, 1990, p. 命題1)</span>．</p>
-</div>
-</div>
-</section>
-<section id="応用" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="応用"><span class="header-section-number">3</span> 応用</h2>
-<div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="RGVlcCUyQ1NhbXBsaW5n" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848134" data-listing-date-modified-sort="1723993200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="450">
-<a href="../../../posts/2024/Samplers/NF.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/NF/NSF_result.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-正規化流
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル４
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-02-14
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="RGVlcCUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1707836400000" data-listing-file-modified-sort="1727007848139" data-listing-date-modified-sort="1724770800000" data-listing-reading-time-sort="4" data-listing-word-count-sort="794">
-<a href="../../../posts/2024/Samplers/NF1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/linear/output.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ニューラル常微分方程式
-</h5>
-<div class="card-subtitle listing-subtitle">
-シミュレーションなしの拡散モデルとしての連続正規化流
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-02-14
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="RGVlcCUyQ05hdHVyZSUyQ1NhbXBsaW5n" data-listing-date-sort="1711724400000" data-listing-file-modified-sort="1727007848003" data-listing-date-modified-sort="1722438000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="880">
-<a href="../../../posts/2024/Samplers/EBM.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Samplers/Files/NCL/thumb_checkerboard.gif" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-エネルギーベースモデル
-</h5>
-<div class="card-subtitle listing-subtitle">
-深層生成モデル５
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-03-30
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<ul>
-<li><a href="../../../posts/2024/Samplers/NF.html#sec-Hutchinson">残差フロー (residual flow)</a> では Jacobian の推定が焦点になる．これに Skilling-Hutchinson の跡推定量を用いることができる．</li>
-<li><a href="../../../posts/2024/Samplers/NF1.html">Neural ODE</a> において，Jacobian の跡 <img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BTr%7D(J_%7BF_t%7D(x_t))"> の計算は Skilling-Hutchinson の跡推定量を用いれば <img src="https://latex.codecogs.com/png.latex?O(d)"> で済む <span class="citation" data-cites="Grathwohl+2019">(Grathwohl et al., 2019)</span>．</li>
-<li><a href="../../../posts/2024/Samplers/EBM.html#sec-SSM">Sliced Score Matching</a> の目的関数は，Skilling-Hutchinson の跡推定量により Jacobian <img src="https://latex.codecogs.com/png.latex?Ds_%5Ctheta"> を推定したスコアマッチングと解釈できる．</li>
-</ul>
-</section>
-
-
-
-<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
-
-<!-- [@Grathwohl+2019] も参考にした． -->
-<p><span class="citation" data-cites="Adams+2018">(Adams et al., 2018)</span> では <span class="citation" data-cites="Skilling1989">(Skilling, 1989)</span> の研究を踏襲し，大規模行列のスペクトル（密度）推定に向けて，Skilling-Hutchinson の跡推定量の拡張が議論されている．</p>
-<p><span class="citation" data-cites="Meyer+2021">(Meyer et al., n.d.)</span> では Skilling-Hutchinson の跡推定量を改良したアルゴリズムが提案されている．</p>
-
-
-
-
-</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
-<div id="ref-Adams+2018" class="csl-entry">
-Adams, R. P., Pennington, J., Johnson, M. J., Smith, J., Ovadia, Y., Patton, B., and Saunderson, J. (2018). <a href="https://arxiv.org/abs/1802.03451">Estimating the spectral density of large implicit matrices</a>.
-</div>
-<div id="ref-Avron-Toledo2011" class="csl-entry">
-Avron, H., and Toledo, S. (2011). <a href="https://doi.org/10.1145/1944345.1944349">Randomized algorithms for estimating the trace of an implicit symmetric positive semi-definite matrix</a>. <em>J. ACM</em>, <em>58</em>(2).
-</div>
-<div id="ref-Grathwohl+2019" class="csl-entry">
-Grathwohl, W., Chen, R. T. Q., Bettencourt, J., and Duvenaud, D. (2019). <a href="https://openreview.net/forum?id=rJxgknCcK7"><span class="nocase">Scalable Reversible Generative Models with Free-form Continuous Dynamics</span></a>. In <em>International conference on learning representations</em>.
-</div>
-<div id="ref-Hutchinson1990" class="csl-entry">
-Hutchinson, M. F. (1990). <a href="https://doi.org/10.1080/03610919008812866"><span class="nocase">A Stochastic Estimator of the Trace of the Influence Matrix for Laplacian Smoothing Splines</span></a>. <em>Communications in Statistics - Simulation and Computation</em>, <em>19</em>(2), 433–450. doi: 10.1080/03610919008812866.
-</div>
-<div id="ref-Meyer+2021" class="csl-entry">
-Meyer, R. A., Musco, C., Musco, C., and Woodruff, D. P. (n.d.). <a href="https://doi.org/10.1137/1.9781611976496.16">Hutch++: Optimal stochastic trace estimation</a>. In <em>2021 symposium on simplicity in algorithms (SOSA)</em>, pages 142–155.
-</div>
-<div id="ref-Skilling1989" class="csl-entry">
-Skilling, J. (1989). <a href="https://doi.org/10.1007/978-94-015-7860-8_48">The eigenvalues of mega-dimensional matrices</a>. In J. Skilling, editor, <em>Maximum entropy and bayesian methods: Cambridge, england, 1988</em>, pages 455–466. Dordrecht: Springer Netherlands.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="citation" data-cites="Hutchinson1990">(Hutchinson, 1990, p. 437)</span>, <span class="citation" data-cites="Avron-Toledo2011">(Avron and Toledo, 2011, p. 補題9)</span>, <span class="citation" data-cites="Adams+2018">(Adams et al., 2018, p. 命題4.2)</span> も参照．↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>Probability</category>
-  <category>Functional Analysis</category>
-  <guid>https://162348.github.io/posts/2024/Probability/Trace.html</guid>
-  <pubDate>Mon, 19 Aug 2024 15:00:00 GMT</pubDate>
-  <media:content url="https://162348.github.io/posts/2024/Probability/Images/Skilling-Hutchinson.svg" medium="image" type="image/svg+xml"/>
 </item>
 </channel>
 </rss>

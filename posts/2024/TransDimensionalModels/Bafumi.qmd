@@ -1,0 +1,147 @@
+---
+title: "On the Identifiability of the Bafumi et. al. Ideal Point Model"
+subtitle: "Rethinking of the Hierarchical Model of Bafumi et. al. (2005)"
+author: "Hiforumi Shiba"
+date: 12/22/2024
+# date-modified: 12/13/2024
+categories: [Bayesian, Statistics, MCMC, R]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+    - IdealPoint.bib
+csl: ../../../assets/apalike.csl
+abstract: |
+  Ideal point models are 2-parameter item response model, tailored to the purpose of visualizing / measuring the ideological positions of the legislators / judges.
+  [@Bafumi+2005] introduced a hierarchical structure to the model to deal with the problem of identifiability.
+  In this article, we re-examine the model and show that the posterior distribution of the parameters (ideal points) is still **bimodal**, indicating its weak identifiability.
+# image: Images/IdealPoint.png
+code-fold: false
+execute:
+    cache: true
+# listing: 
+#     -   id: lst-embedding
+#         type: grid
+#         contents:
+#             - "IdealPoint.qmd"
+#             - "IdealPoint2.qmd"
+#             - "../Survey/BDA3.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+#     -   id: lst-embedding
+#         type: grid
+#         grid-columns: 1
+#         contents:
+#             - "../Survey/BayesGLMM.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## Introduction
+
+### The 2PL Model
+
+Suppose we have a binary response variable $Y_{i,j}$ for the $i\in[N]$-th judge and the $j\in[J]$-th case.
+
+2-parameter logistic model (2PL) can be written as follows:
+$$
+Y_{i,j}\sim\operatorname{Bernoulli}(\mu_{i,j}),
+$$
+$$
+\operatorname{logit}(\mu_{i,j})=\al_j+\beta_j x_i=:\beta_j\Paren{\wt{\al}_j+x_i}.
+$$
+
+In IRT (Item Response Theory) vocabulary, we call $\al_j$ the *difficulty*, and $\beta_j$ the *discrimination* parameter of the $j$-th item. $x_i$ may be called the *latent trait* or *ability* parameter, but here we call it the *ideal point* of the $i$-th judge.
+
+
+
+[@Bafumi+2005] 
+
+## Estimation by Stan
+
+```{.stan filename="bafumi_normal.stan"}
+data {
+  int<lower=1> n;  // n = N * J - #(NA responses)
+  int<lower=1> N;  // number of judges
+  int<lower=1> J;  // number of cases
+
+  array[n] int<lower=0, upper=1> Y;  // response variable
+  vector[N] Z;  // covariates for judges
+  array[n] int<lower=1, upper=N> i;  // indicator for judges i in [N]
+  array[n] int<lower=1, upper=J> j;  // indicator for cases j in [J]
+}
+parameters {
+  vector[N] X;  // ideal points for judges
+  vector[J] alpha;
+  vector[J] beta;
+
+  real delta;
+  real gamma;
+}
+transformed parameters {
+  real lprior = 0;
+
+  lprior += std_normal_lpdf(delta);
+  lprior += std_normal_lpdf(gamma);
+  lprior += std_normal_lpdf(alpha);
+  lprior += std_normal_lpdf(beta);
+  lprior += std_normal_lpdf(X);
+}
+model {
+  X ~ normal(delta + Z * exp(gamma), 1);
+
+  vector[n] mu = rep_vector(0, n);
+  for (k in 1:n) {
+    mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];
+  }
+  target += bernoulli_logit_lpmf(Y | mu);
+  target += lprior;
+}
+```
+
+```{.r filename="Files/experiment.r"}
+for (i in 1:100) {
+  fit <- stan("bafumi_normal.stan", data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+
+  all_samples <- extract(fit, pars = "X")$X
+  last_1000_samples <- all_samples[(nrow(all_samples) - 999):nrow(all_samples), ]
+  mean <- apply(last_1000_samples, 2, mean)
+  if (mean[9] > 0.5) {
+    count <- count + 1
+  }
+}
+print(count)
+```
+
+```{r}
+#| echo: false
+print(52)
+```
+
+The following plots are some (first 9) of the results from the experiment.
+
+::: {layout-ncol=3}
+![Elapsed time: 16.99 seconds](Files/experiment_1.png)
+
+![Elapsed time: 17.01 seconds](Files/experiment_2.png)
+
+![Elapsed time: 16.30 seconds](Files/experiment_3.png)
+:::
+
+::: {layout-ncol=3}
+![Elapsed time: 15.00 seconds](Files/experiment_4.png)
+
+![Elapsed time: 14.98 seconds](Files/experiment_5.png)
+
+![Elapsed time: 15.06 seconds](Files/experiment_6.png)
+:::
+
+::: {layout-ncol=3}
+![Elapsed time: 16.42 seconds](Files/experiment_7.png)
+
+![Elapsed time: 16.57 seconds](Files/experiment_8.png)
+
+![Elapsed time: 17.18 seconds](Files/experiment_9.png)
+:::
