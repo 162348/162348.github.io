@@ -43,12 +43,7 @@ listing:
 ::: {#lst-embedding}
 :::
 
-本稿では実際に理想点モデルの推定を，[Martin-Quinn](http://mqscores.wustl.edu/replication.php) により公開されている連邦最高裁判所の 1937 年から 2022 年までのデータを用いて行う．
-
-```{r}
-load("Files/mqData2022.Rda")
-range(mqData$term)
-```
+本稿では実際に理想点モデルの推定を，[Martin-Quinn](http://mqscores.wustl.edu/replication.php) により公開されている連邦最高裁判所の 1937 年から 2022 年までのデータを（`MCMCpack` パッケージを通じて）用いて行う．
 
 ```{r}
 #| output: false
@@ -56,75 +51,30 @@ range(mqData$term)
 library(brms)
 library(knitr)
 library(gridExtra)
+library(ggplot2)
+```
+
+```{r}
+library(MCMCpack)
+data(Rehnquist)  # MCMCpackに含まれる U.S. Supreme Court（連邦最高裁）のデータ
+kable(head(Rehnquist))
 ```
 
 このデータは保守的な判断をする場合が $y_i=1$，リベラルな判断をする場合が $y_i=0$ の２値データとなっている．
 
-```{r}
-kable(head(mqData))
-```
 
-## ２母数ロジットモデル
+## 理想点モデルとは何か？
 
-### モデルの概要
+### `MCMCpack` パッケージ
 
-[@Bafumi+2005] に倣い，次の２母数ロジットモデルをデータに適用することを考える：
-$$
-g(x):=\operatorname{logit}(x)=\log\frac{x}{1-x},
-$$
-$$
-g(\mu_i)=\gamma_{k[i]}\Paren{\al_{j[i]}-\beta_{k[i]}}.
-$$
-この際 $\al_j$ は $j$ 番目の判事の **理想点** といい，$\beta_k$ は $k$ 番目の事件の性質を表すパラメータである．
+はじめに，理想点モデルではどのようなことができるかをみるために，`MCMCpack` パッケージを通じて理想点推定を簡単に実行する方法を見る．
 
-ものによっては判事の立場が関係ない事件もあるため，$\gamma_k$ が用意されている．
-
-基本的にこの識別パラメータが正になるように調整したいが，明示的にそうすることはしない．
-
-次節で説明する方法により，理想点 $\al_j$ が大きい場合は保守的な判断を下しやすいものと解釈できるように設計する（$\al_j$ を数直線上にプロットした際に，リベラルな場合に左に，保守的な場合に右に来るようにする）．
-
-### 識別可能性 {#sec-identification}
-
-$\al_j,\beta_k$ に同じ数を足した場合と $\gamma_k$ と $(\al_j,\beta_k)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
-
-次のような事前分布と階層構造を置くことでこの問題を回避できる：
-$$
-\al_j\iidsim\rN(0,1),\qquad\beta_k=\mu_\beta+\ep_\beta,\qquad\ep_\beta\iidsim\rN(0,\sigma^2_\beta),
-$$
-$$
-\gamma_k=\mu_\gamma+\ep_\gamma,\qquad\ep_\gamma\iidsim\rN(0,\sigma^2_\gamma).
-$$
-
-最後に $\gamma_k$ の符号の問題がある．これを $-1$ 倍させることで $\al_j,\beta_k$ の役割を $-1$ 倍させることができる．このまま推定すると事後分布は $0$ に関して対称な形を持つことになる．
-
-$\gamma_k$ の符号を制約したり，特定の判事の $\al_j$ を固定して参照点とするなどの方法があるかもしれないが，ここでは [2.2.3 節 @Bafumi+2005 p.178] に倣って，階層モデルの方法により，構造的なやり方でモデルに情報を伝える．
-
-というのも，理想点 $\al_j$ に次の階層構造を入れるのである：
-$$
-\al_j=\delta_0+\delta_1 x_j+\ep_j\qquad\ep_j\iidsim\rN(0,1).
-$$
-
-$x_j$ は当該判事を示した大統領の所属政党を表す２値変数で，共和党ならば $x_j=1$ とする．そして $\delta_1$ に $\R_+$ 上に台を持つ事前分布を置く．
-
-::: {.callout-important appearance="simple" icon="false" title="[@Bafumi+2005] による理想点モデルの階層化"}
-
-このように共変量を適切な階層に追加することは，モデルに自然な形で正則化情報を伝えることに繋がり，モデルの識別やより現実的な推定値の獲得に繋がる．
-
-:::
-
-### 時系列理想点モデルのベイズ推定
-
-最初に `MCMCpack` パッケージを通じた方法を見る．まず識別のために Stevens 判事と Thomas 判事の位置を固定する方法を用いてみよう．
-
-```{r}
-data(Rehnquist)  # MCMCpackに含まれるSupreme Court（最高裁）の投票データ
-kable(head(Rehnquist))
-```
+理想点モデルでは識別性が一つの論点になる（第 [-@sec-identification] 節）が，ここでは簡単に，Stevens 判事と Thomas 判事の位置を固定する方法を用いてみよう．
 
 `MCMCpack` パッケージでは，時系列理想点モデルの推定に [`MCMCdynamicIRT1d()`](https://github.com/cran/MCMCpack/blob/master/man/MCMCdynamicIRT1d.Rd) 関数が用意されている．
 
 ```{r}
-#| eval: false
+#| output: false
 # 初期値の設定
 theta.start <- rep(0, 9)  # 9人の裁判官の初期値
 theta.start[2] <- -3      # Stevens裁判官の初期値
@@ -135,8 +85,8 @@ out <- MCMCdynamicIRT1d(
     t(Rehnquist[,1:9]),           # データ行列（転置して裁判官×案件の形に）
     item.time.map=Rehnquist$time, # 各案件の時期情報
     theta.start=theta.start,      # 初期値
-    mcmc=50000,                   # MCMCの反復回数
-    burnin=20000,                 # バーンイン期間
+    mcmc=2000,                   # MCMCの反復回数
+    burnin=2000,                 # バーンイン期間
     thin=5,                       # 間引き数
     verbose=500,                  # 進捗表示間隔
     tau2.start=rep(0.1, 9),      # τ²の初期値
@@ -158,9 +108,37 @@ plot(theta_mcmc)
 
 ![](Images/plot.png){width=70% fig-align=center}
 
+### 理想点の推定
+
+出力は各最高裁判事の理想点の事後分布である．
+
 ```{r}
-#| eval: false
 theta_means <- colMeans(theta_mcmc)
+pattern <- "t11"
+col_names <- colnames(theta_mcmc)
+selected_cols <- grep(pattern, col_names)  # 正規表現にマッチする列のインデックスを取得
+selected_theta_mcmc <- theta_mcmc[, selected_cols]
+
+quantiles_2_5 <- apply(selected_theta_mcmc, 2, function(x) quantile(x, 0.025))
+quantiles_97_5 <- apply(selected_theta_mcmc, 2, function(x) quantile(x, 0.975))
+
+ggplot(data.frame(
+  legislator = colnames(Rehnquist)[1:9],
+  mean = unname(theta_means[selected_cols]),
+  lower = unname(quantiles_2_5),
+  upper = unname(quantiles_97_5)
+), aes(x = mean, y = legislator)) + 
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Estimated Ideal Points (11th term)", x = "Ideal Point", y = "Legislator")
+```
+
+### 時系列化
+
+[@Martin-Quinn2002] ではこの理想点の時系列的な変化を調べた．
+
+```r
 time_points <- unique(Rehnquist$time)
 n_subjects <- 9  # 裁判官の数
 
@@ -224,13 +202,15 @@ legend("topright",
 
 $0$ の上に位置している [Anthony Kennedy](https://ja.wikipedia.org/wiki/アンソニー・ケネディ) や [Sandra Day O'Connor](https://en.wikipedia.org/wiki/Sandra_Day_O%27Connor) はほとんど中道的だが，やや保守党寄りである． [Antonin Scalia](https://en.wikipedia.org/wiki/Antonin_Scalia) は特に保守的な立場であることが知られている．
 
-$0$ よりも下に位置するもう一人は [David Souter](https://en.wikipedia.org/wiki/David_Souter) であるが，彼はもともと保守系と木されていたが，後年リベラルな傾向を示したとされる．^["Souter was nominated to the Supreme Court without a significant "paper trail" but was expected to be a conservative justice. Within a few years of his appointment, Souter moved towards the ideological center. He eventually came to vote reliably with the Court's liberal wing." [Wikipedia](https://en.wikipedia.org/wiki/David_Souter) より引用．]
+$0$ よりも下に位置するもう一人は [David Souter](https://en.wikipedia.org/wiki/David_Souter) であるが，彼はもともと保守系と目されていたが，後年リベラルな傾向を示したとされる．^["Souter was nominated to the Supreme Court without a significant "paper trail" but was expected to be a conservative justice. Within a few years of his appointment, Souter moved towards the ideological center. He eventually came to vote reliably with the Court's liberal wing." [Wikipedia](https://en.wikipedia.org/wiki/David_Souter) より引用．]
 
-### 階層ベイズ推定
+## ２母数ロジットモデルの推定
 
-#### はじめに
+### はじめに
 
-続いて [-@sec-identification] で検討した，[@Bafumi+2005] による階層ベイズモデルにより緩やかに情報を伝えることで識別可能性を保つ方法を検討する．
+`MCMCpack` パッケージで理想点推定の出力がつかめたいま，より詳しくモデルを見ていく．
+
+本節では `rstan` パッケージを用いて，項目反応モデルとして具体的な手順を踏んで推定してみる．
 
 ```{r}
 #| output: false
@@ -242,24 +222,15 @@ df <- Rehnquist %>%
   mutate(case = (row_number() - 1) %/% 9 + 1)
 ```
 
-#### 指名大統領の政党属性
+### １母数モデル（`brms` パッケージ）
 
-```{r}
-df <- df %>%
-  mutate(
-    nominator = case_when(
-      name %in% c("Rehnquist", "Stevens") ~ "Nixon",
-      name %in% c("O.Connor", "Scalia", "Kennedy") ~ "Reagan",
-      name %in% c("Souter", "Thomas") ~ "Bush",
-      name %in% c("Breyer", "Ginsburg") ~ "Clinton"
-    )
-  )
-df$x <- ifelse(
-  df$nominator %in% c("Nixon", "Reagan", "Bush", "Trump"),
-  1, -1)
-```
+まずは最も簡単な項目反応モデルとして，$g$ を logit リンクとして，
+$$
+g(\P[Y_{ij}=1])=\al_0+\al_j-x_i
+$$
+というモデルを推定することを考えよう．
 
-#### １母数モデル
+`brms` パッケージを用いれば，他の R パッケージと同様のインターフェイスで推定を行うことができる．
 
 ```{r}
 #| output: false
@@ -267,7 +238,7 @@ library(brms)
 formula <- bf(
   y ~ 1 + (1 | case) + (1 | name)
 )
-fit <- brm(
+fit_1PL <- brm(
   formula,
   data = df,
   family = brmsfamily("bernoulli", link = "logit"),
@@ -276,19 +247,19 @@ fit <- brm(
 ```
 
 ```{r}
-summary(fit)
+summary(fit_1PL)
 ```
 
 簡単なモデルであるが切片項の ESS が低く，すでに暗雲が立ち込めている．
 
 ```{r}
-plot(fit)
+plot(fit_1PL)
 ```
 
 ここには変動係数（我々の欲しい潜在変数）はパラメータとみなされておらず，推定値が表示されないので次のようにしてプロットする必要がある：
 
 ```{r}
-ranef_legislator <- ranef(fit)$name
+ranef_legislator <- ranef(fit_1PL)$name
 posterior_means <- ranef_legislator[,1,"Intercept"]
 lower_bounds <- ranef_legislator[,3,"Intercept"]
 upper_bounds <- ranef_legislator[,4,"Intercept"]
@@ -312,26 +283,279 @@ Thomas や Scalia，そして Stevens が極端であることはとらえてい
 
 誘導が成功しておらず，片方の峯からサンプリングしてしまっている．
 
-#### ２母数モデル
-
 ```{r}
-#| output: false
-formula_2PL <- bf(
-  y ~ 0 + (1 | case) + (case | name)
-)
-fit_2PL <- update(fit, formula = formula_2PL, cores = 4)
+prior_summary(fit_1PL)
 ```
 
-```{r}
+### １母数モデル（`rstan` パッケージ）
+
+`brms` パッケージ内で生成される Stan コードを参考にして，自分で Stan コードを書いて推定することもできる．
+
+::: {.callout-caution title="Stan コードの出力" collapse="true" icon="false"}
+
+```r
+stancode(fit_1PL)
+```
+
+```stan
+// generated with brms 2.21.0
+functions {
+}
+data {
+  int<lower=1> N;  // total number of observations
+  array[N] int Y;  // response variable
+  // data for group-level effects of ID 1
+  int<lower=1> N_1;  // number of grouping levels
+  int<lower=1> M_1;  // number of coefficients per level
+  array[N] int<lower=1> J_1;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_1_1;
+  // data for group-level effects of ID 2
+  int<lower=1> N_2;  // number of grouping levels
+  int<lower=1> M_2;  // number of coefficients per level
+  array[N] int<lower=1> J_2;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_2_1;
+  int prior_only;  // should the likelihood be ignored?
+}
+transformed data {
+}
+parameters {
+  real Intercept;  // temporary intercept for centered predictors
+  vector<lower=0>[M_1] sd_1;  // group-level standard deviations
+  array[M_1] vector[N_1] z_1;  // standardized group-level effects
+  vector<lower=0>[M_2] sd_2;  // group-level standard deviations
+  array[M_2] vector[N_2] z_2;  // standardized group-level effects
+}
+transformed parameters {
+  vector[N_1] r_1_1;  // actual group-level effects
+  vector[N_2] r_2_1;  // actual group-level effects
+  real lprior = 0;  // prior contributions to the log posterior
+  r_1_1 = (sd_1[1] * (z_1[1]));
+  r_2_1 = (sd_2[1] * (z_2[1]));
+  lprior += student_t_lpdf(Intercept | 3, 0, 2.5);
+  lprior += student_t_lpdf(sd_1 | 3, 0, 2.5)
+    - 1 * student_t_lccdf(0 | 3, 0, 2.5);
+  lprior += student_t_lpdf(sd_2 | 3, 0, 2.5)
+    - 1 * student_t_lccdf(0 | 3, 0, 2.5);
+}
+model {
+  // likelihood including constants
+  if (!prior_only) {
+    // initialize linear predictor term
+    vector[N] mu = rep_vector(0.0, N);
+    mu += Intercept;
+    for (n in 1:N) {
+      // add more terms to the linear predictor
+      mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n];
+    }
+    target += bernoulli_logit_lpmf(Y | mu);
+  }
+  // priors including constants
+  target += lprior;
+  target += std_normal_lpdf(z_1[1]);
+  target += std_normal_lpdf(z_2[1]);
+}
+generated quantities {
+  // actual population-level intercept
+  real b_Intercept = Intercept;
+}
+```
+
+:::
+
+```r
+library(rstan)
+stan_code <- "
+data {
+  int<lower=1> n;  // data size: n = N * J - #(NA responses)
+  int<lower=1> N;  // number of judges
+  int<lower=1> J;  // number of cases
+
+  array[n] int<lower=0, upper=1> Y;  // response variable
+  array[n] int<lower=1, upper=N> i;  // indicator for judges i in [N]
+  array[n] int<lower=1, upper=J> j;  // indicator for cases j in [J]
+}
+parameters {
+  vector[N] X;  // ideal points
+  vector[J] alpha_zero;  // intercepts
+  vector[J] alpha;  // item effects
+}
+transformed parameters {
+  real lprior = 0;
+
+  lprior += student_t_lpdf(alpha_zero | 3, 0, 2.5);
+  lprior += std_normal_lpdf(alpha);
+  lprior += std_normal_lpdf(X);
+}
+model {
+  vector[n] mu = rep_vector(0, n);
+  for (k in 1:n) {
+    mu[k] = alpha_zero[j[k]] + alpha[j[k]] - X[i[k]];
+  }
+  target += bernoulli_logit_lpmf(Y | mu);
+  target += lprior;
+}
+"
+case_number <- as.integer(nrow(df) / 9)
+indicator_i <- rep(1:9, times = case_number)
+indicator_j <- rep(1:case_number, each = 9)
+df$i <- indicator_i
+df$j <- indicator_j
+
+df_NA <- df %>% filter(!is.na(y))
+
+data <- list(Y = df_NA$y, n = nrow(df_NA), N = 9, J = case_number, i = df_NA$i, j = df_NA$j)
+fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+```
+
+```r
+x_samples <- extract(fit, pars = "X")$X
+
+plot_dataframe <- data.frame(
+  legislator = colnames(Rehnquist)[1:9],
+  mean = apply(x_samples, 2, mean),
+  lower = apply(x_samples, 2, quantile, probs = 0.025),
+  upper = apply(x_samples, 2, quantile, probs = 0.975)
+)
+ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Mean", y = "Legislator", title = "1PL Model (RStan)")
+
+```
+
+![](Images/stan1.png){width=70% fig-align=center}
+
+係数 $\al_j,x_i$ の事前分布を正規分布にしているため，事後分散が短くなっている．
+
+#### ２母数モデル
+
+[@Bafumi+2005] など，多くの理想点モデルでは２母数ロジットモデルが用いられる：
+$$
+g(x):=\operatorname{logit}(x)=\log\frac{x}{1-x},
+$$
+$$
+g(\mu_{i,j})=\al_j+\beta_j x_i=\beta_j\Paren{\wt{\al}_j-x_i}.
+$$
+この際 $x_i$ は $i$ 番目の判事の **理想点** といい，$\al_j,\beta_j$ は $j$ 番目の事件の性質を表すパラメータである．
+
+ものによっては判事の立場が関係ない事件もあるため，$\beta_j$ が用意されている．
+
+基本的にこの識別パラメータが正になるように調整したいが，明示的にそうすることはしない．
+
+次節で説明する方法により，理想点 $x_i$ が大きい場合は保守的な判断を下しやすいものと解釈できるように設計することができる（$x_i$ を数直線上にプロットした際に，リベラルな場合に左に，保守的な場合に右に来るようにする）が，ここではストレートに実装してみよう．
+
+```r
+library(rstan)
+stan_code <- "
+data {
+  int<lower=1> n;  // n = N * J - #(NA responses)
+  int<lower=1> N;  // number of judges
+  int<lower=1> J;  // number of cases
+
+  array[n] int<lower=0, upper=1> Y;  // response variable
+  array[n] int<lower=1, upper=N> i;  // indicator for judges i in [N]
+  array[n] int<lower=1, upper=J> j;  // indicator for cases j in [J]
+}
+parameters {
+  vector[N] X;  // ideal points
+  vector[J] alpha;  // item effects
+  vector[J] beta;  // item discremination
+}
+transformed parameters {
+  real lprior = 0;
+
+  lprior += std_normal_lpdf(alpha);
+  lprior += std_normal_lpdf(beta);
+  lprior += std_normal_lpdf(X);
+}
+model {
+  vector[n] mu = rep_vector(0, n);
+  for (k in 1:n) {
+    mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];
+  }
+  target += bernoulli_logit_lpmf(Y | mu);
+  target += lprior;
+}
+"
+case_number <- as.integer(nrow(df) / 9)
+indicator_i <- rep(1:9, times = case_number)
+indicator_j <- rep(1:case_number, each = 9)
+df$i <- indicator_i
+df$j <- indicator_j
+
+df_NA <- df %>% filter(!is.na(y))
+
+data <- list(Y = df_NA$y, n = nrow(df_NA), N = 9, J = case_number, i = df_NA$i, j = df_NA$j)
+fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+```
+
+```r
+x_samples <- extract(fit, pars = "X")$X
+
+plot_dataframe <- data.frame(
+  legislator = colnames(Rehnquist)[1:9],
+  mean = apply(x_samples, 2, mean),
+  lower = apply(x_samples, 2, quantile, probs = 0.025),
+  upper = apply(x_samples, 2, quantile, probs = 0.975)
+)
+ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
+
+```
+
+![](Images/stan2.png){width=70% fig-align=center}
+
+なぜだか不思議な結果になってしまった．どうしてだろうか？
+
+<!-- 
+
+```r
+formula_2PL <- bf(
+  y ~ 0 + (1 + name | case)
+)
+fit_2PL <- update(fit_1PL, formula = formula_2PL, cores = 4, iter = 3000)
+```
+
+```r
 summary(fit_2PL)
 ```
 
+    Family: bernoulli 
+      Links: mu = logit 
+    Formula: y ~ (1 | case) + (case | name) - 1 
+      Data: df (Number of observations: 4343) 
+      Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+            total post-warmup draws = 4000
 
-```{r}
+    Multilevel Hyperparameters:
+    ~case (Number of levels: 485) 
+                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+    sd(Intercept)     1.05      0.06     0.93     1.18 1.00     1800     2643
+
+    ~name (Number of levels: 9) 
+                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+    sd(Intercept)           1.59      0.44     0.96     2.70 1.00      767     1456
+    sd(case)                0.00      0.00     0.00     0.00 1.00     1144     2343
+    cor(Intercept,case)    -0.06      0.48    -0.87     0.87 1.00     4220     2337
+
+    Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+    and Tail_ESS are effective sample size measures, and Rhat is the potential
+    scale reduction factor on split chains (at convergence, Rhat = 1).
+
+
+```r
 plot(fit_2PL)
 ```
 
-```{r}
+![](Images/plot_2PL.png){width=70% fig-align=center}
+
+```r
 ranef_legislator <- ranef(fit_2PL)$name
 posterior_means <- ranef_legislator[,1,"Intercept"]
 lower_bounds <- ranef_legislator[,3,"Intercept"]
@@ -352,18 +576,338 @@ p_2PL <- ggplot(plot_legislator, aes(x = mean, y = legislator)) +
 grid.arrange(p_1PL, p_2PL, nrow = 1)
 ```
 
+![](Images/grid_arrange.png)
+
 よりモデルの不確実性が減って，$0$ の周りに縮小されたことがわかる．これは一般の項目反応モデルで見られる：
 
 ::: {#lst-embedding}
 :::
 
 左派が右に表示されてしまっていることは変わらない．
+-->
 
-#### 階層２母数モデル
+### 識別可能性 {#sec-identification}
+
+実は２母数ロジットモデルでは $\wt{\al}_j,x_i$ に同じ数を足した場合と $\beta_j$ と $(\wt{\al}_j,x_i)$ に同じ数を乗じた／除した場合，全く等価なモデルが得られる．すなわちスケールを定める必要がある．
+
+ベイズ推定では，次のような事前分布と階層構造を置くことでこの問題を回避できる：
+$$
+x_i\iidsim\rN(0,1),\qquad \al_j=\mu_\al+\ep_\al,\qquad\ep_\al\iidsim\rN(0,\sigma^2_\al),
+$$
+$$
+\beta_j=\mu_\beta+\ep_\beta,\qquad\ep_\beta\iidsim\rN(0,\sigma^2_\beta).
+$$
+<!-- 
+```r
+library(rstan)
+stan_code <- "
+data {
+  int<lower=1> n;  // n = N * J - #(NA responses)
+  int<lower=1> N;  // number of judges
+  int<lower=1> J;  // number of cases
+
+  array[n] int<lower=0, upper=1> Y;  // response variable
+  array[n] int<lower=1, upper=N> i;  // indicator for judges i in [N]
+  array[n] int<lower=1, upper=J> j;  // indicator for cases j in [J]
+}
+parameters {
+  vector[N] X;  // ideal points
+  vector[J] alpha_zero;  // item effects
+  vector[J] beta_zero;  // item discremination
+
+  real<lower=0> sigma_al;  // sd of alpha
+  real<lower=0> sigma_beta;  // sd of beta
+
+  vector[J] alpha;  // real values of alpha
+  vector[J] beta;  // real values of beta
+}
+transformed parameters {
+  real lprior = 0;
+
+  lprior += student_t_lpdf(alpha_zero | 3, 0, 2.5);
+  lprior += student_t_lpdf(beta_zero | 3, 0, 2.5);
+  lprior += student_t_lpdf(sigma_al | 3, 0, 2.5);
+  lprior += student_t_lpdf(sigma_beta | 3, 0, 2.5);
+  lprior += std_normal_lpdf(X);
+}
+model {
+  alpha ~ normal(alpha_zero, sigma_al);
+  beta ~ normal(beta_zero, sigma_beta);
+  vector[n] mu = rep_vector(0, n);
+  for (k in 1:n) {
+    mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];
+  }
+  target += bernoulli_logit_lpmf(Y | mu);
+  target += lprior;
+}
+"
+case_number <- as.integer(nrow(df) / 9)
+indicator_i <- rep(1:9, times = case_number)
+indicator_j <- rep(1:case_number, each = 9)
+df$i <- indicator_i
+df$j <- indicator_j
+
+df_NA <- df %>% filter(!is.na(y))
+
+data <- list(Y = df_NA$y, n = nrow(df_NA), N = 9, J = case_number, i = df_NA$i, j = df_NA$j)
+fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+```
+
+```r
+x_samples <- extract(fit, pars = "X")$X
+
+plot_dataframe <- data.frame(
+  legislator = colnames(Rehnquist)[1:9],
+  mean = apply(x_samples, 2, mean),
+  lower = apply(x_samples, 2, quantile, probs = 0.025),
+  upper = apply(x_samples, 2, quantile, probs = 0.975)
+)
+ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
+```
+-->
+
+
+![](Images/stan3.png){width=70% fig-align=center}
+
+これにより少しは傾向が見られるようになったが，それでも事後分散が大きい．なぜだろうか？
+
+最後に $\beta_j$ の符号の問題があるためである．$\beta_j$ を $-1$ 倍させることで $\wt{\al}_j,x_i$ の役割を $-1$ 倍させることができる．このまま推定すると事後分布は $0$ に関して対称な形を持つことになる．
+
+$\beta_j$ の符号を制約したり，特定の判事の $x_i$ を固定して参照点とするなどの方法があるかもしれないが，ここでは [2.2.3 節 @Bafumi+2005 p.178] に倣って，階層モデルの方法により，構造的なやり方でモデルに情報を伝える．
+
+というのも，理想点 $x_i$ に次の階層構造を入れるのである：
+$$
+x_i=\delta+\gamma z_i+\ep_i\qquad\ep_i\iidsim\rN(0,1).
+$$
+
+$z_i$ は当該判事を示した大統領の所属政党を表す２値変数で，共和党ならば $z_i=1$ とする．そして $\gamma$ に $\R_+$ 上に台を持つ事前分布を置く．
+
+::: {.callout-important appearance="simple" icon="false" title="[@Bafumi+2005] による理想点モデルの階層化"}
+
+このように共変量を適切な階層に追加することは，モデルに自然な形で正則化情報を伝えることに繋がり，モデルの識別やより現実的な推定値の獲得に繋がる．
+
+:::
+
+
+### 階層ベイズ推定
+
+#### 指名大統領の政党属性
+
+続いて [-@sec-identification] で検討した，[@Bafumi+2005] による階層ベイズモデルにより緩やかに情報を伝えることで識別可能性を保つ方法を検討する（第 [-@sec-Bafumi] 節）．
+
+```{r}
+df <- df %>%
+  mutate(
+    nominator = case_when(
+      name %in% c("Rehnquist", "Stevens") ~ "Nixon",
+      name %in% c("O.Connor", "Scalia", "Kennedy") ~ "Reagan",
+      name %in% c("Souter", "Thomas") ~ "Bush",
+      name %in% c("Breyer", "Ginsburg") ~ "Clinton"
+    )
+  )
+df$x <- ifelse(
+  df$nominator %in% c("Nixon", "Reagan", "Bush", "Trump"),
+  1, -1)
+```
+
+#### 階層２母数モデル {#sec-Bafumi}
 
 `x` の情報を階層的に伝えるには，もはや `brms` パッケージでは実行できないようである．
 
+::: {.callout-caution title="Stan コードの出力" collapse="true" icon="false"}
 
+`brms` パッケージでは [`stancode()`](https://paulbuerkner.com/brms/reference/stancode.html) 関数を用いて Stan コードを出力できる．
+
+```r
+stancode(fit_2PL)
+```
+
+結果は以下の通りになる：
+
+```stan
+// generated with brms 2.21.0
+functions {
+ /* compute correlated group-level effects
+  * Args:
+  *   z: matrix of unscaled group-level effects
+  *   SD: vector of standard deviation parameters
+  *   L: cholesky factor correlation matrix
+  * Returns:
+  *   matrix of scaled group-level effects
+  */
+  matrix scale_r_cor(matrix z, vector SD, matrix L) {
+    // r is stored in another dimension order than z
+    return transpose(diag_pre_multiply(SD, L) * z);
+  }
+}
+data {
+  int<lower=1> N;  // total number of observations
+  array[N] int Y;  // response variable
+  // data for group-level effects of ID 1
+  int<lower=1> N_1;  // number of grouping levels
+  int<lower=1> M_1;  // number of coefficients per level
+  array[N] int<lower=1> J_1;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_1_1;
+  // data for group-level effects of ID 2
+  int<lower=1> N_2;  // number of grouping levels
+  int<lower=1> M_2;  // number of coefficients per level
+  array[N] int<lower=1> J_2;  // grouping indicator per observation
+  // group-level predictor values
+  vector[N] Z_2_1;
+  vector[N] Z_2_2;
+  int<lower=1> NC_2;  // number of group-level correlations
+  int prior_only;  // should the likelihood be ignored?
+}
+transformed data {
+}
+parameters {
+  vector<lower=0>[M_1] sd_1;  // group-level standard deviations
+  array[M_1] vector[N_1] z_1;  // standardized group-level effects
+  vector<lower=0>[M_2] sd_2;  // group-level standard deviations
+  matrix[M_2, N_2] z_2;  // standardized group-level effects
+  cholesky_factor_corr[M_2] L_2;  // cholesky factor of correlation matrix
+}
+transformed parameters {
+  vector[N_1] r_1_1;  // actual group-level effects
+  matrix[N_2, M_2] r_2;  // actual group-level effects
+  // using vectors speeds up indexing in loops
+  vector[N_2] r_2_1;
+  vector[N_2] r_2_2;
+  real lprior = 0;  // prior contributions to the log posterior
+  r_1_1 = (sd_1[1] * (z_1[1]));
+  // compute actual group-level effects
+  r_2 = scale_r_cor(z_2, sd_2, L_2);
+  r_2_1 = r_2[, 1];
+  r_2_2 = r_2[, 2];
+  lprior += student_t_lpdf(sd_1 | 3, 0, 2.5)
+    - 1 * student_t_lccdf(0 | 3, 0, 2.5);
+  lprior += student_t_lpdf(sd_2 | 3, 0, 2.5)
+    - 2 * student_t_lccdf(0 | 3, 0, 2.5);
+  lprior += lkj_corr_cholesky_lpdf(L_2 | 1);
+}
+model {
+  // likelihood including constants
+  if (!prior_only) {
+    // initialize linear predictor term
+    vector[N] mu = rep_vector(0.0, N);
+    for (n in 1:N) {
+      // add more terms to the linear predictor
+      mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n] + r_2_2[J_2[n]] * Z_2_2[n];
+    }
+    target += bernoulli_logit_lpmf(Y | mu);
+  }
+  // priors including constants
+  target += lprior;
+  target += std_normal_lpdf(z_1[1]);
+  target += std_normal_lpdf(to_vector(z_2));
+}
+generated quantities {
+  // compute group-level correlations
+  corr_matrix[M_2] Cor_2 = multiply_lower_tri_self_transpose(L_2);
+  vector<lower=-1,upper=1>[NC_2] cor_2;
+  // extract upper diagonal of correlation matrix
+  for (k in 1:M_2) {
+    for (j in 1:(k - 1)) {
+      cor_2[choose(k - 1, 2) + j] = Cor_2[j, k];
+    }
+  }
+}
+```
+
+`function` ブロックでは `scale_r_cor()` 関数が定義されている．標準化された項目変数 $(\al_j,\beta_j)$ を `z` として，その各次元の標準偏差を含む２次元ベクトルを `sd_2`，Cholesky 因子を `L_2` として，行列積 `sd_2*L2` にベクトル `z` を掛けて返している．これは $(\al_j,\beta_j)$ を３つの要素（対角行列・Cholesky 因子・標準化されたベクトル）に因数分解して計算していることに起因する．
+
+`data` ブロックでデータのコーディングを定めている．`Y` は $NJ$ 行列である．`case` が `ID2` で `name` が `ID1` に対応する．判事 $i\in[n]$ は `N_1` 人，件数 $j\in[J]$ は `N_2` 件．このデータから `M_1=1` 次元の理想点を持った `M_2=2` パラメータモデルを推定する．`Z_1_1` が判事を表す標示変数で，項目を表す標示変数は `Z_2_1` と `Z_2_2` である．
+
+`parameter` ブロックでは標準化された理想点 `z_1` と項目パラメータ `z_2`，それぞれの標準偏差 `sd_1`, `sd_2` を宣言している．`z_1` だけ `N_1` ベクトル，`z_2` は `N_2` 行 `M_2` 列の行列であることに注意．
+
+`transformed_parameters` で真のスケールに戻す．`r_1_1=(sd_1[1]*(z_1[1]))` は理想点 $x_1$ にあたり，`r_2=scale_r_cor(z_2,sd_2,L_2)` は項目パラメータ $(\al_j,\beta_j)$ にあたる．その後 `r_2_1=r_2[,1]` と `r_2_2=r_2[,2]` でそれぞれ $\al_j$ と $\beta_j$ に分解している．最後に `sd_1`, `sd_2` に t-分布，`L_2` に Cholesky 分布を事前分布として定義している．
+
+`model` で尤度を定義している．`mu` はこのブロックでしか使われない線型予測子の格納変数である．
+```stan
+mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n] + r_2_2[J_2[n]] * Z_2_2[n];
+```
+により $\al_j+\beta_j x_i$ が計算されている．$j$ は `J_2[n]`, $i$ は `J_1[n]` で表されている．最後に `bernoulli_logit_lpmf(Y | mu)` で尤度が定義される．
+
+`generated quantities` ブロックでは相関行列 `cor_2` を計算している．
+
+:::
+
+```r
+library(rstan)
+stan_code <- "
+data {
+  int<lower=1> n;  // n = N * J - #(NA responses)
+  int<lower=1> N;  // number of judges
+  int<lower=1> J;  // number of cases
+
+  array[n] int<lower=0, upper=1> Y;  // response variable
+  vector[N] Z;  // covariates for judges
+  array[n] int<lower=1, upper=N> i;  // indicator for judges i in [N]
+  array[n] int<lower=1, upper=J> j;  // indicator for cases j in [J]
+}
+parameters {
+  vector[N] X;  // ideal points for judges
+  vector[J] alpha;
+  vector[J] beta;
+
+  real delta;
+  real<lower=0> gamma;
+}
+transformed parameters {
+  real lprior = 0;
+
+  lprior += std_normal_lpdf(delta);
+  lprior += std_normal_lpdf(gamma);
+  lprior += std_normal_lpdf(alpha);
+  lprior += std_normal_lpdf(beta);
+  lprior += std_normal_lpdf(X);
+}
+model {
+  X ~ normal(delta + Z * gamma, 1);
+
+  vector[n] mu = rep_vector(0, n);
+  for (k in 1:n) {
+    mu[k] = alpha[j[k]] + beta[j[k]] * X[i[k]];
+  }
+  target += bernoulli_logit_lpmf(Y | mu);
+  target += lprior;
+}
+"
+case_number <- as.integer(nrow(df) / 9)
+indicator_i <- rep(1:9, times = case_number)
+indicator_j <- rep(1:case_number, each = 9)
+df$i <- indicator_i
+df$j <- indicator_j
+
+df_NA <- df %>% filter(!is.na(y))
+
+data <- list(Y = df_NA$y, n = nrow(df_NA), N = 9, J = case_number, Z = df_NA$x[1:9], i = df_NA$i, j = df_NA$j)
+fit <- stan(model_code = stan_code, data = data, chains = 4, cores = 4, verbose = TRUE, iter = 4000, warmup = 3000)
+```
+
+`ESS` が低く，`R-hat` が大きく，さらに `maximum-treedepth` を越して発散したものがあるという．`X[1]` のサンプルを見てみると $10^7$ というオーダーが出現していた．そこから `X` に事前分布を置き忘れていたことに気づいた．
+
+```r
+x_samples <- extract(fit, pars = "X")$X
+
+plot_dataframe <- data.frame(
+  legislator = colnames(Rehnquist)[1:9],
+  mean = apply(x_samples, 2, mean),
+  lower = apply(x_samples, 2, quantile, probs = 0.025),
+  upper = apply(x_samples, 2, quantile, probs = 0.975)
+)
+ggplot(plot_dataframe, aes(x = mean, y = legislator)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Mean", y = "Legislator", title = "Ideal Points of Rehnquist")
+
+```
 
 ## 理想点解析パッケージ一覧
 
