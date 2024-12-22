@@ -22,7 +22,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -86,6 +105,34 @@ ul.task-list li input[type="checkbox"] {
 
     window['quarto-listings'] = window['quarto-listings'] || {};
     window['quarto-listings']['listing-lst-survey'] = new List('listing-lst-survey', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-lst-pdmp .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-lst-pdmp'] = new List('listing-lst-pdmp', options);
 
     if (window['quarto-listing-loaded']) {
       window['quarto-listing-loaded']();
@@ -172,16 +219,12 @@ window.Quarto = {
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="連続・離散時間を往来する MCMC サンプラー – Hirofumi Shiba">
 <meta property="og:description" content="Zig-Zag within Gibbs という考え方">
-<meta property="og:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Stat/MeanOfGaussian.svg">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta property="og:image:height" content="1096">
-<meta property="og:image:width" content="1510">
 <meta name="twitter:title" content="連続・離散時間を往来する MCMC サンプラー – Hirofumi Shiba">
 <meta name="twitter:description" content="Zig-Zag within Gibbs という考え方">
-<meta name="twitter:image" content="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Stat/MeanOfGaussian.svg">
 <meta name="twitter:creator" content="@ano2math5">
-<meta name="twitter:image-height" content="1096">
-<meta name="twitter:image-width" content="1510">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -280,6 +323,13 @@ window.Quarto = {
    
   <ul>
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a></li>
+  <li><a href="#sec-GZZ" id="toc-sec-GZZ" class="nav-link" data-scroll-target="#sec-GZZ"><span class="header-section-number">2</span> Gibbs Zig-Zag サンプラー</a>
+  <ul class="collapse">
+  <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
+  <li><a href="#サンプラーの設計" id="toc-サンプラーの設計" class="nav-link" data-scroll-target="#サンプラーの設計"><span class="header-section-number">2.2</span> サンプラーの設計</a></li>
+  </ul></li>
+  <li><a href="#birth-death-サンプラー" id="toc-birth-death-サンプラー" class="nav-link" data-scroll-target="#birth-death-サンプラー"><span class="header-section-number">3</span> Birth-Death サンプラー</a></li>
+  
   </ul>
 </nav>
     </div>
@@ -297,15 +347,116 @@ window.Quarto = {
 </div>
 <section id="はじめに" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
-<p>PDMP サンプラー</p>
-
-
-
-</section>
-
-<div class="quarto-listing quarto-listing-container-grid" id="listing-lst-survey">
+<p>Zig-Zag サンプラーなどの PDMP サンプラーは <span class="math inline">\(\mathbb{R}^d\)</span> またはその領域上の確率分布からサンプリングするための，連続時間アルゴリズムである．</p>
+<div id="listing-lst-pdmp" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1734762655368" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="163">
+<div class="g-col-1" data-index="0" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1734852407354" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
+<a href="../../../posts/2024/Stat/ZigZagSubsampling.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Stat/MeanOfGaussian.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Zig-Zag サンプラーのサブサンプリングによるスケーラビリティ
+</h5>
+<div class="card-subtitle listing-subtitle">
+大規模モデル・大規模データに対する MCMC を目指して
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-18
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1734852406424" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
+<a href="../../../posts/2024/Process/ZigZag.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../Process/ZigZag2D_Gaussian.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Zig-Zag 過程によるサンプリング
+</h5>
+<div class="card-subtitle listing-subtitle">
+ジャンプと確定的な動きによる新たな MCMC 手法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-07-03
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1734852406421" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
+<a href="../../../posts/2024/Process/PureJump.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/Process/PureJump_files/figure-html/unnamed-chunk-1-1.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+純粋跳躍過程の生成作用素と区分的確定的 Markov 過程
+</h5>
+<div class="card-subtitle listing-subtitle">
+ジャンプと確定的な動きによる新たな MCMC 手法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-01-31
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>一方でこれらのサンプラーは離散空間上では使えない．</p>
+<p>その際は連続時間で動く PDMP と，Metropolis-Hastings 法などの従来の MCMC 手法を統合して動かす必要がある．</p>
+<p><span class="citation" data-cites="Sachs+2023">(<a href="#ref-Sachs+2023" role="doc-biblioref">Sachs et al., 2023</a>)</span> は Zig-Zag サンプラーともう１つの離散時間 MCMC を，Gibbs 様の考え方で組み合わせた GZZ (Gibbs Zig-Zag) サンプラーを提案した（第 <a href="#sec-GZZ" class="quarto-xref">2</a> 節）．</p>
+<p>一方で <span class="citation" data-cites="Hardcastle+2024">(<a href="#ref-Hardcastle+2024" role="doc-biblioref">Hardcastle et al., 2024</a>)</span> では，旧来は点過程からのサンプリングに用いられていた技術であった Birth-Death 過程を用いて統合する方法が提案されている．</p>
+</section>
+<section id="sec-GZZ" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-GZZ"><span class="header-section-number">2</span> Gibbs Zig-Zag サンプラー</h2>
+<section id="はじめに-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
+<p><span class="math inline">\(\zeta\in\mathbb{R}^d\)</span> からのサンプリングを， <span class="math display">\[
+\zeta=(\xi,\alpha)\in\mathbb{R}^p\times\mathbb{R}^r,\qquad p+r=d,
+\]</span> というように分解して考え，<span class="math inline">\(\xi\in\mathbb{R}^p\)</span> には Zig-Zag サンプラーを適用するが，<span class="math inline">\(\alpha\in\mathbb{R}^r\)</span> にはしないとする．</p>
+<p>このような例は階層モデル <span class="math display">\[
+X_i\text{i.i.d.}p(x|\xi),\qquad\xi|\alpha\sim p(\xi|\alpha),\qquad\alpha\sim p(\alpha),
+\]</span> の文脈で自然に現れる．実際，ポテンシャル（負の対数尤度関数）は <span class="math display">\[
+U(\zeta)=U^0(\xi,\alpha)+\sum_{i=1}^NU^i(\xi),
+\]</span> <span class="math display">\[
+U^0(\xi,\alpha)=-\log p(\xi|\alpha)-\log p(\alpha),\qquad U^i(\xi)=-\log p(x_i|\xi),
+\]</span> と表せる．</p>
+</section>
+<section id="サンプラーの設計" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="サンプラーの設計"><span class="header-section-number">2.2</span> サンプラーの設計</h3>
+<p><span class="math inline">\(\xi\)</span> の Zig-Zag サンプラーの生成作用素を <span class="math inline">\(L_\xi\)</span> とする．<span class="math inline">\(\alpha\)</span> からサンプリングをする MCMC の確率核を <span class="math inline">\(Q\)</span> とし，ある定数 <span class="math inline">\(\eta&gt;0\)</span> をパラメータにもつ Poisson 点過程が到着するたびに <span class="math inline">\(Q\)</span> により <span class="math inline">\(\alpha\)</span> の値を動かすとする．</p>
+<p>すると全体としてのサンプラーの生成作用素は次のように表せる： <span class="math display">\[
+L=L_\xi+\eta L_\alpha,
+\]</span> <span class="math display">\[
+L_\alpha f((\xi,\theta),\alpha)=\int_{\mathbb{R}^r}\biggr(f((\xi,\theta),\alpha')-f((\xi,\theta),\alpha)\biggl)Q(\alpha,d\alpha').
+\]</span></p>
+</section>
+</section>
+<section id="birth-death-サンプラー" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="birth-death-サンプラー"><span class="header-section-number">3</span> Birth-Death サンプラー</h2>
+</section>
+<section id="関連記事" class="level2 unnumbered unlisted">
+<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1734852407980" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="163">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -325,7 +476,7 @@ BMI データの重線型回帰を題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726963200000" data-listing-file-modified-sort="1734762655370" data-listing-date-modified-sort="1726963200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="49">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726963200000" data-listing-file-modified-sort="1734852407981" data-listing-date-modified-sort="1726963200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="49">
 <a href="../../../posts/2024/TransDimensionalModels/BayesTrans.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -347,7 +498,7 @@ BMI データの重線型回帰を題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1734762655370" data-listing-date-modified-sort="1734739200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="4">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1734852407981" data-listing-date-modified-sort="1734739200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="4">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Images/Polyhazard.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -371,7 +522,24 @@ Sticky PDMP によるベイズ変数選択
 <div class="listing-no-matching d-none">
 No matching items
 </div>
-</div></main> <!-- /main -->
+</div>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="quarto-appendix-heading"></h2><div class="quarto-appendix-contents">
+
+
+
+
+
+</div></section><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">4 文献紹介</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Hardcastle+2024" class="csl-entry" role="listitem">
+Hardcastle, L., Livingstone, S., and Baio, G. (2024). <a href="https://arxiv.org/abs/2406.14182">Averaging polyhazard models using piecewise deterministic monte carlo with applications to data with long-term survivors</a>.
+</div>
+<div id="ref-Sachs+2023" class="csl-entry" role="listitem">
+Sachs, M., Sen, D., Lu, J., and Dunson, D. (2023). <a href="https://doi.org/10.1214/22-BA1319"><span class="nocase">Posterior Computation with the Gibbs Zig-Zag Sampler</span></a>. <em>Bayesian Analysis</em>, <em>18</em>(3), 909–927.
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
