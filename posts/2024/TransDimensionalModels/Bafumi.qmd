@@ -3,7 +3,7 @@ title: "On the Identifiability of the Bafumi et. al. Ideal Point Model"
 subtitle: "Rethinking of the Hierarchical Model of Bafumi et. al. (2005)"
 author: "Hiforumi Shiba"
 date: 12/22/2024
-# date-modified: 12/13/2024
+date-modified: 12/23/2024
 categories: [Bayesian, Statistics, MCMC, R]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -19,6 +19,8 @@ abstract: |
 code-fold: false
 execute:
     cache: true
+citation: true
+copyright: "Copyright Hirofumi Shiba 2024. All Rights Reserved"
 # listing: 
 #     -   id: lst-embedding
 #         type: grid
@@ -48,18 +50,96 @@ Suppose we have a binary response variable $Y_{i,j}$ for the $i\in[N]$-th judge 
 2-parameter logistic model (2PL) can be written as follows:
 $$
 Y_{i,j}\sim\operatorname{Bernoulli}(\mu_{i,j}),
+$$ {#eq-model1}
 $$
+\operatorname{logit}(\mu_{i,j})=\al_j+\beta_j X_i=:\beta_j\Paren{\wt{\al}_j+X_i}.
+$$ {#eq-model2}
+
+Although the model is called the 2PL model, we have three parameters $\al_j,\beta_j,X_i$ in total, two for the cases $j\in[J]$ and one for the judges $i\in[N]$.
+
+In IRT (Item Response Theory) vocabulary, we call $\al_j$ the *difficulty*, and $\beta_j$ the *discrimination* parameter of the $j$-th 'item'.
+
+$X_i$ may be called the *latent trait* or *ability* parameter of the $i$-th 'unit' in that context, but here we call it the **ideal point** of the $i$-th judge.
+
+### The Problem of Identifiability
+
+As [Section 2 @Bafumi+2005] nicely categorized, the above model has three sources of non-identifiability:
+
+::: {.callout-tip appearance="simple" icon="false" title="Sources of non-identifiability"}
+
+1. Additive aliasing / base point indeterminancy
+
+    For any $c\in\R$, the transformation
+    $$
+    (\beta_j,\wt{\al}_j,X_i)\mapsto(\beta_j-c,\wt{\al}_j+c,X_i+c),\qquad c\in\R,
+    $$
+    does not change the likelihood.
+
+2. Multiplicative aliasing / scaling indeterminancy
+
+    Same applies to the following transformation:
+    $$
+    (\beta_j,\wt{\al}_j,X_i)\mapsto(c^{-1}\beta_j,c\wt{\al}_j,cX_i),\qquad c>0.
+    $$
+
+3. **Reflection invariance** / sign indeterminacy
+
+    $$
+    (\beta_j,\wt{\al}_j,X_i)\mapsto(-\beta_j,-\wt{\al}_j,-X_i)
+    $$
+
+:::
+
+Although all of the three problems may be settled by setting informative prior distributions to one of the $\al_j,\beta_j,X_i$'s, e.g., $X_i\sim N(0,1)$, the authors [@Bafumi+2005] propose a different approach to the thrid problem, reflection invariance.
+
+### Resolution by Hierarchical Structure
+
+[@Bafumi+2005] proceed to introduce a person(/judge)-level predictor $Z_i$ to the model, i.e.,
 $$
-\operatorname{logit}(\mu_{i,j})=\al_j+\beta_j x_i=:\beta_j\Paren{\wt{\al}_j+x_i}.
+X_i\sim\rN(\delta+\gamma Z_i,\sigma^2)
 $$
+to indirectly inform the model of the correct sign of the ideal points.
 
-In IRT (Item Response Theory) vocabulary, we call $\al_j$ the *difficulty*, and $\beta_j$ the *discrimination* parameter of the $j$-th item. $x_i$ may be called the *latent trait* or *ability* parameter, but here we call it the *ideal point* of the $i$-th judge.
+Specifically, $Z_i\in\{\pm1\}$ corresponds to the *party* of the nominating president of $i$-th judge; $Z_i=+1$ corresponds to the *Republican* party, and $Z_i=-1$ corresponds to the *Democratic* party.
 
+In this way, [@Bafumi+2005] tried to guide the model & likelihood to have only one mode, where liberal judges would be on the left and conservative judges would be on the right on the $X_i\in\R$ axis.
 
+### The Problem Remains ...
 
-[@Bafumi+2005] 
+Let us consider the data from the 1994-2004 terms of the U.S. Supreme Court here, although [@Bafumi+2005] used the data from the 1954-2000 terms. The data is available as `Rehnquist` via the `MCMCpack` package [@Martin+2011] in R.
 
-## Estimation by Stan
+```{r}
+#| output: false
+#| echo: false
+library(knitr)
+library(MCMCpack)
+```
+
+```{r}
+library(MCMCpack)
+data(Rehnquist)
+kable(head(Rehnquist))
+```
+
+Let us first see the 'correct' output from the model. The precise meaning of 'correct' will be clarified later in the next @sec-bafumi-stan, along with the Stan codes.
+
+![A 'correct' output from `bafumi_normal.stan`](Files/Bafumi_Model1.png)
+
+We see four judges classified as *liberal*, namely Stevens, Souter, Ginsburg & Breyer. The last two judges were nominated by Bill Clinton, a Democrat, while the first two were nominated by Republican presidents.
+
+This result aligns with the common understanding of the Supreme Court justices. For instance, we quote a sentence from the [wikipedia page of John Paul Stevens](https://en.wikipedia.org/wiki/John_Paul_Stevens):
+
+> Despite being a registered Republican who throughout his life identified as a conservative, Stevens was considered to have been on the liberal side of the Court at the time of his retirement.
+
+The similar situation applies to David Souter.
+
+Here we notice that two liberal judges have $Z_i=+1$, while the other two have $Z_i=-1$. The predictive ability of the covariate $Z_i$ is (presumably) weak during the 1994-2004 term.
+
+Therefore, the information from $Z_i$ about the sign of the ideal points may not be strong enough to resolve the identifiability problem. In that case, the posterior distribution would be bimodal. Indeed, this is the case, as we will see next.
+
+## Estimation by Stan {#sec-bafumi-stan}
+
+The 2PL model ([-@eq-model1]), ([-@eq-model2]) can be written in Stan as follows:
 
 ```{.stan filename="bafumi_normal.stan"}
 data {
@@ -100,6 +180,8 @@ model {
   target += lprior;
 }
 ```
+
+Using this Stan code, we run the following experiment, where we run 4 chains in parallel, each with 4000 iterations, 3000 of which are used for warmup. The chains are initialized randomly.
 
 ```{.r filename="Files/experiment.r"}
 for (i in 1:100) {
@@ -145,3 +227,14 @@ The following plots are some (first 9) of the results from the experiment.
 
 ![Elapsed time: 17.18 seconds](Files/experiment_9.png)
 :::
+
+We see that the result has two patterns and they are in symmetry with each other.
+
+This phenomenon proves that the posterior distribution of the ideal points is bimodal, indicating the weak identifiability of the model.
+
+## Conclusion
+
+[@Bafumi+2005]'s hierarchical resolution of the identifiability problem by the covariate $Z_i$ will fail if the covariate $Z_i$ is not informative enough.
+
+In that case, the posterior distribution of the ideal points will be bimodal.
+
