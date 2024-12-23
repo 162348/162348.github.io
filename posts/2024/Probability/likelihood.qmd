@@ -1,0 +1,268 @@
+---
+title: "Likelihood of Hierarchical Models"
+author: "Hiforumi Shiba"
+date: 12/23/2024
+categories: [Probability, Statistics]
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract: |
+  We examine how to find & formally determine the likelihood function of hierarchical models.
+  As a real-world example, we consider the ideal point model, also known as the 2-parameter logistic item response model.
+image: Images/ConditionalLikelihood.svg
+citation: true
+listing: 
+    -   id: lst-embedding
+        type: grid
+        contents:
+            - "../TransDimensionalModels/IdealPoint.qmd"
+            - "../TransDimensionalModels/IdealPoint1.qmd"
+            - "../Survey/BayesGLMM.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
+#     -   id: lst-embedding
+#         type: grid
+#         grid-columns: 1
+#         contents:
+#             - "../Survey/BayesGLMM.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## Problem
+
+### Starting Point
+
+As a starting point, consider a simple univariate linear regression model with 3 parameters, i.e., $\al,\beta,\sigma^2$:
+$$
+\E[Y|X]=\al+\beta X+\ep,\qquad\ep\sim N(0,\sigma^2).
+$$ {#eq-model1}
+Since ([-@eq-model1]) is just another expression for $Y|X\sim N(\al+\beta X,\sigma^2)$, the likelihood function is given by
+$$
+p(y|\al,\beta,\sigma)=\phi(y|\al+\beta x,\sigma^2),
+$$
+given data $x\in\R$, where $\phi(-|\mu,\sigma^2)$ represents the Gaussian density for $N(\mu,\sigma^2)$.
+
+### Hierarchical Model
+
+To make our model ([-@eq-model1]) more realistic, let's say, we would like to model variation in the intercept $\al$ by imposing another regression structure (you might call it super-population structure):
+$$
+\al=\mu_\al+\ep_\al,\qquad\ep_\al\sim N(0,\sigma_\al^2).
+$$ {#eq-model2}
+
+Now, what does the likelihood function $p(y|\mu_\al,\sigma_\al,\beta,\sigma)$ of this model look like?
+
+The answer is **normal likelihood**.
+
+### Likelihood Calculation {#sec-calculation}
+
+First, rewrite ([-@eq-model1]) and ([-@eq-model2]) as
+$$
+Y|X,\al\sim N(\al+\beta X,\sigma^2),
+$$
+$$
+\al|\mu_\al,\sigma_\al\sim N(\mu_\al,\sigma_\al^2).
+$$
+
+Using the formula (note this is not **always** true, see @sec-last-piece)
+$$
+p(y|\mu_\al,\sigma_\al,\beta,\sigma)=\int_\R p(y|\al,\beta,\sigma)p(\al|\mu_\al,\sigma_\al)\,d\al,
+$$
+we get a normal density
+$$
+p(y|\mu_\al,\sigma_\al,\beta,\sigma)=\phi(y|\wt{\mu},\wt{\sigma}^2),
+$$
+where
+$$
+\wt{\mu}(\beta,\mu_\al):=\beta x+\mu_\al,
+$$
+$$
+\wt{\sigma}^2(\sigma,\sigma_\al):=\sigma^2+\sigma_\al^2.
+$$
+
+This also follows from the **reproducing property** of normal distribution:
+$$
+N(\beta X,\sigma^2)*N(\mu_\al,\sigma_\al^2)=N(\beta X+\mu_\al,\sigma^2+\sigma_\al^2).
+$$
+
+## Background in Probability
+
+### Core Proposition
+
+Abstracting away by setting
+$$
+\theta:=(\beta,\sigma),\qquad\varphi:=(\mu_\al,\sigma_\al),
+$$
+the core identity was the following:
+$$
+p(y|\theta,\varphi)=\int p(y|\theta,\al)p(\al|\varphi)\,d\al.
+$$ {#eq-core}
+
+Having such a good notation, this formula might look obvious for stats people, but how actually do we prove it?
+
+### Conditional Probability
+
+Essentially, @eq-core comes from the tower property of conditional expectation:
+
+::: {.callout-tip title="Tower Property" icon="false"}
+
+For sigma algebras $\cG_1,\cG_2$,
+$$
+\cG_1\subset\cG_2\quad\Rightarrow\quad\E[X|\cG_1]=\E[\E[X|\cG_2]|\cG_1]\quad\P\das
+$$
+for any random variable $X$ on $(\Om,\cF,\P)$, $\cG_1,\cG_2\subset\cF$.
+
+:::
+
+Let's see how we apply this tower property to our problem:
+
+::: {.callout-tip title="[Th'm 8.15 @Kallenberg2021 p.174]" icon="false"}
+
+For any $A\in\cF$,
+$$
+\P[A|X]=\E\SQuare{\P[A|X,Y]\,\bigg|\,X}\quad\P\das
+$$ {#eq-Kallenberg}
+
+:::
+
+Concerning the definition of conditional probability, we first have the definition of conditional expectation, through which we define conditional probability as^[For this definition of conditional probability, see [@Kallenberg2021 p.167], [@Dudley2002 p.347]. If we are to define conditional probability first, we need the concept of **regular** conditional probability, which is not discussed here.]
+$$
+\P[A|X]:=\E[1_A|X].
+$$
+
+::: {.callout-note title="Proof" icon="false" collapse="true"}
+
+$$
+\E[1_A|X]=\E\SQuare{\E[1_A|X,Y]\,\bigg|\,X}\quad\P\das
+$$
+holds from tower property, noting that
+$$
+\sigma(X)\subset\sigma(X,Y).
+$$
+
+:::
+
+### Conditional Density
+
+The last piece we need is the definition of conditional density.
+
+::: {.callout-tip title="Def (Conditional Density)" icon="false"}
+
+For absolutely continuous random variables $X,Y$ on $\R^d$, we define the **conditional density** of $Y$ given $X$ as
+$$
+p(y|x):=\frac{p(x,y)}{p(x)}1_{\Brace{p(x)>0}},
+$$
+where $p(x,y)$ is the joint density of $(X,Y)$ and $p(x)$ is the marginal density of $X$.
+
+:::
+
+::: {.callout-tip title="Characterization of Conditional Density" icon="false"}
+
+$$
+\E[Y|X=x]=\int_{\R^d}y\,p(y|x)\,dy\quad\P^X\das
+$$
+
+:::
+
+::: {.callout-note title="Proof" icon="false" collapse="true"}
+
+Since conditional expectation is unique up to $\P$-null sets, we'll check the RHS (right-hand side) satisfies the conditions of conditional expectation.
+
+1. By Fubini's theorem, the RHS is a measurable function of $x$ and is $\P^X$-integrable.
+2. For all $\sigma(X)$-measurable set $A\in\sigma(X)$,
+
+    $$
+    \int_A\int_{\R^d}y\,p(y|x)\,dy\,p(x)\,dx=\int_{A\times\R^d}y\,p(x,y)\,dxdy=\E[Y1_A].
+    $$
+
+:::
+
+Plugging in this characterization into ([-@eq-Kallenberg]), we get
+$$
+\P[A|X=x]=\int_{\R^d}\P[A|X=x,Y=y]\,p(y|x)\,dy.
+$$
+Denoting the density of $\P[A|X=x]$ as $p(a|x)$, we have
+$$
+p(a|x)=\int_{\R^d}p(a|x,y)\,p(y|x)\,dy.
+$$
+
+### Last Piece {#sec-last-piece}
+
+Reterning to the notation in ([-@eq-core]), we have
+$$
+p(y|\theta,\varphi)=\int p(y|\theta,\varphi,\al)p(\al|\varphi)\,d\al.
+$$
+
+This is slightly different from ([-@eq-core]) in that there is $p(y|\theta,\varphi,\al)$ instead of $p(y|\theta,\al)$.
+
+So the last piece we need is **the modeling assumption** in the regression setting of ([-@eq-model1]), which is conditional independence between $Y$ and the hyperparameters $(\mu_\al,\sigma_\al)$ given $\al$:
+$$
+Y\indep\varphi\mid\al.
+$$
+
+Under this assumption, we have^[see, for example, [Th'm 8.9 @Kallenberg2021 p.170]]
+$$
+p(y|\theta,\al,\varphi)=p(y|\theta,\al).
+$$
+
+In the regression setting of ([-@eq-model1]),
+$$
+p(y|\beta,\sigma,\al,\mu_\al,\sigma_\al)=p(y|\beta,\sigma,\al).
+$$
+
+::: {.callout-important appearance="simple" icon="false"}
+
+We implicitly assumed
+$$
+p(y|\beta,\sigma,\al,\mu_\al,\sigma_\al)=p(y|\beta,\sigma,\al),
+$$
+since it was reasonable to assume the conditional independence between $Y$ and the hyperparameters $(\mu_\al,\sigma_\al)$ given $\al$:
+$$
+Y\indep(\mu_\al,\sigma_\al)\mid\al.
+$$
+
+:::
+
+## Real-world Example: Ideal Point Model
+
+### Specification
+
+Let's consider the following hierarchical model with 6 parameters, i.e., $\al,\beta,\gamma,\delta,\sigma^2$ and $X$:
+$$
+Y\sim\operatorname{Bernoulli}(\mu),
+$$
+$$
+\operatorname{logit}(\mu)=\al+\beta X,
+$$
+$$
+X=\gamma+\delta Z+\ep,\qquad\ep\sim N(0,\sigma^2).
+$$
+
+We see the hierarchical structure
+$$
+Y|X\sim\operatorname{Bernoulli}(\operatorname{logit}^{-1}(\al+\beta X)),
+$$
+$$
+X|Z\sim N(\gamma+\delta Z,\sigma^2),
+$$
+just as in @sec-calculation.
+
+This time, however, we cannot detour the calculation by the tower property, while in @sec-calculation we could sanity check the result by the reproducing property of normal distribution.
+
+### Likelihood Calculation
+
+\begin{align*}
+  p(y|\al,\beta,\gamma,\delta,\sigma)&=\int_\R p(y|\al,\beta,x)p(x|\gamma,\delta,\sigma)\,dx\\
+  &=1_{\Brace{1}}(y)\int_\R\operatorname{logit}^{-1}(\al+\beta x)\phi(x|\gamma+\delta z,\sigma)\,dx\\
+  &\qquad+1_{\Brace{0}}(y)\int_\R\Paren{1-\operatorname{logit}^{-1}(\al+\beta x)}\phi(x|\gamma+\delta z,\sigma)\,dx\\
+  &=\qquad\cdots\cdots
+\end{align*}
+
+We won't proceed any more. Instead, we prepared you with the codes for Bayesian estimation. Visit the following articles (although they are in Japanese) for more details:
+
+::: {#lst-IPM}
+:::
