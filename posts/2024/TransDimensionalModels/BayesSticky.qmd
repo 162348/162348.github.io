@@ -59,20 +59,20 @@ listing:
 ::: {#lst-survey}
 :::
 
-## Sticky PDMP
+## Sticky PDMP の理論
 
 ### 設定
 
 パラメータ $x\in\R^d$ 上に spike-and-slab 事前分布 [@Mitchell-Beauchamp1988]
 $$
 p(dx)=\prod_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
-$$
+$$ {#eq-spike-and-slab}
 を導入して，ベイズ変数選択を行うとしよう．
 
 このとき，モデルの対数尤度を $\ell(x):=\log p(y|x)$ とすると，事後分布は
 $$
 p(x|y)\,dx\propt p(y|x)p(dx)=e^{\ell(x)}\prod_{i=1}^d\Paren{\om_ip_i(x_i)+(1-\om_i)\delta_0(x_i)}
-$$
+$$ {#eq-posterior}
 と表せる．
 
 そこでこの設定を少し抽象化して，ポテンシャル $\Psi:\R^d\to\R$ を通じて
@@ -81,12 +81,91 @@ $$
 $$ {#eq-target}
 と表せる分布 $\mu\in\cP(\R^d)$ からサンプリングする問題を考える．
 
-この $\mu$ は Lebesgue 測度に関して絶対連続でないため密度を持たず，通常の勾配を用いた MCMC 法を直接は適用できない．
+事後分布 ([-@eq-posterior]) は
+$$
+\kappa_i=\frac{\om_i}{1-\om_i}p_i(0)(>0)
+$$
+と取った場合にあたる．
+
+この $\mu$ ([-@eq-target]) は Lebesgue 測度に関して絶対連続でないため密度を持たず，通常の勾配を用いた MCMC 法を直接は適用できない．
 
 ### 他手法との比較
 
-([-@eq-target]) のような非絶対連続分布からのサンプリングは難しい．
+::: {.callout-tip appearance="simple" icon="false"}
 
-そこでベイズ変数選択のためには，Laplace 分布や馬蹄事前分布などの絶対連続なスパース誘導事前分布を用い，事後分布は Gibbs サンプラーなどの勾配情報を用いないサンプラーで行う [@Griffin-Brown2021]，というアプローチもあり得る．
+1. ([-@eq-target]) のような非絶対連続分布からのサンプリングは難しい．そのため spike-and-slab 事前分布 ([-@eq-spike-and-slab]) の $\delta_0$ を分散の小さな正規分布などに軟化した絶対連続な分布に置き換えて，これに対して HMC などの勾配ベースの MCMC 法を適用することもあり得る [@Goldman+2022]．
+2. あるいは初めから Laplace 分布や馬蹄事前分布などの絶対連続なスパース誘導事前分布を用い，事後分布は Gibbs サンプラーなどの勾配情報を用いないサンプラーで行う [@Griffin-Brown2021]，というアプローチもあり得る．
 
-しかし ([-@eq-target]) のようなアトムを持った分布に対する Sticky PDMP によるアプローチは，非可逆なモデル間ジャンプを達成する Reversible-Jump MCMC の拡張と見れる通り，特定の部分空間にトラップされていた総時間を計算することで，ベイズ因子を計算せずに事後包含確率 (PIP: Posterior Inclusion Probability) を計算できるという美点がある．
+:::
+
+しかし ([-@eq-target]) のようなアトムを持った分布に直接適用できる Sticky PDMP によるアプローチは，２の方法と違って非可逆なモデル間ジャンプを達成する効率的なサンプラーである．
+
+さらにその上，Reversible-Jump MCMC の拡張と見れる通り，特定の部分空間にトラップされていた総時間を計算することで，ベイズ因子を計算せずに事後包含確率 (PIP: Posterior Inclusion Probability) を，１の方法と違って誤差なく計算できるという美点がある．
+
+### サンプラー
+
+::: {.callout-tip appearance="simple" icon="false" title="The Sticky Zig-Zag Sampler [@Bierkens+2023]"}
+
+1. 基本的には
+    $$
+    \R^d\times\{\pm1\}^d
+    $$
+
+    上を動く Zig-Zag サンプラーである．
+
+2. 任意の座標成分が $0$ になったとき，すなわち
+
+    $$
+    \Brace{(x,v)\in\R^d\times\{\pm1\}^d\mid\exists i\in[d]\;x_i=0}
+    $$
+    を通過したとき，座標成分 $x_i$ は $0$ に固定され，Poisson ジャンプが生じるまでそのままである．
+
+:::
+
+これは一見 Markov 過程にならないが，状態空間を拡張して
+$$
+E:=\R_{00}^d\times\{\pm1\}^d,\qquad\R_{00}:=\ocinterval{-\infty,0^-}\sqcup\cointerval{0^+,\infty}
+$$
+と考えると，この上の Markov 過程になる．
+
+第 $i\in[d]$ 成分が $(x_i,v_i)=(0^-,-1)$ または $(0^+,1)$ になったとき，この座標は $(x_i,v_i)$ のまま動かなくなり，この期間だけ $v_i$ は必ずしも「速さ」を表さなくなる，と解する．
+
+トラップ状態から脱出するレートは $\kappa_i$ とする．
+
+### エルゴード性
+
+こうして構成された Zig-Zag サンプラーは，分布 $\mu$ の裾が重すぎない場合，具体的にはある $c>d,c'\in\R$ が存在して
+$$
+\Psi(x)>c\log\abs{x}-c',\qquad x\in\R^d,
+$$
+を満たすとき（全変動ノルムに関して）エルゴード的である [Prop. A.9 @Bierkens+2023 p.20]．
+
+::: {.callout-tip title="[$0$ への再起時刻 @Bierkens+2023 p.6]" icon="false"}
+
+$\R^d$ の原点への再起時刻 $T_0$ の期待値は
+$$
+\E[T_0]=\frac{1-\mu(\{0\})}{d\kappa\mu(\{0\})}.
+$$
+
+:::
+
+
+### 極限
+
+Sticky Zig-Zag サンプラーは，spike-and-slab 事前分布 ([-@eq-spike-and-slab]) を，十分小さい標準偏差 $c_i>0$ を持つ正規分布で近似した
+$$
+\wt{p}(dx)=\sum_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_1+(1-\om_i)\rN(0,c_i^2)}
+$$
+に対する Zig-Zag サンプラーの，$c_i\to0$ の極限の場合と見れる [@Chevallier+2023 p.2917]．
+
+
+### 一般化
+
+一般に２つの空間 $E_i,E_j$ の間のジャンプをデザインするとする．
+
+任意に部分集合 $\Gamma_{i,j}\subset E_i$ を定めて，ここを通過する度に確率 $p_{i,j}>0$ でジャンプするとすると，ここから戻る Poisson レート $\beta_{i,j}:E_j\to\R_+$ は
+$$
+\beta_{i,j}(z):=p_{i,j}\frac{}{}
+$$
+
+## Sticky PDMP の実装

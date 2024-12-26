@@ -3,7 +3,7 @@ title: "ベイズデータ解析６"
 subtitle: "応答が質的変数の場合"
 author: "司馬博文"
 date: 12/5/2024
-date-modified: 12/11/2024
+date-modified: 12/26/2024
 categories: [Bayesian, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -22,12 +22,29 @@ listing:
         type: grid
         sort: false
         contents:
-            - "../Computation/brms.qmd"
             - "BDA1.qmd"
-            - "Survey1.qmd"
-            - "Survey2.qmd"
-            - "Survey3.qmd"
-            - "Survey4.qmd"
+            - "BayesRegression.qmd"
+            - "BayesANOVA.qmd"
+            # - "Survey2.qmd"
+            # - "Survey3.qmd"
+            # - "Survey4.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-embed
+        type: grid
+        sort: false
+        grid-columns: 1
+        contents:
+            - "BDA3.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-ideal
+        type: grid
+        sort: false
+        grid-columns: 2
+        contents:
+            - "../TransDimensionalModels/IdealPoint.qmd"
+            - "../TransDimensionalModels/IdealPoint1.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -36,18 +53,26 @@ listing:
 
 ## 関連記事 {.unnumbered .unlisted}
 
+回帰モデルや分散分析では，暗黙裡に応答変数が連続であることが仮定されている．
+
 ::: {#lst-survey}
 :::
+
+本節では質的な変数，特に順序構造がある離散変数のモデリングを考える．このようなものを **順序応答** (ordinal response) という．
+
+このようなデータには，多くの場合背後に **連続潜在変数** を仮定してモデリングを行う．
+
+その結果，潜在変数の存在が Gibbs サンプラーの構成を容易にする．
 
 ## ２項モデル
 
 ### はじめに
 
-$0,1$ データなどは二項分布 $\Bin(n,p)=\Ber(p)^{\otimes n}$ に従うとしてモデリングされる．
+$0,1$ の確率変数の分布は，Bernoulli 分布 $\Ber(p)=\Bin(1,p)$ によって記述できる．
 
-この際，パラメータ $p$ を代理の応答変数として回帰分析がなされることが多い．
+この際，パラメータ $p$ を代理の応答変数として回帰分析がなされることになる．
 
-多くの場合，リンク関数 $g$ に関して，$g(p)$ を線型の予測子で回帰する，一般化線型モデルが考慮される．
+多くの場合，リンク関数 $g$ に関して，$g(p)$ を線型の予測子 $\beta^\top X$ で回帰する．Bernoulli 分布は指数型分布族の例であるため，このようなモデルは **一般化線型モデル** の例になる．
 
 ### 潜在変数解釈 {#sec-latent-variable}
 
@@ -58,7 +83,7 @@ $$
 は，潜在変数 $Y_i^*$ が存在して
 $$
 Y_i=1_{\R_+}(Y_i^*),\qquad Y_i^*\sim P(X_i^\top\beta,1)
-$$
+$$ {#eq-latent-logistic}
 として結果が決まっているものとも解釈できる．これは
 $$
 \P[Y_i=1|X_i]=\P[Y_i^*>0|X_i]=\P[-U\le X_i^\top\beta],\qquad U\sim P(0,1),
@@ -67,13 +92,16 @@ $$
 
 この潜在変数 $Y_i^*$ は単位 $i\in[N]$ の潜在的な尺度として解釈できる．これを用いて因子分析様の解析を行う例には [理想点推定](../TransDimensionalModels/IdealPoint.qmd) もある．
 
-一方で $Y_i^*$ の存在は Gibbs サンプラーの構成を容易にする．
+::: {#lst-ideal}
+:::
+
+一方で $Y_i^*$ の存在は Gibbs サンプラーの構成を容易にする [@Albert-Chib1993]．
 
 $F$ を $t$-分布とした場合，これを robit モデル [@Liu2004-robit] という [15.6 節 @Gelman-Hill-Vehtari2020]．$t$ 分布の自由度を無限大にした場合が probit モデルに相当する．
 
 ### 順序応答
 
-この潜在変数解釈は容易に２値応答以外の場合に拡張できる．
+この潜在変数解釈は容易に２値応答以外の場合に拡張できる．その結果多項モデルを用いたソフトマックス回帰 [-@sec-softmax-regression] などとは別のアプローチが，多値順序応答に対して可能になる．
 
 $y\in n+1:=\{0,1,\cdots,n\}$ という順序を持った順序応答の場合でも
 $$
@@ -87,7 +115,9 @@ $$
 
 これはそのまま **順序多項回帰** (ordered multinomial regression) [@Walker-Duncan1967] に相当する．
 
-ただし，この場合 $c_0=0$ とし，それに応じて $Y_i^*\sim P(X_i^\top\beta-c_0,1)$ とする径数付けを採用する場合も多い．
+この場合 $c_0=0$ とし，それに応じて $Y_i^*\sim P(X_i^\top\beta-c_0,1)$ とする径数付けを採用する場合も多い．
+
+ベイズ推論は $\chi$ を特徴付ける点 $(c_0,c_1,\cdots,c_n)$ 上に事前分布を置くことで実行できるが，**順位尤度** (rank likelihood) を通じた議論により，$g$ を特定せずとも Gibbs サンプラーによる推論が可能である [Section 12.1.2 @Hoff2009]．
 
 ### 識別可能性と分離
 
@@ -121,7 +151,10 @@ $t(1,0,2.5)$ から $t(7,0,2.5)$ はいずれも $[-5,5]$ に多くの重みを�
 
 計量経済学の分野で古くから使われている潜在変数表現 [-@sec-latent-variable] の拡張として，**選択モデル** (choice model) がある．
 
+これに関しては [階層ロジスティックモデルの稿](BDA3.qmd#sec-choice-model) で詳しく扱う．
 
+::: {#lst-embed}
+:::
 
 ## 多項モデル
 
@@ -135,7 +168,7 @@ Y\sim\operatorname{Cat}(\al_1,\cdots,\al_k),\qquad\sum_{j=1}^k\al_j=1,
 $$
 も想定できる．$y$ が全く構造を持たない名目 (nominal) 応答である場合，ほぼ唯一の選択である．
 
-### 名目応答に対する多項モデル
+### 名目応答に対する多項モデル {#sec-softmax-regression}
 
 名目応答が $k$ 次元ベクトル $y_i\in\N^k$ の形で与えられている場合，
 $$
@@ -201,6 +234,30 @@ $$
 このモデルは「勝利」「引き分け」「敗北」の３応答に対する確率モデルを調節することで，引き分け [@Rao-Kupper1967] や先手有利 [@Davidson-Beaver1977], [@Agresti12-CategoricalData] などの情報も取り入れられるように簡単に拡張できる．
 
 このように２値応答ではなく多値応答とみても，前節の Poisson モデルの定式化に帰着させることで，一般化線型モデリングの枠組みに合流させることができる [@BDA pp.427-428]．
+
+### 順位データ
+
+ランキングデータは，トーナメントのような常に１対１比較のみを通じて情報が得られるわけではない．多者比較 (multiple comparison) も取り入れた Bradley-Terry モデルより一般的なものが [@Plackett1975]-[@Luce1959] モデルである．
+
+Plackett-Luce モデルでは，参加者 $[K]:=\Brace{1,\cdots,K}$ の強さに当たる潜在変数 $\lambda_k>0$ を導入し，これに比例した「優勝」確率を持つとする．そして順位の決定は，参加者のプールから「勝ち抜け」の１人を決定する独立試行の繰り返しと見て，
+$$
+\P[Y=y|\lambda]=\prod_{j=1}^{K-1}\frac{\lambda_{y_j}}{\sum_{l=j}^K\lambda_{y_l}}
+$$
+としてモデリングする．
+
+このモデルは，「陽の目を見る瞬間」
+$$
+W_k\iidsim\Exp(\lambda_k)
+$$
+という到着時刻があり，この時刻の早さで順位が決まる
+$$
+\P[W_{y_1}<\cdots<W_{y_K}|\lambda]=\P[Y=y|\lambda]=\prod_{j=1}^{K-1}\frac{\lambda_{y_j}}{\sum_{l=j}^K\lambda_{y_l}}
+$$
+という潜在変数表現を持つ．これは Thurstone 表現 [@Thurstone1927]，またはランダム効用モデルと呼ばれる [Chapter 9 @Diaconis1988 p.167]．
+
+このような潜在変数表現を元にした MM アルゴリズム [@Hunter2004] や Gibbs サンプラー [@Caron-Doucet2012] に基づく推論法が存在する．`PlackettLuce` パッケージ [@Turner+2020] も参照．
+
+さらに Plackett-Luce モデルで引き分けを許すように拡張したものが Gibbs サンプラーとともに [@Henderson2024] で提案されている．
 
 ### 対数線型モデル
 
