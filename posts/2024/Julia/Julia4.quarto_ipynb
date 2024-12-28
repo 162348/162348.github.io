@@ -1,0 +1,827 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"俺のための Julia 入門（４）型定義\"\n",
+        "author: \"司馬 博文\"\n",
+        "date: 9/9/2020\n",
+        "categories: [Julia, 俺のためのJulia入門]\n",
+        "abstract-title: 概要\n",
+        "abstract: Julia は階層関係を明示的に宣言する必要のある名前的型付け言語であり，既存の型から自由な構成が可能なパラメトリック型付け言語である．\n",
+        "code-fold: false\n",
+        "execute:\n",
+        "    cache: true\n",
+        "---\n",
+        "\n",
+        "::: {.hidden}\n",
+        "\n",
+        "::: {.content-visible when-format=\"html\"}\n",
+        "\n",
+        "A Blog Entry on Bayesian Computation by an Applied Mathematician\n",
+        "\n",
+        "$$\n",
+        "\n",
+        "\\renewcommand{\\P}{\\operatorname{P}}\\newcommand{\\E}{\\operatorname{E}}\n",
+        "\\newcommand{\\R}{\\mathbb{R}}\\newcommand{\\F}{\\mathcal{F}}\n",
+        "\\newcommand{\\abs}[1]{\\lvert#1\\rvert}\\newcommand{\\Abs}[1]{\\left|#1\\right|}\\newcommand{\\ABs}[1]{\\biggl|#1\\biggr|}\\newcommand{\\norm}[1]{\\|#1\\|}\\newcommand{\\Norm}[1]{\\left\\|#1\\right\\|}\\newcommand{\\NOrm}[1]{\\biggl\\|#1\\biggr\\|}\\newcommand{\\Brace}[1]{\\left\\{#1\\right\\}}\\newcommand{\\BRace}[1]{\\biggl\\{#1\\biggr\\}}\\newcommand{\\paren}[1]{\\left(#1\\right)}\\newcommand{\\Paren}[1]{\\biggr(#1\\biggl)}\\newcommand{\\brac}[1]{\\langle#1\\rangle}\\newcommand{\\Brac}[1]{\\left\\langle#1\\right\\rangle}\\newcommand{\\BRac}[1]{\\biggl\\langle#1\\biggr\\rangle}\\newcommand{\\bra}[1]{\\left\\langle#1\\right|}\\newcommand{\\ket}[1]{\\left|#1\\right\\rangle}\\newcommand{\\Square}[1]{\\left[#1\\right]}\\newcommand{\\SQuare}[1]{\\biggl[#1\\biggr]}\\newcommand{\\rN}{\\mathrm{N}}\\newcommand{\\ov}[1]{\\overline{#1}}\\newcommand{\\un}[1]{\\underline{#1}}\\newcommand{\\wt}[1]{\\widetilde{#1}}\\newcommand{\\wh}[1]{\\widehat{#1}}\\newcommand{\\pp}[2]{\\frac{\\partial #1}{\\partial #2}}\\newcommand{\\ppp}[3]{\\frac{\\partial #1}{\\partial #2\\partial #3}}\\newcommand{\\dd}[2]{\\frac{d #1}{d #2}}\\newcommand{\\floor}[1]{\\lfloor#1\\rfloor}\\newcommand{\\Floor}[1]{\\left\\lfloor#1\\right\\rfloor}\\newcommand{\\ceil}[1]{\\lceil#1\\rceil}\\newcommand{\\ocinterval}[1]{(#1]}\\newcommand{\\cointerval}[1]{[#1)}\\newcommand{\\COinterval}[1]{\\left[#1\\right)}\\newcommand{\\iso}{\\overset{\\sim}{\\to}}\n",
+        "\n",
+        "\n",
+        "\n",
+        "\\newcommand{\\y}{\\b{y}}\\newcommand{\\mi}{\\,|\\,}\\newcommand{\\Mark}{\\mathrm{Mark}}\n",
+        "\\newcommand{\\argmax}{\\operatorname*{argmax}}\\newcommand{\\argmin}{\\operatorname*{argmin}}\n",
+        "\n",
+        "\\newcommand{\\pr}{\\mathrm{pr}}\\newcommand{\\Conv}{\\operatorname{Conv}}\\newcommand{\\cU}{\\mathcal{U}}\n",
+        "\\newcommand{\\Map}{\\mathrm{Map}}\\newcommand{\\dom}{\\mathrm{Dom}\\;}\\newcommand{\\cod}{\\mathrm{Cod}\\;}\\newcommand{\\supp}{\\mathrm{supp}\\;}\n",
+        "\\newcommand{\\grad}{\\operatorname{grad}}\\newcommand{\\rot}{\\operatorname{rot}}\\renewcommand{\\div}{\\operatorname{div}}\\newcommand{\\tr}{\\operatorname{tr}}\\newcommand{\\Tr}{\\operatorname{Tr}}\\newcommand{\\KL}{\\operatorname{KL}}\\newcommand{\\JS}{\\operatorname{JS}}\\newcommand{\\ESS}{\\operatorname{ESS}}\\newcommand{\\MSE}{\\operatorname{MSE}}\\newcommand{\\erf}{\\operatorname{erf}}\\newcommand{\\arctanh}{\\operatorname{arctanh}}\\newcommand{\\pl}{\\operatorname{pl}}\\newcommand{\\minimize}{\\operatorname{minimize}}\\newcommand{\\subjectto}{\\operatorname{subject to}}\\newcommand{\\sinc}{\\operatorname{sinc}}\\newcommand{\\Ent}{\\operatorname{Ent}}\\newcommand{\\Polya}{\\operatorname{Polya}}\\newcommand{\\Exp}{\\operatorname{Exp}}\\newcommand{\\codim}{\\operatorname{codim}}\\newcommand{\\sgn}{\\operatorname{sgn}}\\newcommand{\\rank}{\\operatorname{rank}}\n",
+        "\n",
+        "\\newcommand{\\vctr}[2]{\\begin{pmatrix}#1\\\\#2\\end{pmatrix}}\\newcommand{\\vctrr}[3]{\\begin{pmatrix}#1\\\\#2\\\\#3\\end{pmatrix}}\\newcommand{\\mtrx}[4]{\\begin{pmatrix}#1&#2\\\\#3&#4\\end{pmatrix}}\\newcommand{\\smtrx}[4]{\\paren{\\begin{smallmatrix}#1&#2\\\\#3&#4\\end{smallmatrix}}}\\newcommand{\\Ker}{\\mathrm{Ker}\\;}\\newcommand{\\Coker}{\\mathrm{Coker}\\;}\\newcommand{\\Coim}{\\mathrm{Coim}\\;}\\newcommand{\\lcm}{\\mathrm{lcm}}\\newcommand{\\GL}{\\mathrm{GL}}\\newcommand{\\SL}{\\mathrm{SL}}\\newcommand{\\alt}{\\mathrm{alt}}\n",
+        "\n",
+        "\\renewcommand{\\Re}{\\mathrm{Re}\\;}\\renewcommand{\\Im}{\\mathrm{Im}\\,}\\newcommand{\\Gal}{\\mathrm{Gal}}\\newcommand{\\PGL}{\\mathrm{PGL}}\\newcommand{\\PSL}{\\mathrm{PSL}}\\newcommand{\\Log}{\\mathrm{Log}\\,}\\newcommand{\\Res}{\\mathrm{Res}\\,}\\newcommand{\\on}{\\mathrm{on}\\;}\\newcommand{\\hatC}{\\widehat{\\C}}\\newcommand{\\hatR}{\\hat{\\R}}\\newcommand{\\PV}{\\mathrm{P.V.}}\\newcommand{\\diam}{\\mathrm{diam}}\\newcommand{\\Area}{\\mathrm{Area}}\\newcommand{\\Lap}{\\Laplace}\\newcommand{\\f}{\\mathbf{f}}\\newcommand{\\cR}{\\mathcal{R}}\\newcommand{\\const}{\\mathrm{const.}}\\newcommand{\\Om}{\\Omega}\\newcommand{\\Cinf}{C^\\infty}\\newcommand{\\ep}{\\epsilon}\\newcommand{\\dist}{\\mathrm{dist}}\\newcommand{\\opart}{\\o{\\partial}}\\newcommand{\\Length}{\\mathrm{Length}}\n",
+        "\n",
+        "\\newcommand{\\cA}{\\mathcal{A}}\\newcommand{\\cO}{\\mathcal{O}}\\newcommand{\\cW}{\\mathcal{W}}\\renewcommand{\\O}{\\mathcal{O}}\\renewcommand{\\S}{\\mathcal{S}}\\newcommand{\\U}{\\mathcal{U}}\\newcommand{\\V}{\\mathrm{V}}\\newcommand{\\N}{\\mathbb{N}}\\newcommand{\\bN}{\\mathbb{N}}\\newcommand{\\C}{\\mathrm{C}}\\newcommand{\\bC}{\\mathbb{C}}\\newcommand{\\Z}{\\mathcal{Z}}\\newcommand{\\Q}{\\mathbb{Q}}\\newcommand{\\bQ}{\\mathbb{Q}}\\newcommand{\\TV}{\\mathrm{TV}}\\newcommand{\\ORD}{\\mathrm{ORD}}\\newcommand{\\Card}{\\mathrm{Card}\\,}\\newcommand{\\Top}{\\mathrm{Top}}\\newcommand{\\Disc}{\\mathrm{Disc}}\\newcommand{\\Codisc}{\\mathrm{Codisc}}\\newcommand{\\CoDisc}{\\mathrm{CoDisc}}\\newcommand{\\Ult}{\\mathrm{Ult}}\\newcommand{\\ord}{\\mathrm{ord}}\\newcommand{\\bS}{\\mathbb{S}}\\newcommand{\\PConn}{\\mathrm{PConn}}\\newcommand{\\mult}{\\mathrm{mult}}\\newcommand{\\inv}{\\mathrm{inv}}\n",
+        "\n",
+        "\\newcommand{\\Der}{\\mathrm{Der}}\\newcommand{\\osub}{\\overset{\\mathrm{open}}{\\subset}}\\newcommand{\\osup}{\\overset{\\mathrm{open}}{\\supset}}\\newcommand{\\al}{\\alpha}\\newcommand{\\K}{\\mathbb{K}}\\newcommand{\\Sp}{\\mathrm{Sp}}\\newcommand{\\g}{\\mathfrak{g}}\\newcommand{\\h}{\\mathfrak{h}}\\newcommand{\\Imm}{\\mathrm{Imm}}\\newcommand{\\Imb}{\\mathrm{Imb}}\\newcommand{\\Gr}{\\mathrm{Gr}}\n",
+        "\n",
+        "\\newcommand{\\Ad}{\\mathrm{Ad}}\\newcommand{\\finsupp}{\\mathrm{fin\\;supp}}\\newcommand{\\SO}{\\mathrm{SO}}\\newcommand{\\SU}{\\mathrm{SU}}\\newcommand{\\acts}{\\curvearrowright}\\newcommand{\\mono}{\\hookrightarrow}\\newcommand{\\epi}{\\twoheadrightarrow}\\newcommand{\\Stab}{\\mathrm{Stab}}\\newcommand{\\nor}{\\mathrm{nor}}\\newcommand{\\T}{\\mathbb{T}}\\newcommand{\\Aff}{\\mathrm{Aff}}\\newcommand{\\rsup}{\\triangleright}\\newcommand{\\subgrp}{\\overset{\\mathrm{subgrp}}{\\subset}}\\newcommand{\\Ext}{\\mathrm{Ext}}\\newcommand{\\sbs}{\\subset}\\newcommand{\\sps}{\\supset}\\newcommand{\\In}{\\mathrm{in}\\;}\\newcommand{\\Tor}{\\mathrm{Tor}}\\newcommand{\\p}{\\b{p}}\\newcommand{\\q}{\\mathfrak{q}}\\newcommand{\\m}{\\mathfrak{m}}\\newcommand{\\cS}{\\mathcal{S}}\\newcommand{\\Frac}{\\mathrm{Frac}\\,}\\newcommand{\\Spec}{\\mathrm{Spec}\\,}\\newcommand{\\bA}{\\mathbb{A}}\\newcommand{\\Sym}{\\mathrm{Sym}}\\newcommand{\\Ann}{\\mathrm{Ann}}\\newcommand{\\Her}{\\mathrm{Her}}\\newcommand{\\Bil}{\\mathrm{Bil}}\\newcommand{\\Ses}{\\mathrm{Ses}}\\newcommand{\\FVS}{\\mathrm{FVS}}\n",
+        "\n",
+        "\\newcommand{\\Ho}{\\mathrm{Ho}}\\newcommand{\\CW}{\\mathrm{CW}}\\newcommand{\\lc}{\\mathrm{lc}}\\newcommand{\\cg}{\\mathrm{cg}}\\newcommand{\\Fib}{\\mathrm{Fib}}\\newcommand{\\Cyl}{\\mathrm{Cyl}}\\newcommand{\\Ch}{\\mathrm{Ch}}\n",
+        "\\newcommand{\\rP}{\\mathrm{P}}\\newcommand{\\rE}{\\mathrm{E}}\\newcommand{\\e}{\\b{e}}\\renewcommand{\\k}{\\b{k}}\\newcommand{\\Christ}[2]{\\begin{Bmatrix}#1\\\\#2\\end{Bmatrix}}\\renewcommand{\\Vec}[1]{\\overrightarrow{\\mathrm{#1}}}\\newcommand{\\hen}[1]{\\mathrm{#1}}\\renewcommand{\\b}[1]{\\boldsymbol{#1}}\n",
+        "\n",
+        "\\newcommand{\\Inc}{\\mathrm{Inc}}\\newcommand{\\aInc}{\\mathrm{aInc}}\\newcommand{\\HS}{\\mathrm{HS}}\\newcommand{\\loc}{\\mathrm{loc}}\\newcommand{\\Lh}{\\mathrm{L.h.}}\\newcommand{\\Epi}{\\mathrm{Epi}}\\newcommand{\\slim}{\\mathrm{slim}}\\newcommand{\\Ban}{\\mathrm{Ban}}\\newcommand{\\Hilb}{\\mathrm{Hilb}}\\newcommand{\\Ex}{\\mathrm{Ex}}\\newcommand{\\Co}{\\mathrm{Co}}\\newcommand{\\sa}{\\mathrm{sa}}\\newcommand{\\nnorm}[1]{{\\left\\vert\\kern-0.25ex\\left\\vert\\kern-0.25ex\\left\\vert #1 \\right\\vert\\kern-0.25ex\\right\\vert\\kern-0.25ex\\right\\vert}}\\newcommand{\\dvol}{\\mathrm{dvol}}\\newcommand{\\Sconv}{\\mathrm{Sconv}}\\newcommand{\\I}{\\mathcal{I}}\\newcommand{\\nonunital}{\\mathrm{nu}}\\newcommand{\\cpt}{\\mathrm{cpt}}\\newcommand{\\lcpt}{\\mathrm{lcpt}}\\newcommand{\\com}{\\mathrm{com}}\\newcommand{\\Haus}{\\mathrm{Haus}}\\newcommand{\\proper}{\\mathrm{proper}}\\newcommand{\\infinity}{\\mathrm{inf}}\\newcommand{\\TVS}{\\mathrm{TVS}}\\newcommand{\\ess}{\\mathrm{ess}}\\newcommand{\\ext}{\\mathrm{ext}}\\newcommand{\\Index}{\\mathrm{Index}\\;}\\newcommand{\\SSR}{\\mathrm{SSR}}\\newcommand{\\vs}{\\mathrm{vs.}}\\newcommand{\\fM}{\\mathfrak{M}}\\newcommand{\\EDM}{\\mathrm{EDM}}\\newcommand{\\Tw}{\\mathrm{Tw}}\\newcommand{\\fC}{\\mathfrak{C}}\\newcommand{\\bn}{\\boldsymbol{n}}\\newcommand{\\br}{\\boldsymbol{r}}\\newcommand{\\Lam}{\\Lambda}\\newcommand{\\lam}{\\lambda}\\newcommand{\\one}{\\mathbf{1}}\\newcommand{\\dae}{\\text{-a.e.}}\\newcommand{\\das}{\\text{-a.s.}}\\newcommand{\\td}{\\text{-}}\\newcommand{\\RM}{\\mathrm{RM}}\\newcommand{\\BV}{\\mathrm{BV}}\\newcommand{\\normal}{\\mathrm{normal}}\\newcommand{\\lub}{\\mathrm{lub}\\;}\\newcommand{\\Graph}{\\mathrm{Graph}}\\newcommand{\\Ascent}{\\mathrm{Ascent}}\\newcommand{\\Descent}{\\mathrm{Descent}}\\newcommand{\\BIL}{\\mathrm{BIL}}\\newcommand{\\fL}{\\mathfrak{L}}\\newcommand{\\De}{\\Delta}\n",
+        "\n",
+        "\\newcommand{\\calA}{\\mathcal{A}}\\newcommand{\\calB}{\\mathcal{B}}\\newcommand{\\D}{\\mathcal{D}}\\newcommand{\\Y}{\\mathcal{Y}}\\newcommand{\\calC}{\\mathcal{C}}\\renewcommand{\\ae}{\\mathrm{a.e.}\\;}\\newcommand{\\cZ}{\\mathcal{Z}}\\newcommand{\\fF}{\\mathfrak{F}}\\newcommand{\\fI}{\\mathfrak{I}}\\newcommand{\\rV}{\\mathrm{V}}\\newcommand{\\cE}{\\mathcal{E}}\\newcommand{\\sMap}{\\sigma\\textrm{-}\\mathrm{Map}}\\newcommand{\\cC}{\\mathcal{C}}\\newcommand{\\comp}{\\complement}\\newcommand{\\J}{\\mathcal{J}}\\newcommand{\\sumN}[1]{\\sum_{#1\\in\\N}}\\newcommand{\\cupN}[1]{\\cup_{#1\\in\\N}}\\newcommand{\\capN}[1]{\\cap_{#1\\in\\N}}\\newcommand{\\Sum}[1]{\\sum_{#1=1}^\\infty}\\newcommand{\\sumn}{\\sum_{n=1}^\\infty}\\newcommand{\\summ}{\\sum_{m=1}^\\infty}\\newcommand{\\sumk}{\\sum_{k=1}^\\infty}\\newcommand{\\sumi}{\\sum_{i=1}^\\infty}\\newcommand{\\sumj}{\\sum_{j=1}^\\infty}\\newcommand{\\cupn}{\\cup_{n=1}^\\infty}\\newcommand{\\capn}{\\cap_{n=1}^\\infty}\\newcommand{\\cupk}{\\cup_{k=1}^\\infty}\\newcommand{\\cupi}{\\cup_{i=1}^\\infty}\\newcommand{\\cupj}{\\cup_{j=1}^\\infty}\\newcommand{\\limn}{\\lim_{n\\to\\infty}}\\renewcommand{\\L}{\\mathcal{L}}\\newcommand{\\cL}{\\mathcal{L}}\\newcommand{\\Cl}{\\mathrm{Cl}}\\newcommand{\\cN}{\\mathcal{N}}\\newcommand{\\Ae}{\\textrm{-a.e.}\\;}\\renewcommand{\\csub}{\\overset{\\textrm{closed}}{\\subset}}\\renewcommand{\\csup}{\\overset{\\textrm{closed}}{\\supset}}\\newcommand{\\wB}{\\wt{B}}\\newcommand{\\cG}{\\mathcal{G}}\\newcommand{\\Lip}{\\mathrm{Lip}}\\newcommand{\\AC}{\\mathrm{AC}}\\newcommand{\\Mol}{\\mathrm{Mol}}\n",
+        "\n",
+        "\\newcommand{\\Pe}{\\mathrm{Pe}}\\newcommand{\\wR}{\\wh{\\mathbb{\\R}}}\\newcommand*{\\Laplace}{\\mathop{}\\!\\mathbin\\bigtriangleup}\\newcommand*{\\DAlambert}{\\mathop{}\\!\\mathbin\\Box}\\newcommand{\\bT}{\\mathbb{T}}\\newcommand{\\dx}{\\dslash x}\\newcommand{\\dt}{\\dslash t}\\newcommand{\\ds}{\\dslash s}\n",
+        "\n",
+        "\\newcommand{\\round}{\\mathrm{round}}\\newcommand{\\cond}{\\mathrm{cond}}\\newcommand{\\diag}{\\mathrm{diag}}\n",
+        "\\newcommand{\\Adj}{\\mathrm{Adj}}\\newcommand{\\Pf}{\\mathrm{Pf}}\\newcommand{\\Sg}{\\mathrm{Sg}}\n",
+        "\n",
+        "\n",
+        "\\newcommand{\\aseq}{\\overset{\\text{a.s.}}{=}}\\newcommand{\\deq}{\\overset{\\text{d}}{=}}\\newcommand{\\cV}{\\mathcal{V}}\\newcommand{\\FM}{\\mathrm{FM}}\\newcommand{\\KR}{\\mathrm{KR}}\\newcommand{\\rba}{\\mathrm{rba}}\\newcommand{\\rca}{\\mathrm{rca}}\\newcommand{\\Prob}{\\mathrm{Prob}}\\newcommand{\\X}{\\mathcal{X}}\\newcommand{\\Meas}{\\mathrm{Meas}}\\newcommand{\\as}{\\;\\text{a.s.}}\\newcommand{\\io}{\\;\\mathrm{i.o.}}\\newcommand{\\fe}{\\;\\text{f.e.}}\\newcommand{\\bF}{\\mathbb{F}}\\newcommand{\\W}{\\mathcal{W}}\\newcommand{\\Pois}{\\mathrm{Pois}}\\newcommand{\\iid}{\\text{i.i.d.}}\\newcommand{\\wconv}{\\rightsquigarrow}\\newcommand{\\Var}{\\mathrm{Var}}\\newcommand{\\xrightarrown}{\\xrightarrow{n\\to\\infty}}\\newcommand{\\au}{\\mathrm{au}}\\newcommand{\\cT}{\\mathcal{T}}\\newcommand{\\wto}{\\overset{\\text{w}}{\\to}}\\newcommand{\\dto}{\\overset{\\text{d}}{\\to}}\\newcommand{\\sto}{\\overset{\\text{s}}{\\to}}\\newcommand{\\pto}{\\overset{\\text{p}}{\\to}}\\newcommand{\\mto}{\\overset{\\text{m}}{\\to}}\\newcommand{\\vto}{\\overset{v}{\\to}}\\newcommand{\\Cont}{\\mathrm{Cont}}\\newcommand{\\stably}{\\mathrm{stably}}\\newcommand{\\Np}{\\mathbb{N}^+}\\newcommand{\\oM}{\\overline{\\mathcal{M}}}\\newcommand{\\fP}{\\mathfrak{P}}\\newcommand{\\sign}{\\mathrm{sign}}\n",
+        "\\newcommand{\\Borel}{\\mathrm{Borel}}\\newcommand{\\Mid}{\\,|\\,}\\newcommand{\\middleMid}{\\;\\middle|\\;}\\newcommand{\\CP}{\\mathrm{CP}}\\newcommand{\\bD}{\\mathbb{D}}\\newcommand{\\bL}{\\mathbb{L}}\\newcommand{\\fW}{\\mathfrak{W}}\\newcommand{\\DL}{\\mathcal{D}\\mathcal{L}}\\renewcommand{\\r}[1]{\\mathrm{#1}}\\newcommand{\\rC}{\\mathrm{C}}\\newcommand{\\qqquad}{\\qquad\\quad}\n",
+        "\n",
+        "\\newcommand{\\bit}{\\mathrm{bit}}\n",
+        "\n",
+        "\\newcommand{\\err}{\\mathrm{err}}\n",
+        "\n",
+        "\\newcommand{\\varparallel}{\\mathbin{\\!/\\mkern-5mu/\\!}}\\newcommand{\\Ri}{\\mathrm{Ri}}\\newcommand{\\Cone}{\\mathrm{Cone}}\\newcommand{\\Int}{\\mathrm{Int}}\n",
+        "\n",
+        "\\newcommand{\\pre}{\\mathrm{pre}}\\newcommand{\\om}{\\omega}\n",
+        "\n",
+        "\n",
+        "\\newcommand{\\del}{\\partial}\n",
+        "\\newcommand{\\LHS}{\\mathrm{LHS}}\\newcommand{\\RHS}{\\mathrm{RHS}}\\newcommand{\\bnu}{\\boldsymbol{\\nu}}\\newcommand{\\interior}{\\mathrm{in}\\;}\\newcommand{\\SH}{\\mathrm{SH}}\\renewcommand{\\v}{\\boldsymbol{\\nu}}\\newcommand{\\n}{\\mathbf{n}}\\newcommand{\\ssub}{\\Subset}\\newcommand{\\curl}{\\mathrm{curl}}\n",
+        "\n",
+        "\\newcommand{\\Ei}{\\mathrm{Ei}}\\newcommand{\\sn}{\\mathrm{sn}}\\newcommand{\\wgamma}{\\widetilde{\\gamma}}\n",
+        "\n",
+        "\\newcommand{\\Ens}{\\mathrm{Ens}}\n",
+        "\n",
+        "\\newcommand{\\cl}{\\mathrm{cl}}\\newcommand{\\x}{\\boldsymbol{x}}\n",
+        "\n",
+        "\\newcommand{\\Do}{\\mathrm{Do}}\\newcommand{\\IV}{\\mathrm{IV}}\n",
+        "\n",
+        "\\newcommand{\\AIC}{\\mathrm{AIC}}\\newcommand{\\mrl}{\\mathrm{mrl}}\\newcommand{\\dotx}{\\dot{x}}\\newcommand{\\UMV}{\\mathrm{UMV}}\\newcommand{\\BLU}{\\mathrm{BLU}}\n",
+        "\n",
+        "\\newcommand{\\comb}[2]{\\begin{pmatrix}#1\\\\#2\\end{pmatrix}}\\newcommand{\\bP}{\\mathbb{P}}\\newcommand{\\compsub}{\\overset{\\textrm{cpt}}{\\subset}}\\newcommand{\\lip}{\\textrm{lip}}\\newcommand{\\BL}{\\mathrm{BL}}\\newcommand{\\G}{\\mathbb{G}}\\newcommand{\\NB}{\\mathrm{NB}}\\newcommand{\\oR}{\\ov{\\R}}\\newcommand{\\liminfn}{\\liminf_{n\\to\\infty}}\\newcommand{\\limsupn}{\\limsup_{n\\to\\infty}}\\newcommand{\\esssup}{\\mathrm{ess.sup}}\\newcommand{\\asto}{\\xrightarrow{\\as}}\\newcommand{\\Cov}{\\mathrm{Cov}}\\newcommand{\\cQ}{\\mathcal{Q}}\\newcommand{\\VC}{\\mathrm{VC}}\\newcommand{\\mb}{\\mathrm{mb}}\\newcommand{\\Avar}{\\mathrm{Avar}}\\newcommand{\\bB}{\\mathbb{B}}\\newcommand{\\bW}{\\mathbb{W}}\\newcommand{\\sd}{\\mathrm{sd}}\\newcommand{\\w}[1]{\\widehat{#1}}\\newcommand{\\bZ}{\\mathbb{Z}}\\newcommand{\\Bernoulli}{\\mathrm{Ber}}\\newcommand{\\Ber}{\\mathrm{Ber}}\\newcommand{\\Mult}{\\mathrm{Mult}}\\newcommand{\\BPois}{\\mathrm{BPois}}\\newcommand{\\fraks}{\\mathfrak{s}}\\newcommand{\\frakk}{\\mathfrak{k}}\\newcommand{\\IF}{\\mathrm{IF}}\\newcommand{\\bX}{\\boldsymbol{X}}\\newcommand{\\bx}{\\boldsymbol{x}}\\newcommand{\\indep}{\\perp\\!\\!\\!\\perp}\\newcommand{\\IG}{\\mathrm{IG}}\\newcommand{\\Levy}{\\mathrm{Levy}}\\newcommand{\\MP}{\\mathrm{MP}}\\newcommand{\\Hermite}{\\mathrm{Hermite}}\\newcommand{\\Skellam}{\\mathrm{Skellam}}\\newcommand{\\Dirichlet}{\\mathrm{Dirichlet}}\\renewcommand{\\Beta}{\\operatorname{Beta}}\\newcommand{\\bE}{\\mathbb{E}}\\newcommand{\\bG}{\\mathbb{G}}\\newcommand{\\MISE}{\\mathrm{MISE}}\\newcommand{\\logit}{\\mathtt{logit}}\\newcommand{\\expit}{\\mathtt{expit}}\\newcommand{\\cK}{\\mathcal{K}}\\newcommand{\\dl}{\\dot{l}}\\newcommand{\\dotp}{\\dot{p}}\\newcommand{\\wl}{\\wt{l}}\\newcommand{\\Gauss}{\\mathrm{Gauss}}\\newcommand{\\fA}{\\mathfrak{A}}\\newcommand{\\under}{\\mathrm{under}\\;}\\newcommand{\\whtheta}{\\wh{\\theta}}\\newcommand{\\Em}{\\mathrm{Em}}\\newcommand{\\ztheta}{{\\theta_0}}\n",
+        "\\newcommand{\\rO}{\\mathrm{O}}\\newcommand{\\Bin}{\\mathrm{Bin}}\\newcommand{\\rW}{\\mathrm{W}}\\newcommand{\\rG}{\\mathrm{G}}\\newcommand{\\rB}{\\mathrm{B}}\\newcommand{\\rU}{\\mathrm{U}}\\newcommand{\\HG}{\\mathrm{HG}}\\newcommand{\\GAMMA}{\\mathrm{Gamma}}\\newcommand{\\Cauchy}{\\mathrm{Cauchy}}\\newcommand{\\rt}{\\mathrm{t}}\\newcommand{\\rF}{\\mathrm{F}}\n",
+        "\\newcommand{\\FE}{\\mathrm{FE}}\\newcommand{\\bV}{\\boldsymbol{V}}\\newcommand{\\GLS}{\\mathrm{GLS}}\\newcommand{\\be}{\\boldsymbol{e}}\\newcommand{\\POOL}{\\mathrm{POOL}}\\newcommand{\\GMM}{\\mathrm{GMM}}\\newcommand{\\MM}{\\mathrm{MM}}\\newcommand{\\SSIV}{\\mathrm{SSIV}}\\newcommand{\\JIV}{\\mathrm{JIV}}\\newcommand{\\AR}{\\mathrm{AR}}\\newcommand{\\ILS}{\\mathrm{ILS}}\\newcommand{\\SLS}{\\mathrm{SLS}}\\newcommand{\\LIML}{\\mathrm{LIML}}\n",
+        "\n",
+        "\\newcommand{\\Rad}{\\mathrm{Rad}}\\newcommand{\\bY}{\\boldsymbol{Y}}\\newcommand{\\pone}{{(1)}}\\newcommand{\\ptwo}{{(2)}}\\newcommand{\\ps}[1]{{(#1)}}\\newcommand{\\fsub}{\\overset{\\text{finite}}{\\subset}}\n",
+        "\n",
+        "\n",
+        "\\newcommand{\\varlim}{\\varprojlim}\\newcommand{\\Hom}{\\mathrm{Hom}}\\newcommand{\\Iso}{\\mathrm{Iso}}\\newcommand{\\Mor}{\\mathrm{Mor}}\\newcommand{\\Isom}{\\mathrm{Isom}}\\newcommand{\\Aut}{\\mathrm{Aut}}\\newcommand{\\End}{\\mathrm{End}}\\newcommand{\\op}{\\mathrm{op}}\\newcommand{\\ev}{\\mathrm{ev}}\\newcommand{\\Ob}{\\mathrm{Ob}}\\newcommand{\\Ar}{\\mathrm{Ar}}\\newcommand{\\Arr}{\\mathrm{Arr}}\\newcommand{\\Set}{\\mathrm{Set}}\\newcommand{\\Grp}{\\mathrm{Grp}}\\newcommand{\\Cat}{\\mathrm{Cat}}\\newcommand{\\Mon}{\\mathrm{Mon}}\\newcommand{\\Ring}{\\mathrm{Ring}}\\newcommand{\\CRing}{\\mathrm{CRing}}\\newcommand{\\Ab}{\\mathrm{Ab}}\\newcommand{\\Pos}{\\mathrm{Pos}}\\newcommand{\\Vect}{\\mathrm{Vect}}\\newcommand{\\FinVect}{\\mathrm{FinVect}}\\newcommand{\\FinSet}{\\mathrm{FinSet}}\\newcommand{\\FinMeas}{\\mathrm{FinMeas}}\\newcommand{\\OmegaAlg}{\\Omega\\text{-}\\mathrm{Alg}}\\newcommand{\\OmegaEAlg}{(\\Omega,E)\\text{-}\\mathrm{Alg}}\\newcommand{\\Fun}{\\mathrm{Fun}}\\newcommand{\\Func}{\\mathrm{Func}}\n",
+        "\n",
+        "\\newcommand{\\Stoch}{\\mathrm{Stoch}}\\newcommand{\\FinStoch}{\\mathrm{FinStoch}}\\newcommand{\\Copy}{\\mathrm{copy}}\\newcommand{\\Delete}{\\mathrm{delete}}\n",
+        "\\newcommand{\\Bool}{\\mathrm{Bool}}\\newcommand{\\CABool}{\\mathrm{CABool}}\\newcommand{\\CompBoolAlg}{\\mathrm{CompBoolAlg}}\\newcommand{\\BoolAlg}{\\mathrm{BoolAlg}}\\newcommand{\\BoolRng}{\\mathrm{BoolRng}}\\newcommand{\\HeytAlg}{\\mathrm{HeytAlg}}\\newcommand{\\CompHeytAlg}{\\mathrm{CompHeytAlg}}\\newcommand{\\Lat}{\\mathrm{Lat}}\\newcommand{\\CompLat}{\\mathrm{CompLat}}\\newcommand{\\SemiLat}{\\mathrm{SemiLat}}\\newcommand{\\Stone}{\\mathrm{Stone}}\\newcommand{\\Mfd}{\\mathrm{Mfd}}\\newcommand{\\LieAlg}{\\mathrm{LieAlg}}\n",
+        "\\newcommand{\\Op}{\\mathrm{Op}}\n",
+        "\\newcommand{\\Sh}{\\mathrm{Sh}}\n",
+        "\\newcommand{\\Diff}{\\mathrm{Diff}}\n",
+        "\\newcommand{\\B}{\\mathcal{B}}\\newcommand{\\cB}{\\mathcal{B}}\\newcommand{\\Span}{\\mathrm{Span}}\\newcommand{\\Corr}{\\mathrm{Corr}}\\newcommand{\\Decat}{\\mathrm{Decat}}\\newcommand{\\Rep}{\\mathrm{Rep}}\\newcommand{\\Grpd}{\\mathrm{Grpd}}\\newcommand{\\sSet}{\\mathrm{sSet}}\\newcommand{\\Mod}{\\mathrm{Mod}}\\newcommand{\\SmoothMnf}{\\mathrm{SmoothMnf}}\\newcommand{\\coker}{\\mathrm{coker}}\\newcommand{\\Ord}{\\mathrm{Ord}}\\newcommand{\\eq}{\\mathrm{eq}}\\newcommand{\\coeq}{\\mathrm{coeq}}\\newcommand{\\act}{\\mathrm{act}}\n",
+        "\n",
+        "\\newcommand{\\apf}{\\mathrm{apf}}\\newcommand{\\opt}{\\mathrm{opt}}\\newcommand{\\IS}{\\mathrm{IS}}\\newcommand{\\IR}{\\mathrm{IR}}\\newcommand{\\iidsim}{\\overset{\\text{i.i.d.}}{\\sim}}\\newcommand{\\propt}{\\,\\propto\\,}\\newcommand{\\bM}{\\mathbb{M}}\\newcommand{\\cX}{\\mathcal{X}}\\newcommand{\\cY}{\\mathcal{Y}}\\newcommand{\\cP}{\\mathcal{P}}\\newcommand{\\ola}[1]{\\overleftarrow{#1}}\n",
+        "\n",
+        "\\renewcommand{\\iff}{\\;\\mathrm{iff}\\;}\n",
+        "\\newcommand{\\False}{\\mathrm{False}}\\newcommand{\\True}{\\mathrm{True}}\n",
+        "\\newcommand{\\otherwise}{\\mathrm{otherwise}}\n",
+        "\\newcommand{\\suchthat}{\\;\\mathrm{s.t.}\\;}\n",
+        "\n",
+        "\\newcommand{\\cM}{\\mathcal{M}}\\newcommand{\\M}{\\mathbb{M}}\\newcommand{\\cF}{\\mathcal{F}}\\newcommand{\\cD}{\\mathcal{D}}\\newcommand{\\fX}{\\mathfrak{X}}\\newcommand{\\fY}{\\mathfrak{Y}}\\newcommand{\\fZ}{\\mathfrak{Z}}\\renewcommand{\\H}{\\mathcal{H}}\\newcommand{\\cH}{\\mathcal{H}}\\newcommand{\\fH}{\\mathfrak{H}}\\newcommand{\\bH}{\\mathbb{H}}\\newcommand{\\id}{\\mathrm{id}}\\newcommand{\\A}{\\mathcal{A}}\n",
+        "\\newcommand{\\lmd}{\\lambda}\n",
+        "\\newcommand{\\Lmd}{\\Lambda}\n",
+        "\\newcommand{\\cI}{\\mathcal{I}}\n",
+        "\n",
+        "\\newcommand{\\Lrarrow}{\\;\\;\\Leftrightarrow\\;\\;}\n",
+        "\\DeclareMathOperator{\\des}{des}\n",
+        "\\DeclareMathOperator{\\nd}{nd}\n",
+        "\\DeclareMathOperator{\\dsep}{d-sep}\n",
+        "\\DeclareMathOperator{\\sep}{sep}\n",
+        "\\newcommand{\\rLL}{\\mathrm{LL}}\\newcommand{\\HT}{\\mathrm{HT}}\\newcommand{\\PS}{\\mathrm{PS}}\\newcommand{\\rI}{\\mathrm{I}}\n",
+        "$$\n",
+        "\n",
+        ":::\n",
+        "\n",
+        ":::\n",
+        "\n",
+        "\n",
+        "\n",
+        "## 型の構成\n",
+        "\n",
+        "### 抽象型\n",
+        "\n",
+        "::: {.callout-important appearance=\"simple\" icon=\"false\"}\n",
+        "\n",
+        "**Anyの子の定義**：supertype を指定しない場合は `Any::DataType` が supertype となる．\n"
+      ],
+      "id": "69359a5e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "abstract type Name end\n",
+        "\n",
+        "typeof(Name)"
+      ],
+      "id": "5c85ea43",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "**子の定義**\n"
+      ],
+      "id": "598d2ead"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "abstract type SubtypeName <: Name end"
+      ],
+      "id": "427a8731",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "::: {.callout-caution title=\"型情報の表示方法\" collapse=\"true\" icon=\"false\"}\n"
+      ],
+      "id": "8fc32b91"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "supertype(Name)\n",
+        "\n",
+        "subtypes(Name)\n",
+        "\n",
+        "fieldnames(Int)\n",
+        "\n",
+        "methodswith(Name)\n",
+        "\n",
+        "@show Name"
+      ],
+      "id": "07fed59a",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "`<:`, `>:` は arity 2 の論理演算子にもなる．\n"
+      ],
+      "id": "36858904"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "Int >: Int"
+      ],
+      "id": "d0b38b0a",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "関数宣言の際の型注釈にて，冠頭演算子としても使う．型変数に対するslicingである．従って，木構造の上でのslicingとなる（第 [-@sec-slicing] 節）．\n",
+        "\n",
+        "\n",
+        "### 複合型 Composite Types\n",
+        "\n",
+        "複数の名前付き field をまとめて扱うことができる．\n",
+        "\n",
+        "<!-- Julia で複合型を立てる時は，まるで構造付きの空間を作るようである．Euclid空間のように． -->\n",
+        "\n",
+        "<!-- 従って，データと method を統合する（＝関数が複合型に所属する）OOP とは少し違い，複合型と，その上の関数を別々に作る．従って，Julia の関数は常 に first-class object として扱われる．^[この言葉は 1960 年代に Christopher Strachey によって \"functions as first-class citizens\" という文脈で初めて使われた。全ての機能を享受できる citizen 的な？ ] -->\n",
+        "\n",
+        "#### 複合型の定義\n",
+        "\n",
+        "::: {.callout-important appearance=\"simple\" icon=\"false\"}\n",
+        "\n",
+        "**imutable な複合型**：変数を`struct`-`end`ブロックで宣言する．\n"
+      ],
+      "id": "64dcf38a"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "struct MyType\n",
+        "\tx::Int\n",
+        "\ty::Int\n",
+        "end\n",
+        "\n",
+        "fieldnames(MyType)"
+      ],
+      "id": "74d029db",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "**コンストラクタ**：複合型を宣言すると，暗黙のうちに constructor が生成される．\n"
+      ],
+      "id": "90829d50"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "z = MyType(1, 2)\n",
+        "println(z.x)"
+      ],
+      "id": "2243eadc",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "**mutable な複合型**：`mutable struct`-`end`ブロックで宣言する．\n"
+      ],
+      "id": "7db2312b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "mutable struct MutableType\n",
+        "    x::Int\n",
+        "    y::Int\n",
+        "end\n",
+        "\n",
+        "m = MutableType(3, 4)\n",
+        "m.x = 10  # フィールドxの値を変更可能"
+      ],
+      "id": "9a8c6d10",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "::: {.callout-caution title=\"カスタムコンストラクタの作成 [(Outer Constructor Methods)](https://docs.julialang.org/en/v1/manual/constructors/#man-outer-constructor-methods)\" collapse=\"true\" icon=\"false\"}\n"
+      ],
+      "id": "85d450f1"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "MyType(x) = MyType(x, 0)"
+      ],
+      "id": "d8df66ff",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "#### 内部コンストラクタ\n",
+        "\n",
+        "コンストラクタの `struct`-`end` ブロック内で定義されたコンストラクタ（複合型と同名のメソッド）では，`new` というコンストラクタの代替関数を使うことができる：\n"
+      ],
+      "id": "4dc64647"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "struct OrderedPair\n",
+        "  x::Real\n",
+        "  y::Real\n",
+        "  OrderedPair(x,y) = x > y ? error(\"out of order\") : new(x,y)\n",
+        "end"
+      ],
+      "id": "fdb9e950",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### Union型：直和\n",
+        "\n",
+        "直和型を表す，代数的データ型の簡単な場合．他の言語では Nullable, Option 型と呼ばれる．\n",
+        "\n",
+        "`Union{Int,String}`というように，タグ`Union`をつけて表す．\n"
+      ],
+      "id": "850f3d51"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "function process(x::Union{Int, String})\n",
+        "    if x isa Int\n",
+        "        println(\"The integer is $x\")\n",
+        "    elseif x isa String\n",
+        "        println(\"The string is $x\")\n",
+        "    end\n",
+        "end\n",
+        "\n",
+        "process(3)"
+      ],
+      "id": "dbbed6a0",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "`Union{Int, Nothing}`とすると，部分関数の値域として使える．\n",
+        "\n",
+        "### Parametric型\n",
+        "\n",
+        "他の言語では generics や template と呼ばれるものである．^[Java の generics は Julia に似て不変であるが，C# の generics は in/out キーワードにより共変性をサポートしている．]\n",
+        "\n",
+        "そもそもタグ付という表示方法自体が，タグを関数名と見れば，点を表しているように見える．その調子で，タグを固定し，型変数を導入すればいい．\n",
+        "\n",
+        "::: {.callout-important appearance=\"simple\" icon=\"false\"}\n",
+        "Parametric 型は，`{}`オブジェクトで定義する．試しに，`Point`というパラメトリック型を定義する：\n"
+      ],
+      "id": "2bbf26ff"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "struct Point{T, U}\n",
+        "    x::T\n",
+        "    y::U\n",
+        "end"
+      ],
+      "id": "7ab824dc",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "インスタンス化する際は，型変数 `T`, `U` にも代入をする．\n"
+      ],
+      "id": "fc84dd89"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "p1 = Point{Int, Float64}(3, 4.5)  # 明示的に型を指定\n",
+        "p2 = Point(3, 4.5)  # 型推論により自動的に型が決まる\n",
+        "p2"
+      ],
+      "id": "bcbd1ba2",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "パラメトリック型のデータに対して関数を定義する際は，型変数を使用した後に，`where`を使って型変数を指定する．^[`where T <:Any` の略記]\n"
+      ],
+      "id": "3eb88377"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "function distance(p::Point{T, U}) where {T, U}\n",
+        "    sqrt(p.x^2 + p.y^2)\n",
+        "end\n",
+        "\n",
+        "distance(p2)"
+      ],
+      "id": "e262c6a1",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "::: {.callout-important title=\"注（多重ディスパッチの精神）\" collapse=\"true\" icon=\"false\"}\n",
+        "\n",
+        "ただし，この時に，変数`T`に関する条件節で`if`文を分けるのはよくない．\n",
+        "\n",
+        "Julia の多重ディスパッチの精神に従って，関数を分けて定義するのが良い．Julia は自動で引数の型に最も適したメソッドを呼ぶ．\n",
+        "\n",
+        "即ち，**型は parametric や直積にしても，関数は直積にはしない**．\n"
+      ],
+      "id": "e924136b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "struct Rectangle{T}\n",
+        "    width::T\n",
+        "    height::T\n",
+        "end\n",
+        "\n",
+        "# 型推論によるインスタンス生成\n",
+        "r1 = Rectangle(3.0, 4.0)\n",
+        "\n",
+        "# 型指定によるインスタンス生成\n",
+        "r2 = Rectangle{Int}(3, 4)"
+      ],
+      "id": "e64210b7",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "# 多重ディスパッチの実践\n",
+        "\n",
+        "function area(r::Rectangle{T}) where T\n",
+        "    r.width * r.height\n",
+        "end\n",
+        "\n",
+        "println(area(r1))  # 出力: 12.0\n",
+        "println(area(r2))  # 出力: 12"
+      ],
+      "id": "f5aa9b5c",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        ":::\n",
+        "\n",
+        "`Point{T}`型に対して，型変数`T`に代入を行って得る型`Point{Int}`は concrete 型になり，`Point{T}`という抽象型を親型に持つ．\n",
+        "\n",
+        "従って，多重ディスパッチにおいては`Point{Int}`は`Point{T}`にも match する．^[しかし，Julia の仕様は，多重ディスパッチにおいては concrete 型に近いものが先に適用されるようになっている．]\n",
+        "\n",
+        "### 型階層\n",
+        "\n",
+        "#### パラメトリック型の位置\n",
+        "\n",
+        "型変数を`{}`演算子により持たせた Parametric 型は，持たせていない型の下流にある．\n"
+      ],
+      "id": "ae662e35"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "Point{Int} <: Point"
+      ],
+      "id": "da4ee874",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "「持たせていない型」は`UnionAll`という型になる．^[意味論的にはそう，全ての型の和集合で，以降はTに代入するたびに同値類のいずれかを得る．]\n"
+      ],
+      "id": "2e159778"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "typeof(Point)"
+      ],
+      "id": "6643126a",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Julia では，型変数の間に包含関係があっても，一度 parametric になると包含関係は消える【不変】．これは主に実行効率性の理由による．\n"
+      ],
+      "id": "053fd475"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "Point{Int} <: Point{Float64}"
+      ],
+      "id": "abb1da47",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "#### パラメトリック型の sclicing {#sec-slicing}\n",
+        "\n",
+        "`UnionAll`型はスライシングができる．\n"
+      ],
+      "id": "00ec5a2b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "function distance(p::Point{<:Number})\n",
+        "    sqrt(p.x^2 + p.y^2)\n",
+        "end\n",
+        "\n",
+        "function distance(p::Point{T}) where T <: Number\n",
+        "    sqrt(p.x^2 + p.y^2)\n",
+        "end"
+      ],
+      "id": "81f59213",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "#### 抽象型と具体型\n",
+        "\n",
+        "`Number` は抽象型であり，`Point{Number}`という表現はできない．\n",
+        "\n",
+        "`Point{<:Number}`には，`Point{Int}`もマッチする：\n"
+      ],
+      "id": "7329b595"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "p1 = Point(3, 4)  # Point{Int}\n",
+        "distance(p1)  # 呼び出し成功"
+      ],
+      "id": "bf719ed6",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "#### `SingletonType`：たった一つの型を含む自明な Parametric Type\n",
+        "\n",
+        "キーワード `Type` によって，`Type{T}`の形で定義される．元の型 `T` のインスタンスとなる．\n"
+      ],
+      "id": "9b88462d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "isa(Float64, Type{Float64})  # Float64 は Type{Float64} 型のインスタンス\n",
+        "isa(Real, Type{Float64})"
+      ],
+      "id": "49b057a4",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 組み込み型とその関数\n",
+        "\n",
+        "### Collection 型：直積\n",
+        "\n",
+        "更なる構造付きのものは`DataStructure.jl`にある．\n",
+        "\n",
+        "各直積型に，tagをつけてその性質を明示する．\n",
+        "\n",
+        "Any直下の型\n",
+        "\t0.\t(a,b,…)::Tuple{T1,T2,…}\n",
+        "\t0.\timmutableである\n",
+        "\t0.\tArray型に対するsize関数の返り値はTuple型．\n",
+        "\t0.\t可変長引数もTuple型のobjectとして受けられる．\n",
+        "\t0.\t上記から観察されるように，入れ物であって，代数的構造を持たせることを意図していない．その場合はArrayを使う．\n",
+        "\t0.\tnamed tuple：Typeの直積．\n",
+        "\t0.\t元々NamedTuple.jlという独立したpackageだったが，0.7から統合．\n",
+        "\t0.\t要素に数字以外のaliasでタグ付できる．immutable．\n",
+        "\t0.\t(a=1, b=2)::NamedTuple{(:a, :b), Tuple(Int, Int)}などの記法で定義される．\n",
+        "\t0.\tつまり，値のTupleと，Symbol型のオブジェクトのTupleとの組で表される．\n",
+        "\t⁃\tこの時の射影が，keys関数，values関数として実装されている．\n",
+        "\t0.\tkeyは.演算子でアクセスできる．\n",
+        "\t•\tt.a\n",
+        "\t0.\tSymbolをindexの代わりに使える．\n",
+        "\t•\tt[:a]\n",
+        "\t0.\t一時的に使うのが普通で，本格的にはstruct, mutable structとして第一級の居住権を与えるのが良い．\n",
+        "\t0.\tList：Array{T,1}としての実装．Vector{T}というエイリアスもある．\n",
+        "\t0.\t追加や削除などの順序的構造が重視されるCollection型．\n",
+        "\t0.\tスタック，キュー，両端キューはDataStructure.jlへ．\n",
+        "\t⁃\tpush!(List, object) -> List’\n",
+        "\t⁃\t要素の末尾追加\n",
+        "\t⁃\tpushfirst!(List, object) -> List’\n",
+        "\t⁃\t要素の先頭追加\n",
+        "\t⁃\tpop!(List) -> object\n",
+        "\t⁃\t要素の末尾摘出\n",
+        "\t⁃\tpopfirst!(List)\n",
+        "\t⁃\tinsert!(List, n, object) -> List’\n",
+        "\t⁃\tn番目の位置に追加\n",
+        "\t⁃\tdeleteat!(List, n) -> List’\n",
+        "\t⁃\tn番目の要素を削除．\n",
+        "\t0.\t辞書：Dict{K, V}という直積型\n",
+        "\t0.\tconstructorは\n",
+        "\t•\td = Dict{String, Int}()\n",
+        "\t•\td[“a”] = 1\n",
+        "\t•\td = Dict(key => value, key => value, …)\n",
+        "\t0.\tconstructorの{}内の要素を１つ，または全て省略するとAnyとしたのと等価．\n",
+        "\t⁃\thaskey(Dict, key) -> Bool\n",
+        "\t⁃\tDict型objectに，所定のkeyが含まれているかを判定する．\n",
+        "\t0.\tbuilt-inにIdDict型とWeakKeyDict型がある．\n",
+        "\t0.\t集合：Set{T}\n",
+        "\t0.\tconstructorは\n",
+        "\t•\ts = Set([1,2])\n",
+        "\t0.\t即ち，１次元Arrayから生成される．というより，１次元Arrayにタグをつけたものである．\n",
+        "\t0.\t実装は「keyのみを保持する辞書」というべきもので，辞書と同様，値の重複を無視する．\n",
+        "\t⁃\tpush!(set, object)\n",
+        "\t⁃\t値の追加．\n",
+        "\t⁃\tunion(set, List)\n",
+        "\t⁃\tintersect(set, List)\n",
+        "\t⁃\tissubset(List, List) -> ::Bool\n",
+        "\t⁃\tList ⊂ List -> ::Bool\n",
+        "\t⁃\tSet型のinstanceを生成することなく集合演算ができる．\n",
+        "\t0.\t多次元配列：Array{T,n}．Matrix{T}はArray{T,2}のエイリアスである．\n",
+        "\t0.\tMATLABを踏襲している．NumPyとは所々違う．\n",
+        "\t0.\tNumPyは0からindexingし，row-major orderである．これは，行列のindexingにとって，辞書式順序になる．\n",
+        "\t0.\tしかしJuliaは1からindexingし，column-major orderである．後者は行列のindexingに沿って，第一要素のストライドが１になる．\n",
+        "\t0.\t従って，Juliaは同じ行の要素の列挙が得意．線型代数のものの見方である．\n",
+        "\t0.\t内部実装は結局一次元配列（List）であることを意識すると良い．\n",
+        "\n",
+        "\t⁃\t[] (constructor)\n",
+        "\t⁃\t[ a b c; d e f; h i j ]\n",
+        "\t⁃\tまたは改行を入れてもいい．\n",
+        "\t•\t[]\n",
+        "\t•\t要素へアクセスする作用素．\n",
+        "\t⁃\tisempty(collection) -> Bool\n",
+        "\t⁃\tempty!(collection) -> collection\n",
+        "\t⁃\t空にする\n",
+        "\t⁃\tlength(collection) -> Int\n",
+        "\t⁃\teltype(collection) -> Type\n",
+        "\t•\t関数名の最後に!\n",
+        "\t•\t引数の一部を変更・破棄する関数\n",
+        "\t•\t!のつかない関数は，引数に対する破壊的変更はないので安心して使用できる，という慣習．\n",
+        "\t•\t例：push!，insert!\n",
+        "\t•\tsortは新たなobjectを返すが，sort!は引数そのものを変更してしまう．\n",
+        "\t•\tfor文に使う構文はPythonと同じ使用感．\n",
+        "\t•\tしかし，直積型を意識．\n",
+        "\t•\tfor (key, value) in d::Dict\n",
+        "\t•\t実装は，iterable型オブジェクトを介して行われる．つまり，Juliaは次のように変換して処理される．速度の問題？\n",
+        "\t•\tnext = iterate(collection)while next !== nothing　　(x,state) = next　　#suite　　next = iterate(collection, state)end\n",
+        "\t•\tJuliaはiterable型は無く，Tuple{Int, Int}である．\n",
+        "\t•\t第一要素は，「次の要素」で，第二要素は「その次の要素」のindex（やそれに値するもの）を表す整数またはnothing．\n",
+        "\t•\t従って，自作のcollection型にもfor文iterationを実現させるためには，iterate関数をディスパッチすれば良い．\n",
+        "\n",
+        "## Array型の関数\n",
+        "\n",
+        "作成\n",
+        "\t0.\tconstructor\n",
+        "\t0.\tArray{T}(undef, dims…)\n",
+        "\t0.\t値が初期化されていないことに注意．\n",
+        "\t0.\tcollect(reshape(1:9, 3, 3))\n",
+        "\t0.\tcollectionから，要素を奪って配列に仕立て直す．\n",
+        "\t0.\tzeros([T,] dims…)\n",
+        "\t0.\tones([T,] dims…)\n",
+        "\t0.\tfill(x, dims…)\n",
+        "\t0.\t行列xI\n",
+        "\t0.\tfill!(A,x)\n",
+        "\t0.\t配列AをxIにする．\n",
+        "\t0.\trand([T,] dims…)\n",
+        "\t0.\t一様分布でランダムに初期化した配列\n",
+        "\t0.\t型を指定しないとFloat64で．\n",
+        "\t0.\trandn([T,] dims…)\n",
+        "\t0.\t正規分布でランダムに初期化した配列\n",
+        "\t0.\tsimilar(A,[T,dims…])\n",
+        "\t0.\t配列Aと類似した配列を返す．\n",
+        "\t0.\treshape(A, dims…) -> AbstractArray\n",
+        "\t0.\t切り取る，または形を変える．\n",
+        "\t0.\t並びはcolumn-major orderのままである．\n",
+        "\t0.\tAにはUnitRange型も許容されるのがすごい．\n",
+        "\t0.\tcopy(A)\n",
+        "\t0.\tdeepcopy(A)\n",
+        "\t0.\tAの要素も再帰的にコピーする．\n",
+        "\n",
+        "\t0.\t[A B]\n",
+        "\t0.\t数学的記法の感覚で使える行列の接続．\n",
+        "\t0.\tview(A, n, m)  ->  view(::Array{T,n}, m, i)\n",
+        "\t0.\tn, mはindexingまたはslicing．\n",
+        "\t0.\tAから部分配列を抜き出す．\n",
+        "\t0.\t返るobjectはAへの参照とindexの情報を持っているので，Aを変更するとその部分配列も変わる．\n",
+        "\t0.\tこの実装は，Aが巨大すぎる場合への配慮を感じる．\n",
+        "\t0.\t「ただし，現在の計算機による配列のコピー操作は，一般に非常に高速であるため，巨大な配列を扱うのではない限り，サブ配列を作成するよりも，通常のindexingで新たな配列を作成してしまう方が高速であることも多い．この辺りは，実際に計測してパフォーマンスを確かめてみるのが良いだろう．」\n",
+        "\n",
+        "属性\n",
+        "\t0.\teltype(A)\n",
+        "\t0.\tlength(A)\n",
+        "\t0.\tndims(A)\n",
+        "\t0.\tsize(A)\n",
+        "\t0.\tsize(A,n)\n",
+        "\t0.\tn番目の次元におけるAのサイズ\n",
+        "\t0.\tsize(A)で返ってくるtupleの第n要素．\n",
+        "\t0.\tstrides(A)\n",
+        "\t0.\tAのストライド．\n",
+        "\t0.\t第一要素は必ず１になる．\n",
+        "\t0.\t要素同士が，一番浅い意味での一次元配列上でどれくらい離れているか．\n",
+        "\t0.\tstride(A,n)\n",
+        "\t0.\tn番目の次元におけるAのストライド\n",
+        "\n",
+        "\t0.\t[i, j, k, …]または[n:m, i:j, k:l, …]でindexingできる．\n",
+        "\n",
+        "代数的構造\n",
+        "\t0.\t*\n",
+        "\t0.\t行列乗算\n",
+        "dot付演算子：broadcasting．broadcast(+, A, B)のエイリアスである．broadcast!(+, A, B)とするとAが変更される．\n",
+        "\t0.\tcomponent-wiseの演算．\n",
+        "\t0.\tA .+ c\n",
+        "\t0.\tA + cIと同じ．\n",
+        "\t0.\tcolumn-wiseの演算．\n",
+        "\t0.\tA .+ B\n",
+        "\t0.\tBがAの繰り返し単位になっている場合のみ．\n",
+        "\t0.\tつまり，size(B)とsize(A)を各要素ごとに見比べたとき，次の２条件のいずれかを満たすとき．\n",
+        "\t0.\t値が同じ\n",
+        "\t0.\tどちらかの値が１\n",
+        "\t0.\t２つ目の条件として，pr_i(size(B))  | pr_i(size(A))だったらもっと使いやすかったがね．\n",
+        "\t0.\tbroadcast関数\n",
+        "\t0.\tbroadcast(f, args…)が定義．\n",
+        "\t0.\tf.(args…)とも記述できる．\n",
+        "\t0.\tただし，f=+などの時には使えない．fは関数が想定されている．\n",
+        "\t0.\tsigmoid.(A)やexp.(A)などである．\n",
+        "\t0.\targsはArrayに限らず，tupleでも良い．\n",
+        "\n",
+        "位相的構造\n",
+        "\t0.\tmap(f, c::collection…) -> collection\n",
+        "\t0.\tcollection cにelement-wiseにfを適用させる．\n",
+        "\t0.\tbroadcastingやdot演算と似ているが，fが匿名関数でない場合はdot演算を使うのが良い？\n",
+        "\t0.\treduce(op, itr; [init]) -> obj\n",
+        "\t0.\tAをitrableと見做して，要素ごとにopに突っ込んでいく．\n",
+        "\t0.\t従って，次元が１段階下がる．\n",
+        "\t0.\tfilter(f, a::collection) -> a’\n",
+        "\t0.\taを要素ごとにfに突っ込んで，fがfalseを返すものについては脱落させる．\n"
+      ],
+      "id": "4f68e131"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "julia-1.11",
+      "language": "julia",
+      "display_name": "Julia 1.11.1",
+      "path": "/Users/hirofumi48/Library/Jupyter/kernels/julia-1.11"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
