@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="司馬 博文">
+<meta name="keywords" content="Reversible Jump MCMC, Sticky PDMP">
 
 <title>超次元 MCMC – Hirofumi Shiba</title>
 <style>
@@ -294,6 +295,13 @@ window.Quarto = {
       <p>ベイズ統計におけるモデル選択／モデル平均のためには，異なる次元を持つパラメータ空間を往来するような MCMC サンプラーが必要になる．</p>
     </div>
   </div>
+
+  <div>
+    <div class="keywords">
+      <div class="block-title">Keywords</div>
+      <p>Reversible Jump MCMC, Sticky PDMP</p>
+    </div>
+  </div>
   
   </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
@@ -307,17 +315,22 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#問題設定" id="toc-問題設定" class="nav-link" data-scroll-target="#問題設定"><span class="header-section-number">1.1</span> 問題設定</a></li>
   <li><a href="#例" id="toc-例" class="nav-link" data-scroll-target="#例"><span class="header-section-number">1.2</span> 例</a></li>
+  <li><a href="#滞在時間比によるモデル事後確率の推定" id="toc-滞在時間比によるモデル事後確率の推定" class="nav-link" data-scroll-target="#滞在時間比によるモデル事後確率の推定"><span class="header-section-number">1.3</span> 滞在時間比によるモデル事後確率の推定</a></li>
   </ul></li>
   <li><a href="#可逆な方法" id="toc-可逆な方法" class="nav-link" data-scroll-target="#可逆な方法"><span class="header-section-number">2</span> 可逆な方法</a>
   <ul class="collapse">
   <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">2.1</span> はじめに</a></li>
-  <li><a href="#一般論" id="toc-一般論" class="nav-link" data-scroll-target="#一般論"><span class="header-section-number">2.2</span> 一般論</a></li>
+  <li><a href="#sec-general" id="toc-sec-general" class="nav-link" data-scroll-target="#sec-general"><span class="header-section-number">2.2</span> 一般論</a></li>
+  <li><a href="#jump-diffusion-を用いた方法" id="toc-jump-diffusion-を用いた方法" class="nav-link" data-scroll-target="#jump-diffusion-を用いた方法"><span class="header-section-number">2.3</span> Jump-Diffusion を用いた方法</a></li>
+  <li><a href="#split-merge-の導入" id="toc-split-merge-の導入" class="nav-link" data-scroll-target="#split-merge-の導入"><span class="header-section-number">2.4</span> Split-Merge の導入</a></li>
+  <li><a href="#birth-death-過程によるサンプリング" id="toc-birth-death-過程によるサンプリング" class="nav-link" data-scroll-target="#birth-death-過程によるサンプリング"><span class="header-section-number">2.5</span> Birth-Death 過程によるサンプリング</a></li>
   </ul></li>
   <li><a href="#非可逆な方法" id="toc-非可逆な方法" class="nav-link" data-scroll-target="#非可逆な方法"><span class="header-section-number">3</span> 非可逆な方法</a>
   <ul class="collapse">
-  <li><a href="#非可逆なサンプラーを用いる方法" id="toc-非可逆なサンプラーを用いる方法" class="nav-link" data-scroll-target="#非可逆なサンプラーを用いる方法"><span class="header-section-number">3.1</span> 非可逆なサンプラーを用いる方法</a></li>
-  <li><a href="#sticky-pdmp" id="toc-sticky-pdmp" class="nav-link" data-scroll-target="#sticky-pdmp"><span class="header-section-number">3.2</span> Sticky PDMP</a></li>
-  <li><a href="#境界の導入による方法" id="toc-境界の導入による方法" class="nav-link" data-scroll-target="#境界の導入による方法"><span class="header-section-number">3.3</span> 境界の導入による方法</a></li>
+  <li><a href="#リフティングを用いる方法" id="toc-リフティングを用いる方法" class="nav-link" data-scroll-target="#リフティングを用いる方法"><span class="header-section-number">3.1</span> リフティングを用いる方法</a></li>
+  <li><a href="#非可逆なサンプラーを用いる方法" id="toc-非可逆なサンプラーを用いる方法" class="nav-link" data-scroll-target="#非可逆なサンプラーを用いる方法"><span class="header-section-number">3.2</span> 非可逆なサンプラーを用いる方法</a></li>
+  <li><a href="#sticky-pdmp" id="toc-sticky-pdmp" class="nav-link" data-scroll-target="#sticky-pdmp"><span class="header-section-number">3.3</span> Sticky PDMP</a></li>
+  <li><a href="#境界の導入による方法" id="toc-境界の導入による方法" class="nav-link" data-scroll-target="#境界の導入による方法"><span class="header-section-number">3.4</span> 境界の導入による方法</a></li>
   </ul></li>
   
   </ul>
@@ -339,7 +352,7 @@ window.Quarto = {
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h2>
 <div id="listing-lst-trans" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735214966573" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735374488352" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -361,7 +374,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1735214966684" data-listing-date-modified-sort="1728259200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="391">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1735374488482" data-listing-date-modified-sort="1728259200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="391">
 <a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -383,7 +396,7 @@ window.Quarto = {
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735214966563" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="163">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735374488340" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="163">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -413,16 +426,38 @@ No matching items
 <h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
 <section id="問題設定" class="level3" data-number="1.1">
 <h3 data-number="1.1" class="anchored" data-anchor-id="問題設定"><span class="header-section-number">1.1</span> 問題設定</h3>
-<p>本稿では，状態空間が</p>
-<p><span id="eq-state-space"><span class="math display">\[
+<p>本稿では，状態空間が <span id="eq-state-space"><span class="math display">\[
 E=\bigcup_{k\in[K]}E_k,\qquad E_k:=\{k\}\times\mathbb{R}^{n_k},
-\tag{1}\]</span></span></p>
-<p>により定義される場合を考える．</p>
-<p><span class="math inline">\(E_k=\{k\}\times U_k\;(U_k\subset\mathbb{R}^{n_k})\)</span> という一般の場合も簡単な修正により議論可能だろうから，まずは (<a href="#eq-state-space" class="quarto-xref">1</a>) に集中する．</p>
-<p>このような設定はベイズ統計においてモデル選択や大きな階層モデルを考える場合に自然に現れ，通常のパラメータ推定よりも困難な設定を与える．</p>
+\tag{1}\]</span></span> により定義される場合を考える．</p>
+<p>空間の次元 <span class="math inline">\(n_k\)</span> は一定とは限らないため，このような状態空間 <span class="math inline">\(E\)</span> 上に適用される MCMC を <strong>超次元</strong> (trans-dimensional) MCMC と呼ぶ．</p>
+<!-- $E_k=\{k\}\times U_k\;(U_k\subset\R^{n_k})$ という一般の場合も簡単な修正により議論可能だろうから，まずは ([-@eq-state-space]) に集中する． -->
+<p>このような設定はまずモデル選択において自然に生じる．超次元 MCMC により，モデル（の添え字）の空間 <span class="math display">\[
+[K]:=\{1,\cdots,K\}
+\]</span> 上に定まる周辺事後分布を通じて，モデル選択をすることができる．</p>
 </section>
 <section id="例" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="例"><span class="header-section-number">1.2</span> 例</h3>
+<p>最初に超次元 MCMC を考えた <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> では炭鉱事故データに Poisson モデルを適用し，そのレート関数の変化点解析に応用している．</p>
+<p>変化点の存在も数 <span class="math inline">\(k\in\mathbb{N}\)</span> も不明であるとするとき，<span class="math inline">\(k\)</span> 個の変化点の位置と，これによって生じる <span class="math inline">\(k+1\)</span> 個の区間上のレートの値で，モデルの次元 <span class="math display">\[
+n_k=2k+1
+\]</span> が変化する設定が自然に生じる．</p>
+<p>続いて２次元の変化点解析として，画像の区分け (segmentation) や物体認識の問題が Voronoi 分割を通じて扱えることが説明されている <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995, p. 724</a>)</span>．</p>
+<p>似た発想として，節点の個数と位置を不定として曲線のフィッティングをする問題にも <span class="citation" data-cites="Denison+1998">(<a href="#ref-Denison+1998" role="doc-biblioref">Denison et al., 1998</a>)</span> で応用されている．</p>
+<p><span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997</a>)</span> では多峰性のある酵素活性データに対して正規混合モデルを適用しており，そのサンプリングに混合比に応じてパラメータ空間の間をジャンプする超次元 MCMC を応用している．</p>
+<p>現代では混合数 <span class="math inline">\(K\)</span> も不定としてデータから学ぶベイズ推定は当然のものとなっているが，初の分析 <span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997</a>)</span> は超次元 MCMC の開発 <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> を待って初めて可能になったものである．</p>
+</section>
+<section id="滞在時間比によるモデル事後確率の推定" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="滞在時間比によるモデル事後確率の推定"><span class="header-section-number">1.3</span> 滞在時間比によるモデル事後確率の推定</h3>
+<p>モデル <span class="math inline">\(k\in[K]\)</span> に関する <strong>周辺尤度</strong> (marginal likelihood) とは，尤度をパラメータ <span class="math inline">\(\theta\)</span> の事前分布に関して平均をとったもの <span class="math display">\[
+p(D|k)=\int_{E_k}p(D|k,\theta_k)p(\theta_k|k)\,d\theta_k
+\]</span> をいう．<span class="math inline">\(D\)</span> はデータとした．よく <span class="math inline">\(m_k(D)\)</span> とも表記される．</p>
+<p>周辺尤度の比 <span class="math display">\[
+B_{k',k}:=\frac{p(D|k')}{p(D|k)}
+\]</span> は <strong>Bayes 因子</strong> <span class="citation" data-cites="Kass-Raftery1995">(<a href="#ref-Kass-Raftery1995" role="doc-biblioref">Kass and Raftery, 1995</a>)</span> と呼ばれる．</p>
+<p>超次元 MCMC によるモデル選択の美点の１つとして，事後モデル確率 <span class="math display">\[
+p(k|D)\,\propto\,p(D|k)p(k)
+\]</span> が，MCMC のモデル <span class="math inline">\(k\in[K]\)</span> への滞在時間の割合によって簡単に計算できることが挙げられる．</p>
+<p>ただし，全ての周辺尤度 <span class="math inline">\(p(D|k)\;k\in[K]\)</span> が得られればベイズ因子も事後モデル確率も計算できるため，これらの値を得るためだけならば必ずしも MCMC による必要はないことに注意する．</p>
 </section>
 </section>
 <section id="可逆な方法" class="level2" data-number="2">
@@ -430,13 +465,16 @@ E=\bigcup_{k\in[K]}E_k,\qquad E_k:=\{k\}\times\mathbb{R}^{n_k},
 <section id="はじめに-1" class="level3" data-number="2.1">
 <h3 data-number="2.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">2.1</span> はじめに</h3>
 <p>本稿ではまず，詳細釣り合い条件を満たすような MCMC のみに焦点を絞って，次元を超える MCMC をどのように構成できるかを議論する．</p>
-<p>このような議論は，MCMC の黎明期である <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> などで議論されたものである．</p>
+<p>一般論（第 <a href="#sec-general" class="quarto-xref">2.2</a> 節）が <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> で議論されている．結局こうして定義されるクラスは，より一般の空間への MH アルゴリズムの拡張となっている：</p>
+<blockquote class="blockquote">
+<p>In brief, reversible jump MCMC is a random sweep Metropolis± Hastings method adapted for general state spaces. <span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997, p. 736</a>)</span></p>
+</blockquote>
 </section>
-<section id="一般論" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="一般論"><span class="header-section-number">2.2</span> 一般論</h3>
+<section id="sec-general" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-general"><span class="header-section-number">2.2</span> 一般論</h3>
 <p>目標分布 <span class="math inline">\(\pi\in\mathcal{P}(E)\)</span> に対して提案核が <span class="math display">\[
 q(x,-)=\sum_{m=1}^Mq_m(x,-)
-\]</span> という形で用意されている場合に，棄却率 <span class="math inline">\(\alpha_m(x,x')\)</span> をどう設定すれば所望の Metropolis-Hastings サンプラーが得られるかを考える．</p>
+\]</span> という形で用意されている場合に，棄却率 <span class="math inline">\(\alpha_m(x,x')\)</span> をどう設定すれば所望の <span class="math inline">\(\pi\)</span> に収束する Markov 連鎖が得られるかを考える．</p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Green1995 p.715]">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -452,19 +490,46 @@ q(x,-)=\sum_{m=1}^Mq_m(x,-)
 \]</span> を満たすならば，Metropolis-Hastings サンプラーは <span class="math inline">\(\pi\)</span> を不変分布にもつ．</p>
 </div>
 </div>
+<p><span class="citation" data-cites="Peskun1973">(<a href="#ref-Peskun1973" role="doc-biblioref">Peskun, 1973</a>)</span> の含意として受容確率はなるべく高い方が良いから，結局は <span class="math display">\[
+\alpha_m(x,x')=1\land\frac{\pi(dx')q_m(x',dx)}{\pi(dx)q_m(x,dx')}.
+\]</span> と取ることにあたる．</p>
+<p>この命題の前提条件である，「<span class="math inline">\(\pi\otimes q_m\)</span> がある <span class="math inline">\(E^2\)</span> 上の対称な測度に関して密度 <span class="math inline">\(f_m\)</span> を持つ」という条件は dimension-matching requirement と呼ばれる．</p>
+<p>仮に <span class="math inline">\(q_m\)</span> はモデル間のジャンプのみを提案する核であるとする．簡単のために次元は下がるとしよう．その際，ジャンプ先の次元と同じ次元を持った部分多様体上でしか <span class="math inline">\(q_m\)</span> によるジャンプは起こってはいけないことが要求される．</p>
+</section>
+<section id="jump-diffusion-を用いた方法" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="jump-diffusion-を用いた方法"><span class="header-section-number">2.3</span> Jump-Diffusion を用いた方法</h3>
+<p>次元の違う空間をジャンプによって往来するという発想自体は <span class="citation" data-cites="Grenander-Miller1994">(<a href="#ref-Grenander-Miller1994" role="doc-biblioref">Grenander and Miller, 1994</a>)</span> が画像認識の分野で提案している．この論文では birth-death の代わりに creation-annihilation と呼ばれている．</p>
+<p>ジャンプは Poisson レートに従って起こり，それ以外の間は Langevin 拡散によって平衡分布からのサンプリングを行う．</p>
+<p>後にこれを一般のモデル選択に応用したものが <span class="citation" data-cites="Phillips-Smith1995">(<a href="#ref-Phillips-Smith1995" role="doc-biblioref">Phillips and Smith, 1995</a>)</span> で議論されており，<span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> の可逆超次元 MCMC の特別な場合に当たる <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995, p. 716</a>)</span>．</p>
+<p>なお，MALA (Metropolis-adjusted Langevin algorithm) はこの論文 <span class="citation" data-cites="Grenander-Miller1994">(<a href="#ref-Grenander-Miller1994" role="doc-biblioref">Grenander and Miller, 1994</a>)</span> へのコメント <span class="citation" data-cites="Besag1994">(<a href="#ref-Besag1994" role="doc-biblioref">J. E. Besag, 1994</a>)</span> で提案されたものである．</p>
+</section>
+<section id="split-merge-の導入" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="split-merge-の導入"><span class="header-section-number">2.4</span> Split-Merge の導入</h3>
+<p>前述の通り <span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997</a>)</span> は混合モデルからのサンプリングに超次元 MCMC を応用している．</p>
+<p>ここでは超次元跳躍は，新たな混合成分の導入／削除に用いられる．<span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997</a>)</span> は birth-death と呼んでいる．</p>
+<p>そして混合成分が追加／削除される前後に，既存の成分の分割／合併 (split-merge) を行うことで，混合モデルからのサンプリングを行う．</p>
+<p>この際 <span class="citation" data-cites="Richardson-Green1997">(<a href="#ref-Richardson-Green1997" role="doc-biblioref">Richardson and Green, 1997</a>)</span> は２次までの積率を変えないように split-merge を行うことを提案しており，これを <strong>積率マッチング</strong> (moment matching) ともいう <span class="citation" data-cites="Fan+2024">(<a href="#ref-Fan+2024" role="doc-biblioref">Fan et al., 2024, p. 10</a>)</span>．</p>
+</section>
+<section id="birth-death-過程によるサンプリング" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="birth-death-過程によるサンプリング"><span class="header-section-number">2.5</span> Birth-Death 過程によるサンプリング</h3>
 </section>
 </section>
 <section id="非可逆な方法" class="level2" data-number="3">
 <h2 data-number="3" class="anchored" data-anchor-id="非可逆な方法"><span class="header-section-number">3</span> 非可逆な方法</h2>
-<section id="非可逆なサンプラーを用いる方法" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="非可逆なサンプラーを用いる方法"><span class="header-section-number">3.1</span> 非可逆なサンプラーを用いる方法</h3>
+<section id="リフティングを用いる方法" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="リフティングを用いる方法"><span class="header-section-number">3.1</span> リフティングを用いる方法</h3>
+<p>リフティングは状態空間を拡張し，MH 法を非可逆にする方法である <span class="citation" data-cites="Diaconis+2000">(<a href="#ref-Diaconis+2000" role="doc-biblioref">Diaconis et al., 2000</a>)</span>, <span class="citation" data-cites="Chen+1999">(<a href="#ref-Chen+1999" role="doc-biblioref">Chen et al., 1999</a>)</span>．</p>
+<p>この方法をモデル間のジャンプに応用したものが <span class="citation" data-cites="Gagnon-Doucet2020">(<a href="#ref-Gagnon-Doucet2020" role="doc-biblioref">Gagnon and Doucet, 2020</a>)</span> で議論されている．</p>
+</section>
+<section id="非可逆なサンプラーを用いる方法" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="非可逆なサンプラーを用いる方法"><span class="header-section-number">3.2</span> 非可逆なサンプラーを用いる方法</h3>
 <p>連続時間ベースの MCMC 法は，その非可逆なダイナミクスから従来の MCMC よりも良い収束性を持つ <span class="citation" data-cites="Andrieu-Livingstone2021">(<a href="#ref-Andrieu-Livingstone2021" role="doc-biblioref">Andrieu and Livingstone, 2021</a>)</span>．</p>
 <p>連続時間 MCMC は従来とは全く異なるアルゴリズムをもち，Poisson 過程の到着によりランダムなジャンプをし，それまでは決定論的な動きを続ける（Zig-Zag サンプラーや BPS サンプラーでは直進）．</p>
 <p>このようなサンプラーにモデル間の移動を導入するには，新たなタイマー（Poisson 過程）を導入して，その到着のたびにジャンプをすれば良い．</p>
 <p>この考え方を推し進めることで，非可逆なモデル間ジャンプをデザインすることができる．</p>
 </section>
-<section id="sticky-pdmp" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="sticky-pdmp"><span class="header-section-number">3.2</span> Sticky PDMP</h3>
+<section id="sticky-pdmp" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sticky-pdmp"><span class="header-section-number">3.3</span> Sticky PDMP</h3>
 <p>モデル選択の文脈では，<span class="math inline">\(E_k\)</span> の間に自然な包含関係がある場合が多い．特に飽和モデルを <span class="math inline">\(x\in\mathbb{R}^p\)</span> として，この係数に spike-and-slab 事前分布 <span class="citation" data-cites="Mitchell-Beauchamp1988">(<a href="#ref-Mitchell-Beauchamp1988" role="doc-biblioref">Mitchell and Beauchamp, 1988</a>)</span> を仮定して変数選択をする状況を考える： <span class="math display">\[
 p(dx)=\prod_{i=1}^p\biggr(\omega_ip_i(x_i)\,dx_i+(1-\omega_i)\delta_0(dx_i)\biggl).
 \]</span></p>
@@ -472,9 +537,9 @@ p(dx)=\prod_{i=1}^p\biggr(\omega_ip_i(x_i)\,dx_i+(1-\omega_i)\delta_0(dx_i)\bigg
 <p>タイマーが鳴った際は止めていた（速度成分を <span class="math inline">\(0\)</span> にしていた）座標成分を，タイマーが開始された状況と同じ速度で動かし始める．</p>
 <p>こうして得られるサンプラーは Sticky PDMP <span class="citation" data-cites="Bierkens+2023">(<a href="#ref-Bierkens+2023" role="doc-biblioref">Bierkens et al., 2023</a>)</span> と呼ばれ，非可逆なサンプラーダイナミクスに依存してタイマーが発動するために，モデル間の非可逆なジャンプを達成することになる．</p>
 </section>
-<section id="境界の導入による方法" class="level3" data-number="3.3">
-<h3 data-number="3.3" class="anchored" data-anchor-id="境界の導入による方法"><span class="header-section-number">3.3</span> 境界の導入による方法</h3>
-<p>モデル選択の文脈では <span class="math inline">\(E_k\)</span> の間に自然な包含関係があったが，合祖木の空間やグラフの空間など，従来から Monte Carlo シミュレーションが困難な離散構造は多く知られている．</p>
+<section id="境界の導入による方法" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="境界の導入による方法"><span class="header-section-number">3.4</span> 境界の導入による方法</h3>
+<p>モデル選択の文脈では <span class="math inline">\(E_k\)</span> の間に自然な包含関係があった (nested models) が，合祖木の空間やグラフの空間など，従来から Monte Carlo シミュレーションが困難な離散構造は多く知られている．</p>
 <p>そこで一般的な設定を考えたいが，その際に使える Sticky PDMP の一般化のような方法が <span class="citation" data-cites="Koskela2022">(<a href="#ref-Koskela2022" role="doc-biblioref">Koskela, 2022</a>)</span> で提案されている．</p>
 <p>この方法では <span class="math inline">\(\mathbb{F}\)</span> を一般的な可算集合とし， <span class="math display">\[
 \mathbb{F}\leftarrow\bigsqcup_{k\in\mathbb{F}}\Omega_m=:\Omega,\qquad\Omega_m\overset{\mathrm{open}}{\subset}\mathbb{R}^d,
@@ -489,7 +554,7 @@ p(dx)=\prod_{i=1}^p\biggr(\omega_ip_i(x_i)\,dx_i+(1-\omega_i)\delta_0(dx_i)\bigg
 <div id="quarto-appendix" class="default"><section id="文献案内" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献案内</h2><div class="quarto-appendix-contents">
 
 <p>Trans-dimensional MCMC のトピックは，MCMC の黎明期の歴史に深く関わっている．</p>
-<p><span class="citation" data-cites="Besag-Green1993">(<a href="#ref-Besag-Green1993" role="doc-biblioref">Besag and Green, 1993</a>)</span></p>
+<p><span class="citation" data-cites="Besag-Green1993">(<a href="#ref-Besag-Green1993" role="doc-biblioref">J. Besag and Green, 1993</a>)</span></p>
 <p>Sticky PDMP の間は極めて画期的なアイデアになり，今後数年で PDMP サンプラーをベイズ推論の workhorse algorithm に押し上げるポテンシャルがあるものと筆者は考えている．</p>
 <p>実際，連続時間 MCMC アルゴリズムは従来法と大きく違い，収束が多少早い程度ではコミュニティへの浸透が遅いと思われていたが，モデル選択や高次元・多峰性分布への推論に特に優れた応用を見せ始めた今，その重要性が高まっていると言えるだろう．</p>
 
@@ -500,20 +565,53 @@ p(dx)=\prod_{i=1}^p\biggr(\omega_ip_i(x_i)\,dx_i+(1-\omega_i)\delta_0(dx_i)\bigg
 <div id="ref-Andrieu-Livingstone2021" class="csl-entry" role="listitem">
 Andrieu, C., and Livingstone, S. (2021). <a href="https://doi.org/10.1214/20-AOS2008"><span class="nocase">Peskun–Tierney ordering for Markovian Monte Carlo: Beyond the reversible scenario</span></a>. <em>The Annals of Statistics</em>, <em>49</em>(4), 1958–1981.
 </div>
+<div id="ref-Besag1994" class="csl-entry" role="listitem">
+Besag, J. E. (1994). <a href="https://www.jstor.org/stable/2346184"><span class="nocase">Comments on <span>“Representations of Knowledge in Complex Systems”</span> by U. Grenander and M. I. Miller</span></a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>56</em>(4), 591–592.
+</div>
 <div id="ref-Besag-Green1993" class="csl-entry" role="listitem">
 Besag, J., and Green, P. J. (1993). <a href="https://doi.org/10.1111/j.2517-6161.1993.tb01467.x">Spatial statistics and bayesian computation</a>. <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>, <em>55</em>(1), 25–37.
 </div>
 <div id="ref-Bierkens+2023" class="csl-entry" role="listitem">
 Bierkens, J., Grazzi, S., Meulen, F. van der, and Schauer, M. (2023). <a href="https://doi.org/10.1007/s11222-022-10180-5"><span class="nocase">Sticky PDMP Samplers for Sparse and Local Inference Problems</span></a>. <em>Statistics and Computing</em>, <em>33</em>(1), 8.
 </div>
+<div id="ref-Chen+1999" class="csl-entry" role="listitem">
+Chen, F., Lovász, L., and Pak, I. (1999). <a href="https://doi.org/10.1145/301250.301315">Lifting markov chains to speed up mixing</a>. In <em>Proceedings of the thirty-first annual ACM symposium on theory of computing</em>, pages 275–281. New York, NY, USA: Association for Computing Machinery.
+</div>
+<div id="ref-Denison+1998" class="csl-entry" role="listitem">
+Denison, D. G. T., Mallick, B. K., and Smith, A. F. M. (1998). <a href="http://www.jstor.org/stable/2985943">Automatic bayesian curve fitting</a>. <em>Journal of the Royal Statistical Society. Series B (Statistical Methodology)</em>, <em>60</em>(2), 333–350.
+</div>
+<div id="ref-Diaconis+2000" class="csl-entry" role="listitem">
+Diaconis, P., Holmes, S., and Neal, R. M. (2000). <a href="http://www.jstor.org/stable/2667319">Analysis of a nonreversible markov chain sampler</a>. <em>The Annals of Applied Probability</em>, <em>10</em>(3), 726–752.
+</div>
+<div id="ref-Fan+2024" class="csl-entry" role="listitem">
+Fan, Y., Sisson, S. A., and Davies, L. (2024). <a href="https://arxiv.org/abs/1001.2055">Reversible jump markov chain monte carlo and multi-model samplers</a>.
+</div>
+<div id="ref-Gagnon-Doucet2020" class="csl-entry" role="listitem">
+Gagnon, P., and Doucet, A. (2020). <a href="https://doi.org/10.1080/10618600.2020.1826955">Nonreversible jump algorithms for bayesian nested model selection</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>30</em>(2), 312–323. doi: 10.1080/10618600.2020.1826955.
+</div>
 <div id="ref-Green1995" class="csl-entry" role="listitem">
 Green, P. J. (1995). <a href="http://www.jstor.org/stable/2337340">Reversible jump markov chain monte carlo computation and bayesian model determination</a>. <em>Biometrika</em>, <em>82</em>(4), 711–732.
+</div>
+<div id="ref-Grenander-Miller1994" class="csl-entry" role="listitem">
+Grenander, U., and Miller, M. I. (1994). <a href="http://www.jstor.org/stable/2346184">Representations of knowledge in complex systems</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>56</em>(4), 549–603.
+</div>
+<div id="ref-Kass-Raftery1995" class="csl-entry" role="listitem">
+Kass, R. E., and Raftery, A. E. (1995). <a href="https://doi.org/10.1080/01621459.1995.10476572">Bayes factors</a>. <em>Journal of the American Statistical Association</em>, <em>90</em>(430), 773–795. doi: 10.1080/01621459.1995.10476572.
 </div>
 <div id="ref-Koskela2022" class="csl-entry" role="listitem">
 Koskela, J. (2022). <a href="https://doi.org/10.1080/10618600.2022.2032722">Zig-zag sampling for discrete structures and nonreversible phylogenetic MCMC</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>31</em>(3), 684–694. doi: 10.1080/10618600.2022.2032722.
 </div>
 <div id="ref-Mitchell-Beauchamp1988" class="csl-entry" role="listitem">
 Mitchell, T. J., and Beauchamp, J. J. (1988). <a href="http://www.jstor.org/stable/2290129">Bayesian variable selection in linear regression</a>. <em>Journal of the American Statistical Association</em>, <em>83</em>(404), 1023–1032.
+</div>
+<div id="ref-Peskun1973" class="csl-entry" role="listitem">
+Peskun, P. H. (1973). <a href="https://doi.org/10.1093/biomet/60.3.607">Optimum monte-carlo sampling using markov chains</a>. <em>Biometrika</em>, <em>60</em>(3), 607–612.
+</div>
+<div id="ref-Phillips-Smith1995" class="csl-entry" role="listitem">
+Phillips, D. B., and Smith, A. F. M. (1995). <a href="https://www.taylorfrancis.com/chapters/mono/10.1201/b14835-18/bayesian-model-comparison-via-jump-diffusions-gilks-richardson-david-spiegelhalter">Markov chain monte carlo in practice</a>. In W. R. Gilks, S. Richardson, and D. Spiegelhalter, editors, pages 215–240. Chapman; Hall/CRC.
+</div>
+<div id="ref-Richardson-Green1997" class="csl-entry" role="listitem">
+Richardson, Sylvia., and Green, P. J. (1997). <a href="https://doi.org/10.1111/1467-9868.00095">On bayesian analysis of mixtures with an unknown number of components (with discussion)</a>. <em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <em>59</em>(4), 731–792.
 </div>
 </div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
