@@ -38,20 +38,12 @@ listing:
             - "../Survey/BayesRegression.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-    # -   id: lst-embedding2
-    #     type: grid
-    #     grid-columns: 1
-    #     sort: false
-    #     contents:
-    #         - "../Survey/BayesGLM.qmd"
-    #     date-format: iso
-    #     fields: [title,image,date,subtitle]
-    -   id: lst-embedding3
+    -   id: lst-embedding1
         type: grid
         grid-columns: 1
         sort: false
         contents:
-            - "BayesTrans.qmd"
+            - "Bafumi.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -87,7 +79,9 @@ listing:
 
 １つ目が「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である（第 [-@sec-Bayesian-regularization] 節）．
 
-これは馬蹄事前分布 [@Carlos+2010]，Laplace 事前分布 / Bayesian Lasso [@Park-Casella2008] などの global-local shrinkage prior を用いる方法である．
+これは馬蹄事前分布 [@Carvalho+2010]，Laplace 事前分布 / Bayesian Lasso [@Park-Casella2008] などの global-local shrinkage prior を用いる方法である．
+
+この方法は点推定や頻度論的な方法ではほとんど唯一の変数選択の方法であり，正則化または**スパース性** のキーワードの下で盛んに研究されている [@Hastie+2015]．
 
 #### ベイズ変数選択 {#sec-spike-and-slab}
 
@@ -106,6 +100,8 @@ PIP を用いることで「当該変数がモデルに含まれるか？」と�
 
 このようにベイズ変数選択 [-@sec-spike-and-slab] では，変数選択も統計的推論の問題として解く．
 
+この方法は最適なレートで縮小する効果を持ち [@Castillo+2015]，また予測力にも優れる [@Porwal-Raftery2022]．
+
 最終的には，適切に構造と事前分布が設定されたベイズモデルを用いて，ベイズ推論により変数の関連度を自動で判断して結果を出すことが理想である．その意味では全ての変数を（適切に）入れたモデルを用いることが好ましい．^[例えば [@Barr+2013] では検証的仮説検定の設定で，どこまでランダム効果をモデルに入れるかを議論しており，「全部入れるべき」という結論を一定の前提の下で導いている．]
 
 ベイズ変数選択はこの最終目標に向かうまでの探索的な中途解析と見ることもできる．
@@ -114,12 +110,7 @@ PIP を用いることで「当該変数がモデルに含まれるか？」と�
 
 変数選択・モデル選択を実行し，選ばれた単一のモデルで推論・予測を実行するよりも，尤度が必ずしも最も高いわけではないモデルも捨てずに推論に用いることで精度を上げることができる．
 
-これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．
-
-### 関連記事 {.unnumbered .unlisted}
-
-::: {#lst-survey}
-:::
+これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．実際，[@Porwal-Raftery2022] では線型回帰モデルの変数選択において，３つの適応的 BMA 手法が全てのタスクでベストな予測性能を示したことを報告している．
 
 ## 縮小事前分布による方法 {#sec-Bayesian-regularization}
 
@@ -156,48 +147,127 @@ raw_df <- raw_df %>%
 
 さらに，仮に「多くの説明変数のうち，一部しか重要なものはなく，他の大部分はほとんど無関係である」と思っている，あるいは思いたいとする．変数選択を行いたい場合がこれにあたる．
 
-この信念を正確に表現する事前分布の一つに馬蹄事前分布 (horseshoe prior) [@Carlos+2010] とその正則化バージョン [@Piironen-Vehtari2017] がある．
+この信念を正確に表現する事前分布の一つに馬蹄事前分布 (horseshoe prior) [@Carvalho+2010] とその正則化バージョン [@Piironen-Vehtari2017] がある．
 
 これらの分布は $R^2$ 上の事前分布に，$0$ 上にスパイクを生じさせる．シンプルなモデルを選好することになるのである．
 
 Stan においては `prior=hs` によって指定できる [@Gelman-Hill-Vehtari2020 p.209]．
 
+### Local Scale Mixture
+
+多くの正則化事前分布は次のような正規分布の local scale mixture [@West1987] の形をしている：^[[@Hahn-Carvalho2015 p.436] は local scale mixture と呼んでいる．他にこの観点は [@Griffin-Brown2017], [@Polson-Scott2012] でも議論されている．]
+$$
+\pi(\beta_j|\lambda)=\int_\R\phi(\beta_j|0,\lambda^2\lambda^2_j)\pi(\lambda_j^2)\,d\lambda_j.
+$$
+
+$\pi$ が２点のみに台を持つ場合が spike-and-slab ([-@eq-spike-and-slab]) であった [@Polson-Scott2011]．SSVS （第 [-@sec-SSVS] 節）も含む．$\pi$ が絶対連続である場合も次のような例を持つ [@Polson-Scott2012]：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+* 二重指数分布 (double exponential) / Bayesian Lasso [@Park-Casella2008], [@Hans2009]
+* 馬蹄事前分布 (horseshoe prior) [@Carvalho+2010]
+* Bayesian elastic net [@Hans2011]
+
+:::
+
+[@Ishwaran-Rao2005] はこれらの研究より早い段階で，$\pi$ に $0$ の近くと $0$ から大きく離れた二峰を持つ分布を用意している．
+
+### ベイズ縮小の効果
+
+スケールパラメータ $\lambda$ は，LASSO [@Tibshirani1996] では CV などの基準により選択することになるが，$\lambda$ を推定してモデル平均を行うことでより高い推定精度を得ることができる [@Hans2009]．
+
+同様にして事後平均推定量により推定精度は改善されるが，ほとんど確実にこれはスパースではない．従って推定量のスパース性と推定精度はトレードオフの関係にあり，完全にベイジアンに Bayesian LASSO を実行すると本末転倒に陥るという一面もある．
+
+このためベイズ縮小事前分布を用いた場合，自動的にスパース性に基づいたモデル選択ができるというわけではなく，事後モデル確率 (posterior model probability) を最大にするものを見つけるという post-processing が必要になる [Section 1.5 @Hahn-Carvalho2015 p.438], [@Piironen+2020], [@Griffin2024]．
+
+しかし以上のベイズモデル選択の手続きを踏むことによって，事後モデル確率を最大にするものという統計的・決定理論的に根拠を持ったモデル選択を実行することができる．
+
+LASSO はベイズモデル選択の結果よりも予測性能が必ずしも高いわけではないにも拘らず，より多くの変数をモデルに残しがちであることも報告されている [@Porwal-Raftery2022 p.3]．これは馬蹄事前分布などの最新の縮小事前分布は，回帰係数の効果量やモデルの大きさなどに応じて適応的に正則化の強さを加減しているためだとも言える [@Li-Dutta-Roy2023]．
+
 ## ベイズ変数選択 {#sec-Bayesian-variable-selection}
 
-### はじめに
+### はじめに：階層モデリング {#sec-hierarchical-modeling}
 
-**ベイズ変数選択** では，説明変数 $\{x_i\}_{i=1}^p$ のそれぞれがモデルに含まれるかを意味する潜在変数 $\{\gamma_i\}_{i=1}^p\in\{0,1\}^p$ の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．
+**ベイズ変数選択** では，説明変数 $\{x_i\}_{i=1}^p$ のそれぞれがモデルに含まれるかを意味する潜在変数 $\{\gamma_i\}_{i=1}^p\in\{0,1\}^p=:\Gamma$ の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．
 
 最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．
 
-### 確率的探索法
-
-このアプローチは [@George-McCulloch1993] によって創始された．この方法では
+このアプローチは [@George-McCulloch1997] らによって創始された．この方法では
 $$
 p(\gamma)=\prod_{i=1}^p\om_i^{\gamma_i}(1-\om_i)^{1-\gamma_i}
 $$
 $$
 p(\beta|\sigma,\gamma)\,d\beta=\rN_p(0,\Sigma(\sigma,\gamma))
 $$
-という階層モデルを想定し，データ拡張に基づく Gibbs サンプラーによって推定することを提案した．
+という階層構造を通じて，回帰モデルに潜在変数 $\gamma$ を導入する．[@George-McCulloch1997] では $\Sigma$ は $g$-prior とする：
+$$
+\Sigma(\sigma,\gamma):=\sigma^2(X^\top_\gamma X_\gamma)^{-1}.
+$$
 
-これは **確率的探索法** (SSVS: Stochastic Search Variable Selection) と呼ばれる．^[変数減少法やステップワイズ法などのヒューリスティックな方法に対しての「確率的探索法」という名称だったのだと思われる．特に [@George-McCulloch1993] ではデータ拡張に基づく Gibbs サンプラーを用いており，その様子が「確率的探索」に見えるのだと思われる．]
+### 確率的探索法 {#sec-SSVS}
 
-### 超次元 MCMC
+特に [@George-McCulloch1993] では
+$$
+\beta_i|\gamma_i\sim(1-\gamma_i)\rN(0,\sigma_i^2)+\gamma_i\rN(0,c_i^2\sigma_i^2)
+$$ {#eq-SSVS}
+という構造を設定し，データ拡張に基づく Gibbs サンプラーによって推定することを提案した．
 
-事後包含確率を出すにあたって，Reversible-Jump MCMC [@Green1995] を用いることも考えられる．
+この方法は **確率的探索法** (SSVS: Stochastic Search Variable Selection) と呼ばれる．^[変数減少法やステップワイズ法などのヒューリスティックな方法に対しての「確率的探索法」という名称だったのだと思われる．特に [@George-McCulloch1993] ではデータ拡張に基づく Gibbs サンプラーを用いており，その様子が「確率的探索」に見えるのだと思われる．]
 
-実際確率的探索法は分解可能なグラフィカルモデルに対する超次元 MCMC 法の特別な場合と見れる [@Godsill2001 p.232]．
+しかし ([-@eq-SSVS]) は spike-and-slab ([-@eq-spike-and-slab]) の近似になっているため，$\gamma_i=1$ の事後確率は正確に PIP になっているわけではない．
 
-これは別稿で取り上げる．
+この近似は Gibbs サンプラーを高速にするという利点はあったかもしれないが，現代では spike-and-slab ([-@eq-spike-and-slab]) に直接適用できる高速なサンプラーが多数開発されている．
 
-::: {#lst-embedding3}
+### Add-Delete-Swap
+
+計量化学 (chemometrics) では $p$ が特に高次元になり得る．[@Brown+1998] は近赤外線分光法で得られたデータから，予測に有用な波長を選択する問題に対処するためにベイズ変数選択の方法を用いることを考えた．
+
+そのためにまず第 [-@sec-hierarchical-modeling] 節の階層モデルを多次元化し，推定には乱歩 MH 法を用いた．
+
+[@Yang+2016] は MH 法の計算複雑性を解析し，$p$ が大きい場合にも計算量が線型にしか増加しない MH 法を提案した．
+
+### 超次元 MCMC による PIP 算出
+
+事後包含確率を出すにあたって，Reversible-Jump MCMC [@Green1995] などの超次元手法を用いることも考えられる．
+
+超次元 MCMC とは，一般に複数のモデルから同時にサンプリングするための用いられ，ベイズ変数選択法は分解可能なグラフィカルモデルに対する超次元 MCMC 法の特別な場合と見れる [@Godsill2001 p.232]．
+
+詳しくは別稿で取り上げるが，特に Sticky PDMP [@Bierkens+2023] は有力な PIP 算出法になる．
+
+::: {#lst-survey}
 :::
+
+### 計算の問題
+
+ベイズ変数選択とは $\Gamma=\{0,1\}^p$ 上の事後分布を計算することであるが，これを効率的に行う MCMC を構成することが中心的な問題になる．
+
+ここまで叙述してきた Gibbs サンプラー（例えば確率的探索法 [-@sec-SSVS] など）は，$p=2$ の極めて簡単な設定で簡単に崩壊する．というのも，２つの同等な説明力を持つ確率変数が強い相関を持つ場合，$(\beta,\gamma)$ の同時分布は強い二峰性を持つ．
+
+その結果ただナイーブに Gibbs サンプラーを適用しただけでは片方の峰しか見つけることができず，PIP について偏った結果を出してしまう [Section 5.1 @Zanella-Roberts2019]．
+
+推定したいモデルが階層モデルである限り，多峰性の問題は常に付きものである．
+
+::: {#lst-embedding1}
+:::
+
+$p=2$ の時でさえ深刻になり得る多峰性の問題に加えて，共変量の数 $p$ が大きい現代的な問題に対処する必要もあることを思えば，ベイズ変数選択の問題は，多峰性に強い効率的なベイズ計算法を開発するという普遍的な課題に回収されるのである．
+
+### Tempered Gibbs サンプラー
+
+### SVEN
+
+SVEN (Selection of Variables with Embedded screeNing) [@Li-Dutta-Roy2023]．
+
+### Informed Samplers
+
+
 
 ## 文献紹介 {.appendix}
 
 変数選択のための事前分布とその $R^2$ 上に定める事前分布については [12.7 節 @Gelman-Hill-Vehtari2020] で丁寧に議論されている．
 
+この第一のアプローチ・縮小事前分布については [@Bhadra+2019] のレビューがある．他には [@Griffin-Brown2021], [@Griffin-Brown2017], [@Hahn-Carvalho2015] が詳しい．
+
 [@George-McCulloch1993] による変数選択法が [Chapter 9 @Hoff2009] で取り上げられている．
 
-縮小事前分布は [@Griffin-Brown2017], [@Hahn-Carvalho2015] が詳しい．ベイズ変数選択手法の概観は [@Liang+2023] のイントロに圧倒されるほどまとまっている．
+ベイズ変数選択手法の概観は [@Liang+2023] や [@Griffin2024] のイントロに圧倒されるほどまとまっている．[@Griffin2024] ではモデルの空間上に得られた事後分布の情報を効果的に表示するための「信用区間」の構成法を提案している．
