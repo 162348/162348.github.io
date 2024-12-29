@@ -147,34 +147,6 @@ div.csl-indent {
   
 
   window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-lst-embedding2 .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-lst-embedding2'] = new List('listing-lst-embedding2', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
     const listingTargetEl = window.document.querySelector('#listing-lst-embedding3 .list');
     if (!listingTargetEl) {
       // No listing discovered, do not attach.
@@ -363,7 +335,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">12/12/2024</p>
+        <p class="date-modified">12/28/2024</p>
       </div>
     </div>
       
@@ -384,7 +356,7 @@ window.Quarto = {
   <li><a href="#ベイズから見た変数選択" id="toc-ベイズから見た変数選択" class="nav-link" data-scroll-target="#ベイズから見た変数選択"><span class="header-section-number">1.2</span> ベイズから見た変数選択</a></li>
   <li><a href="#ベイズモデル平均を見据えて" id="toc-ベイズモデル平均を見据えて" class="nav-link" data-scroll-target="#ベイズモデル平均を見据えて"><span class="header-section-number">1.3</span> ベイズモデル平均を見据えて</a></li>
   </ul></li>
-  <li><a href="#sec-Bayesian-regularization" id="toc-sec-Bayesian-regularization" class="nav-link" data-scroll-target="#sec-Bayesian-regularization"><span class="header-section-number">2</span> 事前情報による変数選択</a>
+  <li><a href="#sec-Bayesian-regularization" id="toc-sec-Bayesian-regularization" class="nav-link" data-scroll-target="#sec-Bayesian-regularization"><span class="header-section-number">2</span> 縮小事前分布による方法</a>
   <ul class="collapse">
   <li><a href="#多くの説明変数が存在する場合の事前分布" id="toc-多くの説明変数が存在する場合の事前分布" class="nav-link" data-scroll-target="#多くの説明変数が存在する場合の事前分布"><span class="header-section-number">2.1</span> 多くの説明変数が存在する場合の事前分布</a></li>
   <li><a href="#正則事前分布" id="toc-正則事前分布" class="nav-link" data-scroll-target="#正則事前分布"><span class="header-section-number">2.2</span> 正則事前分布</a></li>
@@ -392,6 +364,8 @@ window.Quarto = {
   <li><a href="#sec-Bayesian-variable-selection" id="toc-sec-Bayesian-variable-selection" class="nav-link" data-scroll-target="#sec-Bayesian-variable-selection"><span class="header-section-number">3</span> ベイズ変数選択</a>
   <ul class="collapse">
   <li><a href="#はじめに-1" id="toc-はじめに-1" class="nav-link" data-scroll-target="#はじめに-1"><span class="header-section-number">3.1</span> はじめに</a></li>
+  <li><a href="#確率的探索法" id="toc-確率的探索法" class="nav-link" data-scroll-target="#確率的探索法"><span class="header-section-number">3.2</span> 確率的探索法</a></li>
+  <li><a href="#超次元-mcmc" id="toc-超次元-mcmc" class="nav-link" data-scroll-target="#超次元-mcmc"><span class="header-section-number">3.3</span> 超次元 MCMC</a></li>
   </ul></li>
   
   </ul>
@@ -453,30 +427,105 @@ No matching items
 <section id="ベイズから見た変数選択" class="level3" data-number="1.2">
 <h3 data-number="1.2" class="anchored" data-anchor-id="ベイズから見た変数選択"><span class="header-section-number">1.2</span> ベイズから見た変数選択</h3>
 <p>こうして予測力を基にモデル選択をする方法は得たわけであるが，純粋にベイズ的な観点から変数選択を行う方法が大きく分けて２つある．</p>
-<section id="事前分布による方法" class="level4" data-number="1.2.1">
-<h4 data-number="1.2.1" class="anchored" data-anchor-id="事前分布による方法"><span class="header-section-number">1.2.1</span> 事前分布による方法</h4>
+<section id="縮小事前分布による方法" class="level4" data-number="1.2.1">
+<h4 data-number="1.2.1" class="anchored" data-anchor-id="縮小事前分布による方法"><span class="header-section-number">1.2.1</span> 縮小事前分布による方法</h4>
 <p>１つ目が「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である（第 <a href="#sec-Bayesian-regularization" class="quarto-xref">2</a> 節）．</p>
-<p>これにはまず馬蹄事前分布 <span class="citation" data-cites="Carlos+2010">(<a href="#ref-Carlos+2010" role="doc-biblioref">Carvalho et al., 2010</a>)</span>，Laplace 事前分布 / Bayesian Lasso <span class="citation" data-cites="Park-Casella2008">(<a href="#ref-Park-Casella2008" role="doc-biblioref">Park and Casella, 2008</a>)</span> などの global-local shrinkage prior を用いる方法がある．</p>
-<p>あるいは spike-and-slab 事前分布 <span class="citation" data-cites="Mitchell-Beauchamp1988">(<a href="#ref-Mitchell-Beauchamp1988" role="doc-biblioref">Mitchell and Beauchamp, 1988</a>)</span> という <span class="math inline">\(0\)</span> にマスを持つ事前分布を用いれば，当該変数の <strong>事後包含確率</strong> (PIP: Posterior Inclusion Probability) を導出することができる．</p>
-<p>PIP を用いることで「当該変数がモデルに含まれるか？」に直接ベイズ的に答えることができる．これを <strong>ベイズ変数選択</strong> という <a href="#sec-Bayesian-variable-selection" class="quarto-xref">3</a>．</p>
-<p>一方で前述の global-local shrinkage prior でも，post-processing を通じて同様に PIP を近似的に算出することができる <span class="citation" data-cites="Hahn-Carvalho2015">(<a href="#ref-Hahn-Carvalho2015" role="doc-biblioref">Hahn and Carvalho, 2015</a>)</span>．</p>
+<p>これは馬蹄事前分布 <span class="citation" data-cites="Carlos+2010">(<a href="#ref-Carlos+2010" role="doc-biblioref">Carvalho et al., 2010</a>)</span>，Laplace 事前分布 / Bayesian Lasso <span class="citation" data-cites="Park-Casella2008">(<a href="#ref-Park-Casella2008" role="doc-biblioref">Park and Casella, 2008</a>)</span> などの global-local shrinkage prior を用いる方法である．</p>
 </section>
-<section id="パラメータの追加による方法" class="level4" data-number="1.2.2">
-<h4 data-number="1.2.2" class="anchored" data-anchor-id="パラメータの追加による方法"><span class="header-section-number">1.2.2</span> パラメータの追加による方法</h4>
+<section id="sec-spike-and-slab" class="level4" data-number="1.2.2">
+<h4 data-number="1.2.2" class="anchored" data-anchor-id="sec-spike-and-slab"><span class="header-section-number">1.2.2</span> ベイズ変数選択</h4>
+<p>２つ目が spike-and-slab 事前分布 <span class="citation" data-cites="Mitchell-Beauchamp1988">(<a href="#ref-Mitchell-Beauchamp1988" role="doc-biblioref">Mitchell and Beauchamp, 1988</a>)</span> という <span class="math inline">\(0\)</span> にマスを持つ事前分布を用いる方法である： <span id="eq-spike-and-slab"><span class="math display">\[
+p(dx)=\prod_{i=1}^d\biggr(\omega_i\phi_i(x_i)\,dx_i+(1-\omega_i)\delta_0(dx_i)\biggl)
+\tag{1}\]</span></span></p>
+<p>この方法では当該変数の <strong>事後包含確率</strong> (PIP: Posterior Inclusion Probability) を導出することができる．実際 (<a href="#eq-spike-and-slab" class="quarto-xref">1</a>) は混合分布の形をしており，spike <span class="math inline">\(\delta_0\)</span> と slab <span class="math inline">\(\phi_i\)</span> のどちらからサンプリングされるかを表す潜在変数 <span class="math inline">\(\gamma_i\in\{0,1\}\)</span> を導入すれば，<span class="math inline">\(\operatorname{P}[\gamma=0|\mathcal{D}]\)</span> という事後確率こそが変数 <span class="math inline">\(x_i\)</span> がモデルに入る事後確率である．</p>
+<p>PIP を用いることで「当該変数がモデルに含まれるか？」という問題に直接ベイズ的に答えることができる．これを <strong>ベイズ変数選択</strong> という <a href="#sec-Bayesian-variable-selection" class="quarto-xref">3</a>．</p>
+<p>一方で前述の global-local shrinkage prior でも，post-processing を通じて同様に PIP を近似的に算出することができる <span class="citation" data-cites="Hahn-Carvalho2015">(<a href="#ref-Hahn-Carvalho2015" role="doc-biblioref">Hahn and Carvalho, 2015</a>)</span>．</p>
 </section>
 </section>
 <section id="ベイズモデル平均を見据えて" class="level3" data-number="1.3">
 <h3 data-number="1.3" class="anchored" data-anchor-id="ベイズモデル平均を見据えて"><span class="header-section-number">1.3</span> ベイズモデル平均を見据えて</h3>
-<p>このように，そもそもベイズでは変数選択も統計的推論によって解くべき問題のうちである．</p>
+<p>このようにベイズ変数選択 <a href="#sec-spike-and-slab" class="quarto-xref">1.2.2</a> では，変数選択も統計的推論の問題として解く．</p>
 <p>最終的には，適切に構造と事前分布が設定されたベイズモデルを用いて，ベイズ推論により変数の関連度を自動で判断して結果を出すことが理想である．その意味では全ての変数を（適切に）入れたモデルを用いることが好ましい．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <p>ベイズ変数選択はこの最終目標に向かうまでの探索的な中途解析と見ることもできる．</p>
-<p>実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (Bayesian Model Averaging) に用いることができる．</p>
+<p>実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (BMA: Bayesian Model Averaging) <span class="citation" data-cites="Hoeting+1999">(<a href="#ref-Hoeting+1999" role="doc-biblioref">Hoeting et al., 1999</a>)</span> に用いることができる．</p>
 <p>変数選択・モデル選択を実行し，選ばれた単一のモデルで推論・予測を実行するよりも，尤度が必ずしも最も高いわけではないモデルも捨てずに推論に用いることで精度を上げることができる．</p>
 <p>これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．</p>
 </section>
+<section id="関連記事" class="level3 unnumbered unlisted">
+<h3 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h3>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726930800000" data-listing-file-modified-sort="1735390854319" data-listing-date-modified-sort="1726930800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="348">
+<a href="../../../posts/2024/TransDimensionalModels/BayesTrans.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+超次元 MCMC
+</h5>
+<div class="card-subtitle listing-subtitle">
+モデル選択のためのマルコフ連鎖モンテカルロ法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-22
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734706800000" data-listing-file-modified-sort="1735391760555" data-listing-date-modified-sort="1734879600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="187">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../Survey/Files/elpd.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Sticky PDMP によるベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+非絶対連続分布からの正確なサンプリング
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-21
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734706800000" data-listing-file-modified-sort="1735272069886" data-listing-date-modified-sort="1734706800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="97">
+<a href="../../../posts/2024/TransDimensionalModels/BayesTraverse.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../Stat/MeanOfGaussian.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+連続・離散を往来する MCMC サンプラー
+</h5>
+<div class="card-subtitle listing-subtitle">
+Zig-Zag within Gibbs という考え方
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-21
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
 </section>
 <section id="sec-Bayesian-regularization" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="sec-Bayesian-regularization"><span class="header-section-number">2</span> 事前情報による変数選択</h2>
+<h2 data-number="2" class="anchored" data-anchor-id="sec-Bayesian-regularization"><span class="header-section-number">2</span> 縮小事前分布による方法</h2>
 <section id="多くの説明変数が存在する場合の事前分布" class="level3" data-number="2.1">
 <h3 data-number="2.1" class="anchored" data-anchor-id="多くの説明変数が存在する場合の事前分布"><span class="header-section-number">2.1</span> 多くの説明変数が存在する場合の事前分布</h3>
 <p><code>stan_glm</code> では回帰係数には適切な分散を持った独立な正規分布（<span class="math inline">\(g\)</span>-prior）をデフォルトの事前分布としている．</p>
@@ -500,13 +549,26 @@ No matching items
 <h2 data-number="3" class="anchored" data-anchor-id="sec-Bayesian-variable-selection"><span class="header-section-number">3</span> ベイズ変数選択</h2>
 <section id="はじめに-1" class="level3" data-number="3.1">
 <h3 data-number="3.1" class="anchored" data-anchor-id="はじめに-1"><span class="header-section-number">3.1</span> はじめに</h3>
-<p><strong>ベイズ変数選択</strong> では，説明変数の全体 <span class="math inline">\(\{x_i\}_{i=1}^p\)</span> の部分集合の空間 <span class="math inline">\(P(\{x_i\}_{i=1}^p)\)</span> 上の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．</p>
+<p><strong>ベイズ変数選択</strong> では，説明変数 <span class="math inline">\(\{x_i\}_{i=1}^p\)</span> のそれぞれがモデルに含まれるかを意味する潜在変数 <span class="math inline">\(\{\gamma_i\}_{i=1}^p\in\{0,1\}^p\)</span> の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．</p>
 <p>最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．</p>
-<p>本節では <span class="citation" data-cites="George-McCulloch1993">(<a href="#ref-George-McCulloch1993" role="doc-biblioref">George and McCulloch, 1993</a>)</span> による変数選択法 SSVS (Stochastic Search Variable Selection) を取り上げる．</p>
-<p>Reversible-Jump MCMC <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> も有力な変数選択法であるが，これは別稿で取り上げる．</p>
+</section>
+<section id="確率的探索法" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="確率的探索法"><span class="header-section-number">3.2</span> 確率的探索法</h3>
+<p>このアプローチは <span class="citation" data-cites="George-McCulloch1993">(<a href="#ref-George-McCulloch1993" role="doc-biblioref">George and McCulloch, 1993</a>)</span> によって創始された．この方法では <span class="math display">\[
+p(\gamma)=\prod_{i=1}^p\omega_i^{\gamma_i}(1-\omega_i)^{1-\gamma_i}
+\]</span> <span class="math display">\[
+p(\beta|\sigma,\gamma)\,d\beta=\mathrm{N}_p(0,\Sigma(\sigma,\gamma))
+\]</span> という階層モデルを想定し，データ拡張に基づく Gibbs サンプラーによって推定することを提案した．</p>
+<p>これは <strong>確率的探索法</strong> (SSVS: Stochastic Search Variable Selection) と呼ばれる．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+</section>
+<section id="超次元-mcmc" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="超次元-mcmc"><span class="header-section-number">3.3</span> 超次元 MCMC</h3>
+<p>事後包含確率を出すにあたって，Reversible-Jump MCMC <span class="citation" data-cites="Green1995">(<a href="#ref-Green1995" role="doc-biblioref">Green, 1995</a>)</span> を用いることも考えられる．</p>
+<p>実際確率的探索法は分解可能なグラフィカルモデルに対する超次元 MCMC 法の特別な場合と見れる <span class="citation" data-cites="Godsill2001">(<a href="#ref-Godsill2001" role="doc-biblioref">Godsill, 2001, p. 232</a>)</span>．</p>
+<p>これは別稿で取り上げる．</p>
 <div id="listing-lst-embedding3" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726930800000" data-listing-file-modified-sort="1735282887234" data-listing-date-modified-sort="1726930800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="273">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726930800000" data-listing-file-modified-sort="1735390854319" data-listing-date-modified-sort="1726930800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="348">
 <a href="../../../posts/2024/TransDimensionalModels/BayesTrans.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -538,105 +600,7 @@ No matching items
 
 
 
-<div class="quarto-listing quarto-listing-container-grid" id="listing-lst-survey">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727103600000" data-listing-file-modified-sort="1733732956590" data-listing-date-modified-sort="1733670000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
-<a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/Survey/Files/House.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ベイズ分散分析のモデル解析
-</h5>
-<div class="card-subtitle listing-subtitle">
-心理学実験を題材として
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-09-24
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715439600000" data-listing-file-modified-sort="1734664685895" data-listing-date-modified-sort="1734447600000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
-<a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/Computation/brms_files/figure-html/unnamed-chunk-4-1.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-<code>brms</code> によるベイズ混合モデリング入門
-</h5>
-<div class="card-subtitle listing-subtitle">
-ポアソン混合効果モデルを例に
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-05-12
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733324400000" data-listing-file-modified-sort="1734775765270" data-listing-date-modified-sort="1733842800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
-<a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/Survey/Files/BayesianWorkflow.svg" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ベイズデータ解析５
-</h5>
-<div class="card-subtitle listing-subtitle">
-回帰モデルの概観
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-12-05
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div><div class="quarto-listing quarto-listing-container-grid" id="listing-lst-embedding2">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1733929200000" data-listing-file-modified-sort="1734315482993" data-listing-date-modified-sort="1734188400000" data-listing-reading-time-sort="4" data-listing-word-count-sort="688">
-<a href="../../../posts/2024/Survey/BayesGLM.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../Survey/Files/BayesianWorkflow.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-<code>brms</code> を用いたベイズロジスティック回帰分析
-</h5>
-<div class="card-subtitle listing-subtitle">
-BMI データと順序ロジスティック回帰を題材として
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-12-12
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div><div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
 
 <p>変数選択のための事前分布とその <span class="math inline">\(R^2\)</span> 上に定める事前分布については <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(12.7 節 <a href="#ref-Gelman-Hill-Vehtari2020" role="doc-biblioref">Gelman et al., 2020</a>)</span> で丁寧に議論されている．</p>
 <p><span class="citation" data-cites="George-McCulloch1993">(<a href="#ref-George-McCulloch1993" role="doc-biblioref">George and McCulloch, 1993</a>)</span> による変数選択法が <span class="citation" data-cites="Hoff2009">(Chapter 9 <a href="#ref-Hoff2009" role="doc-biblioref">Hoff, 2009</a>)</span> で取り上げられている．</p>
@@ -658,6 +622,9 @@ Gelman, A., Hill, J., and Vehtari, A. (2020). <em><a href="https://avehtari.gith
 <div id="ref-George-McCulloch1993" class="csl-entry" role="listitem">
 George, E. I., and McCulloch, R. E. (1993). <a href="http://www.jstor.org/stable/2290777">Variable selection via gibbs sampling</a>. <em>Journal of the American Statistical Association</em>, <em>88</em>(423), 881–889.
 </div>
+<div id="ref-Godsill2001" class="csl-entry" role="listitem">
+Godsill, S. J. (2001). <a href="https://doi.org/10.1198/10618600152627924">On the relationship between markov chain monte carlo methods for model uncertainty</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>10</em>(2), 230–248. doi: 10.1198/10618600152627924.
+</div>
 <div id="ref-Green1995" class="csl-entry" role="listitem">
 Green, P. J. (1995). <a href="http://www.jstor.org/stable/2337340">Reversible jump markov chain monte carlo computation and bayesian model determination</a>. <em>Biometrika</em>, <em>82</em>(4), 711–732.
 </div>
@@ -666,6 +633,9 @@ Griffin, J., and Brown, P. (2017). <a href="https://doi.org/10.1214/15-BA990"><s
 </div>
 <div id="ref-Hahn-Carvalho2015" class="csl-entry" role="listitem">
 Hahn, P. R., and Carvalho, C. M. (2015). <a href="https://doi.org/10.1080/01621459.2014.993077">Decoupling shrinkage and selection in bayesian linear models: A posterior summary perspective</a>. <em>Journal of the American Statistical Association</em>, <em>110</em>(509), 435–448. doi: 10.1080/01621459.2014.993077.
+</div>
+<div id="ref-Hoeting+1999" class="csl-entry" role="listitem">
+Hoeting, J. A., Madigan, D., Raftery, A. E., and Volinsky, C. T. (1999). <a href="https://doi.org/10.1214/ss/1009212519"><span class="nocase">Bayesian model averaging: a tutorial (with comments by M. Clyde, David Draper and E. I. George, and a rejoinder by the authors</span></a>. <em>Statistical Science</em>, <em>14</em>(4), 382–417.
 </div>
 <div id="ref-Hoff2009" class="csl-entry" role="listitem">
 Hoff, P. D. (2009). <em><a href="https://doi.org/10.1007/978-0-387-92407-6">A first course in bayesian statistical methods</a></em>. Springer New York.
@@ -689,6 +659,7 @@ Vehtari, A., Gelman, A., and Gabry, J. (2017). <a href="https://doi.org/10.1007/
 
 <ol>
 <li id="fn1"><p>例えば <span class="citation" data-cites="Barr+2013">(<a href="#ref-Barr+2013" role="doc-biblioref">Barr et al., 2013</a>)</span> では検証的仮説検定の設定で，どこまでランダム効果をモデルに入れるかを議論しており，「全部入れるべき」という結論を一定の前提の下で導いている．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>変数減少法やステップワイズ法などのヒューリスティックな方法に対しての「確率的探索法」という名称だったのだと思われる．特に <span class="citation" data-cites="George-McCulloch1993">(<a href="#ref-George-McCulloch1993" role="doc-biblioref">George and McCulloch, 1993</a>)</span> ではデータ拡張に基づく Gibbs サンプラーを用いており，その様子が「確率的探索」に見えるのだと思われる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

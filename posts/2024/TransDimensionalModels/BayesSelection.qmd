@@ -3,7 +3,7 @@ title: "ベイズ変数選択"
 subtitle: "BMI データの重線型回帰を題材として"
 author: "司馬 博文"
 date: 12/10/2024
-date-modified: 12/12/2024
+date-modified: 12/28/2024
 categories: [Bayesian, Statistics, R]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -25,9 +25,9 @@ listing:
         type: grid
         sort: false
         contents:
-            - "../Survey/BayesANOVA.qmd"
-            - "../Computation/brms.qmd"
-            - "../Survey/BDA1.qmd"
+            - "BayesTrans.qmd"
+            - "BayesSticky.qmd"
+            - "BayesTraverse.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
     -   id: lst-embedding
@@ -38,14 +38,14 @@ listing:
             - "../Survey/BayesRegression.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-    -   id: lst-embedding2
-        type: grid
-        grid-columns: 1
-        sort: false
-        contents:
-            - "../Survey/BayesGLM.qmd"
-        date-format: iso
-        fields: [title,image,date,subtitle]
+    # -   id: lst-embedding2
+    #     type: grid
+    #     grid-columns: 1
+    #     sort: false
+    #     contents:
+    #         - "../Survey/BayesGLM.qmd"
+    #     date-format: iso
+    #     fields: [title,image,date,subtitle]
     -   id: lst-embedding3
         type: grid
         grid-columns: 1
@@ -83,35 +83,45 @@ listing:
 
 こうして予測力を基にモデル選択をする方法は得たわけであるが，純粋にベイズ的な観点から変数選択を行う方法が大きく分けて２つある．
 
-#### 事前分布による方法
+#### 縮小事前分布による方法
 
 １つ目が「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である（第 [-@sec-Bayesian-regularization] 節）．
 
-これにはまず馬蹄事前分布 [@Carlos+2010]，Laplace 事前分布 / Bayesian Lasso [@Park-Casella2008] などの global-local shrinkage prior を用いる方法がある．
+これは馬蹄事前分布 [@Carlos+2010]，Laplace 事前分布 / Bayesian Lasso [@Park-Casella2008] などの global-local shrinkage prior を用いる方法である．
 
-あるいは spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] という $0$ にマスを持つ事前分布を用いれば，当該変数の **事後包含確率** (PIP: Posterior Inclusion Probability) を導出することができる．
+#### ベイズ変数選択 {#sec-spike-and-slab}
 
-PIP を用いることで「当該変数がモデルに含まれるか？」に直接ベイズ的に答えることができる．これを **ベイズ変数選択** という [-@sec-Bayesian-variable-selection]．
+２つ目が spike-and-slab 事前分布 [@Mitchell-Beauchamp1988] という $0$ にマスを持つ事前分布を用いる方法である：
+$$
+p(dx)=\prod_{i=1}^d\Paren{\om_i\phi_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
+$$ {#eq-spike-and-slab}
+
+この方法では当該変数の **事後包含確率** (PIP: Posterior Inclusion Probability) を導出することができる．実際 ([-@eq-spike-and-slab]) は混合分布の形をしており，spike $\delta_0$ と slab $\phi_i$ のどちらからサンプリングされるかを表す潜在変数 $\gamma_i\in\{0,1\}$ を導入すれば，$\P[\gamma=0|\cD]$ という事後確率こそが変数 $x_i$ がモデルに入る事後確率である．
+
+PIP を用いることで「当該変数がモデルに含まれるか？」という問題に直接ベイズ的に答えることができる．これを **ベイズ変数選択** という [-@sec-Bayesian-variable-selection]．
 
 一方で前述の global-local shrinkage prior でも，post-processing を通じて同様に PIP を近似的に算出することができる [@Hahn-Carvalho2015]．
 
-#### パラメータの追加による方法
-
 ### ベイズモデル平均を見据えて
 
-このように，そもそもベイズでは変数選択も統計的推論によって解くべき問題のうちである．
+このようにベイズ変数選択 [-@sec-spike-and-slab] では，変数選択も統計的推論の問題として解く．
 
 最終的には，適切に構造と事前分布が設定されたベイズモデルを用いて，ベイズ推論により変数の関連度を自動で判断して結果を出すことが理想である．その意味では全ての変数を（適切に）入れたモデルを用いることが好ましい．^[例えば [@Barr+2013] では検証的仮説検定の設定で，どこまでランダム効果をモデルに入れるかを議論しており，「全部入れるべき」という結論を一定の前提の下で導いている．]
 
 ベイズ変数選択はこの最終目標に向かうまでの探索的な中途解析と見ることもできる．
 
-実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (Bayesian Model Averaging) に用いることができる．
+実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (BMA: Bayesian Model Averaging) [@Hoeting+1999] に用いることができる．
 
 変数選択・モデル選択を実行し，選ばれた単一のモデルで推論・予測を実行するよりも，尤度が必ずしも最も高いわけではないモデルも捨てずに推論に用いることで精度を上げることができる．
 
 これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．
 
-## 事前情報による変数選択 {#sec-Bayesian-regularization}
+### 関連記事 {.unnumbered .unlisted}
+
+::: {#lst-survey}
+:::
+
+## 縮小事前分布による方法 {#sec-Bayesian-regularization}
 
 ```{r}
 #| echo: false
@@ -156,13 +166,30 @@ Stan においては `prior=hs` によって指定できる [@Gelman-Hill-Vehtar
 
 ### はじめに
 
-**ベイズ変数選択** では，説明変数の全体 $\{x_i\}_{i=1}^p$ の部分集合の空間 $P(\{x_i\}_{i=1}^p)$ 上の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．
+**ベイズ変数選択** では，説明変数 $\{x_i\}_{i=1}^p$ のそれぞれがモデルに含まれるかを意味する潜在変数 $\{\gamma_i\}_{i=1}^p\in\{0,1\}^p$ の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．
 
 最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．
 
-本節では [@George-McCulloch1993] による変数選択法 SSVS (Stochastic Search Variable Selection) を取り上げる．
+### 確率的探索法
 
-Reversible-Jump MCMC [@Green1995] も有力な変数選択法であるが，これは別稿で取り上げる．
+このアプローチは [@George-McCulloch1993] によって創始された．この方法では
+$$
+p(\gamma)=\prod_{i=1}^p\om_i^{\gamma_i}(1-\om_i)^{1-\gamma_i}
+$$
+$$
+p(\beta|\sigma,\gamma)\,d\beta=\rN_p(0,\Sigma(\sigma,\gamma))
+$$
+という階層モデルを想定し，データ拡張に基づく Gibbs サンプラーによって推定することを提案した．
+
+これは **確率的探索法** (SSVS: Stochastic Search Variable Selection) と呼ばれる．^[変数減少法やステップワイズ法などのヒューリスティックな方法に対しての「確率的探索法」という名称だったのだと思われる．特に [@George-McCulloch1993] ではデータ拡張に基づく Gibbs サンプラーを用いており，その様子が「確率的探索」に見えるのだと思われる．]
+
+### 超次元 MCMC
+
+事後包含確率を出すにあたって，Reversible-Jump MCMC [@Green1995] を用いることも考えられる．
+
+実際確率的探索法は分解可能なグラフィカルモデルに対する超次元 MCMC 法の特別な場合と見れる [@Godsill2001 p.232]．
+
+これは別稿で取り上げる．
 
 ::: {#lst-embedding3}
 :::
