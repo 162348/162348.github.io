@@ -1,10 +1,11 @@
 ---
-title: "重回帰分析"
+title: "セミパラメトリック重回帰分析"
 subtitle: "自乗残差最小化の視点から"
-author: "司馬 博文"
+author: "司馬博文"
 date: 12/29/2024
+date-modified: 12/30/2024
 categories: [Statistics]
-# image: Files/Hierarchical.svg
+image: Images/Cochran.svg
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
@@ -12,6 +13,10 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract: |
   重回帰モデルにおける OLS 推定量は，部分回帰推定量としての解釈を持つ．
+  この性質を用いた手法が媒介分析や操作変数法である．
+  OLS 推定量は不均一分散の場合でも不偏性・一致性・漸近正規性を持ち得るが，有効性は失われる．
+  これを回復するには，誤差の分散を推定して重み付けを行う必要がある．
+  このような方法は一般化最小二乗法と呼ばれる．
 listing: 
     -   id: lst-survey
         type: grid
@@ -22,17 +27,25 @@ listing:
             - "../Survey/BayesRegression.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
-#     -   id: lst-embedding
-#         type: grid
-#         grid-columns: 1
-#         grid-item-align: center
-#         contents:
-#             - "../Julia/PDMPFlux.qmd"
-#         date-format: iso
-#         fields: [title,image,date,subtitle,categories]
+    -   id: lst-embedding
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        contents:
+            - "../Kernels/Kernel.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
+    -   id: lst-embedding1
+        type: grid
+        grid-columns: 1
+        grid-item-align: center
+        contents:
+            - "../Survey/Survey3.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle,categories]
 ---
 
-## 概要
+## 序
 
 {{< include ../../../assets/_preamble.qmd >}}
 
@@ -48,7 +61,13 @@ $$
 
 OLS は応答 $Y$ を最もよく復元する推定量 $X\wh{\beta}$ を構成する．ただし損失は $Y$ のなす Euclid 空間 $\R^n$ 内の距離に関して測るものとする．
 
-この構成から予期される通り，OLS は極めて良い線型代数的な性質を持つ．実際，
+尤度を使わない推定法であるが，Gauss-Markov モデル（均一誤差モデル）
+$$
+\E[\ep|X]=0,\qquad\C[\ep|X]=\sigma^2I_n
+$$
+に関しては，誤差 $\ep$ の分布に依らず，（セミパラメトリック）漸近有効性を持つ．しかも $\ep_i$ は i.i.d. とは限らない．
+
+その構成から予期される通り，OLS 推定量は極めて良い線型代数的な性質を持つ．実際，
 $$
 \wh{\beta}=(X^\top X)^{-1}X^\top Y
 $$
@@ -112,9 +131,9 @@ $$
 
 :::
 
-これは $X_2$ の $Y$ への影響のうち，$X_1$ を通じたもの $\wh{\delta}\wh{\beta}_1$ とそうでないものとを分解していると見れる．
+これは $X_2$ の $Y$ への影響のうち，$X_1$ を通じたもの $\wh{\delta}\wh{\beta}_1$ とそうでないものとを分解していると見れる．$\wh{\beta}_2$ は $\wh{\beta}_1$ の方向に縮小するとも見れる．
 
-$\wh{\delta}\wh{\beta}_1$ の符号によっては，$\wt{\beta}_2,\wh{\beta}_2$ の符号が異なることがある．このような現象は [@Simpson1951] のパラドックスともいう．
+$\wh{\delta}\wh{\beta}_1$ の符号によっては，$\wt{\beta}_2,\wh{\beta}_2$ の符号が異なることがある．このような現象は [@Simpson1951] のパラドックスともいう．^[生態学的誤謬 ([ecological fallacy](https://en.wikipedia.org/wiki/Ecological_fallacy)) ともいう．]
 
 計量経済学では $\wh{\delta}\wh{\beta}_1$ の項を **欠落変数バイアス** (omitted variable bias) とも呼ぶ．
 $$
@@ -122,7 +141,7 @@ $$
 $$
 であるから，$X_1,X_2$ が無相関であった場合はこの項は零になる．
 
-すなわち，誤差 $\ep$ が外生性の仮定 $\E[\ep|X]=0$ を満たすまでに十分多くの説明変数を回帰モデルに入れないと，OLS 推定量はバイアスを持ってしまう．軽量経済学において，$X$ が $\ep$ と相関を持つことを **内生性** (endogeneity) という [@Hansen2022 p.335], [@Hayashi2000 p.64]．^[この意味での「内生性」は，「外生的じゃない」こととも意味がズレてしまう．また多くの場合他の経済学の文脈では，「モデル内で決定される変数」程度の意味で内生変数と呼ぶことも多い．]
+すなわち，誤差 $\ep$ が外生性の仮定 $\E[\ep|X]=0$ を満たすまでに十分多くの説明変数を回帰モデルに入れないと，OLS 推定量はバイアスを持ってしまう．軽量経済学において，$X$ が $\ep$ と相関を持つことを **内生性** (endogeneity) という [@Hansen2022 p.335], [@Hayashi2000 p.64]．^[この意味での「内生性」は，「外生的じゃない」こととも意味がズレてしまう．$\E[\ep|X]=0$ を満たすならば $\C[\ep,X]=0$ が必要であるから，「内生的ならば外生的でない」は成り立つ．ここでは内生的じゃないことを **広義外生性** と呼ぼう．また多くの場合他の経済学の文脈では，「モデル内で決定される変数」程度の意味で内生変数と呼ぶことも多い．]
 
 [@Baron-Kenny1986] の媒介分析はこのように OLS 推定を複数の回帰モデルに対して実行し，直接効果と間接効果の量を推定する．この手続きは [@Wright1918] のパス分析と深い関係がある．
 
@@ -132,7 +151,7 @@ $$
 $$
 Y_i=\wt{\beta}_0+\wt{\beta}_1Z_i+\wt{\beta}_2^\top X_i+\wt{\ep}_i
 $$
-を考える．この際，欠落した説明変数 $U_i$ であって，処置変数 $Z_i$ と相関を持つものを **交絡因子** という．^[処置変数と相関を持たないということは，非交絡性 $Y_i\indep Z_i\mid U_i$ よりは弱い条件である．]
+を考える．この際，欠落した説明変数 $U_i$ であって，処置変数 $Z_i$ と相関を持つものを **交絡因子** という．^[処置変数と相関を持たないということは，非交絡性 $Y_i\indep Z_i\mid U_i$ よりは弱い条件である．なお，この「非交絡性」は疫学の言い方であり，計量経済学では **無視可能性** または $U_i$ が観測可能である場合は selection on observables などとも呼ぶ．逆に言えば，交絡とは selection on unobservables のことである．]
 
 フルモデル
 $$
@@ -188,4 +207,261 @@ $$
 しかし VIF の命題から，説明変数を増やすたびに OLS 推定量の分散は増大することがわかる．
 
 このようなトレードオフを **バイアス-分散トレードオフ** (Bias-Variance Tradeoff) という．
+
+### 操作変数
+
+仮に $X_2$ が内生性を持つとする：
+$$
+\E[\ep|X_1]=0,\qquad\E[\ep|X_2]\ne0.
+$$
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+このとき $U$ であって次を満たすものを **操作変数** という：
+
+1. （広義）外生性
+    $$
+    \C[U,\ep]=0
+    $$
+
+2. 関連性
+    $$
+    \C[U,X_2]\ne0
+    $$
+:::
+
+操作変数 $U$ を用いれば，回帰モデル ([-@eq-model]) の両辺の $U$ との相関を考えると，外生性から
+$$
+\C[U,V]=\C[U,X]\wh{\beta}
+$$
+が成り立ち，これを通じて $\wh{\beta}$ を推定できる．これを **IV 推定量** という．
+
+$\ep,\ep_2$ の相関を測ることで，内生性の強さを定量化することもできる [@Chan-Tobias2020 p.14]．
+
+### ２段階 OLS
+
+以上の手続きは，ここまで議論してきた方法の特別な場合である．
+
+実際，$X_2$ を $U$ に関して回帰することを考える：
+$$
+X_2=U\delta+\ep_2.
+$$
+
+この回帰により得る推定値 $\wh{X}_2=U\wh{\delta}$ は $\ep$ と相関を持たない．相関が取り除かれた成分を射影によって取り出していると見れる．
+
+続いて $X_2$ を $\wh{X}_2$ に取り替えて，$Y$ に向かって回帰することで得る推定量を **TSLS (Two-Stage Least Squares) 推定量** という．
+
+$U$ が２値変数であるときは [@Wald40-WaldEstimator] 推定量ともいう．
+
+## 不均一分散
+
+### OLS の漸近正規性 {#sec-asymptotic-normality}
+
+Guass-Markov モデルの線型モデルとしての最大の仮定は，均一の分散 $\sigma^2$ を仮定していたことである．
+
+しかしこの仮定を外しても，OLS 推定量は不偏性・一致性・漸近正規性を持つ（この順に追加の条件が厳しくなる）．
+
+::: {.callout-tip title="命題^[[@Ding2024LinearModels p.44] 定理6.1．]" icon="false"}
+
+$$
+Y_i=X_i\beta+\ep_i,\qquad\ep_i\iidsim(0,\sigma_i^2),
+$$
+に関して，計画行列 $X$ は最大階数であるとする．このとき，次が成り立つ：
+
+1. OLS 推定量 $\wh{\beta}$ は不偏性を持つ．
+2. 次の $B_n$ が可逆な極限 $B_n\to B$ を持つとき，一致性も持つ：
+    $$
+    B_n:=\frac{1}{n}\sum_{i=1}^nX_i^\top X_i\in\GL_{p\land n}(\R).
+    $$
+3. ２の条件に加えて，$x_i,\ep_i$ が３次のモーメントを持つとき，漸近正規性も成り立つ：
+
+:::
+
+::: {.callout-note title="反例" icon="false" collapse="true"}
+
+一致性（と漸近正規性）の成立のために追加の条件が入っていることがわかる．不偏性さえあれば，「極限での不偏性」とも思える一致性が成り立って然るべきな気がする．
+
+この追加の条件は，有限個の $Y_i$ の説明にしか参加しない予測子を排除するためにある．
+
+例えばある分布 $P(\mu,\sigma^2)$ に関して $Y_i\iidsim P(\mu_i,\sigma_i^2)$ とする．
+$$
+Y_i=\beta_1X_i^{(1)}+\beta_2X_i^{(2)}+\ep_i,\qquad\ep_i\iidsim P(0,\sigma_i^2)
+$$
+$$
+X_i^{(1)}=1_{\Brace{1}}(i),\qquad X_i^{(2)}=1_{\Brace{2,\cdots,n}}(i)
+$$
+とモデルすると，計画行列はフルランクであるが，OLS 推定量は $\wh{\beta}_1=\ep_1\sim P(0,\sigma_1^2)$ となる．
+
+これは標本サイズ $n$ に依らない値であり，$n\to\infty$ を考えても $\wh{\beta}_1$ は一致性はもたず，漸近正規分布もしない．一方で $\wh{\beta}_2$ はする．
+
+:::
+
+### EHW 頑健標準誤差 {#sec-EHW}
+
+この漸近正規性に基づく分散推定量
+$$
+\wh{V}:=n^{-1}\paren{\frac{1}{n}\sum_{i=1}^nX_i^\top X_i}^{-1}\paren{\frac{1}{n}\sum_{i=1}^n\ep_i^2X_i^\top X_i}\paren{\frac{1}{n}\sum_{i=1}^nX_i^\top X_i}^{-1}
+$$
+は，誤差分布が不均一な場合でも頑健な分散推定量となる．
+
+これを計量経済学では [@White1980] の推定量と呼ぶが，初めに提案したのは [@Eicker1967] と [@Huber1967] であるようである．
+
+### 有効性
+
+では OLS は何を失うのか？
+
+$\sigma^2$ が不均一になった場合，観測によってノイズの大きさが違うわけである．
+
+したがって特に情報量が大きい観測と，ノイズが大きくてあまり意味をなさない観測というものが相対的に出てくる．
+
+これを峻別して適切に観測に重み付けることが必要である．
+
+これができない OLS は有効性を失う．代わりに重み付けを行った OLS は有効性を持つ．
+
+::: {.callout-tip title="BLUE" icon="false"}
+
+既知の正定値行列 $\Sigma$ に関して，
+$$
+\E[\ep]=0,\qquad\C[\ep]=\sigma^2\Sigma,
+$$
+を満たすとする．このとき，BLUE は次のように表せる：
+$$
+\wh{\beta}_\Sigma=(X^\top\Sigma^{-1}X)^{-1}X^\top\Sigma^{-1}Y.
+$$
+
+:::
+
+### WLS
+
+第 [-@sec-asymptotic-normality] 節で考えた不均一分散の設定は
+$$
+\Sigma=\diag(\sigma_1^2,\cdots,\sigma_n^2)=:\diag(w_1^{-1},\cdots,w_n^{-1})
+$$
+の場合に当たる．このときの BLUE は次の最適化条件でも特徴付けられる：
+$$
+\wh{\beta}_w:=\argmin_{b\in\R^p}(Y-Xb)^\top\Sigma^{-1}(Y-Xb)=\argmin_{b\in\R^p}\sum_{i=1}^nw_i\abs{Y_i-X_ib}^2_2.
+$$ {#eq-GLS}
+これを **WLS (Weighted Least Squares) 推定量** という．
+
+一般には解析を始める前に $\Sigma$ の形は未知であるから，これの推定から始める．その手続きを計量経済学では FGLS (Feasible Generalized Least Squares) と呼ぶ．
+
+この重み付けの考え方は標本抽出の際にも重要であり，[@Horvitz-Thompson1952] の逆確率重み付け法とも呼ばれる：
+
+::: {#lst-embedding1}
+:::
+
+### 局所線型回帰
+
+局所線型回帰 (local linear regression) はカーネル法を用いてデータ点を適切に重み付けることで，非線型な回帰を達成する方法である．
+
+具体的には，基準点 $x_0$ の近傍でのベストな線型近似
+$$
+y(x)=\al+\beta(x-x_0)
+$$
+を得るために，あるカーネル $K$ と帯域幅 $h>0$ を通じて
+$$
+(\wh{\al},\wh{\beta}):=\argmin_{a,b}\sum_{i=1}^nw_i\ABs{y_i-a-b(x_i-x_0)}^2_2,\qquad w_i:=K\paren{\frac{x_i-x_0}{h}},
+$$
+によって定める．
+
+::: {#lst-embedding}
+:::
+
+### 一般化線型モデルの解放
+
+一般化線型モデル
+$$
+\E[Y_i|X_i]=\mu(X_i\beta)
+$$
+は基本的に分布が特定されたパラメトリックモデルである．これについても，EHW 頑健標準偏差推定量 [-@sec-EHW] に当たる，分布の誤特定に頑健な標準偏差推定量が存在する．
+
+その肝となる事実は，あらゆる関数 $\wt{\sigma}^2(x,\beta)$ に関して，
+$$
+\E\Square{\sum_{i=1}^n\frac{Y_i-\mu(X_i\beta)}{\wt{\sigma}^2(X_i,\beta)}\pp{\mu(X_i\beta)}{\beta}}=0
+$$ {#eq-EE}
+が真値 $\beta$ に関して成り立ち続けることである．
+
+したがって $\wt{\sigma}^2$ を何らかの方法で決定し，これに関して式 ([-@eq-EE]) を通じた $M$-推定量 $\wh{\beta}$ が構成できる．$\wt{\sigma}^2(x_i,\beta)=\V[Y_i|X_i=x_i]$ と正しく特定できた場合，これは最尤推定量になる．
+
+多くの場合 $\wt{\sigma}^2$ は一般化線型モデルの仮定に基づいて算出するが，語特定されているものとしている場合が多く，**作業分散** ともいう．
+
+$(X_i,Y_i)$ が独立同分布に従うとするとき，第 [-@sec-asymptotic-normality] 節のような漸近正規性の結果は，一般の $M$-推定量に関する次の結果から導かれる：
+
+::: {.callout-tip title="Restricted Mean Model に対する $M$-推定^[[@Ding2024LinearModels p.268] 定理24.2．]" icon="false"}
+
+$(X_i,Y_i)$ が独立同分布に従うとする．このとき，
+$$
+\sqrt{n}(\wh{\beta}-\beta)\Rightarrow\rN(0,B^{-1}MB^{-1}),
+$$
+$$
+B:=\E\Square{\frac{1}{\wt{\sigma}^2(x,\beta)}\pp{\mu(X\beta)}{\beta}\pp{\mu(X\beta)}{\beta^\top}},\qquad
+M:=\E\Square{\frac{\sigma^2(x)}{\wt{\sigma}^2(x,\beta)^2}\pp{\mu(X\beta)}{\beta}\pp{\mu(X\beta)}{\beta^\top}}.
+$$
+
+:::
+
+この結果を用いれば，指数型分布族などのパラメトリックモデルに依らずとも，漸近論に基礎付けられた点推定が達成できる．
+
+なお指数分布族の仮定の下で $\wt{\sigma}^2$ がが正しく特定されていた場合，$B=M$ は Fisher 情報行列となる．
+
+### 相関の考慮
+
+ここまでの議論をまとめよう．OLS の漸近正規性 [-@sec-asymptotic-normality] は，誤差分布が不均一であるばかりでなく，$Y_i$ が相関を持つ場合（$\Sigma$ の非対角成分が非零の場合）でも成り立つ．
+
+GLS (Generalized Least Squares) はこの相関を持つ場合でもセミパラメトリック漸近最適性を達成する．
+
+この結果を任意の逆リンク $\mu$ に関して
+$$
+\E[Y_i|X_i]=\mu(X_i\beta)
+$$
+という非線型な回帰モデルにも拡張することを考えたいが，前節ではまだ $Y_i$ が i.i.d. であるという仮定を置いていた．
+
+最後にこの仮定を取り払い，一般の誤差分布 $\C[\ep|X]=\Sigma$ を考えたい．
+
+このために開発されたのが **一般化推定方程式** (GEE: Generalized Estimating Equations) [@Liang-Zeger1986] である．
+
+### 一般化推定方程式
+
+$(X_i,Y_i)$ を i.i.d. とした場合の推定方程式 ([-@eq-EE]) を拡張した推定方程式
+$$
+\sum_{i=1}^n\pp{\mu(X_i\beta)}{\beta}\wt{\Sigma}^{-1}(X_i,\beta)\Paren{Y_i-\mu(X_i\beta)}=0
+$$ {#eq-GEE}
+を一般化推定方程式といい，$\wt{\Sigma}(X_i,\beta)$ を **作業共分散行列** という．
+
+この式は今までで最も一般的な形をしており，最適化条件 ([-@eq-GLS]) で推定を実行する GLS に対して，１次の最適性条件に基づいて導出する方法ということができる．それ故，逆リンク $\mu$ の一般性も許容できている．
+
+実際，一般化推定方程式 ([-@eq-GEE]) は，最適化条件 ([-@eq-GLS]) を $b$ に関して微分して得る一次の最適性条件に見える．
+
+一般化推定方程式 ([-@eq-GEE]) による推定も，i.i.d. とは限らない場合の $M$-推定の理論から，漸近正規性が導ける．この漸近論から得られる EHW 推定量の一般化は，$\mu$ の特定さえ正しければ，$\wt{\Sigma}$ の誤特定に頑健な分散推定量となる [@Liang-Zeger1986], [@Altonji-Segal1996]．
+
+### GEE の仮定
+
+しかし GEE には重要な仮定
+$$
+\E[Y_{it}|X_i]=\E[Y_{it}|X_{it}],\qquad t\in[n_i],
+$$
+が存在する．これは $(X_{it},Y_{it})$ が状態空間モデルに従うことを意味する．
+
+しかし $\wt{\Sigma}$ の非対角成分が零になる，独立作業共分散行列を用いた場合は，この仮定が成り立たない場合でも，$\mu$ の特定が正しければやはり一致性が成り立つが，推定量の分散は少し膨らむ．
+
+また関数関係 $\mu$ が $t\in[n_i]$ に依存しないという仮定も含まれている．
+
+## 終わりに {.appendix}
+
+以上の枠組みは全て **一般化モーメント法** (GMM: Generalized Method of Moments) [@Hansen82-GMM] の枠組みの中に位置する．
+
+GMM という名前は，OLS 推定の１次の最適性条件として得る直交条件
+$$
+\E[X(Y-\mu(X\beta))]=0
+$$
+が，モーメント法の課す条件と似ており，どれも
+$$
+\E[g(\beta)]=0
+$$
+という形をしているという点から来る．
+
+さらには経験尤度法 [@Owen1988], [@Qin-Lawless1994] も漸近正規性を持つノンパラメトリック手法であり，GMM の後釜として期待されている．特に直交条件の数が多い GMM よりバイアスが少ない．
+
+しかし GMM の方が分散が大きいことがあり，bias-variance のトレードオフがある [@Newey-Smith2004]．
+
 
