@@ -3,7 +3,7 @@ title: "ベイズデータ解析６"
 subtitle: "応答が質的変数の場合"
 author: "司馬博文"
 date: 12/5/2024
-date-modified: 12/26/2024
+date-modified: 12/29/2024
 categories: [Bayesian, Statistics]
 bibliography: 
     - ../../../assets/mathematics.bib
@@ -14,7 +14,8 @@ abstract-title: 概要
 abstract: |
     通常の回帰モデルは応答変数が連続であることが暗黙の仮定となっている．
     この節では，応答変数が質的変数である場合のモデリングを扱う．
-    この場合でも多くのモデルが利用可能であり，その多くが一般化線型モデルの枠組みで統一的に扱うことができる．
+    質的変数は順序変数であるか名目変数であるか（順序の構造があるかないか）の峻別が重要である．
+    いずれの場合でも多くのモデルが利用可能であり，その多くが一般化線型モデルの枠組みで統一的に扱うことができる．
 keywords: [Binomial Model, Multinomial Model, Polychotomous Response Data, Log-linear Model, Bradley-Terry Model, Plackett-Luce Model, Poisson Model, Rank Ordered Data]
 image: Files/BayesianWorkflow.svg
 listing: 
@@ -74,6 +75,19 @@ $0,1$ の確率変数の分布は，Bernoulli 分布 $\Ber(p)=\Bin(1,p)$ によ�
 
 多くの場合，リンク関数 $g$ に関して，$g(p)$ を線型の予測子 $\beta^\top X$ で回帰する．Bernoulli 分布は指数型分布族の例であるため，このようなモデルは **一般化線型モデル** の例になる．
 
+### ロジスティックモデル
+
+仮に変数 $y_i\sim\Ber(p)$ に応じて，
+$$
+X_i|Y_i=i\sim\rN(\mu_i,\sigma^2),\qquad i\in\{0,1\}
+$$
+として説明変数 $X_i$ が決まっていたとする．
+
+このような状況で，$X_i$ はある $\al,\beta$ に関して次のロジットモデルを満たす：^[[@Ding2024LinearModels p.222] も参照．]
+$$
+\operatorname{logit}(p_i)=\al+\beta x_i.
+$$
+
 ### 潜在変数解釈 {#sec-latent-variable}
 
 $P(\mu,\sigma^2)$ を正規分布やロジスティック分布などの対称な分布，$F$ を $P(0,1)$ の分布関数とする．このとき，プロビットまたはロジスティックモデル
@@ -99,9 +113,11 @@ $$
 
 $F$ を $t$-分布とした場合，これを robit モデル [@Liu2004-robit] という [15.6 節 @Gelman-Hill-Vehtari2020]．$t$ 分布の自由度を無限大にした場合が probit モデルに相当する．
 
+第 [-@sec-utility] 節でまた別の，効用関数による潜在変数表現を扱う．
+
 ### 順序応答
 
-この潜在変数解釈は容易に２値応答以外の場合に拡張できる．その結果多項モデルを用いたソフトマックス回帰 [-@sec-softmax-regression] などとは別のアプローチが，多値順序応答に対して可能になる．
+前節 [-@sec-latent-variable] の潜在変数解釈は容易に２値応答以外の場合に拡張できる．その結果多項モデルを用いたソフトマックス回帰 [-@sec-softmax-regression] などとは別のアプローチが，多値順序応答に対して可能になる．
 
 $y\in n+1:=\{0,1,\cdots,n\}$ という順序を持った順序応答の場合でも
 $$
@@ -176,11 +192,11 @@ y_i\sim\Mult(n_i;\al_{i1},\cdots,\al_{ik}),\qquad\sum_{j=1}^k\al_{ij}=1,
 $$
 というモデルを想定できる．$n_i\equiv1$ の場合，応答を one-hot 表現にしたカテゴリカルモデルに対応する．
 
-リンク関数は，特定のカテゴリ $j=1$ を基準として $g(\al):=\log\frac{\al}{\al_{i1}}$ と定めることが多い：
+リンク関数 $g$ は，特定のカテゴリ $j=1$ を **基準** (reference) として $g(\al):=\log\frac{\al}{\al_{i1}}$ と定めることが多い：
 $$
 \log\frac{\al_{ij}}{\al_{i1}}=X_i\beta^{(j)}.
 $$
-これを **多項ロジスティック回帰** または **ソフトマックス回帰** (softmax regression) [@Kruschke2015 p.650] という：
+これを **多項ロジスティック回帰** (multinomial logistic regression) [@Ding2024LinearModels p.228] または **ソフトマックス回帰** (softmax regression) [@Kruschke2015 p.650] という：
 $$
 \al_{ij}=\operatorname{softmax}(X_i\beta^{(j)})=\frac{e^{X_i\beta^{(j)}}}{\sum_{l=1}^ke^{X_i\beta^{(l)}}},\qquad \beta^{(1)}=0.
 $$
@@ -189,21 +205,41 @@ $$
 
 一方で条件付きロジスティック回帰 (conditional logistic regression) なる方法もある [22.2節 @Kruschke2015 pp.655-]．
 
+### 効用による表現 {#sec-utility}
+
+多項ロジスティックモデルも潜在変数解釈 [-@sec-latent-variable] が可能である．
+
+$k$ 次元の標準 Gumbel 分布に従う誤差 $\ep_{i-}\in\R^k$ に関して，
+$$
+U_{il}:=\beta_l^\top X_l+\ep_{il},\qquad l\in[k],
+$$
+を潜在的な効用とし，
+$$
+Y_i:=\argmax_{l\in[k]}U_{il}
+$$
+によって応答が定まると見ることができる [@McFadden1974]．
+
 ### 順序応答に対する多項モデル
 
 応答 $y_i\in\{1,\cdots,k\}$ に自然な順序がある場合，カテゴリ確率 $\al_{i1},\cdots,\al_{ik}$ の代わりに累積確率
 $$
 \pi_{ij}:=\sum_{l\le j}\al_{il}=\P[Y_i\le j]
 $$
-を考えることもできる．
+を考え，モデルにその順序構造を自然に伝えることができる．
 
 この場合リンク関数はロジットやプロビットが使える：
 $$
 \log\frac{\pi_{ij}}{1-\pi_{ij}}=X_i\beta^{(j)}.
 $$
-$\beta^{(j)}\equiv\beta$ と取ることもありえなくない．
+$\beta^{(j)}\equiv\beta$ と取ることも多い．
 
-これを順序ロジスティック回帰 (ordinal / ordered logistic regression) [@McCullagh1980] という [@Kruschke2015 p.671]．
+このモデルを，$g$ がロジットである場合順序ロジスティック回帰 (ordinal / ordered logistic regression) [@McCullagh1980] といい [@Kruschke2015 p.671]，$g$ がプロビットである場合順序プロビット回帰 (ordered probit regression) という．
+
+異なるパラメータ付け
+$$
+\operatorname{logit}(\pi_{ij})=\beta_0^{(j)}-X_i\beta
+$$
+を用いた場合，これを **比例オッズロジットモデル** (proportional odds logit model) ともいう [@Ding2024LinearModels p.232]．
 
 ### Poisson モデル
 

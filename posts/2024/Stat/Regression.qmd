@@ -1,0 +1,191 @@
+---
+title: "重回帰分析"
+subtitle: "自乗残差最小化の視点から"
+author: "司馬 博文"
+date: 12/29/2024
+categories: [Statistics]
+# image: Files/Hierarchical.svg
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+abstract: |
+  重回帰モデルにおける OLS 推定量は，部分回帰推定量としての解釈を持つ．
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "S-Regression.qmd"
+            - "../Survey/BDA1.qmd"
+            - "../Survey/BayesRegression.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+#     -   id: lst-embedding
+#         type: grid
+#         grid-columns: 1
+#         grid-item-align: center
+#         contents:
+#             - "../Julia/PDMPFlux.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+---
+
+## 概要
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+回帰モデルの点推定で最も広く用いられるアルゴリズムは OLS である：
+$$
+\wh{\beta}:=\argmin_{b\in\R^p}\abs{Y-Xb}^2_2.
+$$
+
+その他の推定法は別稿で扱う：
+
+::: {#lst-survey}
+:::
+
+OLS は応答 $Y$ を最もよく復元する推定量 $X\wh{\beta}$ を構成する．ただし損失は $Y$ のなす Euclid 空間 $\R^n$ 内の距離に関して測るものとする．
+
+この構成から予期される通り，OLS は極めて良い線型代数的な性質を持つ．実際，
+$$
+\wh{\beta}=(X^\top X)^{-1}X^\top Y
+$$
+という表示をもち，$X\wh{\beta}$ は $Y$ の $X$ の列ベクトルの貼る空間への線型射影である．
+
+ここでは重回帰モデルにおける OLS 推定量の性質を調べる．
+
+## 重回帰
+
+### 設定
+
+計画行列 $X=(X_1\;X_2)$ に関して，回帰モデル
+$$
+Y=X\wh{\beta}+\wh{\ep}
+$$ {#eq-model}
+に対して，$X_1$ を入れなかった場合
+$$
+Y=X_2\wt{\beta}_2+\wt{\ep}
+$$ {#eq-omitted-model}
+を考える．
+
+部分モデル ([-@eq-omitted-model]) の回帰係数 $\wt{\beta}_2$ は
+$$
+\wt{\beta}_2=(X_2^\top X_2)^{-1}X_2^\top Y
+$$
+で得られる．
+
+### Frisch-Waugh-Lovell の定理
+
+次の結果は少なくとも [@Yule1907] から知られていたが，計量経済学では [@Frisch-Waugh1933] と [@Lovell1963] の名前で知られる．
+
+::: {.callout-tip title="Frisch-Waugh-Lovell の定理" icon="false"}
+
+$X_1$ の列ベクトルが貼る空間の $\R^n$ 上の補空間への射影を
+$$
+H_2:=I_n-H_1,\qquad H_1:=X_1(X_1^\top X_1)^{-1}X_1^\top
+$$
+で表すと，
+$$
+\wh{\beta}_2=(\wt{X}_2^\top\wt{X}_2)^{-1}\wt{X}_2^\top\wt{Y},\qquad\wt{X}_2:=H_2X_2,\wt{Y}:=H_2Y.
+$$
+
+:::
+
+すなわち，$X_1,X_2$ で回帰した ([-@eq-model]) の係数 $\wh{\beta}_2$ は，まず $X_2$ を $X_1$ を説明変数で回帰した後に，([-@eq-omitted-model]) の代わりに $Y$ をその残差 $\wt{X}_2$ で回帰して得る係数に等しい．
+
+これを重回帰係数の **部分回帰係数** としての解釈とも呼ぶ [@Ding2024LinearModels p.60]．
+
+### Cochran の公式
+
+::: {.callout-tip title="[@Cochran1938]^[[@Ding2024LinearModels p.81] 定理9.1．The proof of Theorem 9.1 is very simple. However, it is one of the most insightful formulas in statistics.]" icon="false"}
+
+$X_1$ を $X_2$ で回帰した際の係数を $\wh{\delta}$ とする：
+$$
+X_1=X_2\wh{\delta}+\wh{U}.
+$$
+このとき，
+$$
+\wt{\beta}_2=\wh{\beta}_2+\wh{\delta}\wh{\beta}_1.
+$$
+
+:::
+
+これは $X_2$ の $Y$ への影響のうち，$X_1$ を通じたもの $\wh{\delta}\wh{\beta}_1$ とそうでないものとを分解していると見れる．
+
+$\wh{\delta}\wh{\beta}_1$ の符号によっては，$\wt{\beta}_2,\wh{\beta}_2$ の符号が異なることがある．このような現象は [@Simpson1951] のパラドックスともいう．
+
+計量経済学では $\wh{\delta}\wh{\beta}_1$ の項を **欠落変数バイアス** (omitted variable bias) とも呼ぶ．
+$$
+\wh{\delta}=\frac{\C[X_1,X_2]}{\sqrt{\V[X_1]\V[X_2]}}
+$$
+であるから，$X_1,X_2$ が無相関であった場合はこの項は零になる．
+
+すなわち，誤差 $\ep$ が外生性の仮定 $\E[\ep|X]=0$ を満たすまでに十分多くの説明変数を回帰モデルに入れないと，OLS 推定量はバイアスを持ってしまう．軽量経済学において，$X$ が $\ep$ と相関を持つことを **内生性** (endogeneity) という [@Hansen2022 p.335], [@Hayashi2000 p.64]．^[この意味での「内生性」は，「外生的じゃない」こととも意味がズレてしまう．また多くの場合他の経済学の文脈では，「モデル内で決定される変数」程度の意味で内生変数と呼ぶことも多い．]
+
+[@Baron-Kenny1986] の媒介分析はこのように OLS 推定を複数の回帰モデルに対して実行し，直接効果と間接効果の量を推定する．この手続きは [@Wright1918] のパス分析と深い関係がある．
+
+### 交絡と共変量統制
+
+具体的に，処置変数を $Z_i\in\{0,1\}$ とした回帰分析
+$$
+Y_i=\wt{\beta}_0+\wt{\beta}_1Z_i+\wt{\beta}_2^\top X_i+\wt{\ep}_i
+$$
+を考える．この際，欠落した説明変数 $U_i$ であって，処置変数 $Z_i$ と相関を持つものを **交絡因子** という．^[処置変数と相関を持たないということは，非交絡性 $Y_i\indep Z_i\mid U_i$ よりは弱い条件である．]
+
+フルモデル
+$$
+Y_i=\wh{\beta}_0+\wh{\beta}_1Z_i+\wh{\beta}_2^\top X_i+\wh{\beta}_3^\top U_i+\wh{\ep}_i
+$$
+に関して，Cochran の公式によれば，$Z_i$ を $U_i$ に関して回帰した際の $U_i$ の係数を $\wh{\delta}$ とすると，
+$$
+\wt{\beta}_1-\wh{\beta}_1=\wh{\beta}_3\wh{\delta}
+$$
+が成り立つ．加えて，$U_i$ を $X_i$ に関して回帰して得る残差を $e_i$ とすると，$\wh{\delta}$ の値はこの $e_i$ の値のグループ間差に等しい：
+$$
+\wh{\delta}=\ov{e}^{(1)}-\ov{e}^{(0)}.
+$$
+
+すなわち，$X_i$ で説明される分を除いて，$U_i$ の値が処置群と管理群とで平均的に大きな差があるほど，交絡によるバイアスは大きいものとなる．
+
+
+### leverage score
+
+射影行列
+$$
+H:=X(X^\top X)^{-1}X^\top
+$$
+は鍵となる値で，この対角成分は **leverage score** と呼ばれ，次を満たす^[[@Ding2024LinearModels p.95] も参照．]
+$$
+\tr(H)=\rank(H)=p.
+$$
+
+### VIF
+
+::: {.callout-tip title="命題^[[@Ding2024LinearModels p.130] 定理13.1．]" icon="false"}
+
+$\wh{\beta}_j$ を $Y$ を $(1_n,X_1,\cdots,X_q)$ に関して回帰した際の係数とする．真のモデルがある関数 $f$ に関して $y_i=f(x_i)+\ep_i$ で $\ep_i\sim(0,\sigma^2)$ が互いに相関を持たない場合，次が成り立つ：
+$$
+\V[\wh{\beta}_j]=\frac{\sigma^2}{\sum_{i=1}^n(x_{ij}-\ov{x}_j)^2}\frac{1}{1-R^2_j}.
+$$
+ただし $R_j^2$ とは $X_j$ を $(1_n,X_1,\cdots,X_{j-1},X_{j+1},\cdots,X_q)$ に関して回帰した際の決定係数とした．
+
+:::
+
+この際，最初の因子は $Y$ を $(1_n,X_j)$ に関して回帰した際の係数 $\wt{\beta}_j$ の分散に一致する．従って次の因子
+$$
+\operatorname{VIF}_j:=1/(1-R_j^2)
+$$
+は，他の説明変数 $X_1,\cdots,X_{j-1},X_{j+1},\cdots,X_q$ を加えたことによる，$X_j$ の推定係数の増大具合を表す．
+
+これを **分散拡大係数** (VIF: Variance Inflation Factor) と呼ぶ．
+
+### Bias-Variance Tradeoff
+
+一般に全ての関連する説明変数を入れた方が現実に近く，推定・予測精度は高くなると考えられる．
+
+しかし VIF の命題から，説明変数を増やすたびに OLS 推定量の分散は増大することがわかる．
+
+このようなトレードオフを **バイアス-分散トレードオフ** (Bias-Variance Tradeoff) という．
+
