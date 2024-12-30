@@ -15,7 +15,507 @@
 <link>https://162348.github.io/blog.html</link>
 </image>
 <generator>quarto-1.6.39</generator>
-<lastBuildDate>Mon, 23 Dec 2024 00:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sun, 29 Dec 2024 00:00:00 GMT</lastBuildDate>
+<item>
+  <title>セミパラメトリック重回帰分析</title>
+  <dc:creator>司馬博文 </dc:creator>
+  <link>https://162348.github.io/posts/2024/Stat/Regression.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<section id="序" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="序"><span class="header-section-number">1</span> 序</h2>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<p>回帰モデルの点推定で最も広く用いられるアルゴリズムは OLS である： <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cbeta%7D:=%5Coperatorname*%7Bargmin%7D_%7Bb%5Cin%5Cmathbb%7BR%7D%5Ep%7D%5Clvert%20Y-Xb%5Crvert%5E2_2.%0A"></p>
+<p>その他の推定法は別稿で扱う：</p>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1735430400000" data-listing-file-modified-sort="1735538999098" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="2">
+<a href="../../../posts/2024/Stat/S-Regression.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-survey:posts/2024/Stat/S-Regression.html -->
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+誤差分布に頑健な回帰分析
+</h5>
+<div class="card-subtitle listing-subtitle">
+一般化モーメント法と一般化推定方程式
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-29
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/BayesianWorkflow.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析５
+</h5>
+<div class="card-subtitle listing-subtitle">
+回帰モデルの概観
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-05
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999495" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/elpd.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+<code>brms</code> を用いたベイズ重回帰分析
+</h5>
+<div class="card-subtitle listing-subtitle">
+BMI データを題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>OLS は応答 <img src="https://latex.codecogs.com/png.latex?Y"> を最もよく復元する推定量 <img src="https://latex.codecogs.com/png.latex?X%5Cwidehat%7B%5Cbeta%7D"> を構成する．ただし損失は <img src="https://latex.codecogs.com/png.latex?Y"> のなす Euclid 空間 <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D%5En"> 内の距離に関して測るものとする．</p>
+<p>尤度を使わない推定法であるが，Gauss-Markov モデル（均一誤差モデル） <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5B%5Cepsilon%7CX%5D=0,%5Cqquad%5Cmathrm%7BC%7D%5B%5Cepsilon%7CX%5D=%5Csigma%5E2I_n%0A"> に関しては，誤差 <img src="https://latex.codecogs.com/png.latex?%5Cepsilon"> の分布に依らず，（セミパラメトリック）漸近有効性を持つ．しかも <img src="https://latex.codecogs.com/png.latex?%5Cepsilon_i"> は i.i.d. とは限らない．</p>
+<p>その構成から予期される通り，OLS 推定量は極めて良い線型代数的な性質を持つ．実際， <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cbeta%7D=(X%5E%5Ctop%20X)%5E%7B-1%7DX%5E%5Ctop%20Y%0A"> という表示をもち，<img src="https://latex.codecogs.com/png.latex?X%5Cwidehat%7B%5Cbeta%7D"> は <img src="https://latex.codecogs.com/png.latex?Y"> の <img src="https://latex.codecogs.com/png.latex?X"> の列ベクトルの貼る空間への線型射影である．</p>
+<p>ここでは重回帰モデルにおける OLS 推定量の性質を調べる．</p>
+</section>
+<section id="重回帰" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="重回帰"><span class="header-section-number">2</span> 重回帰</h2>
+<section id="設定" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="設定"><span class="header-section-number">2.1</span> 設定</h3>
+<p>計画行列 <img src="https://latex.codecogs.com/png.latex?X=(X_1%5C;X_2)"> に関して，回帰モデル <span id="eq-model"><img src="https://latex.codecogs.com/png.latex?%0AY=X%5Cwidehat%7B%5Cbeta%7D+%5Cwidehat%7B%5Cepsilon%7D%0A%5Ctag%7B1%7D"></span> に対して，<img src="https://latex.codecogs.com/png.latex?X_1"> を入れなかった場合 <span id="eq-omitted-model"><img src="https://latex.codecogs.com/png.latex?%0AY=X_2%5Cwidetilde%7B%5Cbeta%7D_2+%5Cwidetilde%7B%5Cepsilon%7D%0A%5Ctag%7B2%7D"></span> を考える．</p>
+<p>部分モデル (2) の回帰係数 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Cbeta%7D_2"> は <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidetilde%7B%5Cbeta%7D_2=(X_2%5E%5Ctop%20X_2)%5E%7B-1%7DX_2%5E%5Ctop%20Y%0A"> で得られる．</p>
+</section>
+<section id="frisch-waugh-lovell-の定理" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="frisch-waugh-lovell-の定理"><span class="header-section-number">2.2</span> Frisch-Waugh-Lovell の定理</h3>
+<p>次の結果は少なくとも <span class="citation" data-cites="Yule1907">(Yule, 1907)</span> から知られていたが，計量経済学では <span class="citation" data-cites="Frisch-Waugh1933">(Frisch and Waugh, 1933)</span> と <span class="citation" data-cites="Lovell1963">(Lovell, 1963)</span> の名前で知られる．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="Frisch-Waugh-Lovell の定理">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Frisch-Waugh-Lovell の定理
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?X_1"> の列ベクトルが貼る空間の <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D%5En"> 上の補空間への射影を <img src="https://latex.codecogs.com/png.latex?%0AH_2:=I_n-H_1,%5Cqquad%20H_1:=X_1(X_1%5E%5Ctop%20X_1)%5E%7B-1%7DX_1%5E%5Ctop%0A"> で表すと， <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cbeta%7D_2=(%5Cwidetilde%7BX%7D_2%5E%5Ctop%5Cwidetilde%7BX%7D_2)%5E%7B-1%7D%5Cwidetilde%7BX%7D_2%5E%5Ctop%5Cwidetilde%7BY%7D,%5Cqquad%5Cwidetilde%7BX%7D_2:=H_2X_2,%5Cwidetilde%7BY%7D:=H_2Y.%0A"></p>
+</div>
+</div>
+<p>すなわち，<img src="https://latex.codecogs.com/png.latex?X_1,X_2"> で回帰した (1) の係数 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_2"> は，まず <img src="https://latex.codecogs.com/png.latex?X_2"> を <img src="https://latex.codecogs.com/png.latex?X_1"> を説明変数で回帰した後に，(2) の代わりに <img src="https://latex.codecogs.com/png.latex?Y"> をその残差 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7BX%7D_2"> で回帰して得る係数に等しい．</p>
+<p>これを重回帰係数の <strong>部分回帰係数</strong> としての解釈とも呼ぶ <span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 60)</span>．</p>
+</section>
+<section id="cochran-の公式" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="cochran-の公式"><span class="header-section-number">2.3</span> Cochran の公式</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[@Cochran1938]^[[@Ding2024LinearModels p.81] 定理9.1．The proof of Theorem 9.1 is very simple. However, it is one of the most insightful formulas in statistics.]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Cochran1938">(Cochran, 1938)</span><sup>1</sup>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?X_1"> を <img src="https://latex.codecogs.com/png.latex?X_2"> で回帰した際の係数を <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D"> とする： <img src="https://latex.codecogs.com/png.latex?%0AX_1=X_2%5Cwidehat%7B%5Cdelta%7D+%5Cwidehat%7BU%7D.%0A"> このとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidetilde%7B%5Cbeta%7D_2=%5Cwidehat%7B%5Cbeta%7D_2+%5Cwidehat%7B%5Cdelta%7D%5Cwidehat%7B%5Cbeta%7D_1.%0A"></p>
+</div>
+</div>
+<p>これは <img src="https://latex.codecogs.com/png.latex?X_2"> の <img src="https://latex.codecogs.com/png.latex?Y"> への影響のうち，<img src="https://latex.codecogs.com/png.latex?X_1"> を通じたもの <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D%5Cwidehat%7B%5Cbeta%7D_1"> とそうでないものとを分解していると見れる．<img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_2"> は <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_1"> の方向に縮小するとも見れる．</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D%5Cwidehat%7B%5Cbeta%7D_1"> の符号によっては，<img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Cbeta%7D_2,%5Cwidehat%7B%5Cbeta%7D_2"> の符号が異なることがある．このような現象は <span class="citation" data-cites="Simpson1951">(Simpson, 1951)</span> のパラドックスともいう．<sup>2</sup></p>
+<p>計量経済学では <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D%5Cwidehat%7B%5Cbeta%7D_1"> の項を <strong>欠落変数バイアス</strong> (omitted variable bias) とも呼ぶ． <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cdelta%7D=%5Cfrac%7B%5Cmathrm%7BC%7D%5BX_1,X_2%5D%7D%7B%5Csqrt%7B%5Cmathrm%7BV%7D%5BX_1%5D%5Cmathrm%7BV%7D%5BX_2%5D%7D%7D%0A"> であるから，<img src="https://latex.codecogs.com/png.latex?X_1,X_2"> が無相関であった場合はこの項は零になる．</p>
+<p>すなわち，誤差 <img src="https://latex.codecogs.com/png.latex?%5Cepsilon"> が外生性の仮定 <img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BE%7D%5B%5Cepsilon%7CX%5D=0"> を満たすまでに十分多くの説明変数を回帰モデルに入れないと，OLS 推定量はバイアスを持ってしまう．軽量経済学において，<img src="https://latex.codecogs.com/png.latex?X"> が <img src="https://latex.codecogs.com/png.latex?%5Cepsilon"> と相関を持つことを <strong>内生性</strong> (endogeneity) という <span class="citation" data-cites="Hansen2022">(B. E. Hansen, 2022, p. 335)</span>, <span class="citation" data-cites="Hayashi2000">(Hayashi, 2000, p. 64)</span>．<sup>3</sup></p>
+<p><span class="citation" data-cites="Baron-Kenny1986">(Baron and Kenny, 1986)</span> の媒介分析はこのように OLS 推定を複数の回帰モデルに対して実行し，直接効果と間接効果の量を推定する．この手続きは <span class="citation" data-cites="Wright1918">(Wright, 1918)</span> のパス分析と深い関係がある．</p>
+</section>
+<section id="交絡と共変量統制" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="交絡と共変量統制"><span class="header-section-number">2.4</span> 交絡と共変量統制</h3>
+<p>具体的に，処置変数を <img src="https://latex.codecogs.com/png.latex?Z_i%5Cin%5C%7B0,1%5C%7D"> とした回帰分析 <img src="https://latex.codecogs.com/png.latex?%0AY_i=%5Cwidetilde%7B%5Cbeta%7D_0+%5Cwidetilde%7B%5Cbeta%7D_1Z_i+%5Cwidetilde%7B%5Cbeta%7D_2%5E%5Ctop%20X_i+%5Cwidetilde%7B%5Cepsilon%7D_i%0A"> を考える．この際，欠落した説明変数 <img src="https://latex.codecogs.com/png.latex?U_i"> であって，処置変数 <img src="https://latex.codecogs.com/png.latex?Z_i"> と相関を持つものを <strong>交絡因子</strong> という．<sup>4</sup></p>
+<p>フルモデル <img src="https://latex.codecogs.com/png.latex?%0AY_i=%5Cwidehat%7B%5Cbeta%7D_0+%5Cwidehat%7B%5Cbeta%7D_1Z_i+%5Cwidehat%7B%5Cbeta%7D_2%5E%5Ctop%20X_i+%5Cwidehat%7B%5Cbeta%7D_3%5E%5Ctop%20U_i+%5Cwidehat%7B%5Cepsilon%7D_i%0A"> に関して，Cochran の公式によれば，<img src="https://latex.codecogs.com/png.latex?Z_i"> を <img src="https://latex.codecogs.com/png.latex?U_i"> に関して回帰した際の <img src="https://latex.codecogs.com/png.latex?U_i"> の係数を <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D"> とすると， <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidetilde%7B%5Cbeta%7D_1-%5Cwidehat%7B%5Cbeta%7D_1=%5Cwidehat%7B%5Cbeta%7D_3%5Cwidehat%7B%5Cdelta%7D%0A"> が成り立つ．加えて，<img src="https://latex.codecogs.com/png.latex?U_i"> を <img src="https://latex.codecogs.com/png.latex?X_i"> に関して回帰して得る残差を <img src="https://latex.codecogs.com/png.latex?e_i"> とすると，<img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cdelta%7D"> の値はこの <img src="https://latex.codecogs.com/png.latex?e_i"> の値のグループ間差に等しい： <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cdelta%7D=%5Coverline%7Be%7D%5E%7B(1)%7D-%5Coverline%7Be%7D%5E%7B(0)%7D.%0A"></p>
+<p>すなわち，<img src="https://latex.codecogs.com/png.latex?X_i"> で説明される分を除いて，<img src="https://latex.codecogs.com/png.latex?U_i"> の値が処置群と管理群とで平均的に大きな差があるほど，交絡によるバイアスは大きいものとなる．</p>
+</section>
+<section id="leverage-score" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="leverage-score"><span class="header-section-number">2.5</span> leverage score</h3>
+<p>射影行列 <img src="https://latex.codecogs.com/png.latex?%0AH:=X(X%5E%5Ctop%20X)%5E%7B-1%7DX%5E%5Ctop%0A"> は鍵となる値で，この対角成分は <strong>leverage score</strong> と呼ばれ，次を満たす<sup>5</sup> <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7Btr%7D(H)=%5Coperatorname%7Brank%7D(H)=p.%0A"></p>
+</section>
+<section id="vif" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="vif"><span class="header-section-number">2.6</span> VIF</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題^[[@Ding2024LinearModels p.130] 定理13.1．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題<sup>6</sup>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_j"> を <img src="https://latex.codecogs.com/png.latex?Y"> を <img src="https://latex.codecogs.com/png.latex?(1_n,X_1,%5Ccdots,X_q)"> に関して回帰した際の係数とする．真のモデルがある関数 <img src="https://latex.codecogs.com/png.latex?f"> に関して <img src="https://latex.codecogs.com/png.latex?y_i=f(x_i)+%5Cepsilon_i"> で <img src="https://latex.codecogs.com/png.latex?%5Cepsilon_i%5Csim(0,%5Csigma%5E2)"> が互いに相関を持たない場合，次が成り立つ： <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BV%7D%5B%5Cwidehat%7B%5Cbeta%7D_j%5D=%5Cfrac%7B%5Csigma%5E2%7D%7B%5Csum_%7Bi=1%7D%5En(x_%7Bij%7D-%5Coverline%7Bx%7D_j)%5E2%7D%5Cfrac%7B1%7D%7B1-R%5E2_j%7D.%0A"> ただし <img src="https://latex.codecogs.com/png.latex?R_j%5E2"> とは <img src="https://latex.codecogs.com/png.latex?X_j"> を <img src="https://latex.codecogs.com/png.latex?(1_n,X_1,%5Ccdots,X_%7Bj-1%7D,X_%7Bj+1%7D,%5Ccdots,X_q)"> に関して回帰した際の決定係数とした．</p>
+</div>
+</div>
+<p>この際，最初の因子は <img src="https://latex.codecogs.com/png.latex?Y"> を <img src="https://latex.codecogs.com/png.latex?(1_n,X_j)"> に関して回帰した際の係数 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Cbeta%7D_j"> の分散に一致する．従って次の因子 <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BVIF%7D_j:=1/(1-R_j%5E2)%0A"> は，他の説明変数 <img src="https://latex.codecogs.com/png.latex?X_1,%5Ccdots,X_%7Bj-1%7D,X_%7Bj+1%7D,%5Ccdots,X_q"> を加えたことによる，<img src="https://latex.codecogs.com/png.latex?X_j"> の推定係数の増大具合を表す．</p>
+<p>これを <strong>分散拡大係数</strong> (VIF: Variance Inflation Factor) と呼ぶ．</p>
+</section>
+<section id="bias-variance-tradeoff" class="level3" data-number="2.7">
+<h3 data-number="2.7" class="anchored" data-anchor-id="bias-variance-tradeoff"><span class="header-section-number">2.7</span> Bias-Variance Tradeoff</h3>
+<p>一般に全ての関連する説明変数を入れた方が現実に近く，推定・予測精度は高くなると考えられる．</p>
+<p>しかし VIF の命題から，説明変数を増やすたびに OLS 推定量の分散は増大することがわかる．</p>
+<p>このようなトレードオフを <strong>バイアス-分散トレードオフ</strong> (Bias-Variance Tradeoff) という．</p>
+</section>
+<section id="操作変数" class="level3" data-number="2.8">
+<h3 data-number="2.8" class="anchored" data-anchor-id="操作変数"><span class="header-section-number">2.8</span> 操作変数</h3>
+<p>仮に <img src="https://latex.codecogs.com/png.latex?X_2"> が内生性を持つとする： <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5B%5Cepsilon%7CX_1%5D=0,%5Cqquad%5Coperatorname%7BE%7D%5B%5Cepsilon%7CX_2%5D%5Cne0.%0A"></p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>このとき <img src="https://latex.codecogs.com/png.latex?U"> であって次を満たすものを <strong>操作変数</strong> という：</p>
+<ol type="1">
+<li><p>（広義）外生性 <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BC%7D%5BU,%5Cepsilon%5D=0%0A"></p></li>
+<li><p>関連性 <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BC%7D%5BU,X_2%5D%5Cne0%0A"></p></li>
+</ol>
+</div>
+</div>
+</div>
+<p>操作変数 <img src="https://latex.codecogs.com/png.latex?U"> を用いれば，回帰モデル (1) の両辺の <img src="https://latex.codecogs.com/png.latex?U"> との相関を考えると，外生性から <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BC%7D%5BU,V%5D=%5Cmathrm%7BC%7D%5BU,X%5D%5Cwidehat%7B%5Cbeta%7D%0A"> が成り立ち，これを通じて <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D"> を推定できる．これを <strong>IV 推定量</strong> という．</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cepsilon,%5Cepsilon_2"> の相関を測ることで，内生性の強さを定量化することもできる <span class="citation" data-cites="Chan-Tobias2020">(Chan and Tobias, 2020, p. 14)</span>．</p>
+</section>
+<section id="段階-ols" class="level3" data-number="2.9">
+<h3 data-number="2.9" class="anchored" data-anchor-id="段階-ols"><span class="header-section-number">2.9</span> ２段階 OLS</h3>
+<p>以上の手続きは，ここまで議論してきた方法の特別な場合である．</p>
+<p>実際，<img src="https://latex.codecogs.com/png.latex?X_2"> を <img src="https://latex.codecogs.com/png.latex?U"> に関して回帰することを考える： <img src="https://latex.codecogs.com/png.latex?%0AX_2=U%5Cdelta+%5Cepsilon_2.%0A"></p>
+<p>この回帰により得る推定値 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7BX%7D_2=U%5Cwidehat%7B%5Cdelta%7D"> は <img src="https://latex.codecogs.com/png.latex?%5Cepsilon"> と相関を持たない．相関が取り除かれた成分を射影によって取り出していると見れる．</p>
+<p>続いて <img src="https://latex.codecogs.com/png.latex?X_2"> を <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7BX%7D_2"> に取り替えて，<img src="https://latex.codecogs.com/png.latex?Y"> に向かって回帰することで得る推定量を <strong>TSLS (Two-Stage Least Squares) 推定量</strong> という．</p>
+<p><img src="https://latex.codecogs.com/png.latex?U"> が２値変数であるときは <span class="citation" data-cites="Wald40-WaldEstimator">(Wald, 1940)</span> 推定量ともいう．</p>
+</section>
+</section>
+<section id="不均一分散" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="不均一分散"><span class="header-section-number">3</span> 不均一分散</h2>
+<section id="sec-asymptotic-normality" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="sec-asymptotic-normality"><span class="header-section-number">3.1</span> OLS の漸近正規性</h3>
+<p>Guass-Markov モデルの線型モデルとしての最大の仮定は，均一の分散 <img src="https://latex.codecogs.com/png.latex?%5Csigma%5E2"> を仮定していたことである．</p>
+<p>しかしこの仮定を外しても，OLS 推定量は不偏性・一致性・漸近正規性を持つ（この順に追加の条件が厳しくなる）．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="命題^[[@Ding2024LinearModels p.44] 定理6.1．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+命題<sup>7</sup>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%0AY_i=X_i%5Cbeta+%5Cepsilon_i,%5Cqquad%5Cepsilon_i%5Coverset%7B%5Ctext%7Bi.i.d.%7D%7D%7B%5Csim%7D(0,%5Csigma_i%5E2),%0A"> に関して，計画行列 <img src="https://latex.codecogs.com/png.latex?X"> は最大階数であるとする．このとき，次が成り立つ：</p>
+<ol type="1">
+<li>OLS 推定量 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D"> は不偏性を持つ．</li>
+<li>次の <img src="https://latex.codecogs.com/png.latex?B_n"> が可逆な極限 <img src="https://latex.codecogs.com/png.latex?B_n%5Cto%20B"> を持つとき，一致性も持つ： <img src="https://latex.codecogs.com/png.latex?%0AB_n:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7Bi=1%7D%5EnX_i%5E%5Ctop%20X_i%5Cin%5Cmathrm%7BGL%7D_%7Bp%5Cland%20n%7D(%5Cmathbb%7BR%7D).%0A"></li>
+<li>２の条件に加えて，<img src="https://latex.codecogs.com/png.latex?x_i,%5Cepsilon_i"> が３次のモーメントを持つとき，漸近正規性も成り立つ：</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-note no-icon callout-titled" title="反例">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+反例
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>一致性（と漸近正規性）の成立のために追加の条件が入っていることがわかる．不偏性さえあれば，「極限での不偏性」とも思える一致性が成り立って然るべきな気がする．</p>
+<p>この追加の条件は，有限個の <img src="https://latex.codecogs.com/png.latex?Y_i"> の説明にしか参加しない予測子を排除するためにある．</p>
+<p>例えばある分布 <img src="https://latex.codecogs.com/png.latex?P(%5Cmu,%5Csigma%5E2)"> に関して <img src="https://latex.codecogs.com/png.latex?Y_i%5Coverset%7B%5Ctext%7Bi.i.d.%7D%7D%7B%5Csim%7DP(%5Cmu_i,%5Csigma_i%5E2)"> とする． <img src="https://latex.codecogs.com/png.latex?%0AY_i=%5Cbeta_1X_i%5E%7B(1)%7D+%5Cbeta_2X_i%5E%7B(2)%7D+%5Cepsilon_i,%5Cqquad%5Cepsilon_i%5Coverset%7B%5Ctext%7Bi.i.d.%7D%7D%7B%5Csim%7DP(0,%5Csigma_i%5E2)%0A"> <img src="https://latex.codecogs.com/png.latex?%0AX_i%5E%7B(1)%7D=1_%7B%5Cleft%5C%7B1%5Cright%5C%7D%7D(i),%5Cqquad%20X_i%5E%7B(2)%7D=1_%7B%5Cleft%5C%7B2,%5Ccdots,n%5Cright%5C%7D%7D(i)%0A"> とモデルすると，計画行列はフルランクであるが，OLS 推定量は <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_1=%5Cepsilon_1%5Csim%20P(0,%5Csigma_1%5E2)"> となる．</p>
+<p>これは標本サイズ <img src="https://latex.codecogs.com/png.latex?n"> に依らない値であり，<img src="https://latex.codecogs.com/png.latex?n%5Cto%5Cinfty"> を考えても <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_1"> は一致性はもたず，漸近正規分布もしない．一方で <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D_2"> はする．</p>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-EHW" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-EHW"><span class="header-section-number">3.2</span> EHW 頑健標準誤差</h3>
+<p>この漸近正規性に基づく分散推定量 <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7BV%7D:=n%5E%7B-1%7D%5Cleft(%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7Bi=1%7D%5EnX_i%5E%5Ctop%20X_i%5Cright)%5E%7B-1%7D%5Cleft(%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7Bi=1%7D%5En%5Cepsilon_i%5E2X_i%5E%5Ctop%20X_i%5Cright)%5Cleft(%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7Bi=1%7D%5EnX_i%5E%5Ctop%20X_i%5Cright)%5E%7B-1%7D%0A"> は，誤差分布が不均一な場合でも頑健な分散推定量となる．</p>
+<p>これを計量経済学では <span class="citation" data-cites="White1980">(White, 1980)</span> の推定量と呼ぶが，初めに提案したのは <span class="citation" data-cites="Eicker1967">(Eicker, 1967)</span> と <span class="citation" data-cites="Huber1967">(Huber, 1967)</span> であるようである．</p>
+</section>
+<section id="有効性" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="有効性"><span class="header-section-number">3.3</span> 有効性</h3>
+<p>では OLS は何を失うのか？</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Csigma%5E2"> が不均一になった場合，観測によってノイズの大きさが違うわけである．</p>
+<p>したがって特に情報量が大きい観測と，ノイズが大きくてあまり意味をなさない観測というものが相対的に出てくる．</p>
+<p>これを峻別して適切に観測に重み付けることが必要である．</p>
+<p>これができない OLS は有効性を失う．代わりに重み付けを行った OLS は有効性を持つ．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="BLUE">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+BLUE
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>既知の正定値行列 <img src="https://latex.codecogs.com/png.latex?%5CSigma"> に関して， <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5B%5Cepsilon%5D=0,%5Cqquad%5Cmathrm%7BC%7D%5B%5Cepsilon%5D=%5Csigma%5E2%5CSigma,%0A"> を満たすとする．このとき，BLUE は次のように表せる： <img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cbeta%7D_%5CSigma=(X%5E%5Ctop%5CSigma%5E%7B-1%7DX)%5E%7B-1%7DX%5E%5Ctop%5CSigma%5E%7B-1%7DY.%0A"></p>
+</div>
+</div>
+</section>
+<section id="wls" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="wls"><span class="header-section-number">3.4</span> WLS</h3>
+<p>第 3.1 節で考えた不均一分散の設定は <img src="https://latex.codecogs.com/png.latex?%0A%5CSigma=%5Cmathrm%7Bdiag%7D(%5Csigma_1%5E2,%5Ccdots,%5Csigma_n%5E2)=:%5Cmathrm%7Bdiag%7D(w_1%5E%7B-1%7D,%5Ccdots,w_n%5E%7B-1%7D)%0A"> の場合に当たる．このときの BLUE は次の最適化条件でも特徴付けられる： <span id="eq-GLS"><img src="https://latex.codecogs.com/png.latex?%0A%5Cwidehat%7B%5Cbeta%7D_w:=%5Coperatorname*%7Bargmin%7D_%7Bb%5Cin%5Cmathbb%7BR%7D%5Ep%7D(Y-Xb)%5E%5Ctop%5CSigma%5E%7B-1%7D(Y-Xb)=%5Coperatorname*%7Bargmin%7D_%7Bb%5Cin%5Cmathbb%7BR%7D%5Ep%7D%5Csum_%7Bi=1%7D%5Enw_i%5Clvert%20Y_i-X_ib%5Crvert%5E2_2.%0A%5Ctag%7B3%7D"></span> これを <strong>WLS (Weighted Least Squares) 推定量</strong> という．</p>
+<p>一般には解析を始める前に <img src="https://latex.codecogs.com/png.latex?%5CSigma"> の形は未知であるから，これの推定から始める．その手続きを計量経済学では FGLS (Feasible Generalized Least Squares) と呼ぶ．</p>
+<p>この重み付けの考え方は標本抽出の際にも重要であり，<span class="citation" data-cites="Horvitz-Thompson1952">(Horvitz and Thompson, 1952)</span> の逆確率重み付け法とも呼ばれる：</p>
+<div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/Horvitz-Thompson.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+ベイズデータ解析３
+</h5>
+<div class="card-subtitle listing-subtitle">
+標本調査データと欠測データの扱い
+</div>
+<div class="listing-categories">
+<div class="listing-category" onclick="window.quartoListingCategory('QmF5ZXNpYW4='); return false;">
+Bayesian
+</div>
+<div class="listing-category" onclick="window.quartoListingCategory('U3RhdGlzdGljcw=='); return false;">
+Statistics
+</div>
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-24
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="局所線型回帰" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="局所線型回帰"><span class="header-section-number">3.5</span> 局所線型回帰</h3>
+<p>局所線型回帰 (local linear regression) はカーネル法を用いてデータ点を適切に重み付けることで，非線型な回帰を達成する方法である．</p>
+<p>具体的には，基準点 <img src="https://latex.codecogs.com/png.latex?x_0"> の近傍でのベストな線型近似 <img src="https://latex.codecogs.com/png.latex?%0Ay(x)=%5Calpha+%5Cbeta(x-x_0)%0A"> を得るために，あるカーネル <img src="https://latex.codecogs.com/png.latex?K"> と帯域幅 <img src="https://latex.codecogs.com/png.latex?h%3E0"> を通じて <img src="https://latex.codecogs.com/png.latex?%0A(%5Cwidehat%7B%5Calpha%7D,%5Cwidehat%7B%5Cbeta%7D):=%5Coperatorname*%7Bargmin%7D_%7Ba,b%7D%5Csum_%7Bi=1%7D%5Enw_i%5Cbiggl%7Cy_i-a-b(x_i-x_0)%5Cbiggr%7C%5E2_2,%5Cqquad%20w_i:=K%5Cleft(%5Cfrac%7Bx_i-x_0%7D%7Bh%7D%5Cright),%0A"> によって定める．</p>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="S2VybmVs" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1735538997105" data-listing-date-modified-sort="1723334400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="582">
+<a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Kernels/Images/Gibbs.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+カーネル法の概観
+</h5>
+<div class="card-subtitle listing-subtitle">
+半正定値カーネルから距離学習まで
+</div>
+<div class="listing-categories">
+<div class="listing-category" onclick="window.quartoListingCategory('S2VybmVs'); return false;">
+Kernel
+</div>
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="一般化線型モデルの解放" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="一般化線型モデルの解放"><span class="header-section-number">3.6</span> 一般化線型モデルの解放</h3>
+<p>一般化線型モデル <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5BY_i%7CX_i%5D=%5Cmu(X_i%5Cbeta)%0A"> は基本的に分布が特定されたパラメトリックモデルである．これについても，EHW 頑健標準偏差推定量 3.2 に当たる，分布の誤特定に頑健な標準偏差推定量が存在する．</p>
+<p>その肝となる事実は，あらゆる関数 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Csigma%7D%5E2(x,%5Cbeta)"> に関して， <span id="eq-EE"><img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5Cleft%5B%5Csum_%7Bi=1%7D%5En%5Cfrac%7BY_i-%5Cmu(X_i%5Cbeta)%7D%7B%5Cwidetilde%7B%5Csigma%7D%5E2(X_i,%5Cbeta)%7D%5Cfrac%7B%5Cpartial%20%5Cmu(X_i%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%7D%5Cright%5D=0%0A%5Ctag%7B4%7D"></span> が真値 <img src="https://latex.codecogs.com/png.latex?%5Cbeta"> に関して成り立ち続けることである．</p>
+<p>したがって <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Csigma%7D%5E2"> を何らかの方法で決定し，これに関して式 (4) を通じた <img src="https://latex.codecogs.com/png.latex?M">-推定量 <img src="https://latex.codecogs.com/png.latex?%5Cwidehat%7B%5Cbeta%7D"> が構成できる．<img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Csigma%7D%5E2(x_i,%5Cbeta)=%5Cmathrm%7BV%7D%5BY_i%7CX_i=x_i%5D"> と正しく特定できた場合，これは最尤推定量になる．</p>
+<p>多くの場合 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Csigma%7D%5E2"> は一般化線型モデルの仮定に基づいて算出するが，語特定されているものとしている場合が多く，<strong>作業分散</strong> ともいう．</p>
+<p><img src="https://latex.codecogs.com/png.latex?(X_i,Y_i)"> が独立同分布に従うとするとき，第 3.1 節のような漸近正規性の結果は，一般の <img src="https://latex.codecogs.com/png.latex?M">-推定量に関する次の結果から導かれる：</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="Restricted Mean Model に対する $M$-推定^[[@Ding2024LinearModels p.268] 定理24.2．]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Restricted Mean Model に対する <img src="https://latex.codecogs.com/png.latex?M">-推定<sup>8</sup>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?(X_i,Y_i)"> が独立同分布に従うとする．このとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Csqrt%7Bn%7D(%5Cwidehat%7B%5Cbeta%7D-%5Cbeta)%5CRightarrow%5Cmathrm%7BN%7D(0,B%5E%7B-1%7DMB%5E%7B-1%7D),%0A"> <img src="https://latex.codecogs.com/png.latex?%0AB:=%5Coperatorname%7BE%7D%5Cleft%5B%5Cfrac%7B1%7D%7B%5Cwidetilde%7B%5Csigma%7D%5E2(x,%5Cbeta)%7D%5Cfrac%7B%5Cpartial%20%5Cmu(X%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%7D%5Cfrac%7B%5Cpartial%20%5Cmu(X%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%5E%5Ctop%7D%5Cright%5D,%5Cqquad%0AM:=%5Coperatorname%7BE%7D%5Cleft%5B%5Cfrac%7B%5Csigma%5E2(x)%7D%7B%5Cwidetilde%7B%5Csigma%7D%5E2(x,%5Cbeta)%5E2%7D%5Cfrac%7B%5Cpartial%20%5Cmu(X%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%7D%5Cfrac%7B%5Cpartial%20%5Cmu(X%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%5E%5Ctop%7D%5Cright%5D.%0A"></p>
+</div>
+</div>
+<p>この結果を用いれば，指数型分布族などのパラメトリックモデルに依らずとも，漸近論に基礎付けられた点推定が達成できる．</p>
+<p>なお指数分布族の仮定の下で <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5Csigma%7D%5E2"> がが正しく特定されていた場合，<img src="https://latex.codecogs.com/png.latex?B=M"> は Fisher 情報行列となる．</p>
+</section>
+<section id="相関の考慮" class="level3" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="相関の考慮"><span class="header-section-number">3.7</span> 相関の考慮</h3>
+<p>ここまでの議論をまとめよう．OLS の漸近正規性 3.1 は，誤差分布が不均一であるばかりでなく，<img src="https://latex.codecogs.com/png.latex?Y_i"> が相関を持つ場合（<img src="https://latex.codecogs.com/png.latex?%5CSigma"> の非対角成分が非零の場合）でも成り立つ．</p>
+<p>GLS (Generalized Least Squares) はこの相関を持つ場合でもセミパラメトリック漸近最適性を達成する．</p>
+<p>この結果を任意の逆リンク <img src="https://latex.codecogs.com/png.latex?%5Cmu"> に関して <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5BY_i%7CX_i%5D=%5Cmu(X_i%5Cbeta)%0A"> という非線型な回帰モデルにも拡張することを考えたいが，前節ではまだ <img src="https://latex.codecogs.com/png.latex?Y_i"> が i.i.d. であるという仮定を置いていた．</p>
+<p>最後にこの仮定を取り払い，一般の誤差分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BC%7D%5B%5Cepsilon%7CX%5D=%5CSigma"> を考えたい．</p>
+<p>このために開発されたのが <strong>一般化推定方程式</strong> (GEE: Generalized Estimating Equations) <span class="citation" data-cites="Liang-Zeger1986">(Liang and Zeger, 1986)</span> である．</p>
+</section>
+<section id="一般化推定方程式" class="level3" data-number="3.8">
+<h3 data-number="3.8" class="anchored" data-anchor-id="一般化推定方程式"><span class="header-section-number">3.8</span> 一般化推定方程式</h3>
+<p><img src="https://latex.codecogs.com/png.latex?(X_i,Y_i)"> を i.i.d. とした場合の推定方程式 (4) を拡張した推定方程式 <span id="eq-GEE"><img src="https://latex.codecogs.com/png.latex?%0A%5Csum_%7Bi=1%7D%5En%5Cfrac%7B%5Cpartial%20%5Cmu(X_i%5Cbeta)%7D%7B%5Cpartial%20%5Cbeta%7D%5Cwidetilde%7B%5CSigma%7D%5E%7B-1%7D(X_i,%5Cbeta)%5Cbiggr(Y_i-%5Cmu(X_i%5Cbeta)%5Cbiggl)=0%0A%5Ctag%7B5%7D"></span> を一般化推定方程式といい，<img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5CSigma%7D(X_i,%5Cbeta)"> を <strong>作業共分散行列</strong> という．</p>
+<p>この式は今までで最も一般的な形をしており，最適化条件 (3) で推定を実行する GLS に対して，１次の最適性条件に基づいて導出する方法ということができる．それ故，逆リンク <img src="https://latex.codecogs.com/png.latex?%5Cmu"> の一般性も許容できている．</p>
+<p>実際，一般化推定方程式 (5) は，最適化条件 (3) を <img src="https://latex.codecogs.com/png.latex?b"> に関して微分して得る一次の最適性条件に見える．</p>
+<p>一般化推定方程式 (5) による推定も，i.i.d. とは限らない場合の <img src="https://latex.codecogs.com/png.latex?M">-推定の理論から，漸近正規性が導ける．この漸近論から得られる EHW 推定量の一般化は，<img src="https://latex.codecogs.com/png.latex?%5Cmu"> の特定さえ正しければ，<img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5CSigma%7D"> の誤特定に頑健な分散推定量となる <span class="citation" data-cites="Liang-Zeger1986">(Liang and Zeger, 1986)</span>, <span class="citation" data-cites="Altonji-Segal1996">(Altonji and Segal, 1996)</span>．</p>
+</section>
+<section id="gee-の仮定" class="level3" data-number="3.9">
+<h3 data-number="3.9" class="anchored" data-anchor-id="gee-の仮定"><span class="header-section-number">3.9</span> GEE の仮定</h3>
+<p>しかし GEE には重要な仮定 <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5BY_%7Bit%7D%7CX_i%5D=%5Coperatorname%7BE%7D%5BY_%7Bit%7D%7CX_%7Bit%7D%5D,%5Cqquad%20t%5Cin%5Bn_i%5D,%0A"> が存在する．これは <img src="https://latex.codecogs.com/png.latex?(X_%7Bit%7D,Y_%7Bit%7D)"> が状態空間モデルに従うことを意味する．</p>
+<p>しかし <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7B%5CSigma%7D"> の非対角成分が零になる，独立作業共分散行列を用いた場合は，この仮定が成り立たない場合でも，<img src="https://latex.codecogs.com/png.latex?%5Cmu"> の特定が正しければやはり一致性が成り立つが，推定量の分散は少し膨らむ．</p>
+<p>また関数関係 <img src="https://latex.codecogs.com/png.latex?%5Cmu"> が <img src="https://latex.codecogs.com/png.latex?t%5Cin%5Bn_i%5D"> に依存しないという仮定も含まれている．</p>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 終わりに</h2><div class="quarto-appendix-contents">
+
+<p>以上の枠組みは全て <strong>一般化モーメント法</strong> (GMM: Generalized Method of Moments) <span class="citation" data-cites="Hansen82-GMM">(L. P. Hansen, 1982)</span> の枠組みの中に位置する．</p>
+<p>GMM という名前は，OLS 推定の１次の最適性条件として得る直交条件 <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5BX(Y-%5Cmu(X%5Cbeta))%5D=0%0A"> が，モーメント法の課す条件と似ており，どれも <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5Bg(%5Cbeta)%5D=0%0A"> という形をしているという点から来る．</p>
+<p>さらには経験尤度法 <span class="citation" data-cites="Owen1988">(Owen, 1988)</span>, <span class="citation" data-cites="Qin-Lawless1994">(Qin and Lawless, 1994)</span> も漸近正規性を持つノンパラメトリック手法であり，GMM の後釜として期待されている．特に直交条件の数が多い GMM よりバイアスが少ない．</p>
+<p>しかし GMM の方が分散が大きいことがあり，bias-variance のトレードオフがある <span class="citation" data-cites="Newey-Smith2004">(Newey and Smith, 2004)</span>．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Altonji-Segal1996" class="csl-entry">
+Altonji, J. G., and Segal, L. M. (1996). <a href="http://www.jstor.org/stable/1392447">Small-sample bias in GMM estimation of covariance structures</a>. <em>Journal of Business &amp; Economic Statistics</em>, <em>14</em>(3), 353–366.
+</div>
+<div id="ref-Baron-Kenny1986" class="csl-entry">
+Baron, R. M., and Kenny, D. A. (1986). <a href="https://doi.org/10.1037/0022-3514.51.6.1173">The moderator–mediator variable distinction in social psychological research: Conceptual, strategic, and statistical considerations</a>. <em>Journal of Personality and Social Psychology</em>, <em>51</em>(6), 1173–1182.
+</div>
+<div id="ref-Chan-Tobias2020" class="csl-entry">
+Chan, J., and Tobias, J. L. (2020). <em><a href="https://joshuachan.org/papers/BayesMicroeconometrics.pdf">Bayesian econometric methods</a></em>.
+</div>
+<div id="ref-Cochran1938" class="csl-entry">
+Cochran, W. G. (1938). <a href="http://www.jstor.org/stable/2983654">The omission or addition of an independent variate in multiple linear regression</a>. <em>Supplement to the Journal of the Royal Statistical Society</em>, <em>5</em>(2), 171–176.
+</div>
+<div id="ref-Ding2024LinearModels" class="csl-entry">
+Ding, P. (2024). <a href="https://arxiv.org/abs/2401.00649">Linear model and extensions</a>.
+</div>
+<div id="ref-Eicker1967" class="csl-entry">
+Eicker, F. (1967). <a href="https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fifth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Limit-theorems-for-regressions-with-unequal-and-dependent-errors/bsmsp/1200512981">Limit theorems for regressions with unequal and dependent errors</a>. In L. M. Le&nbsp;Cam and J. Neyman, editors, <em>Proceedings of the fifth berkeley symposium on mathematical statistics and probability, volume 1: statistics</em>,Vol. 1, pages 59–82.
+</div>
+<div id="ref-Frisch-Waugh1933" class="csl-entry">
+Frisch, R., and Waugh, F. V. (1933). <a href="http://www.jstor.org/stable/1907330">Partial time regressions as compared with individual trends</a>. <em>Econometrica</em>, <em>1</em>(4), 387–401.
+</div>
+<div id="ref-Hansen2022" class="csl-entry">
+Hansen, B. E. (2022). <em>Econometrics</em>. Princeton University Press.
+</div>
+<div id="ref-Hansen82-GMM" class="csl-entry">
+Hansen, L. P. (1982). Large sample properties of generalized method of moments estimators. <em>Econometrica</em>, <em>50</em>(4), 1029–1054.
+</div>
+<div id="ref-Hayashi2000" class="csl-entry">
+Hayashi, F. (2000). <em><a href="https://press.princeton.edu/books/ebook/9781400823833/econometrics-1">Econometrics</a></em>. Princeton University Press.
+</div>
+<div id="ref-Horvitz-Thompson1952" class="csl-entry">
+Horvitz, D. G., and Thompson, D. J. (1952). <a href="https://doi.org/10.1080/01621459.1952.10483446">A generalization of sampling without replacement from a finite universe</a>. <em>Journal of the American Statistical Association</em>, <em>47</em>(260), 663–685.
+</div>
+<div id="ref-Huber1967" class="csl-entry">
+Huber, P. J. (1967). <a href="https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fifth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/The-behavior-of-maximum-likelihood-estimates-under-nonstandard-conditions/bsmsp/1200512988">The behavior of maximum likelihood estimates under nonstandard conditions</a>. In L. M. Le&nbsp;Cam and J. Neyman, editors, <em>Proceedings of the fifth berkeley symposium on mathematical statistics and probability, volume 1: statistics</em>,Vol. 1, pages 221–233.
+</div>
+<div id="ref-Liang-Zeger1986" class="csl-entry">
+Liang, K.-Y., and Zeger, S. L. (1986). <a href="http://www.jstor.org/stable/2336267">Longitudinal data analysis using generalized linear models</a>. <em>Biometrika</em>, <em>73</em>(1), 13–22.
+</div>
+<div id="ref-Lovell1963" class="csl-entry">
+Lovell, M. C. (1963). <em><span class="nocase">Seasonal Adjustment of Economic Time Series and Multiple Regression</span></em> (Cowles Foundation Discussion Papers No. 151). Cowles Foundation for Research in Economics, Yale University. Retrieved from <a href="https://ideas.repec.org/p/cwl/cwldpp/151.html">https://ideas.repec.org/p/cwl/cwldpp/151.html</a>
+</div>
+<div id="ref-Newey-Smith2004" class="csl-entry">
+Newey, W. K., and Smith, R. J. (2004). <a href="http://www.jstor.org/stable/3598854">Higher order properties of GMM and generalized empirical likelihood estimators</a>. <em>Econometrica</em>, <em>72</em>(1), 219–255.
+</div>
+<div id="ref-Owen1988" class="csl-entry">
+Owen, A. B. (1988). <a href="https://doi.org/10.1093/biomet/75.2.237"><span class="nocase">Empirical likelihood ratio confidence intervals for a single functional</span></a>. <em>Biometrika</em>, <em>75</em>(2), 237–249.
+</div>
+<div id="ref-Qin-Lawless1994" class="csl-entry">
+Qin, J., and Lawless, J. (1994). <a href="https://doi.org/10.1214/aos/1176325370"><span class="nocase">Empirical Likelihood and General Estimating Equations</span></a>. <em>The Annals of Statistics</em>, <em>22</em>(1), 300–325.
+</div>
+<div id="ref-Simpson1951" class="csl-entry">
+Simpson, E. H. (1951). <a href="http://www.jstor.org/stable/2984065">The interpretation of interaction in contingency tables</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>13</em>(2), 238–241.
+</div>
+<div id="ref-Wald40-WaldEstimator" class="csl-entry">
+Wald, A. (1940). The fitting of straight lines if both variables are subject to error. <em>The Annals of Mathematical Statistics</em>, <em>11</em>(3), 283–300.
+</div>
+<div id="ref-White1980" class="csl-entry">
+White, H. (1980). <a href="http://www.jstor.org/stable/1912934">A heteroskedasticity-consistent covariance matrix estimator and a direct test for heteroskedasticity</a>. <em>Econometrica</em>, <em>48</em>(4), 817–838.
+</div>
+<div id="ref-Wright1918" class="csl-entry">
+Wright, S. (1918). <a href="https://academic.oup.com/genetics/article/3/4/367/5934526">On the nature of size factors</a>. <em>Genetics</em>, <em>3</em>(4), 367.
+</div>
+<div id="ref-Yule1907" class="csl-entry">
+Yule, G. U. (1907). <a href="https://doi.org/10.1098/rspa.1907.0028">On the theory of correlation for any number of variables, treated by a new system of notation</a>. <em>Proceedings of the Royal Society of London. Series A, Containing Papers of a Mathematical and Physical Character</em>, <em>79</em>(529), 182–193.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 81)</span> 定理9.1．The proof of Theorem 9.1 is very simple. However, it is one of the most insightful formulas in statistics.↩︎</p></li>
+<li id="fn2"><p>生態学的誤謬 (<a href="https://en.wikipedia.org/wiki/Ecological_fallacy">ecological fallacy</a>) ともいう．↩︎</p></li>
+<li id="fn3"><p>この意味での「内生性」は，「外生的じゃない」こととも意味がズレてしまう．<img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BE%7D%5B%5Cepsilon%7CX%5D=0"> を満たすならば <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BC%7D%5B%5Cepsilon,X%5D=0"> が必要であるから，「内生的ならば外生的でない」は成り立つ．ここでは内生的じゃないことを <strong>広義外生性</strong> と呼ぼう．また多くの場合他の経済学の文脈では，「モデル内で決定される変数」程度の意味で内生変数と呼ぶことも多い．↩︎</p></li>
+<li id="fn4"><p>処置変数と相関を持たないということは，非交絡性 <img src="https://latex.codecogs.com/png.latex?Y_i%5Cperp%5C!%5C!%5C!%5Cperp%20Z_i%5Cmid%20U_i"> よりは弱い条件である．なお，この「非交絡性」は疫学の言い方であり，計量経済学では <strong>無視可能性</strong> または <img src="https://latex.codecogs.com/png.latex?U_i"> が観測可能である場合は selection on observables などとも呼ぶ．逆に言えば，交絡とは selection on unobservables のことである．↩︎</p></li>
+<li id="fn5"><p><span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 95)</span> も参照．↩︎</p></li>
+<li id="fn6"><p><span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 130)</span> 定理13.1．↩︎</p></li>
+<li id="fn7"><p><span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 44)</span> 定理6.1．↩︎</p></li>
+<li id="fn8"><p><span class="citation" data-cites="Ding2024LinearModels">(Ding, 2024, p. 268)</span> 定理24.2．↩︎</p></li>
+</ol>
+</section></div> ]]></description>
+  <category>Statistics</category>
+  <guid>https://162348.github.io/posts/2024/Stat/Regression.html</guid>
+  <pubDate>Sun, 29 Dec 2024 00:00:00 GMT</pubDate>
+  <media:content url="https://162348.github.io/posts/2024/Stat/Images/Cochran.svg" medium="image" type="image/svg+xml"/>
+</item>
 <item>
   <title>Likelihood of Hierarchical Models</title>
   <dc:creator>Hirofumi Shiba</dc:creator>
@@ -229,7 +729,7 @@ Listing&nbsp;1
 
 <div class="quarto-listing quarto-listing-container-grid" id="listing-lst-embedding">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735524830467" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735538999135" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
 <a href="../../../posts/2024/Survey/BayesGLMM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -265,7 +765,7 @@ Stan
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735524831086" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735538999761" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -301,7 +801,7 @@ R
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735524831085" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735538999760" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -2934,7 +3434,7 @@ summary(fit_1PL_maximal)
 
 <div class="quarto-listing quarto-listing-container-grid" id="listing-lst-survey">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -2956,7 +3456,7 @@ summary(fit_1PL_maximal)
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524830822" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999495" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -2978,7 +3478,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735524831086" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735538999761" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3068,7 +3568,7 @@ Vansteelandt, K. (2001). <em>Formal models for contextualized personality psycho
 <p>本稿ではロジスティック回帰を主に扱う．</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3090,7 +3590,7 @@ Vansteelandt, K. (2001). <em>Formal models for contextualized personality psycho
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524830822" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999495" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3112,7 +3612,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735524830467" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735538999135" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
 <a href="../../../posts/2024/Survey/BayesGLMM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3642,7 +4142,7 @@ font-style: inherit;">"b_z_log_LDL"</span>))</span></code></pre></div>
 <p>さらには <code>LAB</code> と <code>LDL</code> がモデルに入っている確率を出す方法は別稿で追求する：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524831075" data-listing-date-modified-sort="1735344000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="392">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999749" data-listing-date-modified-sort="1735344000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="392">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/BayesSelection.html -->
@@ -3879,7 +4379,7 @@ grid.arrange(p1_ppc, p2_ppc, nrow = 1)
 <h3 data-number="2.7" class="anchored" data-anchor-id="非線型関係の追求"><span class="header-section-number">2.7</span> 非線型関係の追求</h3>
 <div id="listing-lst-embedding-nonlinear" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1734307200000" data-listing-file-modified-sort="1735524830822" data-listing-date-modified-sort="1734307200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="32">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1734307200000" data-listing-file-modified-sort="1735538999494" data-listing-date-modified-sort="1734307200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="32">
 <a href="../../../posts/2024/Survey/BayesNonparametrics.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding-nonlinear:posts/2024/Survey/BayesNonparametrics.html -->
@@ -4339,7 +4839,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4361,7 +4861,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735524828445" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<div class="g-col-1" data-index="1" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735538997124" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
 <a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4383,7 +4883,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1735524828406" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
+<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1735538997086" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
 <a href="../../../posts/2024/Kernels/HierarchicalModel.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4426,7 +4926,7 @@ No matching items
 <p>さらには一般化線型モデルを用いることで，連続・離散データの簡単な非線型関係まで扱うことができる．</p>
 <div id="listing-lst-regression" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524830822" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999495" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4448,7 +4948,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4470,7 +4970,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4564,7 +5064,7 @@ No matching items
 <p>その縮小効果については次稿も参照：</p>
 <div id="listing-lst-embed" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4643,12 +5143,13 @@ No matching items
 <section id="tobit-モデル" class="level4" data-number="3.2.3">
 <h4 data-number="3.2.3" class="anchored" data-anchor-id="tobit-モデル"><span class="header-section-number">3.2.3</span> Tobit モデル</h4>
 <p>さらに <img src="https://latex.codecogs.com/png.latex?y_i"> の観測値が <img src="https://latex.codecogs.com/png.latex?x_i"> の値に依存するというモデルが <span class="citation" data-cites="Tobin58-Tobit">(Tobin, 1958)</span> によって提案されている： <img src="https://latex.codecogs.com/png.latex?%0AY=Y%5E*%5Clor0.%0A"> <img src="https://latex.codecogs.com/png.latex?%0AY%5E*_i=%5Cbeta%20X_i+%5Cepsilon_i,%0A"></p>
-<p>このモデルは（１型）トービットモデルの他に，打ち切り回帰 (censored regression) とも呼ばれる．</p>
+<p>このモデルは（１型）トービットモデルの他に，<strong>打ち切り回帰</strong> (censored regression) とも呼ばれる．</p>
+<p>ある閾値を超えた場合にプライバシーの問題で公開を制限する top-coding データなどに用いられる．</p>
 </section>
 <section id="heckman-モデル" class="level4" data-number="3.2.4">
 <h4 data-number="3.2.4" class="anchored" data-anchor-id="heckman-モデル"><span class="header-section-number">3.2.4</span> Heckman モデル</h4>
-<p><span class="citation" data-cites="Heckman79-SelectionBias-as-SpecificationError">(Heckman, 1979)</span> は標本に入るかどうかのメカニズムをモデリングする，選択バイアスのためのモデル <img src="https://latex.codecogs.com/png.latex?%0AY=%5Cbegin%7Bcases%7DY%5E*&amp;S=1%5C%5C%5Ctext%7Bmissing%7D&amp;S=0%5Cend%7Bcases%7D%0A"> <img src="https://latex.codecogs.com/png.latex?%0AY%5E*=%5Cbeta%20X+%5Cepsilon,%0A"> <img src="https://latex.codecogs.com/png.latex?%0AS=1_%7B%5Cmathbb%7BR%7D_+%7D(S%5E*),%5Cqquad%20S%5E*=%5Cgamma%20Z+%5Ceta.%0A"> を提案した．</p>
-<p>そしてこの共分散構造 <img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Bpmatrix%7D%5Cepsilon%5C%5C%5Ceta%5Cend%7Bpmatrix%7D%5Csim%5Cmathrm%7BN%7D%5Cbiggr(0,%5Cmtrx%7B%5Csigma%5E2_%5Cepsilon&amp;%5Csigma_%7B%5Cepsilon%5Ceta%7D%5C%5C%5Csigma_%7B%5Cepsilon%5Ceta%7D&amp;1%7D%5Cbiggl)%0A"> を局外母数として <img src="https://latex.codecogs.com/png.latex?%5Cbeta"> を一致推定する．</p>
+<p><span class="citation" data-cites="Heckman79-SelectionBias-as-SpecificationError">(Heckman, 1979)</span> は標本に入るかどうかのメカニズムをモデリングする，選択バイアスのためのモデル <img src="https://latex.codecogs.com/png.latex?%0AY=%5Cbegin%7Bcases%7DY%5E*&amp;S=1%5C%5C%5Ctext%7Bmissing%7D&amp;S=0%5Cend%7Bcases%7D%0A"> <img src="https://latex.codecogs.com/png.latex?%0AY%5E*=%5Cbeta%20X+%5Cepsilon,%0A"> <img src="https://latex.codecogs.com/png.latex?%0AS=1_%7B%5Cmathbb%7BR%7D_+%7D(S%5E*),%5Cqquad%20S%5E*=%5Cgamma%20Z+%5Ceta.%0A"> を提案した．これは２型トービットモデルとも呼ばれる．</p>
+<p>そしてこの共分散構造 <img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Bpmatrix%7D%5Cepsilon%5C%5C%5Ceta%5Cend%7Bpmatrix%7D%5Csim%5Cmathrm%7BN%7D%5Cbiggr(0,%5Cbegin%7Bpmatrix%7D%5Csigma%5E2_%5Cepsilon&amp;%5Csigma_%7B%5Cepsilon%5Ceta%7D%5C%5C%5Csigma_%7B%5Cepsilon%5Ceta%7D&amp;1%5Cend%7Bpmatrix%7D%5Cbiggl)%0A"> を局外母数として <img src="https://latex.codecogs.com/png.latex?%5Cbeta"> を一致推定する．</p>
 </section>
 </section>
 </section>
@@ -4952,7 +5453,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 <p>ベイズ線型回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4974,7 +5475,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4996,7 +5497,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6713,7 +7214,7 @@ font-style: inherit;">loo_R2</span>(fit1_loglog))</span></code></pre></div>
 <p>離散変数の扱いは連続変数よりも難しくなる．基本的に一般化線型モデルの枠組みが必要になる．</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -6753,7 +7254,7 @@ No matching items
 <p>事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd <span class="citation" data-cites="Vehtari+2017">(Vehtari et al., 2017)</span> があることを学んだ．</p>
 <div id="listing-lst-embedding2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524831075" data-listing-date-modified-sort="1735344000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="392">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999749" data-listing-date-modified-sort="1735344000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="392">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding2:posts/2024/TransDimensionalModels/BayesSelection.html -->
@@ -6849,7 +7350,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6871,7 +7372,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6893,7 +7394,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6915,7 +7416,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="467">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6937,7 +7438,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -6959,7 +7460,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7065,7 +7566,7 @@ No matching items
 <p>ベイズの立場からは，「変量」と「固定」の名称は歴史的なもので，実質的な違いは「次の階層で回帰モデルを仮定するか，モデルを持たない最終階層の変数と扱い一様事前分布に従うとするか」という仮定の違いにすぎない．詳しくは次節：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735524828445" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735538997124" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
 <a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -7106,7 +7607,7 @@ No matching items
 <p>こうして設定された各因子の各水準ごとの係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta%5E%7B(m)%7D_j"> の事後分布を見ることで「分散分析」を実行することになる．これがベイズによる分散分析の再解釈である．</p>
 <div id="listing-lst-ANOVA" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7128,7 +7629,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7150,7 +7651,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7432,7 +7933,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 <p>回帰モデルや分散分析では，暗黙裡に応答変数が連続であることが仮定されている．</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7454,7 +7955,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735524830822" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735538999495" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7476,7 +7977,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7526,7 +8027,7 @@ No matching items
 <p>この潜在変数 <img src="https://latex.codecogs.com/png.latex?Y_i%5E*"> は単位 <img src="https://latex.codecogs.com/png.latex?i%5Cin%5BN%5D"> の潜在的な尺度として解釈できる．これを用いて因子分析様の解析を行う例には <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html">理想点推定</a> もある．</p>
 <div id="listing-lst-ideal" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-2">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735524831085" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735538999760" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7548,7 +8049,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735524831086" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735538999761" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7613,7 +8114,7 @@ No matching items
 <p>これに関しては <a href="../../../posts/2024/Survey/BDA3.html#sec-choice-model">階層ロジスティックモデルの稿</a> で詳しく扱う．</p>
 <div id="listing-lst-embed" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733961600000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="293">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733961600000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="295">
 <a href="../../../posts/2024/Survey/BDA3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embed:posts/2024/Survey/BDA3.html -->
@@ -7947,7 +8448,7 @@ Yates, F. (1934). <a href="https://doi.org/10.2307/2983604">Contingency tables i
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735524828163" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735538996840" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
 <a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:diffusion-listing:posts/2024/Bridges/SB0.html -->
@@ -7967,7 +8468,7 @@ Langevin 拡散の時間反転を用いたシミュレーションベースの�
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735524828163" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
+<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735538996841" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7989,7 +8490,7 @@ Iterative Proportional Fitting アルゴリズムについて
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735524828163" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735538996841" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8025,7 +8526,7 @@ No matching items
 <p>雑音除去過程に関しては次の記事を参照：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1735524829684" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1735538998367" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
 <a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -8055,7 +8556,7 @@ No matching items
 <p>DDS については次の記事を参照：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735524828163" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735538996841" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -8985,7 +9486,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1735524828524" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
+<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1735538997204" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
 <a href="../../../posts/2024/Particles/ParticleMethods.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9007,7 +9508,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1735524831201" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1735538999878" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/Surveys/SMCSamplers.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9029,7 +9530,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1735524827921" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
+<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1735538996606" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
 <a href="../../../posts/2023/Surveys/ParticleFilter.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -10080,7 +10581,7 @@ van/ Kekem, D. L. (2018). <em>Dynamics of the lorenz-96 model: Bifurcations, sym
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735524831085" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735538999760" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -10110,7 +10611,7 @@ Statistics
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1732233600000" data-listing-file-modified-sort="1735524831187" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="1" data-listing-word-count-sort="186">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1732233600000" data-listing-file-modified-sort="1735538999864" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="1" data-listing-word-count-sort="186">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/IdealPoint2.html -->
@@ -10144,7 +10645,7 @@ Computation
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1734220800000" data-listing-file-modified-sort="1735524831187" data-listing-date-modified-sort="1734220800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="76">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1734220800000" data-listing-file-modified-sort="1735538999864" data-listing-date-modified-sort="1734220800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="76">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/IdealPoint3.html -->
@@ -13947,7 +14448,7 @@ font-style: inherit;">".png"</span>), p)</span>
 <p>この点については次の稿も参照：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735524831074" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735538999749" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
 <a href="../../../posts/2024/TransDimensionalModels/Bafumi.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding1:posts/2024/TransDimensionalModels/Bafumi.html -->
@@ -15063,7 +15564,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15085,7 +15586,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="467">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15107,7 +15608,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15762,7 +16263,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 <p>この「別のモデル」の選び方は <span class="citation" data-cites="Rouder+2012">(Rouder et al., 2012)</span> によって一致性とスケール不変性を持つものが提案されている．詳しくは次の関連記事も参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15784,7 +16285,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -15806,7 +16307,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17049,7 +17550,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17071,7 +17572,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="467">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17093,7 +17594,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17361,7 +17862,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17383,7 +17884,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524828230" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538996908" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17405,7 +17906,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="466">
+<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="467">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17427,7 +17928,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="3" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17449,7 +17950,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999119" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17471,7 +17972,7 @@ Skinner, C. J., and Rao, J. N. K. (1996). <a href="https://doi.org/10.1080/01621
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735524830451" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735538999120" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17802,7 +18303,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735524831067" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17824,7 +18325,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17846,7 +18347,7 @@ Zellner, A., and Siow, A. (1980). <a href="https://doi.org/10.1007/BF02888369">P
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735524831068" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735538999743" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17973,12 +18474,46 @@ No matching items
 </section>
 <section id="媒介分析" class="level3" data-number="1.4">
 <h3 data-number="1.4" class="anchored" data-anchor-id="媒介分析"><span class="header-section-number">1.4</span> 媒介分析</h3>
-<p><strong>媒介分析</strong> (mediation analysis) <span class="citation" data-cites="Robins-Greenland1992">(J. M. Robins and Greenland, 1992)</span> においては，因果の流れが複数あり得る場合に，媒介因子 <img src="https://latex.codecogs.com/png.latex?Z"> を経由した <strong>間接効果</strong> の量を総合効果の中から識別することを目標とする．</p>
+<p><strong>媒介分析</strong> (mediation analysis) <span class="citation" data-cites="Robins-Greenland1992">(Robins and Greenland, 1992)</span> においては，因果の流れが複数あり得る場合に，媒介因子 <img src="https://latex.codecogs.com/png.latex?Z"> を経由した <strong>間接効果</strong> の量を総合効果の中から識別することを目標とする．</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="https://162348.github.io/posts/2024/Survey/Files/Mediation.svg" class="img-fluid figure-img"></p>
 <figcaption>媒介変数 <img src="https://latex.codecogs.com/png.latex?Z"> を表す図式</figcaption>
 </figure>
+</div>
+<div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1735430400000" data-listing-file-modified-sort="1735538999098" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="596">
+<a href="../../../posts/2024/Stat/Regression.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-center">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Stat/Images/Cochran.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+セミパラメトリック重回帰分析
+</h5>
+<div class="card-subtitle listing-subtitle">
+自乗残差最小化の視点から
+</div>
+<div class="listing-categories">
+<div class="listing-category" onclick="window.quartoListingCategory('U3RhdGlzdGljcw=='); return false;">
+Statistics
+</div>
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-29
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
 </div>
 <p>一方でモデリングに基づいた方法も可能である <span class="citation" data-cites="Pearl2012">(Pearl, 2012)</span>, <span class="citation" data-cites="Nguyen+2021">(Nguyen et al., 2021)</span>．<sup>6</sup></p>
 <p>はじめ社会学や社会心理学においてはモデルによる媒介分析が試みられていた <span class="citation" data-cites="Alwin-Hauser1975">(Alwin and Hauser, 1975)</span>, <span class="citation" data-cites="Baron-Kenny1986">(Baron and Kenny, 1986)</span>．</p>
@@ -18030,12 +18565,12 @@ No matching items
 </section>
 <section id="周辺構造モデル" class="level3" data-number="2.5">
 <h3 data-number="2.5" class="anchored" data-anchor-id="周辺構造モデル"><span class="header-section-number">2.5</span> 周辺構造モデル</h3>
-<p>周辺構造モデルは平均処置効果をパラメータに持つモデルであり <span class="citation" data-cites="Robins2000">(J. M. Robins, 2000)</span>，潜在結果変数の（周辺）平均構造をモデリングする： <img src="https://latex.codecogs.com/png.latex?%0Ag(%5Coperatorname%7BE%7D%5BY%5Ea_i%7CL_i%5D)=%5Cpsi_0+%5Cpsi_1a+%5Cpsi_2L_i+%5Cpsi_3L_ia.%0A"></p>
+<p>周辺構造モデルは平均処置効果をパラメータに持つモデルであり <span class="citation" data-cites="Robins2000">(Robins, 2000)</span>，潜在結果変数の（周辺）平均構造をモデリングする： <img src="https://latex.codecogs.com/png.latex?%0Ag(%5Coperatorname%7BE%7D%5BY%5Ea_i%7CL_i%5D)=%5Cpsi_0+%5Cpsi_1a+%5Cpsi_2L_i+%5Cpsi_3L_ia.%0A"></p>
 <p>統計ソフトの充実によりよく使われるようになったが，後述の構造的ネストモデルと <img src="https://latex.codecogs.com/png.latex?G">-推定の方が一般的であり，より効率的である <span class="citation" data-cites="Vamsteelandt-Joffe2014">(Vansteelandt and Joffe, 2014)</span>．</p>
 </section>
 <section id="g-推定" class="level3" data-number="2.6">
 <h3 data-number="2.6" class="anchored" data-anchor-id="g-推定"><span class="header-section-number">2.6</span> <img src="https://latex.codecogs.com/png.latex?G">-推定</h3>
-<p><img src="https://latex.codecogs.com/png.latex?G">-推定 <span class="citation" data-cites="Robins+2000">(J. M. Robins et al., 2000)</span> は不服従など処置変数 <img src="https://latex.codecogs.com/png.latex?D"> に依存した交絡を調整するために，構造的平均モデル，パラメトリック <img src="https://latex.codecogs.com/png.latex?G">-公式 <span class="citation" data-cites="Robins1986">(J. Robins, 1986)</span>，構造的ネストモデル (structural nested model) <span class="citation" data-cites="Robins+1992">(J. M. Robins et al., 1992)</span> と同時に提案された．</p>
+<p><img src="https://latex.codecogs.com/png.latex?G">-推定 <span class="citation" data-cites="Robins+2000">(Robins et al., 2000)</span> は不服従など処置変数 <img src="https://latex.codecogs.com/png.latex?D"> に依存した交絡を調整するために，構造的平均モデル，パラメトリック <img src="https://latex.codecogs.com/png.latex?G">-公式 <span class="citation" data-cites="Robins1986">(Robins, 1986)</span>，構造的ネストモデル (structural nested model) <span class="citation" data-cites="Robins+1992">(Robins et al., 1992)</span> と同時に提案された．</p>
 <p><strong>構造的平均モデル</strong> (SMM: Structural Mean Model) では，リンク関数 <img src="https://latex.codecogs.com/png.latex?g"> の自由度を残して <img src="https://latex.codecogs.com/png.latex?%0Ag(%5Coperatorname%7BE%7D%5BY%5Ea%7CL=l,A=a%5D)-g(%5Coperatorname%7BE%7D%5BY%5E0%7CL=l,A=a%5D)=%5Cgamma%5E*(l,a;%5Cpsi%5E*)%0A"> により処置 <img src="https://latex.codecogs.com/png.latex?A=a"> の平均因果効果にパラメトリックな仮定をおく．</p>
 </section>
 </section>
@@ -18112,6 +18647,7 @@ No matching items
 <p>この観点から，経験分布関数 <img src="https://latex.codecogs.com/png.latex?F_n"> は経験尤度を最大にするノンパラメトリック推定量である．</p>
 <p>最尤法はモデルの全ての母数を特定化しない限り実行できないが，経験尤度の最大化ならば可能である．<sup>12</sup></p>
 <p><img src="https://latex.codecogs.com/png.latex?%0A%5Csum_%7Bi=1%7D%5Enp_ig(x_i,%5Ctheta)=0%0A"> を満たす中で経験尤度を最大化する <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> を <strong>最大経験尤度推定量</strong> (MELE: maximum empirical likelihood estimator) <span class="citation" data-cites="Qin-Lawless1994">(Qin and Lawless, 1994)</span> という．</p>
+<p>この推定量は漸近正規性を持ち，一般化推定方程式や一般化モーメント法の代替手法として期待されている．</p>
 </section>
 </section>
 
@@ -18269,7 +18805,7 @@ Pfanzagl, J. (1969). <a href="https://doi.org/10.1007/BF02613654">On the measura
 Qin, J., and Lawless, J. (1994). <a href="https://doi.org/10.1214/aos/1176325370"><span class="nocase">Empirical Likelihood and General Estimating Equations</span></a>. <em>The Annals of Statistics</em>, <em>22</em>(1), 300–325.
 </div>
 <div id="ref-Robins1986" class="csl-entry">
-Robins, J. (1986). <a href="https://doi.org/10.1016/0270-0255(86)90088-6">A new approach to causal inference in mortality studies with a sustained exposure period—application to control of the healthy worker survivor effect</a>. <em>Mathematical Modelling</em>, <em>7</em>(9), 1393–1512.
+Robins, J. M. (1986). <a href="https://doi.org/10.1016/0270-0255(86)90088-6">A new approach to causal inference in mortality studies with a sustained exposure period—application to control of the healthy worker survivor effect</a>. <em>Mathematical Modelling</em>, <em>7</em>(9), 1393–1512.
 </div>
 <div id="ref-Robins2000" class="csl-entry">
 Robins, J. M. (2000). Marginal structural models versus structural nested models as tools for causal inference. In M. E. Halloran and D. Berry, editors, <em>Statistical models in epidemiology, the environment, and clinical trials</em>, pages 95–133. New York, NY: Springer New York.
@@ -18355,7 +18891,7 @@ Wedderburn, R. W. M. (1974). <a href="http://www.jstor.org/stable/2334725">Quasi
 </div>
 <div id="listing-lst-stan" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ01DTUMlMkNSJTJDU3RhbiUyQ1lVSU1BJTJDQmF5ZXNpYW4=" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735524829539" data-listing-date-modified-sort="1726790400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="952">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ01DTUMlMkNSJTJDU3RhbiUyQ1lVSU1BJTJDQmF5ZXNpYW4=" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735538998222" data-listing-date-modified-sort="1726790400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="952">
 <a href="../../../posts/2024/R/adastan.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -18377,7 +18913,7 @@ YUIMA と Stan を用いた確率過程のベイズ推定入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1735524829492" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1735538998175" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
 <a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -18396,7 +18932,7 @@ Stan 入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1735524829524" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
+<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1735538998207" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
 <a href="../../../posts/2024/R/YUIMA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-stan:posts/2024/R/YUIMA.html -->
@@ -20037,400 +20573,6 @@ font-style: inherit;">"theta"</span>))</span></code></pre></div>
   <guid>https://162348.github.io/posts/2024/R/Stan2.html</guid>
   <pubDate>Thu, 19 Sep 2024 00:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/R/Files/adastan.png" medium="image" type="image/png" height="96" width="144"/>
-</item>
-<item>
-  <title>ベイズ生存時間解析</title>
-  <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2024/TransDimensionalModels/SurvivalAnalysis.html</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<section id="次稿" class="level2 unlisted unnumbered">
-<h2 class="unlisted unnumbered anchored" data-anchor-id="次稿">次稿</h2>
-<div id="listing-lst-listing1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1735524831195" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
-<a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ベイズ階層多ハザードモデル
-</h5>
-<div class="card-subtitle listing-subtitle">
-Zig-Zag サンプラーによるモデル平均法
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-</section>
-<section id="生存時間と競合リスクの解析" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="生存時間と競合リスクの解析"><span class="header-section-number">1</span> 生存時間と競合リスクの解析</h2>
-<section id="sec-HTA" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="sec-HTA"><span class="header-section-number">1.1</span> はじめに</h3>
-<p><a href="https://ja.wikipedia.org/wiki/医療経済学">医療経済学</a> などにおける <a href="https://ja.wikipedia.org/wiki/医療技術評価"><strong>医療技術評価</strong></a> (HTA: Health Technology Assessment) とは，新たな医療技術を臨床試験で評価し，リスクやコストを勘案して新技術の既存法との効果や安全性を評価・比較する <strong>決定理論的な枠組み</strong> である．</p>
-<p>この枠組みでは非負確率変数 <img src="https://latex.codecogs.com/png.latex?Y"> に対して，例えば次のような平均の計算が必要になる： <span id="eq-HTA"><img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5BY%5D=%5Cint%5E%5Cinfty_0S_Y(y)%5C,dy,%5Cqquad%20S_Y(y):=%5Coperatorname%7BP%7D%5BY%5Cge%20y%5D.%0A%5Ctag%7B1%7D"></span></p>
-<p>医療技術評価の文脈において <img src="https://latex.codecogs.com/png.latex?Y"> は被験者のイベントまでの時間 (time-to-event) を表す確率変数で，<img src="https://latex.codecogs.com/png.latex?S_Y"> は <img src="https://latex.codecogs.com/png.latex?Y"> の <strong>生存（割合）関数</strong> といい，<img src="https://latex.codecogs.com/png.latex?Y"> の分布関数 <img src="https://latex.codecogs.com/png.latex?F_Y"> と次の関係を持つ： <img src="https://latex.codecogs.com/png.latex?%0AS_Y(y)=1-F_Y(y).%0A"></p>
-<p>平均 (1) を計算するためには，観測の打ち切りを乗り越えて <img src="https://latex.codecogs.com/png.latex?S_Y"> を <img src="https://latex.codecogs.com/png.latex?%5B0,%5Cinfty)"> 全域で推定する必要があり，そのためにはベイズ手法が有望視されている（第 1.5 節）．</p>
-</section>
-<section id="sec-survival-analysis-introduction" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="sec-survival-analysis-introduction"><span class="header-section-number">1.2</span> 生存時間解析とは</h3>
-<p>イベントまでの時間 <img src="https://latex.codecogs.com/png.latex?Y"> の生存関数 <img src="https://latex.codecogs.com/png.latex?S_Y"> を推定する問題は <strong>生存時間解析</strong> (survival analysis) または信頼性解析として知られ，ほとんど統計学の起源と同時に始まる長い歴史を持つ．<sup>1</sup></p>
-<p>共変量 <img src="https://latex.codecogs.com/png.latex?X"> の生存時間 <img src="https://latex.codecogs.com/png.latex?Y"> への影響を調べる際には，生存関数 <img src="https://latex.codecogs.com/png.latex?S_Y"> の代わりに <strong>ハザード関数</strong> （または瞬間故障率，死亡率） <img src="https://latex.codecogs.com/png.latex?%0Ah(y):=%5Cfrac%7Bf(y)%7D%7BS(t)%7D=-%5Cfrac%7Bd%20%5Clog%20S(y)%7D%7Bd%20t%7D,%5Cqquad%20f(y)=F'(y)=-S'(y),%0A"> もモデリングの対象になる．ただし <img src="https://latex.codecogs.com/png.latex?f"> は <img src="https://latex.codecogs.com/png.latex?Y"> の確率密度関数とした．</p>
-<p>ハザード関数 <img src="https://latex.codecogs.com/png.latex?h"> は，被験者の生存割合が <img src="https://latex.codecogs.com/png.latex?S(y)"> である段階での，次の単位時間でのイベント発生率を表す．ハザード関数が判れば，生存関数は <img src="https://latex.codecogs.com/png.latex?%0AS(y)=%5Cexp%5Cleft(-%5Cint%5Ey_0h(t)%5C,dt%5Cright)%0A"> によって復元される．</p>
-<p>さらに究極の目標として，生存時間 <img src="https://latex.codecogs.com/png.latex?Y"> に影響を与える共変量 <img src="https://latex.codecogs.com/png.latex?X"> の成分を特定することがある．この際に用いるモデルを <strong>競合リスクモデル</strong> という（第 1.7 節）．</p>
-<p>競合する <img src="https://latex.codecogs.com/png.latex?K"> 個のリスク要因がそれぞれハザード <img src="https://latex.codecogs.com/png.latex?h_1,%5Ccdots,h_K"> を持つとき，イベント発生時刻 <img src="https://latex.codecogs.com/png.latex?Y"> のハザードは和 <img src="https://latex.codecogs.com/png.latex?%0Ah_Y(y)=%5Csum_%7Bj=1%7D%5EKh_j(y)%0A"> で与えられる．これを <strong>多ハザード模型 (Polyhazard model)</strong>（第 1.6 節），<img src="https://latex.codecogs.com/png.latex?h_i"> を <strong>原因別ハザード</strong> という．</p>
-</section>
-<section id="生存関数推定" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="生存関数推定"><span class="header-section-number">1.3</span> 生存関数推定</h3>
-<section id="欠測の問題" class="level4" data-number="1.3.1">
-<h4 data-number="1.3.1" class="anchored" data-anchor-id="欠測の問題"><span class="header-section-number">1.3.1</span> 欠測の問題</h4>
-<p>生存時間解析における最大の問題は観測の <strong>打ち切り</strong> (censoring) である．</p>
-<p>換言すれば，ほとんどの生存時間データでは種々の理由で被験者が脱落し，追跡終了時点以降はイベントの発生を確認できないのである．</p>
-<p>そこで，５割生存時間 (MST: Median Survival Time) を代わりに推定対象としたり，ある打ち切り時刻 <img src="https://latex.codecogs.com/png.latex?T%3E0"> までの区間のみに限って <img src="https://latex.codecogs.com/png.latex?S:%5B0,T%5D%5Cto%5B0,1%5D"> を推定することが考えられた．</p>
-</section>
-<section id="sec-parametrics" class="level4" data-number="1.3.2">
-<h4 data-number="1.3.2" class="anchored" data-anchor-id="sec-parametrics"><span class="header-section-number">1.3.2</span> パラメトリックモデル</h4>
-<p><img src="https://latex.codecogs.com/png.latex?S_Y"> をパラメトリックな分布族の中から推定することが考えられる．</p>
-<p>この場合，形状母数 <img src="https://latex.codecogs.com/png.latex?%5Cnu%3E0"> によってハザード関数の増加・減少を柔軟にモデリングできる <a href="https://ja.wikipedia.org/wiki/ワイブル分布">Weibull 分布</a> <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BW%7D(%5Cnu,%5Calpha)"> または <span class="citation" data-cites="Rosin-Rammler1933">(Rosin and Rammler, 1933)</span> の分布 <img src="https://latex.codecogs.com/png.latex?%0Af(x;%5Cnu,%5Calpha)=%5Cfrac%7B%5Cnu%7D%7B%5Calpha%7D%5Cleft(%5Cfrac%7Bx%7D%7B%5Calpha%7D%5Cright)%5E%7B%5Cnu-1%7D%5Cexp%5Cleft(-%5Cleft(%5Cfrac%7Bx%7D%7B%5Calpha%7D%5Cright)%5E%5Cnu%5Cright)1_%7B%5Cleft%5C%7Bx%3E0%5Cright%5C%7D%7D,%5Cqquad%5Calpha%3E0,%5Cnu%3E0,%0A"> <img src="https://latex.codecogs.com/png.latex?%0Ah(t)=%5Cfrac%7B%5Cnu%7D%7B%5Calpha%7D%5Cleft(%5Cfrac%7Bt%7D%7B%5Calpha%7D%5Cright)%5E%7B%5Cnu-1%7D1_%7B%5Cleft%5C%7Bt%3E0%5Cright%5C%7D%7D%0A"> をはじめとして，Gamma 分布，対数正規分布，対数ロジスティック分布分布，パレート分布など，極値分布の指数変換様の分布族が用いられる．</p>
-</section>
-<section id="ノンパラメトリックモデル" class="level4" data-number="1.3.3">
-<h4 data-number="1.3.3" class="anchored" data-anchor-id="ノンパラメトリックモデル"><span class="header-section-number">1.3.3</span> ノンパラメトリックモデル</h4>
-<p>これには <span class="citation" data-cites="Kaplan-Meier1958">(Kaplan and Meier, 1958)</span> や <span class="citation" data-cites="Cutler-Ederer1958">(Cutler and Ederer, 1958)</span> の方法が古来より有名である．</p>
-</section>
-</section>
-<section id="回帰" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="回帰"><span class="header-section-number">1.4</span> 回帰</h3>
-<section id="ハザードの回帰" class="level4" data-number="1.4.1">
-<h4 data-number="1.4.1" class="anchored" data-anchor-id="ハザードの回帰"><span class="header-section-number">1.4.1</span> ハザードの回帰</h4>
-<p>生存時間解析の主な目的は，生存曲線の正確な描画というより，生存時間を決定する要因の特定にある．</p>
-<p><span class="citation" data-cites="Cox72-RegressionModelsLifeTables">(Cox, 1972)</span> はベースとなる生存関数 <img src="https://latex.codecogs.com/png.latex?S_0"> (baseline survival curve) を局外母数として，<img src="https://latex.codecogs.com/png.latex?S"> と <img src="https://latex.codecogs.com/png.latex?S_0"> の関係をパラメトリックにモデリングする．</p>
-<p>より正確には，ハザード関数 <img src="https://latex.codecogs.com/png.latex?h"> のベース <img src="https://latex.codecogs.com/png.latex?h_0"> からの比の対数を，線型な予測子 <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%20%5Cfrac%7Bh(y)%7D%7Bh_0(y)%7D=X%5E%5Ctop%5Cbeta+%5Cepsilon%0A"> によってモデリングする．</p>
-<p>一般にハザードの比を <img src="https://latex.codecogs.com/png.latex?%0Ah(y%7Cx)=h_0(y)c(X%5E%5Ctop%5Cbeta)%0A"> とモデリングするものを <strong>乗法的ハザードモデル</strong> といい，特に <img src="https://latex.codecogs.com/png.latex?c=%5Cexp"> と取った場合を Cox の <strong>比例ハザードモデル</strong> (Cox’s proportional hazard model) とも呼ばれる．</p>
-<p>この方法は，打ち切りデータへの対処が簡便になることが美点である．</p>
-</section>
-<section id="生存時間の回帰" class="level4" data-number="1.4.2">
-<h4 data-number="1.4.2" class="anchored" data-anchor-id="生存時間の回帰"><span class="header-section-number">1.4.2</span> 生存時間の回帰</h4>
-<p>生存時間 <img src="https://latex.codecogs.com/png.latex?Y"> の対数を直接 <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%20Y=%5Cmu+%5Cbeta%5E%5Ctop%20X+%5Cepsilon%0A"> によってモデリングする方法は <strong>加速故障時間モデル</strong> (AFT: Accelerated Failure Time Model) <span class="citation" data-cites="Wei1992">(Wei, 1992)</span> と呼ばれる．</p>
-<p>このモデルはハザード関数に，<img src="https://latex.codecogs.com/png.latex?h_0"> を <img src="https://latex.codecogs.com/png.latex?x=0"> の場合のハザード関数として <img src="https://latex.codecogs.com/png.latex?%0Ah(y%7Cx)=e%5E%7B-%5Cbeta%5E%5Ctop%20x%7Dh_0(ye%5E%7B-%5Cbeta%5E%5Ctop%20x%7D),%0A"> という乗法的な仮定をおいていることに相当する．</p>
-</section>
-</section>
-<section id="sec-modern-survival-analysis" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="sec-modern-survival-analysis"><span class="header-section-number">1.5</span> 生存関数推定再論</h3>
-<p>一方で医療行為の社会的な影響も考える HTA の目標を達成するためには，式 (1) のような量を計算する必要がある．</p>
-<p>そのためには，生存曲線の推定と同時に打ち切り時点以降の外挿もできるようなモデルを考える必要があるが，Kaplan-Meier 法などのノンパラメトリック法は（現状）この用途には用いることができない．</p>
-<p>表現力が高いパラメトリックモデルをベイズ推定することが，非常に魅力的な解決策として考えられ，実際 NICE のガイドラインでも推奨されている <span class="citation" data-cites="Latimer2011">(Latimer, 2011)</span>．</p>
-<p>その際の魅力的なモデルに polyhazard model <span class="citation" data-cites="Berger-Sun1993">(Berger and Sun, 1993)</span>, <span class="citation" data-cites="Louzada-Neto1999">(Louzada-Neto, 1999)</span> がある．</p>
-<p><span class="citation" data-cites="Latimer2013">(Latimer, 2013)</span> では現状の HTA 分析では，生存時間モデルに対してモデル検証・モデル選択が不十分であることに警鐘が鳴らされている．</p>
-<p>polyhazard model のような階層モデルを効率的にベイズ推定・モデル平均化ができるような MCMC 法が開発されることは，このモデル検証の手続きを自動化したり，より手軽にするために非常に重要である．</p>
-</section>
-<section id="sec-polyhazard-model" class="level3" data-number="1.6">
-<h3 data-number="1.6" class="anchored" data-anchor-id="sec-polyhazard-model"><span class="header-section-number">1.6</span> 多ハザードモデルの表現力</h3>
-<p>Polyhazard model もハザード関数をモデリングするが， <img src="https://latex.codecogs.com/png.latex?%0Ah_Y(y)=%5Csum_%7Bj=1%7D%5EKh_j(y)%0A"> という形でモデリングし，個々の <img src="https://latex.codecogs.com/png.latex?h_j"> にパラメトリックな仮定をおく．</p>
-<p>仮に <img src="https://latex.codecogs.com/png.latex?h_j"> として，形状母数 <img src="https://latex.codecogs.com/png.latex?%5Cnu%3E0"> と位置母数 <img src="https://latex.codecogs.com/png.latex?%5Cmu:=%5Calpha%5E%7B-%5Cnu%7D%3E0"> を持つ Weibull 分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BW%7D(%5Cnu,%5Cmu)"> のハザード関数<sup>2</sup> <img src="https://latex.codecogs.com/png.latex?%0Ah_%7B%5Cmathrm%7BW%7D%7D(y):=%5Cmu%5Cnu%20y%5E%7B%5Cnu-1%7D%0A"> と対数ロジスティック分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BLL%7D(%5Cnu,%5Cmu)"> のハザード関数 <img src="https://latex.codecogs.com/png.latex?%0Ah_%7B%5Cmathrm%7BLL%7D%7D(y):=%5Cfrac%7B%5Cleft(%5Cfrac%7B%5Cnu%7D%7B%5Cmu%7D%5Cright)%5Cleft(%5Cfrac%7By%7D%7B%5Cmu%7D%5Cright)%5E%7B%5Cnu-1%7D%7D%7B1+%5Cleft(%5Cfrac%7By%7D%7B%5Cmu%7D%5Cright)%5E%5Cnu%7D%0A"> の２つのみを考えたとしても，複数のパラメトリックモデルを足し合わせることで驚異的な表現力を達成することができる．</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="img-fluid figure-img"></p>
-<figcaption><span class="citation" data-cites="Hardcastle+2024">(Hardcastle et al., 2024, p. 5)</span> より．</figcaption>
-</figure>
-</div>
-</section>
-<section id="sec-competing-risk-analysis" class="level3" data-number="1.7">
-<h3 data-number="1.7" class="anchored" data-anchor-id="sec-competing-risk-analysis"><span class="header-section-number">1.7</span> 競合リスク解析</h3>
-<section id="モデルの解釈" class="level4" data-number="1.7.1">
-<h4 data-number="1.7.1" class="anchored" data-anchor-id="モデルの解釈"><span class="header-section-number">1.7.1</span> モデルの解釈</h4>
-<p>polyhazard モデルでは各 <img src="https://latex.codecogs.com/png.latex?h_k"> の前に係数がついていない点には注意が必要である．</p>
-<p>各 <img src="https://latex.codecogs.com/png.latex?h_k"> は実在の原因のハザードを表しており，各被験者は同時に <img src="https://latex.codecogs.com/png.latex?K"> 個のリスクに晒されているというモデルである（第 1.2 節）．</p>
-<p>このようなモデルを <strong>競合リスクモデル</strong> (competing risk model) ともいう．</p>
-<p>例えば，心臓の移植後のハザード曲線はバスタブ曲線の形を持ち，少なくとも２つの別々の競合するリスク要因が存在することが窺える <span class="citation" data-cites="Demiris+2015">(Demiris et al., 2015)</span>．</p>
-</section>
-<section id="競合リスクモデリング" class="level4" data-number="1.7.2">
-<h4 data-number="1.7.2" class="anchored" data-anchor-id="競合リスクモデリング"><span class="header-section-number">1.7.2</span> 競合リスクモデリング</h4>
-<p>しかし，リスク因子はほとんどの場合観測できず，潜在変数となる．<img src="https://latex.codecogs.com/png.latex?K"> の数も不確実である．</p>
-<p>このような識別不可能なモデルは，階層モデルとしてベイズ推論を実行することが向いていると言えるかも知れない．</p>
-<p>さらに発展的なモデルにはマルチステートモデルもある <span class="citation" data-cites="齋藤-室谷2023">(齋藤哲雄 and 室谷健太, 2023)</span>, <span class="citation" data-cites="齋藤-室谷2024">(Saito and Murotani, 2024)</span>．</p>
-</section>
-</section>
-<section id="ベイズ階層多ハザードモデル" class="level3" data-number="1.8">
-<h3 data-number="1.8" class="anchored" data-anchor-id="ベイズ階層多ハザードモデル"><span class="header-section-number">1.8</span> ベイズ階層多ハザードモデル</h3>
-<p><span class="citation" data-cites="Hardcastle+2024">(Hardcastle et al., 2024)</span> では HTA への応用を念頭に，完全なベイズ階層多ハザードモデルの推定を試みている．ここではそのモデルの詳細を紹介する．</p>
-<section id="第１階層" class="level4" data-number="1.8.1">
-<h4 data-number="1.8.1" class="anchored" data-anchor-id="第１階層"><span class="header-section-number">1.8.1</span> 第１階層</h4>
-<p>各個別要因 <img src="https://latex.codecogs.com/png.latex?k%5Cin%5BK%5D"> の形状母数 <img src="https://latex.codecogs.com/png.latex?%5Cnu_k"> と位置母数 <img src="https://latex.codecogs.com/png.latex?%5Cmu_k"> に階層構造 <span id="eq-nu"><img src="https://latex.codecogs.com/png.latex?%0A%5Clog(%5Cnu_k)=%5Calpha_k%5Csim%5Cmathrm%7BN%7D(0,%5Csigma_%5Calpha%5E2)%0A%5Ctag%7B2%7D"></span> <span id="eq-mu"><img src="https://latex.codecogs.com/png.latex?%0A%5Clog(%5Cmu_k)=%5Cbeta_%7Bk,0%7D+%5Csum_%7Bj%5Cin%5Cleft%5C%7Bj%5Cin%5Bp%5D%5Cmid%5Cgamma_%7Bkj%7D=1%5Cright%5C%7D%7Dx_j%5Cbeta_%7Bk,j%7D,%5Cqquad%5Cbeta_%7Bk,0%7D%5Csim%5Cmathrm%7BN%7D(0,%5Csigma_%7B%5Cbeta_0%7D%5E2)%0A%5Ctag%7B3%7D"></span> を考える．ただし，<img src="https://latex.codecogs.com/png.latex?%5Cgamma_%7Bk,j%7D%5Cin2"> は共変量 <img src="https://latex.codecogs.com/png.latex?x_j"> が <img src="https://latex.codecogs.com/png.latex?k%5Cin%5BK%5D"> 番目の部分モデルに参加するかどうかを決める指示変数とする．</p>
-<p>残っているパラメータ <img src="https://latex.codecogs.com/png.latex?%5Cbeta_%7Bk,j%7D%5C;(j%5Cin%5Bp%5D)"> には <img src="https://latex.codecogs.com/png.latex?%0A%5Cbeta_%7Bk,j%7D%5Csim(1-%5Comega)%5Cdelta_0+%5Comega%5Coperatorname%7BN%7D(0,%5Csigma_%5Cbeta%5E2)%0A"> と spike-and-slab 事前分布 <span class="citation" data-cites="Mitchell-Beauchamp1988">(Mitchell and Beauchamp, 1988)</span> を仮定し，変数選択を促進する．</p>
-<p>以降，<img src="https://latex.codecogs.com/png.latex?%5Ctheta_k=(%5Cnu_k,%5Cmu_k)"> とし，<img src="https://latex.codecogs.com/png.latex?(K,%5Cgamma,%5Ctheta)"> を本モデルのパラメータとする．</p>
-</section>
-<section id="第二階層" class="level4" data-number="1.8.2">
-<h4 data-number="1.8.2" class="anchored" data-anchor-id="第二階層"><span class="header-section-number">1.8.2</span> 第二階層</h4>
-<p><img src="https://latex.codecogs.com/png.latex?%5Csigma_%5Calpha%5E2=2,%5Csigma_%7B%5Cbeta_0%7D%5E2=5"> は固定してしまうと，<img src="https://latex.codecogs.com/png.latex?%5Cphi:=(%5Comega,%5Csigma_%5Cbeta)"> がハイパーパラメータとして残っている．これには <img src="https://latex.codecogs.com/png.latex?%0A%5Comega%5Csim%5Coperatorname%7BBeta%7D(a,b)%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Csigma_%5Cbeta%5Csim%5Coperatorname%7BHalfCauchy%7D(0,1)%0A"> という事前分布をおく．</p>
-<p>前者はモデルのサイズについて Beta-二項分布を仮定することに等価である <span class="citation" data-cites="Ley-Steel2009">(3.1 節 Ley and Steel, 2009)</span>．後者は <span class="citation" data-cites="Gelman2006">(Gelman, 2006)</span>, <span class="citation" data-cites="Polson-Scott2012">(Polson and Scott, 2012)</span> の推奨の通りである．</p>
-</section>
-<section id="sec-prior-of-PX" class="level4" data-number="1.8.3">
-<h4 data-number="1.8.3" class="anchored" data-anchor-id="sec-prior-of-PX"><span class="header-section-number">1.8.3</span> <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BP%7D(E)"> 上の事前分布</h4>
-<p>実はまだ第一階層のパラメータが残っている．ハザードの数 <img src="https://latex.codecogs.com/png.latex?K"> と <img src="https://latex.codecogs.com/png.latex?h_k"> の関数形をどうするかである．</p>
-<p>ここでは Weibull 分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BW%7D(%5Cnu,%5Cmu)"> と対数ロジスティック分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BLL%7D(%5Cnu,%5Cmu)"> の２つ <img src="https://latex.codecogs.com/png.latex?%0AD=%5C%7B%5Cmathrm%7BW%7D(%5Cnu,%5Cmu),%5Cmathrm%7BLL%7D(%5Cnu,%5Cmu)%5C%7D%0A"> から等確率で <img src="https://latex.codecogs.com/png.latex?%0AK%5Csim%5Cmathrm%7BPois%7D_%7B%3E0%7D(%5Cxi)%0A"> 個選ぶこととする．</p>
-<p>ハイパーパラメータ <img src="https://latex.codecogs.com/png.latex?%5Cxi"> については，<span class="citation" data-cites="Hardcastle+2024">(Hardcastle et al., 2024)</span> では <img src="https://latex.codecogs.com/png.latex?%5Cxi=2"> としている．この根拠は <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BP%7D%5BK%3E4%5D%5Capprox0.061%0A"> であることとしている．</p>
-</section>
-<section id="部分的な階層モデル" class="level4" data-number="1.8.4">
-<h4 data-number="1.8.4" class="anchored" data-anchor-id="部分的な階層モデル"><span class="header-section-number">1.8.4</span> 部分的な階層モデル</h4>
-<p>元々部分的に階層化された多ハザードモデルは広く考えられていた．</p>
-<p><span class="citation" data-cites="Demiris+2015">(Demiris et al., 2015)</span> は <img src="https://latex.codecogs.com/png.latex?K%5Cin%5C%7B1,2,3,4%5C%7D"> の poly-Weibull モデルを推定し，その適合具合を比較した．</p>
-<p><span class="citation" data-cites="Benaglia+2015">(Benaglia et al., 2015)</span> では <img src="https://latex.codecogs.com/png.latex?K=2"> に限ったが，bi-Weibull モデルと bi-Gompertz モデルを推定し，視覚化手法によりモデルの適合具合を比較した．</p>
-<p>このように個別のモデルを推定してベストのものを選び出す方法は，モデルの仮定を緩和して多くの変数を動かすようにすればするほど難しくなっていく．</p>
-<p>例えば分布族も種々のものを考え，<img src="https://latex.codecogs.com/png.latex?K%5Cin%5C%7B1,2,3,4%5C%7D"> のいずれも考えるとなると，推定すべき個別のモデルは乗法的に増加していく．</p>
-<p>そこで <span class="citation" data-cites="Negrin+2017">(Negrín et al., 2017)</span> は，モデルを「比較」して「選択」するよりもむしろ，ベイズモデル平均 (BMA: Bayesian Model Averaging) を用いることでモデルの不確実性を考慮しつつ最終的なモデルを得ることを提案した．</p>
-<p>しかし，そのモデルは <img src="https://latex.codecogs.com/png.latex?K=2"> の Weibull 分布族にのみ限っていた．</p>
-</section>
-</section>
-</section>
-<section id="pdmp-によるベイズ競合リスク分析" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="pdmp-によるベイズ競合リスク分析"><span class="header-section-number">2</span> PDMP によるベイズ競合リスク分析</h2>
-<p><span class="citation" data-cites="Hardcastle+2024">(Hardcastle et al., 2024)</span> では完全なベイズ階層 polyhazard モデルに対するサンプラーを Zig-Zag サンプラーに基づいて構成している．ここではこれを紹介する．</p>
-<section id="課題" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="課題"><span class="header-section-number">2.1</span> 課題</h3>
-<p>完全なベイズ階層多ハザードモデルが考えられていなかったことは，次の３つの問題によると考えられる：</p>
-<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="Zig-Zag サンプラーが挑む課題">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Zig-Zag サンプラーが挑む課題
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li><u>次元の変化 (trans-dimensionality)</u></li>
-</ol>
-<p>ラベル <img src="https://latex.codecogs.com/png.latex?k%5Cin%5BK%5D"> が変わる毎に共変量の数が違い，従って <img src="https://latex.codecogs.com/png.latex?%5Cbeta_k"> の次元が変わる．従ってサンプラーは，次元の異なる空間の間を往復する必要がある．</p>
-<ol start="2" type="1">
-<li><u>尤度の変化</u></li>
-</ol>
-<p>加えて関数空間上にも事前分布をおいているため，<img src="https://latex.codecogs.com/png.latex?h_k"> の関数形も途中で変わる（第 1.8.3 節）．これに伴い，サンプリングするべき尤度の形も変わってしまう．</p>
-<ol start="3" type="1">
-<li><u>識別不可能性</u></li>
-</ol>
-<p>このモデルは潜在的な <img src="https://latex.codecogs.com/png.latex?K"> 個のリスクを仮定しており，全てに同等な同等な仮定をおいているため当然識別不可能である．その上事後分布が <img src="https://latex.codecogs.com/png.latex?K!"> 個の峰を持つ対称性を持ってしまう．このことは MCMC の収束を遅くする上に，最終的に得られる推定量を変に平均化してしまう恐れがある．</p>
-</div>
-</div>
-<p>そこで局外母数 <img src="https://latex.codecogs.com/png.latex?(K,D,%5Cgamma,%5Cphi)"> と推定対象 <img src="https://latex.codecogs.com/png.latex?%5Ctheta%5Cin%5Cmathbb%7BR%7D%5E%7B2K+%5Clvert%5Cgamma%5Crvert_1%7D"> のサンプリングに，多峰性分布につよい Zig-Zag サンプラーを用いる．</p>
-</section>
-<section id="theta-の-zig-zag-サンプリング" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="theta-の-zig-zag-サンプリング"><span class="header-section-number">2.2</span> <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> の Zig-Zag サンプリング</h3>
-<p>Zig-Zag サンプラーについては次の記事も参照：</p>
-<div id="listing-lst-zigzag" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1735524829483" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
-<a href="../../../posts/2024/Process/ZigZag.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-zigzag:posts/2024/Process/ZigZag.html -->
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-Zig-Zag 過程によるサンプリング
-</h5>
-<div class="card-subtitle listing-subtitle">
-ジャンプと確定的な動きによる新たな MCMC 手法
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-07-03
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1735524830429" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
-<a href="../../../posts/2024/Stat/ZigZagSubsampling.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Stat/MeanOfGaussian.svg" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-Zig-Zag サンプラーのサブサンプリングによるスケーラビリティ
-</h5>
-<div class="card-subtitle listing-subtitle">
-大規模モデル・大規模データに対する MCMC を目指して
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-07-18
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1735524829480" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
-<a href="../../../posts/2024/Process/PureJump.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/Process/PureJump_files/figure-html/unnamed-chunk-1-1.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-純粋跳躍過程の生成作用素と区分的確定的 Markov 過程
-</h5>
-<div class="card-subtitle listing-subtitle">
-ジャンプと確定的な動きによる新たな MCMC 手法
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-01-31
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<p>モデルが複雑であることに加えて尤度が変動することもあり，Poisson 点過程に対する解析的に上界が見つかるはずもないため，Automatic Zig-Zag <span class="citation" data-cites="Corbella+2022">(Corbella et al., 2022)</span> を Concave-Convex PDMP <span class="citation" data-cites="Sutton-Fearnhead2023">(Sutton and Fearnhead, 2023)</span> で修正して用いる．</p>
-<p>続きは次稿参照：</p>
-<div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726099200000" data-listing-file-modified-sort="1735524831195" data-listing-date-modified-sort="1731369600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="266">
-<a href="../../../posts/2024/TransDimensionalModels/SurvivalAnalysis1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-center">
-<p class="card-img-top">
-<img loading="lazy" src="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-ベイズ階層多ハザードモデル
-</h5>
-<div class="card-subtitle listing-subtitle">
-Zig-Zag サンプラーによるモデル平均法
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-</section>
-</section>
-
-
-
-<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="3"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">3</span> 文献紹介</h2><div class="quarto-appendix-contents">
-
-<p>生存時間解析について <span class="citation" data-cites="武冨-山本2023">(武冨奈菜美 and 山本和嬉, 2023)</span> は網羅的で入門的な日本語文献である．</p>
-<p><span class="citation" data-cites="西川正子2008">(西川正子, 2008)</span> は競合リスクモデルに焦点を当てた日本語文献である．<span class="citation" data-cites="齋藤-室谷2023">(齋藤哲雄 and 室谷健太, 2023)</span>, <span class="citation" data-cites="齋藤-室谷2024">(Saito and Murotani, 2024)</span> はマルチステートモデルも扱っている．<span class="citation" data-cites="森満2016">(森満, 2016)</span> は医学者による説明が与えられている．</p>
-<p>本項は <span class="citation" data-cites="Hardcastle+2024">(Hardcastle et al., 2024)</span> を大きく参考にした．</p>
-
-
-
-
-</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
-<div id="ref-Benaglia+2015" class="csl-entry">
-Benaglia, T., Jackson, C. H., and Sharples, L. D. (2015). <a href="https://doi.org/10.1002/sim.6375">Survival extrapolation in the presence of cause specific hazards</a>. <em>Statistics in Medicine</em>, <em>34</em>(5), 796–811.
-</div>
-<div id="ref-Berger-Sun1993" class="csl-entry">
-Berger, J. O., and Sun, D. (1993). <a href="https://doi.org/10.1080/01621459.1993.10476426">Bayesian analysis for the poly-weibull distribution</a>. <em>Journal of the American Statistical Association</em>, <em>88</em>(424), 1412–1418.
-</div>
-<div id="ref-Corbella+2022" class="csl-entry">
-Corbella, A., Spencer, S. E. F., and Roberts, G. O. (2022). <a href="https://doi.org/10.1007/s11222-022-10142-x"><span class="nocase">Automatic Zig-Zag Sampling in Practice</span></a>. <em>Statistics and Computing</em>, <em>32</em>(6), 107.
-</div>
-<div id="ref-Cox72-RegressionModelsLifeTables" class="csl-entry">
-Cox, D. R. (1972). <a href="https://doi.org/10.1111/j.2517-6161.1972.tb00899.x">Regression models and life-tables</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>34</em>(2), 187–220.
-</div>
-<div id="ref-Cutler-Ederer1958" class="csl-entry">
-Cutler, S. J., and Ederer, F. (1958). <a href="https://doi.org/10.1016/0021-9681(58)90126-7">Maximum utilization of the life table method in analyzing survival</a>. <em>Journal of Chronic Diseases</em>, <em>8</em>(6), 699–712.
-</div>
-<div id="ref-Demiris+2015" class="csl-entry">
-Demiris, N., Lunn, D., and Sharples, L. D. (2015). <a href="https://doi.org/10.1177/0962280211419645">Survival extrapolation using the poly-weibull model</a>. <em>Statistical Methods in Medical Research</em>, <em>24</em>(2), 287–301.
-</div>
-<div id="ref-Gelman2006" class="csl-entry">
-Gelman, A. (2006). <a href="https://doi.org/10.1214/06-BA117A"><span class="nocase">Prior distributions for variance parameters in hierarchical models (comment on article by Browne and Draper)</span></a>. <em>Bayesian Analysis</em>, <em>1</em>(3), 515–534.
-</div>
-<div id="ref-Hardcastle+2024" class="csl-entry">
-Hardcastle, L., Livingstone, S., and Baio, G. (2024). <a href="https://arxiv.org/abs/2406.14182">Averaging polyhazard models using piecewise deterministic monte carlo with applications to data with long-term survivors</a>.
-</div>
-<div id="ref-Kaplan-Meier1958" class="csl-entry">
-Kaplan, E. L., and Meier, P. (1958). <a href="http://www.jstor.org/stable/2281868">Nonparametric estimation from incomplete observations</a>. <em>Journal of the American Statistical Association</em>, <em>53</em>(282), 457–481.
-</div>
-<div id="ref-Latimer2011" class="csl-entry">
-Latimer, N. R. (2011). <em>NICE DSU technical support document 14: Undertaking survival analysis for economic evaluations alongside clinical trials–estrapolation with patient-level data</em>. National Institute for Health; Care Excellence. Retrieved from <a href="https://www.sheffield.ac.uk/nice-dsu/tsds/survival-analysis">https://www.sheffield.ac.uk/nice-dsu/tsds/survival-analysis</a>
-</div>
-<div id="ref-Latimer2013" class="csl-entry">
-Latimer, N. R. (2013). <a href="https://doi.org/10.1177/0272989X12472398">Survival analysis for economic evaluations alongside clinical trials—extrapolation with patient-level data: Inconsistencies, limitations, and a practical guide</a>. <em>Medical Decision Making</em>, <em>33</em>(6), 743–754.
-</div>
-<div id="ref-Ley-Steel2009" class="csl-entry">
-Ley, E., and Steel, M. F. J. (2009). <a href="https://doi.org/10.1002/jae.1057">On the effect of prior assumptions in bayesian model averaging with applications to growth regression</a>. <em>Journal of Applied Econometrics</em>, <em>24</em>(4), 651–674.
-</div>
-<div id="ref-Louzada-Neto1999" class="csl-entry">
-Louzada-Neto, F. (1999). <a href="http://www.jstor.org/stable/2533756">Polyhazard models for lifetime data</a>. <em>Biometrics</em>, <em>55</em>(4), 1281–1285.
-</div>
-<div id="ref-Mitchell-Beauchamp1988" class="csl-entry">
-Mitchell, T. J., and Beauchamp, J. J. (1988). <a href="http://www.jstor.org/stable/2290129">Bayesian variable selection in linear regression</a>. <em>Journal of the American Statistical Association</em>, <em>83</em>(404), 1023–1032.
-</div>
-<div id="ref-Negrin+2017" class="csl-entry">
-Negrín, M. A., Nam, J., and Briggs, A. H. (2017). <a href="https://doi.org/10.1177/0272989X16650669">Bayesian solutions for handling uncertainty in survival extrapolation</a>. <em>Medical Decision Making</em>, <em>37</em>(4), 367–376.
-</div>
-<div id="ref-Polson-Scott2012" class="csl-entry">
-Polson, N. G., and Scott, J. G. (2012). <a href="https://doi.org/10.1214/12-BA730"><span class="nocase">On the Half-Cauchy Prior for a Global Scale Parameter</span></a>. <em>Bayesian Analysis</em>, <em>7</em>(4), 887–902.
-</div>
-<div id="ref-Rosin-Rammler1933" class="csl-entry">
-Rosin, P., and Rammler, E. (1933). <a href="">The law governing the fineness of powdered coal</a>. <em>Journal of the Institute of Fuel</em>, <em>7</em>, 29–36.
-</div>
-<div id="ref-齋藤-室谷2024" class="csl-entry">
-Saito, T., and Murotani, K. (2024). <a href="https://doi.org/10.5691/jjb.45.37">Competing risks and multistate modelsin oncology clinical trials</a>. <em>Japanese Journal of Biometrics</em>, <em>45</em>(1), 37–65.
-</div>
-<div id="ref-Sutton-Fearnhead2023" class="csl-entry">
-Sutton, M., and Fearnhead, P. (2023). <a href="https://doi.org/10.1080/10618600.2023.2203735"><span class="nocase">Concave-Convex PDMP-based Sampling</span></a>. <em>Journal of Computational and Graphical Statistics</em>, <em>32</em>(4), 1425–1435.
-</div>
-<div id="ref-Wei1992" class="csl-entry">
-Wei, L. J. (1992). <a href="https://doi.org/10.1002/sim.4780111409">The accelerated failure time model: A useful alternative to the cox regression model in survival analysis</a>. <em>Statistics in Medicine</em>, <em>11</em>(14-15), 1871–1879.
-</div>
-<div id="ref-森満2016" class="csl-entry">
-森満. (2016). <a href="https://doi.org/10.3950/jibiinkoka.119.989">専門医に必要な統計の知識と研究デザイン</a>. <em>日本耳鼻咽喉科学会会報</em>, <em>119</em>(7), 989–992.
-</div>
-<div id="ref-武冨-山本2023" class="csl-entry">
-武冨奈菜美, and 山本和嬉. (2023). <a href="https://doi.org/10.11329/jjssj.52.69">生存時間解析・信頼性解析のための統計モデル</a>. <em>日本統計学会誌</em>, <em>52</em>(2), 69–112.
-</div>
-<div id="ref-西川正子2008" class="csl-entry">
-西川正子. (2008). <a href="https://doi.org/10.5691/jjb.29.141">生存時間解析における競合リスクモデル</a>. <em>計量生物学</em>, <em>29</em>(2), 141–170.
-</div>
-<div id="ref-齋藤-室谷2023" class="csl-entry">
-齋藤哲雄, and 室谷健太. (2023). <a href="https://doi.org/10.11329/jjssj.52.221">マルチステートモデルの理論とがん臨床研究への応用</a>. <em>日本統計学会誌</em>, <em>52</em>(2), 221–267.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="citation" data-cites="武冨-山本2023">(武冨奈菜美 and 山本和嬉, 2023)</span> は Halley の生命表や Daniel Bernoulli の競合リスク解析の例を挙げている．生命表については <a href="../../../posts/2023/Surveys/BayesianComp.html#sec-Graunt">ベイズ計算の稿</a> も参照．↩︎</p></li>
-<li id="fn2"><p>位置母数 <img src="https://latex.codecogs.com/png.latex?%5Cmu:=%5Calpha%5E%7B-%5Cnu%7D%3E0"> の変換により第 1.3.2 節のハザード関数と見た目が異なることに注意．↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>Bayesian</category>
-  <category>MCMC</category>
-  <category>Statistics</category>
-  <guid>https://162348.github.io/posts/2024/TransDimensionalModels/SurvivalAnalysis.html</guid>
-  <pubDate>Thu, 12 Sep 2024 00:00:00 GMT</pubDate>
-  <media:content url="https://162348.github.io/posts/2024/TransDimensionalModels/Images/Polyhazard.png" medium="image" type="image/png" height="105" width="144"/>
 </item>
 </channel>
 </rss>
