@@ -1,7 +1,7 @@
 ---
 title: "`PDMPFlux.jl` パッケージ"
 subtitle: "自動微分により全自動化された連続時間 MCMC サンプラー"
-author: "司馬 博文"
+author: "司馬博文"
 date: 10/17/2024
 date-modified: 10/20/2024
 categories: [Julia, MCMC]
@@ -12,11 +12,11 @@ bibliography:
 csl: ../../../assets/apalike.csl
 abstract-title: 概要
 abstract: |
-    連続時間 MCMC とは 2018 年に以降活発に研究が進んでいる新たな MCMC アルゴリズムである．
-    実用上の欠点に，種々のモデルに統一的な実装が難しくモデルごとにコードを書き直す必要があったことがあったが，
-    この欠点は自動微分と [@Corbella+2022], [@Sutton-Fearnhead2023] らの研究によって解決されつつある．
+    PDMP / 連続時間 MCMC とは 2018 年に以降活発に研究が進んでいる新たな MCMC アルゴリズムである．
+    実用化を遅らせていた要因として，種々のモデルに統一的な実装が難しく，モデルごとにコードを書き直す必要があったことが挙げられたが，
+    この問題は自動微分の技術と，[@Corbella+2022], [@Sutton-Fearnhead2023] らの適応的で効率的な Poisson 点過程のシミュレーションの研究によって解決されつつある．
     ここでは [@Andral-Kamatani2024] の Python パッケージ [`pdmp_jax`](https://github.com/charlyandral/pdmp_jax) とこれに基づく Julia パッケージ [`PDMPFlux.jl`](https://github.com/162348/PDMPFlux.jl) を紹介する．
-# image: Images/IdealPoint.png
+image: ../Slides/zigzag_fps14_WhiteBackground.gif
 code-fold: false
 execute:
     cache: true
@@ -31,17 +31,23 @@ listing:
         fields: [title,image,date,subtitle,categories]
 ---
 
-## 連続時間 MCMC について
+## 速習 PDMP
 
 ### はじめに
 
-連続時間 MCMC とは名前の通り MCMC のサンプリングを連続時間で行うアルゴリズムである：
+PDMP (Piecewise Deterministic Markov Process) または **連続時間 MCMC** とは，名前の通り MCMC のサンプリングを連続時間で行うアルゴリズムである：
 
 ![Zig-Zag サンプラーが２次元の正規分布からサンプリングを実行している様子](../Slides/zigzag_fps14_WhiteBackground.gif)
 
-方向転換をするオレンジ色の点を一定の法則に従って定めることで，**軌跡全体が目標の分布に従う**．
+::: {.callout-tip appearance="simple" icon="false" title="PDMP サンプラーの特徴"}
 
-すなわち，目標の関数を緑色の軌跡上で線積分をすれば期待値が得られる．
+* 方向転換をするオレンジ色の点を一定の法則（Poisson 点過程）に従って定めることで，**軌跡全体が目標の分布に従う**．
+
+* 目標の関数を緑色の軌跡上で線積分をすれば期待値が得られる．一定のステップサイズで切り出してサンプルとし，従来の MCMC output と同様に使っても良い．
+
+* **非可逆** なダイナミクスをもち，HMC や MALA などの可逆なサンプラーよりも高次元分布や多様性に強いと期待されている．
+
+:::
 
 詳しくは次の記事も参照：
 
@@ -117,7 +123,7 @@ diagnostic(output)
 
 ## [`pdmp_jax`](https://github.com/charlyandral/pdmp_jax) パッケージ
 
-[@Andral-Kamatani2024] のアルゴリズムは複数の特徴を持つ．
+本節では PDMP のシミュレーションに自動微分を応用した [@Andral-Kamatani2024] のアルゴリズムを紹介する．
 
 ### デモ
 
@@ -357,13 +363,13 @@ result.minimizer
 
 [`StatsPlots` は現在 `Plots.jl` に統合されている](https://github.com/JuliaPlots/Plots.jl/tree/v2/StatsPlots)．
 
-また `PDMPFlux.jl` は [`marginalhist`](https://github.com/JuliaPlots/Plots.jl/blob/v2/StatsPlots/src/marginalhist.jl) を wrap した `jointplot` を提供する．
+また `PDMPFlux.jl` は [`marginalhist`](https://github.com/JuliaPlots/Plots.jl/blob/v2/StatsPlots/src/marginalhist.jl) を wrap した `jointplot()` 関数を提供する．
 
 ### `ProgressBars.jl` による進捗表示
 
-[`ProgressBars.jl` は tqdm の Julia wrapper を提供する](https://github.com/cloud-oak/ProgressBars.jl)．
+[`ProgressBars.jl` は tqdm の Julia wrapper を提供する](https://github.com/cloud-oak/ProgressBars.jl)．`PDMPFlux.jl` ではこちらを採用して，サンプリングの実行進捗を表示する．
 
-[`ProgressMeter.jl`](https://github.com/timholy/ProgressMeter.jl) も同様の機能を提供し，`ZigZagBoomerang.jl` ではこちらを採用している．
+なお [`ProgressMeter.jl`](https://github.com/timholy/ProgressMeter.jl) も同様の機能を提供しており，有名な別の PDMP パッケージである [`ZigZagBoomerang.jl`](https://github.com/mschauer/ZigZagBoomerang.jl) ではこちらを採用している．
 
 <!-- ### デバッグ
 
@@ -376,9 +382,11 @@ result.minimizer
 
 今後の確率的プログラミングの１つの焦点は自動微分かもしれない．
 
-今回のパッケージ開発で，少なくとも `v0.2.0` の時点では，プログラムに与える `U_grad` は多くの場合（10 次元の多変量 Gauss，50 次元の Banana など） `Zygote.jl` が少し速く（Funnel 分布では `ForwardDiff.jl` が速い），しかし上界を構成する際の `func` の微分は `ForwardDiff.jl` の方が圧倒的に速い．
+今回のパッケージ開発で，少なくとも `v0.2.0` の時点では，プログラムに与える `U_grad` は多くの場合（10 次元の多変量 Gauss，50 次元の Banana など） `Zygote.jl` が少し速い（Funnel 分布では `ForwardDiff.jl` が速い）．
 
-大変に不可思議である．
+しかし上界を構成する際の `func` の微分は `ForwardDiff.jl` の方が圧倒的に速い．大変に不可思議である．
+
+だから現在の実装は `Zygote.jl` と `ForwardDiff.jl` の両方を用いている．
 
 ## ToDo {.appendix}
 
