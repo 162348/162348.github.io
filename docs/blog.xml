@@ -5436,6 +5436,522 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
   <media:content url="https://162348.github.io/posts/2024/Lifestyle/Files/Hierarchical.svg" medium="image" type="image/svg+xml"/>
 </item>
 <item>
+  <title>ベイズ変数選択</title>
+  <dc:creator>司馬博文 </dc:creator>
+  <link>https://162348.github.io/posts/2024/TransDimensionalModels/BayesSelection.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="はじめに" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<section id="復習ベイズデータ解析の第一歩" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="復習ベイズデータ解析の第一歩"><span class="header-section-number">1.1</span> （復習）ベイズデータ解析の第一歩</h3>
+<p>データの非線型変換も取り入れたベイズ線型重回帰分析は，多くの場合，データを理解するための最初の解析手法として選択される．</p>
+<p>その方法を <code>brms</code> パッケージを用いて実践したのが次の記事である：</p>
+<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733756400000" data-listing-file-modified-sort="1735470395863" data-listing-date-modified-sort="1733929200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/Survey/Files/elpd.svg" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+<code>brms</code> を用いたベイズ重回帰分析
+</h5>
+<div class="card-subtitle listing-subtitle">
+BMI データを題材として
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-10
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p>前稿では BMI を LAB と LDL から予測する問題を，線型回帰モデルから始めた．</p>
+<p>交差項を追加することで，LDL が違う群に対して LAB がどう変わるかの層別の違いを見ることができる．</p>
+<p>事後予測分布によるモデルのチェックは残差プロットと同様に，極めて手軽かつ有力なモデル検証の方法である．</p>
+<p>これにより関数関係の非線型性が疑われたため，被説明変数 BMI に対して対数変換を施して線型回帰をすると，予測性能の改善が見られた．</p>
+<p>事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd <span class="citation" data-cites="Vehtari+2017">(Vehtari et al., 2017)</span> があることを学んだ．</p>
+</section>
+<section id="ベイズから見た変数選択" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="ベイズから見た変数選択"><span class="header-section-number">1.2</span> ベイズから見た変数選択</h3>
+<p>こうして予測力を基にモデル選択をする方法は得たわけであるが，純粋にベイズ的な観点から変数選択を行う方法が大きく分けて２つある．</p>
+<section id="縮小事前分布による方法" class="level4" data-number="1.2.1">
+<h4 data-number="1.2.1" class="anchored" data-anchor-id="縮小事前分布による方法"><span class="header-section-number">1.2.1</span> 縮小事前分布による方法</h4>
+<p>１つ目が「モデルに含まれる変数は少ないはずである」という信念を表現した事前分布を用いる方法である（第 2 節）．</p>
+<p>これは馬蹄事前分布 <span class="citation" data-cites="Carvalho+2010">(Carvalho et al., 2010)</span>，Laplace 事前分布 / Bayesian Lasso <span class="citation" data-cites="Park-Casella2008">(Park and Casella, 2008)</span> などの global-local shrinkage prior を用いる方法である．</p>
+<p>この方法は点推定や頻度論的な方法ではほとんど唯一の変数選択の方法であり，正則化または<strong>スパース性</strong> のキーワードの下で盛んに研究されている <span class="citation" data-cites="Hastie+2015">(Hastie et al., 2015)</span>．</p>
+</section>
+<section id="sec-spike-and-slab" class="level4" data-number="1.2.2">
+<h4 data-number="1.2.2" class="anchored" data-anchor-id="sec-spike-and-slab"><span class="header-section-number">1.2.2</span> ベイズ変数選択</h4>
+<p>２つ目が spike-and-slab 事前分布 <span class="citation" data-cites="Mitchell-Beauchamp1988">(Mitchell and Beauchamp, 1988)</span> という <img src="https://latex.codecogs.com/png.latex?0"> にマスを持つ事前分布を用いる方法である： <span id="eq-spike-and-slab"><img src="https://latex.codecogs.com/png.latex?%0Ap(dx)=%5Cprod_%7Bi=1%7D%5Ed%5Cbiggr(%5Comega_i%5Cphi_i(x_i)%5C,dx_i+(1-%5Comega_i)%5Cdelta_0(dx_i)%5Cbiggl)%0A%5Ctag%7B1%7D"></span></p>
+<p>この方法では当該変数の <strong>事後包含確率</strong> (PIP: Posterior Inclusion Probability) を導出することができる．実際 (1) は混合分布の形をしており，spike <img src="https://latex.codecogs.com/png.latex?%5Cdelta_0"> と slab <img src="https://latex.codecogs.com/png.latex?%5Cphi_i"> のどちらからサンプリングされるかを表す潜在変数 <img src="https://latex.codecogs.com/png.latex?%5Cgamma_i%5Cin%5C%7B0,1%5C%7D"> を導入すれば，<img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BP%7D%5B%5Cgamma=0%7C%5Cmathcal%7BD%7D%5D"> という事後確率こそが変数 <img src="https://latex.codecogs.com/png.latex?x_i"> がモデルに入る事後確率である．</p>
+<p>PIP を用いることで「当該変数がモデルに含まれるか？」という問題に直接ベイズ的に答えることができる．これを <strong>ベイズ変数選択</strong> という 3．</p>
+<p>一方で前述の global-local shrinkage prior でも，post-processing を通じて同様に PIP を近似的に算出することができる <span class="citation" data-cites="Hahn-Carvalho2015">(Hahn and Carvalho, 2015)</span>．</p>
+</section>
+</section>
+<section id="ベイズモデル平均を見据えて" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="ベイズモデル平均を見据えて"><span class="header-section-number">1.3</span> ベイズモデル平均を見据えて</h3>
+<p>このようにベイズ変数選択 1.2.2 では，変数選択も統計的推論の問題として解く．</p>
+<p>この方法は最適なレートで縮小する効果を持ち <span class="citation" data-cites="Castillo+2015">(Castillo et al., 2015)</span>，また予測力にも優れる <span class="citation" data-cites="Porwal-Raftery2022">(Porwal and Raftery, 2022)</span>．</p>
+<p>最終的には，適切に構造と事前分布が設定されたベイズモデルを用いて，ベイズ推論により変数の関連度を自動で判断して結果を出すことが理想である．その意味では全ての変数を（適切に）入れたモデルを用いることが好ましい．<sup>1</sup></p>
+<p>ベイズ変数選択はこの最終目標に向かうまでの探索的な中途解析と見ることもできる．</p>
+<p>実際，ベイズ変数選択により得た事後包含確率 PIP は，ベイズモデル平均 (BMA: Bayesian Model Averaging) <span class="citation" data-cites="Hoeting+1999">(Hoeting et al., 1999)</span> に用いることができる．</p>
+<p>変数選択・モデル選択を実行し，選ばれた単一のモデルで推論・予測を実行するよりも，尤度が必ずしも最も高いわけではないモデルも捨てずに推論に用いることで精度を上げることができる．</p>
+<p>これがベイズモデル平均の考え方であり，ベイズの美点をフルに発揮する枠組みであると言える．実際，<span class="citation" data-cites="Porwal-Raftery2022">(Porwal and Raftery, 2022)</span> では線型回帰モデルの変数選択において，３つの適応的 BMA 手法が全てのタスクでベストな予測性能を示したことを報告している．</p>
+</section>
+</section>
+<section id="sec-Bayesian-regularization" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-Bayesian-regularization"><span class="header-section-number">2</span> 縮小事前分布による方法</h2>
+<section id="多くの説明変数が存在する場合の事前分布" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="多くの説明変数が存在する場合の事前分布"><span class="header-section-number">2.1</span> 多くの説明変数が存在する場合の事前分布</h3>
+<p><code>stan_glm</code> では回帰係数には適切な分散を持った独立な正規分布（<img src="https://latex.codecogs.com/png.latex?g">-prior）をデフォルトの事前分布としている．</p>
+<p><code>brms</code> では一様事前分布である．</p>
+<p>仮に説明変数が極めて多い場合，このデフォルト事前分布を採用し続けることは適切ではない．</p>
+<p>実際，独立な正規・一様分布に従う説明変数が大量にある場合，これは「ベイズ（事後平均）推定量の分散が大きい」という事前分布を採用していることに含意してしまう．</p>
+<p>仮に <img src="https://latex.codecogs.com/png.latex?%5Csigma"> にも同様の分散の大きい事前分布をおいているのならば辻褄は合うが，そうでないならばベイズ決定係数 <img src="https://latex.codecogs.com/png.latex?R%5E2"> にほとんど <img src="https://latex.codecogs.com/png.latex?1"> 近くの事前分布をおいていることに等価である．</p>
+<p>すなわち過学習されたモデルに強い事前分布をおいていることになる <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 208)</span>．これは我々の信念と食い違うだろう．そもそも弱情報であるべきデフォルト事前分布としては相応しくない．</p>
+</section>
+<section id="正則事前分布" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="正則事前分布"><span class="header-section-number">2.2</span> 正則事前分布</h3>
+<p>まずは各変数の正規事前分布の分散を十分小さくして，誤差 <img src="https://latex.codecogs.com/png.latex?%5Cepsilon"> の分散 <img src="https://latex.codecogs.com/png.latex?%5Csigma%5E2"> のスケールと同一にすることが考えられる．</p>
+<p>この際 <img src="https://latex.codecogs.com/png.latex?R%5E2"> にはほとんど無情報な事前分布が仮定されるのと同一である．</p>
+<p>さらに，仮に「多くの説明変数のうち，一部しか重要なものはなく，他の大部分はほとんど無関係である」と思っている，あるいは思いたいとする．変数選択を行いたい場合がこれにあたる．</p>
+<p>この信念を正確に表現する事前分布の一つに馬蹄事前分布 (horseshoe prior) <span class="citation" data-cites="Carvalho+2010">(Carvalho et al., 2010)</span> とその正則化バージョン <span class="citation" data-cites="Piironen-Vehtari2017">(Piironen and Vehtari, 2017)</span> がある．</p>
+<p>これらの分布は <img src="https://latex.codecogs.com/png.latex?R%5E2"> 上の事前分布に，<img src="https://latex.codecogs.com/png.latex?0"> 上にスパイクを生じさせる．シンプルなモデルを選好することになるのである．</p>
+<p>Stan においては <code>prior=hs</code> によって指定できる <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(Gelman et al., 2020, p. 209)</span>．</p>
+</section>
+<section id="local-scale-mixture" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="local-scale-mixture"><span class="header-section-number">2.3</span> Local Scale Mixture</h3>
+<p>多くの正則化事前分布は次のような正規分布の local scale mixture <span class="citation" data-cites="West1987">(West, 1987)</span> の形をしている：<sup>2</sup> <img src="https://latex.codecogs.com/png.latex?%0A%5Cpi(%5Cbeta_j%7C%5Clambda)=%5Cint_%5Cmathbb%7BR%7D%5Cphi(%5Cbeta_j%7C0,%5Clambda%5E2%5Clambda%5E2_j)%5Cpi(%5Clambda_j%5E2)%5C,d%5Clambda_j.%0A"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cpi"> が２点のみに台を持つ場合が spike-and-slab (1) であった <span class="citation" data-cites="Polson-Scott2011">(Polson and Scott, 2011)</span>．SSVS （第 3.2 節）も含む．<img src="https://latex.codecogs.com/png.latex?%5Cpi"> が絶対連続である場合も次のような例を持つ <span class="citation" data-cites="Polson-Scott2012">(Polson and Scott, 2012)</span>：</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li>二重指数分布 (double exponential) / Bayesian Lasso <span class="citation" data-cites="Park-Casella2008">(Park and Casella, 2008)</span>, <span class="citation" data-cites="Hans2009">(Hans, 2009)</span></li>
+<li>馬蹄事前分布 (horseshoe prior) <span class="citation" data-cites="Carvalho+2010">(Carvalho et al., 2010)</span></li>
+<li>Bayesian elastic net <span class="citation" data-cites="Hans2011">(Hans, 2011)</span></li>
+</ul>
+</div>
+</div>
+</div>
+<p><span class="citation" data-cites="Ishwaran-Rao2005">(Ishwaran and Rao, 2005)</span> はこれらの研究より早い段階で，<img src="https://latex.codecogs.com/png.latex?%5Cpi"> に <img src="https://latex.codecogs.com/png.latex?0"> の近くと <img src="https://latex.codecogs.com/png.latex?0"> から大きく離れた二峰を持つ分布を用意している．</p>
+</section>
+<section id="ベイズ縮小の効果" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="ベイズ縮小の効果"><span class="header-section-number">2.4</span> ベイズ縮小の効果</h3>
+<p>スケールパラメータ <img src="https://latex.codecogs.com/png.latex?%5Clambda"> は，LASSO <span class="citation" data-cites="Tibshirani1996">(Tibshirani, 1996)</span> では CV などの基準により選択することになるが，<img src="https://latex.codecogs.com/png.latex?%5Clambda"> を推定してモデル平均を行うことでより高い推定精度を得ることができる <span class="citation" data-cites="Hans2009">(Hans, 2009)</span>．</p>
+<p>同様にして事後平均推定量により推定精度は改善されるが，ほとんど確実にこれはスパースではない．従って推定量のスパース性と推定精度はトレードオフの関係にあり，完全にベイジアンに Bayesian LASSO を実行すると本末転倒に陥るという一面もある．</p>
+<p>このためベイズ縮小事前分布を用いた場合，自動的にスパース性に基づいたモデル選択ができるというわけではなく，事後モデル確率 (posterior model probability) を最大にするものを見つけるという post-processing が必要になる <span class="citation" data-cites="Hahn-Carvalho2015">(Section 1.5 Hahn and Carvalho, 2015, p. 438)</span>, <span class="citation" data-cites="Piironen+2020">(Piironen et al., 2020)</span>, <span class="citation" data-cites="Griffin2024">(Jim E. Griffin, 2024)</span>．</p>
+<p>しかし以上のベイズモデル選択の手続きを踏むことによって，事後モデル確率を最大にするものという統計的・決定理論的に根拠を持ったモデル選択を実行することができる．</p>
+<p>LASSO はベイズモデル選択の結果よりも予測性能が必ずしも高いわけではないにも拘らず，より多くの変数をモデルに残しがちであることも報告されている <span class="citation" data-cites="Porwal-Raftery2022">(Porwal and Raftery, 2022, p. 3)</span>．これは馬蹄事前分布などの最新の縮小事前分布は，回帰係数の効果量やモデルの大きさなどに応じて適応的に正則化の強さを加減しているためだとも言える <span class="citation" data-cites="Li-Dutta-Roy2023">(Li et al., 2023)</span>．</p>
+</section>
+</section>
+<section id="sec-Bayesian-variable-selection" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-Bayesian-variable-selection"><span class="header-section-number">3</span> ベイズ変数選択</h2>
+<section id="sec-hierarchical-modeling" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="sec-hierarchical-modeling"><span class="header-section-number">3.1</span> はじめに：階層モデリング</h3>
+<p><strong>ベイズ変数選択</strong> では，説明変数 <img src="https://latex.codecogs.com/png.latex?%5C%7Bx_i%5C%7D_%7Bi=1%7D%5Ep"> のそれぞれがモデルに含まれるかを意味する潜在変数 <img src="https://latex.codecogs.com/png.latex?%5C%7B%5Cgamma_i%5C%7D_%7Bi=1%7D%5Ep%5Cin%5C%7B0,1%5C%7D%5Ep=:%5CGamma"> の事後分布を算出して，特定の変数がモデルに含まれる確率を算出する．</p>
+<p>最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．</p>
+<p>この方法では <img src="https://latex.codecogs.com/png.latex?%0Ap(%5Cgamma)=%5Cprod_%7Bi=1%7D%5Ep%5Comega_i%5E%7B%5Cgamma_i%7D(1-%5Comega_i)%5E%7B1-%5Cgamma_i%7D,%5Cqquad%20p(%5Csigma%5E2)%5C,%5Cpropto%5C,%5Csigma%5E%7B-2%7D%0A"> <img src="https://latex.codecogs.com/png.latex?%0Ap(%5Cbeta%7C%5Csigma,%5Cgamma)%5C,d%5Cbeta=%5Cmathrm%7BN%7D_p(0,%5CSigma(%5Csigma,%5Cgamma))%0A"> という階層構造を通じて，回帰モデルに潜在変数 <img src="https://latex.codecogs.com/png.latex?%5Cgamma"> を導入する．<img src="https://latex.codecogs.com/png.latex?%5CSigma"> は <span class="citation" data-cites="Liang+2022">(X. Liang et al., 2022)</span> では独立，<span class="citation" data-cites="George-McCulloch1997">(George and McCulloch, 1997)</span> では <img src="https://latex.codecogs.com/png.latex?g">-prior とする： <img src="https://latex.codecogs.com/png.latex?%0A%5CSigma(%5Csigma,%5Cgamma):=g%5Csigma%5E2(X%5E%5Ctop_%5Cgamma%20X_%5Cgamma)%5E%7B-1%7D.%0A"> <img src="https://latex.codecogs.com/png.latex?g"> は global scale parameter と呼ばれ，これにさらに hyperprior を設定することもある <span class="citation" data-cites="Liang+2008">(F. Liang et al., 2008)</span>, <span class="citation" data-cites="Lay-Steel2009">(Ley and Steel, 2009)</span>．</p>
+<p>このアプローチは <span class="citation" data-cites="George-McCulloch1997">(George and McCulloch, 1997)</span> らによって創始された．（仮に <img src="https://latex.codecogs.com/png.latex?p"> が比例的に増えるとしても） <img src="https://latex.codecogs.com/png.latex?n%5Cto%5Cinfty"> の極限で PIP は正しいモデル上の Delta 測度に収束する <span class="citation" data-cites="Shang-Clayton2011">(Shang and Clayton, 2011)</span>．</p>
+</section>
+<section id="sec-SSVS" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-SSVS"><span class="header-section-number">3.2</span> 確率的探索法</h3>
+<p>特に <span class="citation" data-cites="George-McCulloch1993">(George and McCulloch, 1993)</span> では <span id="eq-SSVS"><img src="https://latex.codecogs.com/png.latex?%0A%5Cbeta_i%7C%5Cgamma_i%5Csim(1-%5Cgamma_i)%5Cmathrm%7BN%7D(0,%5Csigma_i%5E2)+%5Cgamma_i%5Cmathrm%7BN%7D(0,c_i%5E2%5Csigma_i%5E2)%0A%5Ctag%7B2%7D"></span> という構造を設定し，データ拡張に基づく Gibbs サンプラーによって推定することを提案した．</p>
+<p>この方法は <strong>確率的探索法</strong> (SSVS: Stochastic Search Variable Selection) と呼ばれる．<sup>3</sup></p>
+<p>しかし (2) は spike-and-slab (1) の近似になっているため，<img src="https://latex.codecogs.com/png.latex?%5Cgamma_i=1"> の事後確率は正確に PIP になっているわけではない．</p>
+<p>この近似は Gibbs サンプラーを高速にするという利点はあったかもしれないが，現代では spike-and-slab (1) に直接適用できる高速なサンプラーが多数開発されている．</p>
+</section>
+<section id="sec-Add-Delete-Swap" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-Add-Delete-Swap"><span class="header-section-number">3.3</span> Add-Delete-Swap による探索</h3>
+<p>計量化学 (chemometrics) では <img src="https://latex.codecogs.com/png.latex?p"> が特に高次元になり得る．<span class="citation" data-cites="Brown+1998">(Brown et al., 1998)</span> は近赤外線分光法で得られたデータから，予測に有用な波長を選択する問題に対処するためにベイズ変数選択の方法を用いることを考えた．</p>
+<p>そのためにまず第 3.1 節の階層モデルを多次元化し，推定には乱歩 MH 法を用いた．</p>
+<p><span class="citation" data-cites="Brown+1998">(Brown et al., 1998)</span> の乱歩 MH 法の提案核は，Add-Delete-Swap の動きをするものであった：</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>次の２つの動きを，それぞれ確率 <img src="https://latex.codecogs.com/png.latex?%5Cphi,1-%5Cphi"> で行う；</p>
+<ol type="1">
+<li><p>Adding or Deleting</p>
+<p>新たな変数 <img src="https://latex.codecogs.com/png.latex?x_i"> をランダムに選び，まだモデルに入っていない場合は入れ，すでにモデルに含まれている場合は取り除く．</p></li>
+<li><p>Swapping</p>
+<p>モデルに含まれていない変数 <img src="https://latex.codecogs.com/png.latex?x_i"> と含まれている変数 <img src="https://latex.codecogs.com/png.latex?x_j"> をそれぞれランダムに選び，入れ替える．</p></li>
+</ol>
+</div>
+</div>
+</div>
+<p><span class="citation" data-cites="Yang+2016">(Yang et al., 2016)</span> は MH 法の計算複雑性を解析し，<img src="https://latex.codecogs.com/png.latex?p"> が大きい場合にも計算量が線型にしか増加しない乱歩 MH 法を提案した．</p>
+</section>
+<section id="超次元-mcmc-による-pip-算出" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="超次元-mcmc-による-pip-算出"><span class="header-section-number">3.4</span> 超次元 MCMC による PIP 算出</h3>
+<p>事後包含確率を出すにあたって，Reversible-Jump MCMC <span class="citation" data-cites="Green1995">(Green, 1995)</span> などの超次元手法を用いることも考えられる．</p>
+<p>超次元 MCMC とは，一般に複数のモデルから同時にサンプリングするための用いられ，ベイズ変数選択法は分解可能なグラフィカルモデルに対する超次元 MCMC 法の特別な場合と見れる <span class="citation" data-cites="Godsill2001">(Godsill, 2001, p. 232)</span>．</p>
+<p>詳しくは別稿で取り上げるが，特に Sticky PDMP <span class="citation" data-cites="Bierkens+2023">(Bierkens et al., 2023)</span> は有力な PIP 算出法になる．</p>
+<div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726930800000" data-listing-file-modified-sort="1735636696176" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="349">
+<a href="../../../posts/2024/TransDimensionalModels/BayesTrans.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="https://162348.github.io/posts/2024/TransDimensionalModels/Images/StickyComparison.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+超次元 MCMC
+</h5>
+<div class="card-subtitle listing-subtitle">
+モデル選択のためのマルコフ連鎖モンテカルロ法
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-22
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734706800000" data-listing-file-modified-sort="1735636522801" data-listing-date-modified-sort="1734879600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="187">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-survey:posts/2024/TransDimensionalModels/BayesSticky.html -->
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Sticky PDMP によるベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+非絶対連続分布からの正確なサンプリング
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-21
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734706800000" data-listing-file-modified-sort="1735272069886" data-listing-date-modified-sort="1734706800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="97">
+<a href="../../../posts/2024/TransDimensionalModels/BayesTraverse.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-survey:posts/2024/TransDimensionalModels/BayesTraverse.html -->
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+連続・離散を往来する MCMC サンプラー
+</h5>
+<div class="card-subtitle listing-subtitle">
+Zig-Zag within Gibbs という考え方
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-21
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+<section id="計算の問題" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="計算の問題"><span class="header-section-number">3.5</span> 計算の問題</h3>
+<p>ベイズ変数選択とはモデル空間 <img src="https://latex.codecogs.com/png.latex?%5CGamma=%5C%7B0,1%5C%7D%5Ep"> 上の事後分布を計算することであるが，これを効率的に行う MCMC を構成することが中心的な問題になる．</p>
+<p>ここまで叙述してきた Gibbs サンプラー（例えば確率的探索法 3.2 など）は，<img src="https://latex.codecogs.com/png.latex?p=2"> の極めて簡単な設定で簡単に崩壊する．というのも，２つの同等な説明力を持つ確率変数が強い相関を持つ場合，<img src="https://latex.codecogs.com/png.latex?(%5Cbeta,%5Cgamma)"> の同時分布は強い二峰性を持つ．</p>
+<p>その結果ただナイーブに Gibbs サンプラーを適用しただけでは片方の峰しか見つけることができず，PIP について偏った結果を出してしまう <span class="citation" data-cites="Zanella-Roberts2019">(Section 5.1 Zanella and Roberts, 2019)</span>．</p>
+<p>推定したいモデルが階層モデルである限り，多峰性の問題は常に付きものである．</p>
+<div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734793200000" data-listing-file-modified-sort="1734941017415" data-listing-date-modified-sort="1734879600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
+<a href="../../../posts/2024/TransDimensionalModels/Bafumi.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding1:posts/2024/TransDimensionalModels/Bafumi.html -->
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+On the Identifiability of the Bafumi et. al.&nbsp;Ideal Point Model
+</h5>
+<div class="card-subtitle listing-subtitle">
+Rethinking of the Hierarchical Model of Bafumi et. al.&nbsp;(2005)
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-22
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?p=2"> の時でさえ深刻になり得る多峰性の問題に加えて，共変量の数 <img src="https://latex.codecogs.com/png.latex?p"> が大きい現代的な問題に対処する必要もあることを思えば，ベイズ変数選択の問題は，多峰性に強い効率的なベイズ計算法を開発するという普遍的な課題に回収されるのである．</p>
+</section>
+<section id="tempered-gibbs-サンプラー" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="tempered-gibbs-サンプラー"><span class="header-section-number">3.6</span> Tempered Gibbs サンプラー</h3>
+<p>目標分布の条件付き分布 <img src="https://latex.codecogs.com/png.latex?f(x_i%7Cx_%7B-i%7D)"> が多峰性を持つ場合，何らかの軟化 <img src="https://latex.codecogs.com/png.latex?g(x_i%7Cx_%7B-i%7D)"> を考えることがあり得る．これに対して <img src="https://latex.codecogs.com/png.latex?%0Ap_i(x):=%5Cfrac%7Bg(x_i%7Cx_%7B-i%7D)%7D%7Bf(x_i%7Cx_%7B-i%7D)%7D%0A"> と定め，まず <img src="https://latex.codecogs.com/png.latex?(p_1(x),%5Ccdots,p_p(x))"> に従って <img src="https://latex.codecogs.com/png.latex?i%5Cin%5Bp%5D"> を選び，続いて <img src="https://latex.codecogs.com/png.latex?x_i%5Csim%20g(x_i%7Cx_%7B-i%7D)"> をサンプリングする random scan Gibbs サンプラーを考えると，これはやはり <img src="https://latex.codecogs.com/png.latex?f"> を不変分布にもつ．</p>
+<p>この方法では <img src="https://latex.codecogs.com/png.latex?p_i(x)"> で各説明変数 <img src="https://latex.codecogs.com/png.latex?x_i"> に傾斜をつけているために，特に PIP の高い <img src="https://latex.codecogs.com/png.latex?i%5Cin%5Bp%5D"> から優先的にサンプリングすることができる．この方法は後述 3.7 節の informed MCMC の先駆けとなった．</p>
+<!--
+### SVEN
+
+[@Hans+2007] では確率的探索法 [-@sec-SSVS] を，Add-Delete-Swap [-@sec-Add-Delete-Swap] の動きを取り入れることでさらに洗練させることを考えた．
+
+１つの変数のみを Add-Delete-Swap して得る配置のみ
+
+SVEN (Selection of Variables with Embedded screeNing) [@Li-Dutta-Roy2023]．
+-->
+</section>
+<section id="sec-Locally-Informed-MH-Samplers" class="level3" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="sec-Locally-Informed-MH-Samplers"><span class="header-section-number">3.7</span> Locally Informed MH Samplers</h3>
+<p>Add-Delete-Swap による乱歩 MH 法 3.3 の設計は，見通しの良い素朴な構成であるが，効率的な動きである保証は全くない．さらには <img src="https://latex.codecogs.com/png.latex?%5Cphi"> やそれぞれの候補を持ってくる確率など，ユーザーが調整する必要があるハイパーパラメータも多い．</p>
+<p>対称かつ局所的なサンプラーの中では，採択率が高いほど効率が良い <span class="citation" data-cites="Peskun1973">(Peskun, 1973)</span>, <span class="citation" data-cites="Tierney1998">(Tierney, 1998)</span>．そこで離散空間上の乱歩 MH 法の採択率を上げるために，現在位置の周囲の点の情報を収集して次の動きを決めるサンプラーが <strong>Informed MCMC</strong> の名前の下で開発されている <span class="citation" data-cites="Liang+2022">(X. Liang et al., 2022, p. 84)</span>．</p>
+<p>多くの locally informed MCMC <span class="citation" data-cites="Zanella2020">(Zanella, 2020)</span> では，通常の乱歩 MH 核 <img src="https://latex.codecogs.com/png.latex?Q"> を基底核 (base kernel) として，これを近傍での事後分布の様子を要約した <strong>釣り合い関数</strong> (balancing function) <img src="https://latex.codecogs.com/png.latex?g"> を用いて修正することで効率的な動きを達成する： <img src="https://latex.codecogs.com/png.latex?%0Aq_g(%5Cgamma,%5Cgamma')%5C,%5Cpropto%5C,g%5Cleft(%5Cfrac%7B%5Cpi(%5Cgamma')%7D%7B%5Cpi(%5Cgamma)%7D%5Cright)q(%5Cgamma,%5Cgamma').%0A"></p>
+<p>この中でも LIT (Locally Informed and Thresholded proposal) <span class="citation" data-cites="Zhou+2022">(Zhou et al., 2022)</span> は釣り合い関数として閾値関数 (threshold function) <img src="https://latex.codecogs.com/png.latex?%0Ag(t)=p%5EL%5Cland(p%5El%5Clor%20t),%5Cqquad-%5Cinfty%3Cl%3CL%3C%5Cinfty.%0A"> を用い，さらに提案核 <img src="https://latex.codecogs.com/png.latex?Q"> を単なる一様分布ではなく第 3.3 節で考えられた Add-Delete-Swap 核 <span class="citation" data-cites="Brown+1998">(Brown et al., 1998)</span> にとることで，一定の条件の下で <strong>次元 <img src="https://latex.codecogs.com/png.latex?p"> に依存しない収束速度</strong> を達成することを示した．</p>
+</section>
+<section id="適応的なサンプラー" class="level3" data-number="3.8">
+<h3 data-number="3.8" class="anchored" data-anchor-id="適応的なサンプラー"><span class="header-section-number">3.8</span> 適応的なサンプラー</h3>
+<p>LIT は固定した基底核 <img src="https://latex.codecogs.com/png.latex?Q"> を取り，そこから <img src="https://latex.codecogs.com/png.latex?g"> で修正することを基本戦略としていた．一方でそもそも基底核 <img src="https://latex.codecogs.com/png.latex?Q"> を適応的に調整していくメカニズムを導入することができる．</p>
+<p>ASI (Adaptively Scaled Individual adaptation) <span class="citation" data-cites="Griffin+2021">(J. E. Griffin et al., 2021)</span> では，<span class="citation" data-cites="Brown+1998">(Brown et al., 1998)</span> の Add-Delete-Swap 核 3.3 <img src="https://latex.codecogs.com/png.latex?%0Aq_%5Ceta(%5Cgamma,%5Cgamma')=%5Cprod_%7Bj=1%7D%5Epq_%7B%5Ceta,j%7D(%5Cgamma_j,%5Cgamma_j'),%5Cqquad%20%5Ceta=(A_1,%5Ccdots,A_p,D_1,%5Ccdots,D_p)%5Cin(0,1)%5E%7B2p%7D,%0A"> <img src="https://latex.codecogs.com/png.latex?%0Aq_%7B%5Ceta,j%7D(0,1)=%5Ceta_j=A_j,%5Cqquad%20q_%7B%5Ceta,j%7D(1,0)=%5Ceta_%7Bp+j%7D=D_j,%0A"> を元にして，<img src="https://latex.codecogs.com/png.latex?%5Ceta=(A,D)"> を適応的に更新していくことを考える．その際の目安は，<img src="https://latex.codecogs.com/png.latex?x_j"> の PIP <img src="https://latex.codecogs.com/png.latex?%5Cpi_j"> から定まる <img src="https://latex.codecogs.com/png.latex?%0AA_j%5E%5Cmathrm%7Bopt%7D:=1%5Cland%5Cfrac%7B%5Cpi_j%7D%7B1-%5Cpi_j%7D,%5Cqquad%20D_j%5E%5Cmathrm%7Bopt%7D:=1%5Cland%5Cfrac%7B1-%5Cpi_j%7D%7B%5Cpi_j%7D,%0A"> である．これの推定量 <img src="https://latex.codecogs.com/png.latex?%5Ceta%5E%7B(i)%7D"> を各段階で構成した上で，総じた採択率を調整する学習率のようなパラメータ <img src="https://latex.codecogs.com/png.latex?%5Czeta%5E%7B(i)%7D"> も導入し，<span class="citation" data-cites="Robbins-Monro1951">(Robbins and Monro, 1951)</span> の方法で更新していく．</p>
+<p>実は ASI は <span class="citation" data-cites="Liang+2023">(X. Liang et al., 2023)</span> がいう <strong>確率近傍サンプラー</strong> (random neighbourhood sampler) の例になっている．これは Add-Delete-Swap <span class="citation" data-cites="Brown+1998">(Brown et al., 1998)</span> のように提案される近傍が，補助的な離散確率変数 <img src="https://latex.codecogs.com/png.latex?k%5Cin%5BK%5D"> によって定まるような乱歩 MH 法をいう．</p>
+<p><span class="citation" data-cites="Liang+2023">(X. Liang et al., 2023)</span> では ASI によって構成される確率的近傍の中から，さらに locally informed に次の動きを選ぶことを提案し， <strong>適応的確率近傍</strong> (ARNI: Adaptive Random Neighbourhood Informed) サンプラーと呼んでいる．これにより ASI で上がりきらなかった採択率を押し上げつつ，計算量を抑えつつも良い近傍を提案するメカニズムを取り入れることができる．</p>
+<p>これにより <img src="https://latex.codecogs.com/png.latex?p"> に依らない収束だけでなく，計算複雑性も <img src="https://latex.codecogs.com/png.latex?p"> の次元に対してスケールするものが得られると期待される．</p>
+</section>
+<section id="非可逆なサンプラー" class="level3" data-number="3.9">
+<h3 data-number="3.9" class="anchored" data-anchor-id="非可逆なサンプラー"><span class="header-section-number">3.9</span> 非可逆なサンプラー</h3>
+<p>Informed MCMC とは，連続空間上で言えば，MALA などの勾配情報を利用したサンプラーである．このような乱歩 MH 法の修正として得られる効率的なサンプラーを <span class="citation" data-cites="Liang+2022">(X. Liang et al., 2022)</span> は <strong>近傍サンプラー</strong> (neighbourhood sampler) と呼んでいる．</p>
+<p>MALA などの Langevin 拡散を元にした乱歩 MH 法は革新的であったが，現在最も効率的なサンプラーは，局所的な動きを廃した HMC 法と，非可逆な動きを達成する PDMP (Piecewise Deterministic Markov Process) / ECMC (Event-Chain Monte Carlo) である．</p>
+<p>離散空間上でもこれらのサンプラーに対応するものは高い効率を示すだろうと思われる．</p>
+<p>一般の離散空間上でも局所性の打開には <span class="citation" data-cites="Nishimura+2020">(Nishimura et al., 2020)</span>，可逆性の打開には <span class="citation" data-cites="Koskela2022">(Koskela, 2022)</span> などの試みがあるが，殊に変数選択に関しては Sticky PDMP <span class="citation" data-cites="Bierkens+2023">(Bierkens et al., 2023)</span> という画期的な手法が開発されている．</p>
+<p>これに関しては次稿で詳しく取り上げる：</p>
+<div id="listing-lst-embedding2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734706800000" data-listing-file-modified-sort="1735636522801" data-listing-date-modified-sort="1734879600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="187">
+<a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding2:posts/2024/TransDimensionalModels/BayesSticky.html -->
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+Sticky PDMP によるベイズ変数選択
+</h5>
+<div class="card-subtitle listing-subtitle">
+非絶対連続分布からの正確なサンプリング
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-12-21
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+</section>
+</section>
+
+
+
+<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
+
+<p>変数選択のための事前分布とその <img src="https://latex.codecogs.com/png.latex?R%5E2"> 上に定める事前分布については <span class="citation" data-cites="Gelman-Hill-Vehtari2020">(12.7 節 Gelman et al., 2020)</span> で丁寧に議論されている．</p>
+<p>この第一のアプローチ・縮小事前分布については <span class="citation" data-cites="Bhadra+2019">(Bhadra et al., 2019)</span> のレビューがある．他には <span class="citation" data-cites="Griffin-Brown2021">(Jim E. Griffin and Brown, 2021)</span>, <span class="citation" data-cites="Griffin-Brown2017">(Jim E. Griffin and Brown, 2017)</span>, <span class="citation" data-cites="Hahn-Carvalho2015">(Hahn and Carvalho, 2015)</span> が詳しい．</p>
+<p><span class="citation" data-cites="George-McCulloch1993">(George and McCulloch, 1993)</span> による変数選択法が <span class="citation" data-cites="Hoff2009">(Chapter 9 Hoff, 2009)</span> で取り上げられている．</p>
+<p>ベイズ変数選択手法の概観は <span class="citation" data-cites="Liang+2023">(X. Liang et al., 2023)</span> や <span class="citation" data-cites="Griffin2024">(Jim E. Griffin, 2024)</span> のイントロに圧倒されるほどまとまっている．<span class="citation" data-cites="Griffin2024">(Jim E. Griffin, 2024)</span> ではモデルの空間上に得られた事後分布の情報を効果的に表示するための「信用区間」の構成法を提案している．</p>
+
+
+
+
+</div></section><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Barr+2013" class="csl-entry">
+Barr, D. J., Levy, R., Scheepers, C., and Tily, H. J. (2013). <a href="https://doi.org/10.1016/j.jml.2012.11.001">Random effects structure for confirmatory hypothesis testing: Keep it maximal</a>. <em>Journal of Memory and Language</em>, <em>68</em>(3), 255–278.
+</div>
+<div id="ref-Bhadra+2019" class="csl-entry">
+Bhadra, A., Datta, J., Polson, N. G., and Willard, B. (2019). <a href="https://doi.org/10.1214/19-STS700"><span>Lasso Meets Horseshoe: A Survey</span></a>. <em>Statistical Science</em>, <em>34</em>(3), 405–427.
+</div>
+<div id="ref-Bierkens+2023" class="csl-entry">
+Bierkens, J., Grazzi, S., Meulen, F. van der, and Schauer, M. (2023). <a href="https://doi.org/10.1007/s11222-022-10180-5"><span class="nocase">Sticky PDMP Samplers for Sparse and Local Inference Problems</span></a>. <em>Statistics and Computing</em>, <em>33</em>(1), 8.
+</div>
+<div id="ref-Brown+1998" class="csl-entry">
+Brown, P. J., Vannucci, M., and Fearn, T. (1998). <a href="https://doi.org/10.1002/(SICI)1099-128X(199805/06)12:3<173::AID-CEM505>3.0.CO;2-0">Bayesian wavelength selection in multicomponent analysis</a>. <em>Journal of Chemometrics</em>, <em>12</em>(3), 173–182.
+</div>
+<div id="ref-Carvalho+2010" class="csl-entry">
+Carvalho, C. M., Polson, N. G., and Scott, J. G. (2010). <a href="https://doi.org/10.1093/biomet/asq017"><span class="nocase">The horseshoe estimator for sparse signals</span></a>. <em>Biometrika</em>, <em>97</em>(2), 465–480.
+</div>
+<div id="ref-Castillo+2015" class="csl-entry">
+Castillo, I., Schmidt-Hieber, J., and Vaart, A. van der. (2015). <a href="https://doi.org/10.1214/15-AOS1334"><span class="nocase">Bayesian linear regression with sparse priors</span></a>. <em>The Annals of Statistics</em>, <em>43</em>(5), 1986–2018.
+</div>
+<div id="ref-Gelman-Hill-Vehtari2020" class="csl-entry">
+Gelman, A., Hill, J., and Vehtari, A. (2020). <em><a href="https://avehtari.github.io/ROS-Examples/">Regression and other stories</a></em>. Cambridge University Press.
+</div>
+<div id="ref-George-McCulloch1993" class="csl-entry">
+George, E. I., and McCulloch, R. E. (1993). <a href="http://www.jstor.org/stable/2290777">Variable selection via gibbs sampling</a>. <em>Journal of the American Statistical Association</em>, <em>88</em>(423), 881–889.
+</div>
+<div id="ref-George-McCulloch1997" class="csl-entry">
+George, E. I., and McCulloch, R. E. (1997). <a href="http://www.jstor.org/stable/24306083">APPROACHES FOR BAYESIAN VARIABLE SELECTION</a>. <em>Statistica Sinica</em>, <em>7</em>(2), 339–373.
+</div>
+<div id="ref-Godsill2001" class="csl-entry">
+Godsill, S. J. (2001). <a href="https://doi.org/10.1198/10618600152627924">On the relationship between markov chain monte carlo methods for model uncertainty</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>10</em>(2), 230–248. doi: 10.1198/10618600152627924.
+</div>
+<div id="ref-Green1995" class="csl-entry">
+Green, P. J. (1995). <a href="http://www.jstor.org/stable/2337340">Reversible jump markov chain monte carlo computation and bayesian model determination</a>. <em>Biometrika</em>, <em>82</em>(4), 711–732.
+</div>
+<div id="ref-Griffin2024" class="csl-entry">
+Griffin, Jim E. (2024). <a href="https://arxiv.org/abs/2402.12323">Expressing and visualizing model uncertainty in bayesian variable selection using cartesian credible sets</a>.
+</div>
+<div id="ref-Griffin-Brown2017" class="csl-entry">
+Griffin, Jim E., and Brown, P. (2017). <a href="https://doi.org/10.1214/15-BA990"><span class="nocase">Hierarchical Shrinkage Priors for Regression Models</span></a>. <em>Bayesian Analysis</em>, <em>12</em>(1), 135–159.
+</div>
+<div id="ref-Griffin-Brown2021" class="csl-entry">
+Griffin, Jim E., and Brown, P. J. (2021). <a href="https://doi.org/10.1016/j.chemolab.2021.104255">Bayesian global-local shrinkage methods for regularisation in the high dimension linear model</a>. <em>Chemometrics and Intelligent Laboratory Systems</em>, <em>210</em>, 104255.
+</div>
+<div id="ref-Griffin+2021" class="csl-entry">
+Griffin, J. E., Łatuszyński, K. G., and Steel, M. F. J. (2021). <a href="https://doi.org/10.1093/biomet/asaa055">In search of lost mixing time: Adaptive markov chain monte carlo schemes for bayesian variable selection with very large p</a>. <em>Biometrika</em>, <em>108</em>(1), 53–69.
+</div>
+<div id="ref-Hahn-Carvalho2015" class="csl-entry">
+Hahn, P. R., and Carvalho, C. M. (2015). <a href="https://doi.org/10.1080/01621459.2014.993077">Decoupling shrinkage and selection in bayesian linear models: A posterior summary perspective</a>. <em>Journal of the American Statistical Association</em>, <em>110</em>(509), 435–448. doi: 10.1080/01621459.2014.993077.
+</div>
+<div id="ref-Hans2009" class="csl-entry">
+Hans, C. (2009). <a href="http://www.jstor.org/stable/27798870">Bayesian lasso regression</a>. <em>Biometrika</em>, <em>96</em>(4), 835–845.
+</div>
+<div id="ref-Hans2011" class="csl-entry">
+Hans, C. (2011). <a href="https://doi.org/10.1198/jasa.2011.tm09241">Elastic net regression modeling with the orthant normal prior</a>. <em>Journal of the American Statistical Association</em>, <em>106</em>(496), 1383–1393. doi: 10.1198/jasa.2011.tm09241.
+</div>
+<div id="ref-Hastie+2015" class="csl-entry">
+Hastie, T., Tibshirani, R., and Wainwright, M. (2015). <em><a href="https://doi.org/10.1201/b18401">Statistical learning with sparsity: The lasso and generalizations</a></em>. Chapman; Hall/CRC.
+</div>
+<div id="ref-Hoeting+1999" class="csl-entry">
+Hoeting, J. A., Madigan, D., Raftery, A. E., and Volinsky, C. T. (1999). <a href="https://doi.org/10.1214/ss/1009212519"><span class="nocase">Bayesian model averaging: a tutorial (with comments by M. Clyde, David Draper and E. I. George, and a rejoinder by the authors</span></a>. <em>Statistical Science</em>, <em>14</em>(4), 382–417.
+</div>
+<div id="ref-Hoff2009" class="csl-entry">
+Hoff, P. D. (2009). <em><a href="https://doi.org/10.1007/978-0-387-92407-6">A first course in bayesian statistical methods</a></em>. Springer New York.
+</div>
+<div id="ref-Ishwaran-Rao2005" class="csl-entry">
+Ishwaran, H., and Rao, J. S. (2005). <a href="https://doi.org/10.1214/009053604000001147"><span class="nocase">Spike and slab variable selection: Frequentist and Bayesian strategies</span></a>. <em>The Annals of Statistics</em>, <em>33</em>(2), 730–773.
+</div>
+<div id="ref-Koskela2022" class="csl-entry">
+Koskela, J. (2022). <a href="https://doi.org/10.1080/10618600.2022.2032722">Zig-zag sampling for discrete structures and nonreversible phylogenetic MCMC</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>31</em>(3), 684–694. doi: 10.1080/10618600.2022.2032722.
+</div>
+<div id="ref-Lay-Steel2009" class="csl-entry">
+Ley, E., and Steel, M. F. J. (2009). <a href="https://doi.org/10.1002/jae.1057">On the effect of prior assumptions in bayesian model averaging with applications to growth regression</a>. <em>Journal of Applied Econometrics</em>, <em>24</em>(4), 651–674.
+</div>
+<div id="ref-Li-Dutta-Roy2023" class="csl-entry">
+Li, D., Dutta, S., and Roy, V. (2023). <a href="https://doi.org/10.1080/10618600.2022.2074428">Model based screening embedded bayesian variable selection for ultra-high dimensional settings</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>32</em>(1), 61–73.
+</div>
+<div id="ref-Liang+2008" class="csl-entry">
+Liang, F., Paulo, R., Molina, G., Clyde, M. A., and Berger, J. O. (2008). <a href="https://doi.org/10.1198/016214507000001337">Mixtures of g priors for bayesian variable selection</a>. <em>Journal of the American Statistical Association</em>, <em>103</em>(481), 410–423. doi: 10.1198/016214507000001337.
+</div>
+<div id="ref-Liang+2022" class="csl-entry">
+Liang, X., Livingstone, S., and Griffin, J. (2022). <a href="https://doi.org/10.1007/s11222-022-10137-8">Adaptive random neighbourhood informed markov chain monte carlo for high-dimensional bayesian variable selection</a>. <em>Statistics and Computing</em>, <em>32</em>(5), 84.
+</div>
+<div id="ref-Liang+2023" class="csl-entry">
+Liang, X., Livingstone, S., and Griffin, J. (2023). <a href="https://doi.org/10.3390/e25091310">Adaptive MCMC for bayesian variable selection in generalised linear models and survival models</a>. <em>Entropy</em>, <em>25</em>(9).
+</div>
+<div id="ref-Mitchell-Beauchamp1988" class="csl-entry">
+Mitchell, T. J., and Beauchamp, J. J. (1988). <a href="http://www.jstor.org/stable/2290129">Bayesian variable selection in linear regression</a>. <em>Journal of the American Statistical Association</em>, <em>83</em>(404), 1023–1032.
+</div>
+<div id="ref-Nishimura+2020" class="csl-entry">
+Nishimura, A., Dunson, D. B., and Lu, J. (2020). <a href="https://doi.org/10.1093/biomet/asz083">Discontinuous hamiltonian monte carlo for discrete parameters and discontinuous likelihoods</a>. <em>Biometrika</em>, <em>107</em>(2), 365–380.
+</div>
+<div id="ref-Park-Casella2008" class="csl-entry">
+Park, T., and Casella, G. (2008). <a href="https://doi.org/10.1198/016214508000000337">The bayesian lasso</a>. <em>Journal of the American Statistical Association</em>, <em>103</em>(482), 681–686. doi: 10.1198/016214508000000337.
+</div>
+<div id="ref-Peskun1973" class="csl-entry">
+Peskun, P. H. (1973). <a href="https://doi.org/10.1093/biomet/60.3.607">Optimum monte-carlo sampling using markov chains</a>. <em>Biometrika</em>, <em>60</em>(3), 607–612.
+</div>
+<div id="ref-Piironen+2020" class="csl-entry">
+Piironen, J., Paasiniemi, M., and Vehtari, A. (2020). <a href="https://doi.org/10.1214/20-EJS1711"><span class="nocase">Projective inference in high-dimensional problems: Prediction and feature selection</span></a>. <em>Electronic Journal of Statistics</em>, <em>14</em>(1), 2155–2197.
+</div>
+<div id="ref-Piironen-Vehtari2017" class="csl-entry">
+Piironen, J., and Vehtari, A. (2017). <a href="https://doi.org/10.1214/17-EJS1337SI"><span class="nocase">Sparsity information and regularization in the horseshoe and other shrinkage priors</span></a>. <em>Electronic Journal of Statistics</em>, <em>11</em>(2), 5018–5051.
+</div>
+<div id="ref-Polson-Scott2011" class="csl-entry">
+Polson, N. G., and Scott, J. G. (2011). <a href="https://doi.org/10.1093/acprof:oso/9780199694587.003.0017">501Shrink globally, act locally: Sparse bayesian regularization and prediction</a>. In <em>Bayesian statistics 9</em>. Oxford University Press.
+</div>
+<div id="ref-Polson-Scott2012" class="csl-entry">
+Polson, N. G., and Scott, J. G. (2012). <a href="https://doi.org/10.1214/12-BA730"><span class="nocase">On the Half-Cauchy Prior for a Global Scale Parameter</span></a>. <em>Bayesian Analysis</em>, <em>7</em>(4), 887–902.
+</div>
+<div id="ref-Porwal-Raftery2022" class="csl-entry">
+Porwal, A., and Raftery, A. E. (2022). <a href="https://doi.org/10.1073/pnas.2120737119">Comparing methods for statistical inference with model uncertainty</a>. <em>Proceedings of the National Academy of Sciences</em>, <em>119</em>(16), e2120737119.
+</div>
+<div id="ref-Robbins-Monro1951" class="csl-entry">
+Robbins, H., and Monro, S. (1951). <a href="https://www.jstor.org/stable/2236626">A stochastic approximation method</a>. <em>The Annals of Mathematical Statistics</em>, <em>22</em>(3), 400–407.
+</div>
+<div id="ref-Shang-Clayton2011" class="csl-entry">
+Shang, Z., and Clayton, M. K. (2011). <a href="https://doi.org/10.1016/j.jspi.2011.05.002">Consistency of bayesian linear model selection with a growing number of parameters</a>. <em>Journal of Statistical Planning and Inference</em>, <em>141</em>(11), 3463–3474.
+</div>
+<div id="ref-Tibshirani1996" class="csl-entry">
+Tibshirani, R. (1996). <a href="https://doi.org/10.1111/j.2517-6161.1996.tb02080.x">Regression shrinkage and selection via the lasso</a>. <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>, <em>58</em>(1), 267–288.
+</div>
+<div id="ref-Tierney1998" class="csl-entry">
+Tierney, L. (1998). <a href="http://www.jstor.org/stable/2667233">A note on metropolis-hastings kernels for general state spaces</a>. <em>The Annals of Applied Probability</em>, <em>8</em>(1), 1–9.
+</div>
+<div id="ref-Vehtari+2017" class="csl-entry">
+Vehtari, A., Gelman, A., and Gabry, J. (2017). <a href="https://doi.org/10.1007/s11222-016-9696-4">Practical bayesian model evaluation using leave-one-out cross-validation and WAIC</a>. <em>Statistics and Computing</em>, <em>27</em>(5), 1413–1432.
+</div>
+<div id="ref-West1987" class="csl-entry">
+West, M. (1987). <a href="https://doi.org/10.1093/biomet/74.3.646">On scale mixtures of normal distributions</a>. <em>Biometrika</em>, <em>74</em>(3), 646–648.
+</div>
+<div id="ref-Yang+2016" class="csl-entry">
+Yang, Y., Wainwright, M. J., and Jordan, M. I. (2016). <a href="https://doi.org/10.1214/15-AOS1417"><span class="nocase">On the computational complexity of high-dimensional Bayesian variable selection</span></a>. <em>The Annals of Statistics</em>, <em>44</em>(6), 2497–2532.
+</div>
+<div id="ref-Zanella2020" class="csl-entry">
+Zanella, G. (2020). <a href="https://doi.org/10.1080/01621459.2019.1585255">Informed proposals for local MCMC in discrete spaces</a>. <em>Journal of the American Statistical Association</em>, <em>115</em>(530), 852–865.
+</div>
+<div id="ref-Zanella-Roberts2019" class="csl-entry">
+Zanella, G., and Roberts, G. (2019). <a href="https://doi.org/10.1111/rssb.12316">Scalable importance tempering and bayesian variable selection</a>. <em>Journal of the Royal Statistical Society Series B: Statistical Methodology</em>, <em>81</em>(3), 489–517.
+</div>
+<div id="ref-Zhou+2022" class="csl-entry">
+Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a href="https://doi.org/10.1111/rssb.12546">Dimension-free mixing for high-dimensional bayesian variable selection</a>. <em>Journal of the Royal Statistical Society Series B: Statistical Methodology</em>, <em>84</em>(5), 1751–1784.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>例えば <span class="citation" data-cites="Barr+2013">(Barr et al., 2013)</span> では検証的仮説検定の設定で，どこまでランダム効果をモデルに入れるかを議論しており，「全部入れるべき」という結論を一定の前提の下で導いている．↩︎</p></li>
+<li id="fn2"><p><span class="citation" data-cites="Hahn-Carvalho2015">(Hahn and Carvalho, 2015, p. 436)</span> は local scale mixture と呼んでいる．他にこの観点は <span class="citation" data-cites="Griffin-Brown2017">(Jim E. Griffin and Brown, 2017)</span>, <span class="citation" data-cites="Polson-Scott2012">(Polson and Scott, 2012)</span> でも議論されている．↩︎</p></li>
+<li id="fn3"><p>変数減少法やステップワイズ法などのヒューリスティックな方法に対しての「確率的探索法」という名称だったのだと思われる．特に <span class="citation" data-cites="George-McCulloch1993">(George and McCulloch, 1993)</span> ではデータ拡張に基づく Gibbs サンプラーを用いており，その様子が「確率的探索」に見えるのだと思われる．↩︎</p></li>
+</ol>
+</section></div> ]]></description>
+  <category>Bayesian</category>
+  <category>Statistics</category>
+  <category>R</category>
+  <guid>https://162348.github.io/posts/2024/TransDimensionalModels/BayesSelection.html</guid>
+  <pubDate>Mon, 09 Dec 2024 15:00:00 GMT</pubDate>
+</item>
+<item>
   <title>brms を用いたベイズ重回帰分析</title>
   <dc:creator>司馬博文 </dc:creator>
   <link>https://162348.github.io/posts/2024/Survey/BayesRegression.html</link>
@@ -18991,1706 +19507,6 @@ Wedderburn, R. W. M. (1974). <a href="http://www.jstor.org/stable/2334725">Quasi
   <guid>https://162348.github.io/posts/2024/Survey/Survey2.html</guid>
   <pubDate>Sun, 22 Sep 2024 15:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/Survey/Files/ATE.svg" medium="image" type="image/svg+xml"/>
-</item>
-<item>
-  <title>R 上の Stan インターフェイス</title>
-  <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2024/R/Stan2.html</link>
-  <description><![CDATA[ 
-
-
-
-
-
-<div class="hidden">
-<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
-<p>$$</p>
-<p>$$</p>
-</div>
-<div id="listing-lst-stan" class="listing quarto-float quarto-listing quarto-listing-container-grid">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="Process,MCMC,R,Stan,YUIMA,Bayesian" data-listing-date-sort="1715439600000" data-listing-file-modified-sort="1726820816255" data-listing-date-modified-sort="1726758000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="952">
-<a href="../../../posts/2024/R/adastan.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="https://162348.github.io/posts/2024/R/Files/adastan1.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-SDE のベイズ推定入門
-</h5>
-<div class="card-subtitle listing-subtitle">
-YUIMA と Stan を用いた確率過程のベイズ推定入門
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-05-12
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="Bayesian,Computation,Stan" data-listing-date-sort="1715871600000" data-listing-file-modified-sort="1735024968443" data-listing-date-modified-sort="1726498800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
-<a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img src="https://162348.github.io/posts/2024/R/Files/Stan.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-Stan 入門
-</h5>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-05-17
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="2" data-categories="Stan,R,YUIMA,Process" data-listing-date-sort="1715871600000" data-listing-file-modified-sort="1726725668671" data-listing-date-modified-sort="1726498800000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
-<a href="../../../posts/2024/R/YUIMA.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="https://162348.github.io/posts/2024/R/Files/YUIMA.png" style="height: 150px;" class="thumbnail-image card-img"></p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-YUIMA 入門
-</h5>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-05-17
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-<section id="概観" class="level2 unlisted unnumbered">
-<h2 class="unlisted unnumbered anchored" data-anchor-id="概観">概観</h2>
-<p><code>RStan</code> は <code>Rcpp</code> や <code>inline</code> といったパッケージにより C++ を R から呼び出すことで，Stan とのインターフェイスを実現している．</p>
-<p>一方で <code>CmdStanR</code> は <code>CmdStan</code> という Stan のコマンドラインインターフェイスを R から呼び出すことで，Stan とのインターフェイスを実現している．</p>
-</section>
-<section id="rstan-パッケージ" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="rstan-パッケージ"><span class="header-section-number">1</span> <code>RStan</code> パッケージ</h2>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="インストール方法">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-インストール方法
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-1" class="callout-1-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>詳しくは <a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started">RStan Getting Started</a> を参照ください．</p>
-<p>すでに存在する場合は，次を実行してからインストールします．</p>
-<div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">remove.packages</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"rstan"</span>)</span>
-<span id="cb1-2"><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">if</span> (<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.exists</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">".RData"</span>)) <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.remove</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">".RData"</span>)</span></code></pre></div>
-<p>インストールは，ほとんどの場合，次の１行で済みます：</p>
-<div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"rstan"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">repos =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"https://cloud.r-project.org/"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">dependencies =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>)</span></code></pre></div>
-<p><code>RStan</code> の利用のためには，<code>c++</code> コンパイラが必要です．</p>
-<p>XCode コマンドラインツールをインストールすることにより，<code>/Library/Developer/CommandLineTools/usr/bin</code> に <code>clang++</code> がインストールされます．</p>
-<div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb3-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">clang</span>++ <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-v</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-E</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-x</span> c++ /dev/null</span></code></pre></div>
-<p>現在では，<a href="https://mac.thecoatlessprofessor.com/macrtools/"><code>macrtools</code></a> を通じて <code>C++</code> コンパイラを R 内でインストールすることもできます．</p>
-<p>次のコードが実行されれば，インストールは成功しています．</p>
-<div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">example</span>(stan_model, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">package =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"rstan"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">run.dontrun =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>)</span></code></pre></div>
-</div>
-</div>
-</div>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="コンパイラ最適化 (MacOS)">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-コンパイラ最適化 (MacOS)
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started">RStan Getting Started</a> の <a href="https://github.com/stan-dev/rstan/wiki/Configuring-C---Toolchain-for-Mac">Configuring C Toolchain for Mac</a> では，次のようなコンパイラの最適化が推奨されています：</p>
-<div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1">dotR <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.path</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">Sys.getenv</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"HOME"</span>), <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">".R"</span>)</span>
-<span id="cb5-2"><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">if</span> (<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.exists</span>(dotR)) <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">dir.create</span>(dotR)</span>
-<span id="cb5-3">M <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.path</span>(dotR, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Makevars"</span>)</span>
-<span id="cb5-4"><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">if</span> (<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.exists</span>(M)) <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.create</span>(M)</span>
-<span id="cb5-5">arch <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">ifelse</span>(R.version<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span>arch <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">==</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"aarch64"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"arm64"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"x86_64"</span>)</span>
-<span id="cb5-6"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cat</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">paste</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">\n</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">CXX17FLAGS += -O3 -mtune=native -arch"</span>, arch, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"-ftemplate-depth-256"</span>),</span>
-<span id="cb5-7">    <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">file =</span> M, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">sep =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">\n</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">append =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">FALSE</span>)</span></code></pre></div>
-<p>これにより <code>~/.R/Makevars</code> に次のような行が追加されます：</p>
-<div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb6-1"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">CXX17FLAGS</span> += <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-O3</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-mtune</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>native <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-arch</span> arm64 <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-ftemplate-depth-256</span></span></code></pre></div>
-</div>
-</div>
-</div>
-<section id="stan-関数" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="stan-関数"><span class="header-section-number">1.1</span> <code>stan</code> 関数</h3>
-<p>RStan パッケージの本体は <code>stan</code> 関数である：</p>
-<div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">stan</span>(file, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">model_name =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"anon_model"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">model_code =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">fit =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NA</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">data =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">list</span>(), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">pars =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NA</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2000</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">warmup =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">floor</span>(iter<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">thin =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">init =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"random"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">seed =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">sample.int</span>(.Machine<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span>integer.max, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">algorithm =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"NUTS"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"HMC"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Fixed_param"</span>), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">control =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">sample_file =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">diagnostic_file =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">save_dso =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">verbose =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">FALSE</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">include =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">cores =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">getOption</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"mc.cores"</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>L), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">open_progress =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">interactive</span>() <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&amp;&amp;</span> <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">isatty</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">stdout</span>()) <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&amp;&amp;</span> <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">identical</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">Sys.getenv</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"RSTUDIO"</span>), <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"1"</span>), ..., <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">boost_lib =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">eigen_lib =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>)</span></code></pre></div>
-<section id="モデルの受け渡し" class="level4" data-number="1.1.1">
-<h4 data-number="1.1.1" class="anchored" data-anchor-id="モデルの受け渡し"><span class="header-section-number">1.1.1</span> モデルの受け渡し</h4>
-<p><code>model_code=""</code> が Stan モデルを定義するコードを，文字列として直接受け渡すための引数である．</p>
-<p>返り値はフィット済みの <code>stanfit</code> オブジェクトである．</p>
-<p>他の方法は次のとおり：</p>
-<ul>
-<li><code>file</code> としてファイルへのパスを渡す</li>
-<li>フィット済みの <code>stanfit</code> オブジェクトを <code>fit</code> 引数として渡す</li>
-</ul>
-</section>
-<section id="重要な引数" class="level4" data-number="1.1.2">
-<h4 data-number="1.1.2" class="anchored" data-anchor-id="重要な引数"><span class="header-section-number">1.1.2</span> 重要な引数</h4>
-<ul>
-<li><code>data</code>：データを与える．<code>list</code> 型．</li>
-<li><code>iter</code>：繰り返し回数．デフォルトは <code>2000</code>．</li>
-<li><code>chains</code>：チェイン数．デフォルトは <code>4</code>．</li>
-</ul>
-</section>
-<section id="stanfit-オブジェクト" class="level4" data-number="1.1.3">
-<h4 data-number="1.1.3" class="anchored" data-anchor-id="stanfit-オブジェクト"><span class="header-section-number">1.1.3</span> <code>stanfit</code> オブジェクト</h4>
-<p><code>stan</code> 関数は Stan モデルを C++ に変換して実行し，結果を <code>stanfit</code> オブジェクトとして返す．</p>
-<p>これに対して <code>print</code>, <code>summary</code>, <code>plot</code> などのメソッドが利用可能である．</p>
-<p>さらに，次の様にして MCMC サンプルを取り出すことができる：</p>
-<ul>
-<li><code>as.array</code> メソッドを用いて MCMC サンプルを <code>array</code> 型で取り出す</li>
-<li><code>extract</code> メソッドを用いて MCMC サンプルを <code>list</code> 型で取り出す</li>
-<li><code>posterior</code> ライブラリの <code>as_draws_df</code> メソッドを用いて MCMC サンプルを <code>df</code> 型で取り出す．種々のデータ型 <code>&lt;format&gt;</code> に対して <code>as_draws_&lt;format&gt;</code> が存在する．</li>
-</ul>
-<p>取り出した MCMC サンプルは <code>bayesplot</code> パッケージの <code>mcmc_trace</code>, <code>mcmc_dens</code> などの関数を用いて可視化することができる．</p>
-</section>
-<section id="例１軌道と事後分布の可視化" class="level4" data-number="1.1.4">
-<h4 data-number="1.1.4" class="anchored" data-anchor-id="例１軌道と事後分布の可視化"><span class="header-section-number">1.1.4</span> 例１：軌道と事後分布の可視化</h4>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1">scode <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span></span>
-<span id="cb8-2"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">parameters {</span></span>
-<span id="cb8-3"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  array[2] real y;</span></span>
-<span id="cb8-4"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb8-5"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">model {</span></span>
-<span id="cb8-6"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  y[1] ~ normal(0, 1);</span></span>
-<span id="cb8-7"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  y[2] ~ double_exponential(0, 2);</span></span>
-<span id="cb8-8"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb8-9"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span></span>
-<span id="cb8-10">fit <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">stan</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">model_code =</span> scode, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">10000</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">verbose =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">FALSE</span>)</span></code></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(bayesplot)</span>
-<span id="cb9-2"></span>
-<span id="cb9-3"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">mcmc_trace</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">as.array</span>(fit), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">pars =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"y[1]"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"y[2]"</span>))</span></code></pre></div>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption>軌道のプロット</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">mcmc_dens</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">as.array</span>(fit), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">pars =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"y[1]"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"y[2]"</span>))</span></code></pre></div>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption>密度のプロット</figcaption>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="例２確率過程の統計推測" class="level4" data-number="1.1.5">
-<h4 data-number="1.1.5" class="anchored" data-anchor-id="例２確率過程の統計推測"><span class="header-section-number">1.1.5</span> 例２：確率過程の統計推測</h4>
-<p>OU 過程</p>
-<p><img src="https://latex.codecogs.com/png.latex?%0AdX_t=%5Ctheta(%5Cmu-X_t)%5C,dt+%5Csigma%5C,dW_t%0A"></p>
-<p>に対して，<code>stan</code> 関数でベイズ推定を実行してみます．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(yuima)</span>
-<span id="cb11-2">model <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">setModel</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">drift =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"theta*(mu-X)"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">diffusion =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sigma"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">state.variable =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"X"</span>)</span></code></pre></div>
-</div>
-<p>パラメータは <span id="eq-sde-param"><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Bpmatrix%7D%5Ctheta%5C%5C%5Cmu%5C%5C%5Csigma%5Cend%7Bpmatrix%7D%0A=%0A%5Cbegin%7Bpmatrix%7D1%5C%5C0%5C%5C0.5%5Cend%7Bpmatrix%7D%0A%5Ctag%7B1%7D"></span> として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみます．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(rstan)</span>
-<span id="cb12-2">excode <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"data {</span></span>
-<span id="cb12-3"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            int N;</span></span>
-<span id="cb12-4"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            real x[N+1];</span></span>
-<span id="cb12-5"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            real h;</span></span>
-<span id="cb12-6"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">          }</span></span>
-<span id="cb12-7"></span>
-<span id="cb12-8"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">          parameters {</span></span>
-<span id="cb12-9"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            real theta;</span></span>
-<span id="cb12-10"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            real mu;</span></span>
-<span id="cb12-11"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            real&lt;lower=0&gt; sigma;</span></span>
-<span id="cb12-12"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">          }</span></span>
-<span id="cb12-13"></span>
-<span id="cb12-14"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">          model {</span></span>
-<span id="cb12-15"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            x[1] ~ normal(0,1);</span></span>
-<span id="cb12-16"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            for(n in 2:(N+1)){</span></span>
-<span id="cb12-17"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">              x[n] ~ normal(x[n-1] + theta * (mu - x[n-1]) * h,  sqrt(h) * sigma);</span></span>
-<span id="cb12-18"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">            }</span></span>
-<span id="cb12-19"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">          }"</span></span>
-<span id="cb12-20"></span>
-<span id="cb12-21">sampling <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">setSampling</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">Initial =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">Terminal =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">n =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1000</span>)</span>
-<span id="cb12-22">yuima <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">setYuima</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">model =</span> model, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">sampling =</span> sampling)</span>
-<span id="cb12-23">simulation <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">simulate</span>(yuima, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">true.parameter =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">theta =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">mu =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">sigma =</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.5</span>), <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">xinit =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">rnorm</span>(<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>))</span>
-<span id="cb12-24">sde_dat <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">list</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">N =</span>  yuima<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>sampling<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>n,</span>
-<span id="cb12-25">                  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">x =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">as.numeric</span>(simulation<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>data<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>original.data),</span>
-<span id="cb12-26">                  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">h=</span>yuima<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>sampling<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>Terminal<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>yuima<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>sampling<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">@</span>n)</span></code></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;"># シミュレーション結果</span></span>
-<span id="cb13-2"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">plot</span>(simulation)</span></code></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;"># ベイズ推定</span></span>
-<span id="cb14-2"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">rstan_options</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">auto_write =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>)</span>
-<span id="cb14-3"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">options</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">mc.cores =</span> parallel<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">detectCores</span>())</span>
-<span id="cb14-4"></span>
-<span id="cb14-5">fit <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">stan</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">model_code=</span>excode, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">data =</span> sde_dat, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">iter =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1000</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>)</span></code></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">print</span>(fit)</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Inference for Stan model: anon_model.
-4 chains, each with iter=1000; warmup=500; thin=1; 
-post-warmup draws per chain=500, total post-warmup draws=2000.
-
-         mean se_mean   sd    2.5%     25%     50%     75%   97.5% n_eff Rhat
-theta    0.79    0.07 0.93   -0.40    0.03    0.50    1.44    2.96   175 1.02
-mu      -0.06    0.46 3.15   -6.14   -0.68   -0.40    0.10    8.62    46 1.11
-sigma    0.48    0.00 0.01    0.46    0.48    0.48    0.49    0.51   585 1.00
-lp__  3127.12    0.06 1.17 3124.36 3126.47 3127.21 3127.95 3128.86   330 1.01
-
-Samples were drawn using NUTS(diag_e) at Sun Dec 22 10:18:54 2024.
-For each parameter, n_eff is a crude measure of effective sample size,
-and Rhat is the potential scale reduction factor on split chains (at 
-convergence, Rhat=1).</code></pre>
-</div>
-</div>
-<p>パラメータ (1) がよく推定できていることがわかる．特に <img src="https://latex.codecogs.com/png.latex?%5Csigma"> が安定して推定できている：</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">plot</span>(fit)</span></code></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>ci_level: 0.8 (80% intervals)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>outer_level: 0.95 (95% intervals)</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"bayesplot"</span>)</span>
-<span id="cb20-2"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"rstanarm"</span>)</span>
-<span id="cb20-3"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"ggplot2"</span>)</span>
-<span id="cb20-4"></span>
-<span id="cb20-5">posterior <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">as.matrix</span>(fit)</span>
-<span id="cb20-6">plot_title <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">ggtitle</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Posterior distributions"</span>,</span>
-<span id="cb20-7">                      <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"with medians and 80% intervals"</span>)</span>
-<span id="cb20-8"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">mcmc_areas</span>(posterior,</span>
-<span id="cb20-9">           <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">pars =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"theta"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"mu"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sigma"</span>),</span>
-<span id="cb20-10">           <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">prob =</span> <span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.8</span>) <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">+</span> plot_title</span></code></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-</section>
-<section id="トラブルシューティング" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="トラブルシューティング"><span class="header-section-number">1.2</span> トラブルシューティング</h3>
-<section id="cmath-が見つからない" class="level4" data-number="1.2.1">
-<h4 data-number="1.2.1" class="anchored" data-anchor-id="cmath-が見つからない"><span class="header-section-number">1.2.1</span> <code>cmath</code> が見つからない</h4>
-<div class="sourceCode" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1">Quitting from lines <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">329-343</span> (adastan.qmd) </span>
-<span id="cb21-2"></span>
-<span id="cb21-3"> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">compileCode</span>(f, code, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">language =</span> language, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">verbose =</span> verbose) でエラー<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> </span>
-<span id="cb21-4">  using C<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">++</span> compiler<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> ‘Apple clang version <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">16</span>.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.0</span> (clang<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">-1600</span>.<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">26.3</span>)’using C<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">++</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">17</span>using SDK<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> ‘MacOSX15.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0.</span>sdk’In file included from <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>built<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span><span class="cf" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">in</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span><span class="er" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>In file included from <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Frameworks<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>R.framework<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Versions<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4.3</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span>arm64<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Resources<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>StanHeaders<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>include<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>stan<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>math<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>prim<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>fun<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Eigen.hpp<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">22</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>In file included from <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Frameworks<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>R.framework<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Versions<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4.3</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span>arm64<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Resources<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>RcppEigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>include<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Eigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Dense<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>In file included from <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Frameworks<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>R.framework<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Versions<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4.3</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span>arm64<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Resources<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>RcppEigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>include<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Eigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Core<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">19</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="er" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">/</span>Library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Frameworks<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>R.framework<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Versions<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span><span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4.3</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">-</span>arm64<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Resources<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>library<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>RcppEigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>include<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Eigen<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>src<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Core<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>util<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">/</span>Macros.h<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">679</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">10</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> fatal error<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'cmath'</span> file not found  <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">679</span> <span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">|</span> <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">#include &lt;cmath&gt;      |          ^~~~~~~1 error generated.make: *** [file2546221168fc.o] Error 1</span></span>
-<span id="cb21-5"> 呼び出し<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  .main ... cxxfunctionplus <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> <span class="er" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">&lt;</span>Anonymous<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> cxxfunction <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> compileCode</span>
-<span id="cb21-6"> 追加情報<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  警告メッセージ<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> </span>
-<span id="cb21-7"><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  パッケージ <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'rstan'</span> はバージョン <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3.1</span> の R の下で造られました  </span>
-<span id="cb21-8"><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  パッケージ <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'bayesplot'</span> はバージョン <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3.1</span> の R の下で造られました  </span>
-<span id="cb21-9"><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  パッケージ <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'rstanarm'</span> はバージョン <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>.<span class="fl" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3.1</span> の R の下で造られました  </span>
-<span id="cb21-10"></span>
-<span id="cb21-11"></span>
-<span id="cb21-12">Quitting from lines <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">329-343</span> (adastan.qmd) </span>
-<span id="cb21-13"> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">sink</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">type =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"output"</span>) でエラー<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  コネクションが不正です </span>
-<span id="cb21-14"> 呼び出し<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span>  .main ... eval <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> stan <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> stan_model <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> cxxfunctionplus <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">-&gt;</span> sink</span>
-<span id="cb21-15"> 実行が停止されました </span></code></pre></div>
-<p>大変長く書いてあるが，要は <code>fatal error: 'cmath' file not found</code> である．</p>
-<p>筆者の場合は純粋な <code>clang++</code> の問題であった：</p>
-<div class="sourceCode" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb22-1"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">❯</span> echo <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'#include &lt;cmath&gt;</span></span>
-<span id="cb22-2"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">#include &lt;iostream&gt;</span></span>
-<span id="cb22-3"></span>
-<span id="cb22-4"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">int main() {</span></span>
-<span id="cb22-5"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">    double result = std::sqrt(16.0);</span></span>
-<span id="cb22-6"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">    std::cout &lt;&lt; "The square root of 16 is " &lt;&lt; result &lt;&lt; std::endl;</span></span>
-<span id="cb22-7"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">    return 0;</span></span>
-<span id="cb22-8"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}'</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> test.cpp</span>
-<span id="cb22-9"></span>
-<span id="cb22-10"></span>
-<span id="cb22-11"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">~</span></span>
-<span id="cb22-12"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">❯</span> clang++ <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-std</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>c++17 test.cpp <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-o</span> test</span>
-<span id="cb22-13"></span>
-<span id="cb22-14"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">test.cpp:1:10:</span> fatal error: <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'cmath'</span> file not found</span>
-<span id="cb22-15">    <span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">1</span> <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">|</span> <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">#include &lt;cmath&gt;</span></span>
-<span id="cb22-16">      <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">|</span>          <span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">^~~~~~~</span></span>
-<span id="cb22-17"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">1</span> error generated.</span></code></pre></div>
-<p>このような場合は，まず Xcode の再インストールをすると良い．</p>
-<div class="sourceCode" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb23-1"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">softwareupdate</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">--list</span></span></code></pre></div>
-<p>の出力を用いて，次のようにする：</p>
-<div class="sourceCode" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb24-1"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">softwareupdate</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-i</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Command Line Tools (macOS High Sierra version 10.13) for Xcode-10.1"</span></span></code></pre></div>
-<p>または次のようにする：</p>
-<div class="sourceCode" id="cb25" style="background: #f1f3f5;"><pre class="sourceCode zsh code-with-copy"><code class="sourceCode zsh"><span id="cb25-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">sudo</span> rm <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-rf</span> /Library/Developer/CommandLineTools</span>
-<span id="cb25-2"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">xcode-select</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">--install</span></span></code></pre></div>
-</section>
-</section>
-</section>
-<section id="rstanarm-パッケージ" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="rstanarm-パッケージ"><span class="header-section-number">2</span> <a href="https://mc-stan.org/rstanarm/"><code>rstanarm</code></a> パッケージ</h2>
-<section id="はじめに" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">2.1</span> はじめに</h3>
-<p><code>rstanarm</code> は他の R パッケージと同様のインターフェースで推論を実行するためのパッケージであり，MCMC の実行には <code>rstan</code> をバックエンドで用いる．</p>
-</section>
-</section>
-<section id="cmdstanr-パッケージ" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="cmdstanr-パッケージ"><span class="header-section-number">3</span> <code>CmdStanR</code> パッケージ</h2>
-<p><code>CmdStanPy</code>, <code>CmdStanR</code> はいずれも Stan のインターフェースである．</p>
-<p><code>CmdStanR</code> は <code>R6</code> オブジェクトを用いており，大変現代的な実装を持っている．</p>
-<div class="callout callout-style-default callout-caution no-icon callout-titled" title="インストール方法">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-インストール方法
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-3" class="callout-3-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p><a href="https://mc-stan.org/cmdstanr/articles/cmdstanr.html">Getting Started with CmdStanR</a> に従って実行します．</p>
-<p><code>repos</code> 引数を省略するとインストールできないことがあります．</p>
-<div class="sourceCode" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">install.packages</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"cmdstanr"</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">repos =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">'https://stan-dev.r-universe.dev'</span>, <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">getOption</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"repos"</span>)))</span></code></pre></div>
-<p><code>CmdStanR</code> の利用のためには，<code>CmdStan</code> が必要です．</p>
-<p><code>CmdStanR</code> を<a href="../../../posts/2024/R/Stan1.html#sec-installing-cmdstan">直接インストールすることもできます</a>が，<code>CmdStanR</code> 内部からインストールすることもできます．</p>
-<div class="sourceCode" id="cb27" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">library</span>(cmdstanr)</span>
-<span id="cb27-2"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">install_cmdstan</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">cores =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>)</span></code></pre></div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_version</span>()</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "2.36.0"</code></pre>
-</div>
-</div>
-<p>多くの場合，自動で <code>CMDSTAN</code> 環境変数にパスが設定されます．次のいずれかの方法で確認できます：</p>
-<div class="sourceCode" id="cb30" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">Sys.getenv</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"CMDSTAN"</span>)</span>
-<span id="cb30-2"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_path</span>()</span></code></pre></div>
-<p><code>CmdStanR</code> の美点の一つは，<code>install_cmdstan()</code> により <code>CmdStan</code> をアップデートすることで最新の Stan を R から簡単に利用できることである．</p>
-<p>一方で <code>RStan</code> はパッケージ自体のアップデートを待つ必要がある．</p>
-</div>
-</div>
-</div>
-<section id="モデル定義" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="モデル定義"><span class="header-section-number">3.1</span> モデル定義</h3>
-<p><code>cmdstan_model()</code> 関数は，Stan 言語による記述されたモデル定義を，C++ コードにコンパイルし，その結果を <code>R6</code> オブジェクトとして返す．<sup>1</sup></p>
-<div class="sourceCode" id="cb31" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_model</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">stan_file =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">exe_file =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">compile =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">TRUE</span>, ...)</span></code></pre></div>
-<p>返り値は <code>CmdStanModel</code> オブジェクトである．ただし <code>R6</code> オブジェクトでもあり，<code>R6</code> 流のメソッドの呼び方 <code>$</code> が使える．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb32" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1">file <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">file.path</span>(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_path</span>(), <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"examples"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"bernoulli"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"bernoulli.stan"</span>)</span>
-<span id="cb32-2">mod <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_model</span>(file)</span></code></pre></div>
-</div>
-<p>Stan 言語による定義は次のようにして確認できる：</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb33" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1">mod<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">print</span>()</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>data {
-  int&lt;lower=0&gt; N;
-  array[N] int&lt;lower=0, upper=1&gt; y;
-}
-parameters {
-  real&lt;lower=0, upper=1&gt; theta;
-}
-model {
-  theta ~ beta(1, 1); // uniform prior on interval 0,1
-  y ~ bernoulli(theta);
-}</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb35" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">names</span>(mod<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">variables</span>())</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "parameters"             "included_files"         "data"                  
-[4] "transformed_parameters" "generated_quantities"  </code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb37" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">names</span>(mod<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">variables</span>()<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span>transformed_parameters)</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>character(0)</code></pre>
-</div>
-</div>
-<p>元となったファイルのパスも <code>stan_file()</code>, <code>exe_file()</code> で確認できる．</p>
-</section>
-<section id="stan-コードの操作" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="stan-コードの操作"><span class="header-section-number">3.2</span> Stan コードの操作</h3>
-<p><code>write_stan_file()</code> 関数は Stan コードをファイルに書き出すことができる：</p>
-<div class="sourceCode" id="cb39" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">write_stan_file</span>(</span>
-<span id="cb39-2">  code,</span>
-<span id="cb39-3">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">dir =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">getOption</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"cmdstanr_write_stan_file_dir"</span>, <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">tempdir</span>()),</span>
-<span id="cb39-4">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">basename =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">NULL</span>,</span>
-<span id="cb39-5">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">force_overwrite =</span> <span class="cn" style="color: #8f5902;
-background-color: null;
-font-style: inherit;">FALSE</span>,</span>
-<span id="cb39-6">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">hash_salt =</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span></span>
-<span id="cb39-7">)</span></code></pre></div>
-<p>グローバル環境変数が設定されていない限り，<code>tempdir()</code> で一時ファイルが作成される．これは R セッションの終了とともに削除される．</p>
-<div class="sourceCode" id="cb40" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1">stan_file_variables <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">write_stan_file</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span></span>
-<span id="cb40-2"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">data {</span></span>
-<span id="cb40-3"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  int&lt;lower=1&gt; J;</span></span>
-<span id="cb40-4"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  vector&lt;lower=0&gt;[J] sigma;</span></span>
-<span id="cb40-5"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  vector[J] y;</span></span>
-<span id="cb40-6"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb40-7"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">parameters {</span></span>
-<span id="cb40-8"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  real mu;</span></span>
-<span id="cb40-9"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  real&lt;lower=0&gt; tau;</span></span>
-<span id="cb40-10"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  vector[J] theta_raw;</span></span>
-<span id="cb40-11"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb40-12"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">transformed parameters {</span></span>
-<span id="cb40-13"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  vector[J] theta = mu + tau * theta_raw;</span></span>
-<span id="cb40-14"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb40-15"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">model {</span></span>
-<span id="cb40-16"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  target += normal_lpdf(tau | 0, 10);</span></span>
-<span id="cb40-17"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  target += normal_lpdf(mu | 0, 10);</span></span>
-<span id="cb40-18"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  target += normal_lpdf(theta_raw | 0, 1);</span></span>
-<span id="cb40-19"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">  target += normal_lpdf(y | theta, sigma);</span></span>
-<span id="cb40-20"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb40-21"><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"</span>)</span>
-<span id="cb40-22">mod_v <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">cmdstan_model</span>(stan_file_variables)</span>
-<span id="cb40-23">variables <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> mod_v<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">variables</span>()</span></code></pre></div>
-</section>
-<section id="サンプリング" class="level3" data-number="3.3">
-<h3 data-number="3.3" class="anchored" data-anchor-id="サンプリング"><span class="header-section-number">3.3</span> サンプリング</h3>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb41" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1">data_list <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">list</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">N =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">10</span>, <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">y =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>,<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>))</span>
-<span id="cb41-2"></span>
-<span id="cb41-3">fit <span class="ot" style="color: #003B4F;
-background-color: null;
-font-style: inherit;">&lt;-</span> mod<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">sample</span>(</span>
-<span id="cb41-4">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">data =</span> data_list,</span>
-<span id="cb41-5">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">seed =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">123</span>,</span>
-<span id="cb41-6">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">chains =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>,</span>
-<span id="cb41-7">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">parallel_chains =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span>,</span>
-<span id="cb41-8">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">refresh =</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1000</span> <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;"># print update every 1000 iters</span></span>
-<span id="cb41-9">)</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Running MCMC with 4 parallel chains...
-
-Chain 1 Iteration:    1 / 2000 [  0%]  (Warmup) 
-Chain 1 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
-Chain 1 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
-Chain 1 Iteration: 2000 / 2000 [100%]  (Sampling) 
-Chain 2 Iteration:    1 / 2000 [  0%]  (Warmup) 
-Chain 2 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
-Chain 2 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
-Chain 2 Iteration: 2000 / 2000 [100%]  (Sampling) 
-Chain 3 Iteration:    1 / 2000 [  0%]  (Warmup) 
-Chain 3 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
-Chain 3 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
-Chain 3 Iteration: 2000 / 2000 [100%]  (Sampling) 
-Chain 4 Iteration:    1 / 2000 [  0%]  (Warmup) 
-Chain 4 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
-Chain 4 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
-Chain 4 Iteration: 2000 / 2000 [100%]  (Sampling) 
-Chain 1 finished in 0.0 seconds.
-Chain 2 finished in 0.0 seconds.
-Chain 3 finished in 0.0 seconds.
-Chain 4 finished in 0.0 seconds.
-
-All 4 chains finished successfully.
-Mean chain execution time: 0.0 seconds.
-Total execution time: 0.3 seconds.</code></pre>
-</div>
-</div>
-<p>返り値 <code>fit</code> は <code>CmdStanMCMC</code> オブジェクトであり，<code>summary()</code> などのメソッドが使用可能である．</p>
-<p><code>summary()</code> メソッドは，<code>posterior</code> パッケージのメソッド <code>summarise_draws()</code> を自動で使うようになっている．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb43" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1">fit<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">summary</span>()</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 2 × 10
-  variable   mean median    sd   mad      q5    q95  rhat ess_bulk ess_tail
-  &lt;chr&gt;     &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
-1 lp__     -7.30  -7.00  0.797 0.345 -8.86   -6.75   1.00    1923.    2017.
-2 theta     0.257  0.241 0.124 0.127  0.0800  0.485  1.00    1232.    1477.</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb45" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1">fit<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">summary</span>(<span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">variables =</span> <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">c</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"theta"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"lp__"</span>), <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"mean"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sd"</span>)</span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 2 × 3
-  variable   mean    sd
-  &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt;
-1 theta     0.257 0.124
-2 lp__     -7.30  0.797</code></pre>
-</div>
-</div>
-<p>同様にして <code>draws()</code> メソッドで <code>bayesplot</code> パッケージが呼び出される．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb47" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">mcmc_hist</span>(fit<span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">$</span><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">draws</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"theta"</span>))</span></code></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="https://162348.github.io/posts/2024/R/Stan2_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-</section>
-
-
-
-<div id="quarto-appendix" class="default"><section id="文献紹介" class="level2 appendix" data-number="4"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">4</span> 文献紹介</h2><div class="quarto-appendix-contents">
-
-
-
-
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p>実際には，最初に <code>CmdStanModel</code> オブジェクトを生成し，<code>compile()</code> メソッドを呼び出している．これが <code>compile = TRUE</code> フラッグの存在意義である．↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>Bayesian</category>
-  <category>Computation</category>
-  <category>Stan</category>
-  <category>R</category>
-  <guid>https://162348.github.io/posts/2024/R/Stan2.html</guid>
-  <pubDate>Wed, 18 Sep 2024 15:00:00 GMT</pubDate>
-  <media:content url="https://162348.github.io/posts/2024/R/Files/adastan.png" medium="image" type="image/png" height="96" width="144"/>
 </item>
 </channel>
 </rss>
