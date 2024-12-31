@@ -1,21 +1,26 @@
 ---
 title: "ベイズ変数選択"
 subtitle: "BMI データの重線型回帰を題材として"
-author: "司馬 博文"
+author: "司馬博文"
 date: 12/10/2024
-date-modified: 12/28/2024
+date-modified: 12/31/2024
 categories: [Bayesian, Statistics, R]
 bibliography: 
     - ../../../assets/mathematics.bib
     - ../../../assets/bib.bib
     - ../../../assets/bib1.bib
 csl: ../../../assets/apalike.csl
-# abstract-title: 概要
-# abstract: |
-#     心理学などの人間を対象にする研究では変数の数が多く，正しいモデルを見つけるために分散分析 (ANOVA) が広く用いられる．
-#     しかし，古典的な ANOVA 解析手法である F-検定や t-検定は，データの一側面しか伝えない．
-#     一方で，モデルの仮定を前面に出したベイズ的な解析手法は，データを探索的に吟味することができ，極めて微妙な消息も捉えることが可能になる．
-#     本稿では特にベイズ ANOVA 手法 [@Gelman2005], [@Rouder+2012] を採用して，そのモデルケースを実証する．
+abstract: |
+    点推定における変数選択法は，正則化項の追加によることが多い．
+    これはベイズ推論では $0$ 近傍に大きな確率を持った事前分布を仮定していることに等しい．
+    ベイズの観点から適切な縮小事前分布を用意することで，大きな効果を持つ回帰係数は変えずに，
+    効果の小さい変数を排除することができる．
+    一般に LASSO よりも絞って選択してくれることが多い．
+
+    またベイズ変数選択では，$0$ にアトムを持つ事前分布を用いることで，当該の変数がモデルに含まれる事後確率 (PIP: Posterior Inclusion Probability) を算出することができる．
+    この方法ではモデルの空間を効率的に探索するサンプラーの開発が重要であるが，
+    近年では効率的なサンプラーが複数提案されている．
+keywords: [horseshoe prior, spike-and-slab prior, Stochastic Search Variable Selection, Add-Delete-Swap, Locally informed MCMC Sticky PDMP]
 # image: Files/House.png
 code-fold: false
 execute:
@@ -44,6 +49,14 @@ listing:
         sort: false
         contents:
             - "Bafumi.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+    -   id: lst-embedding2
+        type: grid
+        grid-columns: 1
+        sort: false
+        contents:
+            - "BayesSticky.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
 ---
@@ -192,17 +205,20 @@ LASSO はベイズモデル選択の結果よりも予測性能が必ずしも�
 
 最終的にこの確率分布は，ベイズモデル平均 (BMA: Bayesian Model Averaging) と言って，それぞれのモデルの事後予測を平均するためのプライヤーとして用いることもできる．
 
-このアプローチは [@George-McCulloch1997] らによって創始された．この方法では
+この方法では
 $$
-p(\gamma)=\prod_{i=1}^p\om_i^{\gamma_i}(1-\om_i)^{1-\gamma_i}
+p(\gamma)=\prod_{i=1}^p\om_i^{\gamma_i}(1-\om_i)^{1-\gamma_i},\qquad p(\sigma^2)\propt\sigma^{-2}
 $$
 $$
 p(\beta|\sigma,\gamma)\,d\beta=\rN_p(0,\Sigma(\sigma,\gamma))
 $$
 という階層構造を通じて，回帰モデルに潜在変数 $\gamma$ を導入する．[@George-McCulloch1997] では $\Sigma$ は $g$-prior とする：
 $$
-\Sigma(\sigma,\gamma):=\sigma^2(X^\top_\gamma X_\gamma)^{-1}.
+\Sigma(\sigma,\gamma):=g\sigma^2(X^\top_\gamma X_\gamma)^{-1}.
 $$
+$g$ は global scale parameter と呼ばれ，これにさらに hyperprior を設定することもある [@Liang+2008], [@Lay-Steel2009]．
+
+このアプローチは [@George-McCulloch1997] らによって創始された．（仮に $p$ が比例的に増えるとしても） $n\to\infty$ の極限で PIP は正しいモデル上の Delta 測度に収束する [@Shang-Clayton2011]．
 
 ### 確率的探索法 {#sec-SSVS}
 
@@ -218,13 +234,29 @@ $$ {#eq-SSVS}
 
 この近似は Gibbs サンプラーを高速にするという利点はあったかもしれないが，現代では spike-and-slab ([-@eq-spike-and-slab]) に直接適用できる高速なサンプラーが多数開発されている．
 
-### Add-Delete-Swap
+### Add-Delete-Swap による探索 {#sec-Add-Delete-Swap}
 
 計量化学 (chemometrics) では $p$ が特に高次元になり得る．[@Brown+1998] は近赤外線分光法で得られたデータから，予測に有用な波長を選択する問題に対処するためにベイズ変数選択の方法を用いることを考えた．
 
 そのためにまず第 [-@sec-hierarchical-modeling] 節の階層モデルを多次元化し，推定には乱歩 MH 法を用いた．
 
-[@Yang+2016] は MH 法の計算複雑性を解析し，$p$ が大きい場合にも計算量が線型にしか増加しない MH 法を提案した．
+[@Brown+1998] の乱歩 MH 法の提案核は，Add-Delete-Swap の動きをするものであった：
+
+::: {.callout-tip appearance="simple" icon="false"}
+
+次の２つの動きを，それぞれ確率 $\phi,1-\phi$ で行う；
+
+1. Adding or Deleting
+
+    新たな変数 $x_i$ をランダムに選び，まだモデルに入っていない場合は入れ，すでにモデルに含まれている場合は取り除く．
+
+2. Swapping
+
+    モデルに含まれていない変数 $x_i$ と含まれている変数 $x_j$ をそれぞれランダムに選び，入れ替える．
+
+:::
+
+[@Yang+2016] は MH 法の計算複雑性を解析し，$p$ が大きい場合にも計算量が線型にしか増加しない乱歩 MH 法を提案した．
 
 ### 超次元 MCMC による PIP 算出
 
@@ -239,7 +271,7 @@ $$ {#eq-SSVS}
 
 ### 計算の問題
 
-ベイズ変数選択とは $\Gamma=\{0,1\}^p$ 上の事後分布を計算することであるが，これを効率的に行う MCMC を構成することが中心的な問題になる．
+ベイズ変数選択とはモデル空間 $\Gamma=\{0,1\}^p$ 上の事後分布を計算することであるが，これを効率的に行う MCMC を構成することが中心的な問題になる．
 
 ここまで叙述してきた Gibbs サンプラー（例えば確率的探索法 [-@sec-SSVS] など）は，$p=2$ の極めて簡単な設定で簡単に崩壊する．というのも，２つの同等な説明力を持つ確率変数が強い相関を持つ場合，$(\beta,\gamma)$ の同時分布は強い二峰性を持つ．
 
@@ -258,11 +290,60 @@ $p=2$ の時でさえ深刻になり得る多峰性の問題に加えて，共�
 
 SVEN (Selection of Variables with Embedded screeNing) [@Li-Dutta-Roy2023]．
 
-### Informed Samplers
+### Locally Informed MH Samplers
 
-対称かつ局所的なサンプラーの中では，採択率が高いほど効率が良い [@Peskun1973], [@Tierney1998]．そこで離散空間上の MH 法の採択率を上げるために，現在位置の周囲の点の情報を収集して次の動きを決めるサンプラーが **Informed MCMC** の名前の下で開発されている．
+Add-Delete-Swap による乱歩 MH 法 [-@sec-Add-Delete-Swap] の設計は，見通しの良い素朴な構成であるが，効率的な動きである保証は全くない．さらには $\phi$ やそれぞれの候補を持ってくる確率など，ユーザーが調整する必要があるハイパーパラメータも多い．
 
-この中でも LIT (Locally Informed and Thresholded proposal) [@Zhou+2022] は次元 $p$ に依存しない収束速度を達成する．
+対称かつ局所的なサンプラーの中では，採択率が高いほど効率が良い [@Peskun1973], [@Tierney1998]．そこで離散空間上の乱歩 MH 法の採択率を上げるために，現在位置の周囲の点の情報を収集して次の動きを決めるサンプラーが **Informed MCMC** の名前の下で開発されている [@Liang+2022 p.84]．
+
+多くの locally informed MCMC [@Zanella2020] では，通常の乱歩 MH 核 $Q$ を基底核 (base kernel) として，これを近傍での事後分布の様子を要約した **釣り合い関数** (balancing function) $g$ を用いて修正することで効率的な動きを達成する：
+$$
+q_g(\gamma,\gamma')\propt g\left(\frac{\pi(\gamma')}{\pi(\gamma)}\right)q(\gamma,\gamma').
+$$
+
+この中でも LIT (Locally Informed and Thresholded proposal) [@Zhou+2022] は釣り合い関数として閾値関数 (threshold function)
+$$
+g(t)=p^L\land(p^l\lor t),\qquad-\infty<l<L<\infty.
+$$
+を用い，さらに提案核 $Q$ を単なる一様分布ではなく第 [-@sec-Add-Delete-Swap] 節で考えられた Add-Delete-Swap 核 [@Brown+1998] にとることで，一定の条件の下で **次元 $p$ に依存しない収束速度** を達成することを示した．
+
+### 適応的なサンプラー
+
+LIT は固定した基底核 $Q$ を取り，そこから $g$ で修正することを基本戦略としていた．一方でそもそも基底核 $Q$ を適応的に調整していくメカニズムを導入することができる．
+
+ASI (Adaptively Scaled Individual adaptation) [@Griffin+2021] では，[@Brown+1998] の Add-Delete-Swap 核 [-@sec-Add-Delete-Swap]
+$$
+q_\eta(\gamma,\gamma')=\prod_{j=1}^pq_{\eta,j}(\gamma_j,\gamma_j'),\qquad \eta=(A_1,\cdots,A_p,D_1,\cdots,D_p)\in(0,1)^{2p},
+$$
+$$
+q_{\eta,j}(0,1)=\eta_j=A_j,\qquad q_{\eta,j}(1,0)=\eta_{p+j}=D_j,
+$$
+を元にして，$\eta=(A,D)$ を適応的に更新していくことを考える．その際の目安は，$x_j$ の PIP $\pi_j$ から定まる
+$$
+A_j^\opt:=1\land\frac{\pi_j}{1-\pi_j},\qquad D_j^\opt:=1\land\frac{1-\pi_j}{\pi_j},
+$$
+である．これの推定量 $\eta^{(i)}$ を各段階で構成した上で，総じた採択率を調整する学習率のようなパラメータ $\zeta^{(i)}$ も導入し，[@Robbins-Monro1951] の方法で更新していく．
+
+実は ASI は [@Liang+2023] がいう **確率近傍サンプラー** (random neighbourhood sampler) の例になっている．これは Add-Delete-Swap [@Brown+1998] のように提案される近傍が，補助的な離散確率変数 $k\in[K]$ によって定まるような乱歩 MH 法をいう．
+
+[@Liang+2023] では ASI によって構成される確率的近傍の中から，さらに locally informed に次の動きを選ぶことを提案し， **適応的確率近傍** (ARNI: Adaptive Random Neighbourhood Informed) サンプラーと呼んでいる．これにより ASI で上がりきらなかった採択率を押し上げつつ，計算量を抑えつつも良い近傍を提案するメカニズムを取り入れることができる．
+
+これにより $p$ に依らない収束だけでなく，計算複雑性も $p$ の次元に対してスケールするものが得られると期待される．
+
+### 【紹介】非可逆なサンプラー {.unnumbered}
+
+Informed MCMC とは，連続空間上で言えば，MALA などの勾配情報を利用したサンプラーである．このような乱歩 MH 法の修正として得られる効率的なサンプラーを [@Liang+2022] は **近傍サンプラー** (neighbourhood sampler) と呼んでいる．
+
+MALA などの Langevin 拡散を元にした乱歩 MH 法は革新的であったが，現在最も効率的なサンプラーは，局所的な動きを廃した HMC 法と，非可逆な動きを達成する PDMP (Piecewise Deterministic Markov Process) / ECMC (Event-Chain Monte Carlo) である．
+
+離散空間上でもこれらのサンプラーに対応するものは高い効率を示すだろうと思われる．
+
+一般の離散空間上でも局所性の打開には [@Nishimura+2020]，可逆性の打開には [@Koskela2022] などの試みがあるが，殊に変数選択に関しては Sticky PDMP [@Bierkens+2023] という画期的な手法が開発されている．
+
+これに関しては次稿で詳しく取り上げる：
+
+::: {#lst-embedding2}
+:::
 
 ## 文献紹介 {.appendix}
 

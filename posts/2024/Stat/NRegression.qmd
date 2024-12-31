@@ -1,0 +1,106 @@
+---
+title: "ノンパラメトリック回帰分析"
+author: "司馬 博文"
+date: 12/30/2024
+date-modified: 12/30/2024
+categories: [Statistics, Nonparametrics]
+# image: Images/Cochran.svg
+bibliography: 
+    - ../../../assets/mathematics.bib
+    - ../../../assets/bib.bib
+    - ../../../assets/bib1.bib
+csl: ../../../assets/apalike.csl
+# abstract: |
+#   重回帰モデルにおける OLS 推定量は，部分回帰推定量としての解釈を持つ．
+#   この性質を用いた手法が媒介分析や操作変数法である．
+#   OLS 推定量は不均一分散の場合でも不偏性・一致性・漸近正規性を持ち得るが，漸近有効性は失われる．
+#   これを回復するには，誤差の分散を推定して重み付けを行う必要がある．
+#   このような方法は一般化最小二乗法と呼ばれる．
+#   さらに相関を持つデータを分析するために，より一般の共分散構造を持ったモデルに対してこの手法が拡張されている．
+#   疫学では一般化推定方程式，さらに一般には計量経済学で一般化モーメント法と呼ばれる方法である．
+#   これらの方法は作業共分散の選択により，セミパラメトリック漸近最適な分散を達成したり，バイアスを小さくしたりできるが，
+#   いずれもトレードオフの範疇にある．
+listing: 
+    -   id: lst-survey
+        type: grid
+        sort: false
+        contents:
+            - "Regression.qmd"
+            - "../Survey/BDA1.qmd"
+            - "../Survey/BayesRegression.qmd"
+        date-format: iso
+        fields: [title,image,date,subtitle]
+#     -   id: lst-embedding
+#         type: grid
+#         grid-columns: 1
+#         grid-item-align: center
+#         contents:
+#             - "../Kernels/Kernel.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+#     -   id: lst-embedding1
+#         type: grid
+#         grid-columns: 1
+#         grid-item-align: center
+#         contents:
+#             - "../Survey/Survey3.qmd"
+#         date-format: iso
+#         fields: [title,image,date,subtitle,categories]
+---
+
+### 関連ページ {.unnumbered .unlisted}
+
+::: {#lst-survey}
+:::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## ノンパラメトリック回帰
+
+### カーネル密度推定量 (KDE) {#sec-KDE}
+
+データ $\{x_n\}\subset\cX$ と半正定値核 $K$ に対して，
+$$
+p(x|\{x_n\})=\frac{1}{N}\sum_{n=1}^NK_\ell(x,x_n)
+$$
+は再び半正定値核である．これを **Parzen 窓推定量** または **カーネル密度推定量** という．
+
+これはデータの経験分布と確率核 $K$ との畳み込みになっている．$K$ として Gauss 核を用いると，これはデータ分布の軟化として使え，[デノイジングスコアマッチング](../Samplers/EBM.qmd#sec-RSM)などに応用を持つ．
+
+ただし，$\ell$ は **幅** (bandwidth) とよばれるハイパーパラメータである．例えば $K$ が動径 $r$ の関数であるとき，
+$$
+K_\ell(r):=\frac{1}{\ell}K\paren{\frac{r}{\ell}}
+$$
+などと導入できる．
+
+### カーネル回帰
+
+データが $\cD=\{(x_i,y_i)\}_{i=1}^n$ という形で与えられ，平均 $\E[Y|X,\cD]$ を推定することを考える．
+
+この際，まず結合密度を次の形で推定する：
+$$
+p(y,x|\cD)=\frac{1}{n}\sum_{i=1}^nK_\ell(x,x_i)K_\ell(y,y_i)
+$$
+これを用いると，次のように平均が推定できる：
+$$
+\E[Y|X,\cD]=\int_{\cY} yp(y|X,\cD)\,dy=\sum_{i=1}^ny_iw_i(x),\qquad w_i(x):=\frac{K_\ell(x,x_i)}{\sum_{j=1}^nK_\ell(x,x_j)}.
+$$
+
+この手続きを，**カーネル回帰** / カーネル平滑化，または回帰関数に関する [@Nadaraya1964]-[@Watson1964] 推定量という．
+
+### 局所線型回帰 (LLR)
+
+カーネル回帰では $\E[Y|X,\cD]$ を，$\{y_i\}$ の適切な線型和として予測していた．実は
+$$
+\sum_{i=1}^ny_iw_i(x)=\min_\beta\sum_{i=1}^n(y_i-\beta)^2K_\ell(x,x_i)
+$$
+の解として特徴付けられる．
+
+代わりに，
+$$
+\mu(x):=\min_{\beta}\sum_{i=1}^n\Paren{y_i-\beta^\top\phi(x_i)}^2K_\ell(x,x_i)
+$$
+によって $\E[Y|X,\cD]$ を予測することを，局所線型回帰 (LLR: locally linear regression) または [LOWESS (Locally Weighted Scatterplot Smoothing)](https://en.wikipedia.org/wiki/Local_regression) [@Cleveland1979], [@Cleveland-Devlin1988]，または [Savitsky-Golay フィルター](https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter) [@Savitzky-Golay1964] という．
+
+## 密度推定
+
