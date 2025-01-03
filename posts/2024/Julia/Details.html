@@ -22,6 +22,40 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -246,6 +280,15 @@ window.Quarto = {
   <li><a href="#directory-structure-of-pdmpflux.jlsrc" id="toc-directory-structure-of-pdmpflux.jlsrc" class="nav-link active" data-scroll-target="#directory-structure-of-pdmpflux.jlsrc"><span class="header-section-number">1</span> Directory Structure of <code>PDMPFlux.jl/src</code></a>
   <ul class="collapse">
   <li><a href="#composites.jl" id="toc-composites.jl" class="nav-link" data-scroll-target="#composites.jl"><span class="header-section-number">1.1</span> <code>Composites.jl</code></a></li>
+  <li><a href="#sec-sample" id="toc-sec-sample" class="nav-link" data-scroll-target="#sec-sample"><span class="header-section-number">1.2</span> <code>sample.jl</code></a></li>
+  <li><a href="#sec-SamplingLoop" id="toc-sec-SamplingLoop" class="nav-link" data-scroll-target="#sec-SamplingLoop"><span class="header-section-number">1.3</span> <code>SamplingLoop.jl</code></a></li>
+  <li><a href="#sec-UpperBound" id="toc-sec-UpperBound" class="nav-link" data-scroll-target="#sec-UpperBound"><span class="header-section-number">1.4</span> <code>UpperBound.jl</code></a></li>
+  <li><a href="#plot.jl" id="toc-plot.jl" class="nav-link" data-scroll-target="#plot.jl"><span class="header-section-number">1.5</span> <code>plot.jl</code></a></li>
+  </ul></li>
+  <li><a href="#implementation-of-the-samplers" id="toc-implementation-of-the-samplers" class="nav-link" data-scroll-target="#implementation-of-the-samplers"><span class="header-section-number">2</span> Implementation of the Samplers</a>
+  <ul class="collapse">
+  <li><a href="#sec-AbstractPDMP" id="toc-sec-AbstractPDMP" class="nav-link" data-scroll-target="#sec-AbstractPDMP"><span class="header-section-number">2.1</span> <code>Samplers/AbstractPDMP.jl</code></a></li>
+  <li><a href="#samplersstickyzigzagsamplers.jl" id="toc-samplersstickyzigzagsamplers.jl" class="nav-link" data-scroll-target="#samplersstickyzigzagsamplers.jl"><span class="header-section-number">2.2</span> <code>Samplers/StickyZigZagSamplers.jl</code></a></li>
   </ul></li>
   </ul>
 </nav>
@@ -270,10 +313,161 @@ window.Quarto = {
 <p>composites / constructs such as <code>BoundBox</code>, <code>PDMPState</code>, <code>PDMPHistory</code> are defined.</p>
 <ul>
 <li><p><code>BoundBox</code> is basically a grid, together with the values on it, to perform thinning.</p></li>
-<li><p><code>PDMPState</code> is used to keep the position of the sampler. In addition to the <span class="math inline">\((x,v,t)\)</span> tuple, there are</p>
+<li><p><code>PDMPState</code> is used to keep the position of the sampler. The whole <code>SamplingLoop.jl</code> <a href="#sec-SamplingLoop" class="quarto-xref">Section&nbsp;1.3</a> is implemented as functions that modify the <code>PDMPState</code> in place. In addition to the <span class="math inline">\((x,v,t)\)</span> tuple, the fields include</p>
 <ul>
-<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not.</li>
+<li><code>state.rate</code> and <code>state.rate_vect</code> are the rate function and its vectorized version. These slots are determined after checking the field <code>pdmp.signed_bound</code> in <code>init_state()</code> in <code>AbstractPDMP.jl</code> <a href="#sec-AbstractPDMP" class="quarto-xref">Section&nbsp;2.1</a>.</li>
+<li><code>state.upper_bound_func()</code> is a function that takes <span class="math inline">\((x,v,t)\)</span> and returns the <code>BoundBox</code> object. Basically, <code>state.upper_bound_func()</code> is the only field that differs among samplers.</li>
+<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not, which is used within <code>ac_step_with_proxy()</code> in the <code>SamplingLoop.jl</code> <a href="#sec-SamplingLoop" class="quarto-xref">Section&nbsp;1.3</a>.</li>
+<li>proposed jump time <code>tp</code> and time already spent <code>ts</code>. They are using in <code>SamplingLoop.jl</code> <a href="#sec-SamplingLoop" class="quarto-xref">Section&nbsp;1.3</a> to conduct poisson thinning, where <code>tp</code> is the proposed jump time, and is added to <code>ts</code> when rejected.</li>
+<li>statistics to diagnose the sampler dynamic.</li>
 </ul></li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-sample" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="sec-sample"><span class="header-section-number">1.2</span> <code>sample.jl</code></h3>
+<p><code>sample.jl</code> contains functions, called by users, to start MCMC sampling. The <code>ProgressBar</code> package is used to be friendly to users.</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><code>sample.jl</code> contains 2 functions, and <code>sample()</code> that calls them in sequel.</p>
+<ul>
+<li><code>sample_skeleton() -&gt; PDMPHistory</code> initializes the progress bar and <code>PDMPState</code> &amp; <code>PDMPHistory</code> objects, using <code>init_state()</code> and <code>PDMPHistory()</code> constructor respectively. Then call <code>get_event_state()</code> in <code>SamplingLoop.jl</code> <a href="#sec-SamplingLoop" class="quarto-xref">Section&nbsp;1.3</a> for <code>iter::Int</code> times.</li>
+<li><code>sample_from_skeleton() -&gt; Matrix{Float64}</code> is a function that generates samples, which might subsequently be called by the plotting functions in <code>plot.jl</code>.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-SamplingLoop" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-SamplingLoop"><span class="header-section-number">1.3</span> <code>SamplingLoop.jl</code></h3>
+<p>This module contains 10 functions. Some of them are summarized in the following figure:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/NewSamplingLoop.jpg" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:50.0%"></p>
+</figure>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>The main loop for sampling is implemented here.</p>
+<ul>
+<li><p><code>get_event_state() -&gt; PDMPState</code> is the entering point from <code>sample.jl</code>.</p>
+<ul>
+<li><p>There is only one thing in <code>get_event_state()</code>, i.e., callling <code>one_step_of_thinning()</code> until <code>state.accept</code> becomes <code>true</code>.</p></li>
+<li><p><code>get_event_state()</code> returns a <code>PDMPState</code> object with the field <span class="math inline">\((x,v,t)\)</span> indicating where an accepted event happens, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> <a href="#sec-sample" class="quarto-xref">Section&nbsp;1.2</a>.</p></li>
+</ul></li>
+<li><p><code>one_step_of_thinning()</code> returns where simulation has completed up to, with <code>state.accept = false</code> if any proposal isnot accepted yet.</p>
+<ul>
+<li><p>Firstly, it proposes the next jump event, by simulating <code>exp_rv</code> and calling <code>next_event(upper_bound, exp_rv) -&gt; (tp, lambda_bar)</code>.</p>
+<ul>
+<li><code>upper_bound</code> is the <code>BoundBox</code> object, which is calculated by <code>state.upper_bound_func()</code> and the current state <code>(x,v,t)</code>.</li>
+<li><code>tp</code> is the proposed jump time.</li>
+<li><code>lambda_bar</code> is a upper bound, <em>with error</em>, for the rate function <span class="math inline">\(\lambda\)</span>.</li>
+</ul></li>
+<li><p>Secondly, it checks whether <code>tp &lt;= state.horizon</code>.</p>
+<ul>
+<li>If not, it calls <code>move_to_horizon()</code> and continues the loop <code>one_step_of_thinning()</code> inside <code>get_event_state()</code>.</li>
+<li>If yes, it proceeds to <code>moves_until_horizon()</code>, where another loop, calling <code>ac_step()</code>, is performed until one of the following 2 happens
+<ul>
+<li>when <code>state.accept</code> becomes <code>true</code>, it gets out of the both loops.</li>
+<li>when <code>tp &gt; state.horizon</code>, it calls <code>move_to_horizon2()</code> to get out of <code>ac_step()</code> loop, and continues the loop <code>one_step_of_thinning()</code> inside <code>get_event_state()</code>.</li>
+</ul></li>
+</ul></li>
+</ul></li>
+<li><p><code>ac_step()</code>, standing for acceptance-rejection step, is the core of Poisson thinning.</p>
+<ul>
+<li><p>calculating the <strong>acceptance rate</strong> <code>ar</code>, <em>which might exceed <span class="math inline">\(1.0\)</span></em>.</p>
+<p>In that case, <code>erroneous_acceptance_rate()</code> is called to shrink the <code>horizon</code> by half, and then continues the <code>ac_step()</code> loop in <code>moves_until_horizon()</code> function. Shrinking <code>horizon</code> leads to a finer grid, since <code>n_grid</code> is fixed.</p></li>
+<li><p>Otherwise, it performs the Poisson thinning using the proxy rate <code>lambda_bar</code>, in <code>ac_step_with_proxy()</code> call.</p>
+<ul>
+<li>Within <code>ac_step_with_proxy()</code>, either <code>if_accept()</code> or <code>if_reject()</code> is called depending on the result of Poisson thinning, followed by <code>move_to_horizon2()</code> if accepted. Whether accepted or not is informed by <code>state.accept</code> flag, which will lead you out of all the loops.</li>
+<li>In <code>if_accept()</code>, the flags are updated as <code>state.accept = true</code> &amp; <code>state.accept = true</code>, getting out of both <code>ac_step()</code> loop and <code>one_step_of_thinning()</code> loop, with the correct <span class="math inline">\((x,v,t)\)</span> stored in appropriate <code>state</code>’s fields, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> <a href="#sec-sample" class="quarto-xref">Section&nbsp;1.2</a>.</li>
+<li><code>if_reject()</code> being called, we are still in the <code>ac_step()</code> loop in <code>moves_until_horizon()</code>, until acceptance or <code>tp &gt; state.horizon</code>.</li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-UpperBound" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="sec-UpperBound"><span class="header-section-number">1.4</span> <code>UpperBound.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This module contains 2 functions, <code>upper_bound_constant()</code> and <code>upper_bound_adaptive()</code>.</p>
+<ul>
+<li><code>upper_bound_constant()</code> computes the constant upper bound using the Brent’s algorithm.</li>
+<li><code>upper_bound_adaptive()</code> computes the adaptive upper bound using the Brent’s algorithm.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="plot.jl" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="plot.jl"><span class="header-section-number">1.5</span> <code>plot.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This file contains functions to plot the samples generated by <code>sample.jl</code>.</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="implementation-of-the-samplers" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="implementation-of-the-samplers"><span class="header-section-number">2</span> Implementation of the Samplers</h2>
+<section id="sec-AbstractPDMP" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="sec-AbstractPDMP"><span class="header-section-number">2.1</span> <code>Samplers/AbstractPDMP.jl</code></h3>
+<p>This module contains one line</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> AbstractPDMP <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>and one function</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">init_state</span>(pdmp<span class="op">::</span><span class="dt">AbstractPDMP</span>, xinit<span class="op">::</span><span class="dt">Array{Float64}</span>, vinit<span class="op">::</span><span class="dt">Array{Float64}</span>, seed<span class="op">::</span><span class="dt">Int</span>) <span class="op">-&gt;</span> PDMPState</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><code>init_state()</code> is basically a constructor for <code>PDMPState</code>. This is defined in <code>AbstractPDMP.jl</code>, because the composite <code>PDMPState</code> must have different field values depending on the type of the samplers.</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="`init_state()` mainly does two things">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<code>init_state()</code> mainly does two things
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>Check the field <code>pdmp.signed_bound</code> and initialize the 3 fields <code>rate</code>, <code>rate_vect</code>, <code>refresh_rate</code> accordingly.</li>
+<li>Check the field <code>pdmp.grid_size</code> &amp; <code>pdmp.vectorized_bound</code> and initialize the field <code>upper_bound_func</code> as one of the functions in the <code>UpperBound.jl</code> <a href="#sec-UpperBound" class="quarto-xref">Section&nbsp;1.4</a> module accordingly.</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="samplersstickyzigzagsamplers.jl" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="samplersstickyzigzagsamplers.jl"><span class="header-section-number">2.2</span> <code>Samplers/StickyZigZagSamplers.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This module implements the Sticky Zig-Zag sampler, a variant of the Zig-Zag sampler that allows for sticky behavior at boundaries or other specified conditions.</p>
+<ul>
+<li>The sampler modifies the velocity component of the state when certain conditions are met.</li>
+<li>It is particularly useful for models with reflective or sticky boundaries.</li>
 </ul>
 </div>
 </div>

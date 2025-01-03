@@ -39,10 +39,187 @@
 <p>composites / constructs such as <code>BoundBox</code>, <code>PDMPState</code>, <code>PDMPHistory</code> are defined.</p>
 <ul>
 <li><p><code>BoundBox</code> is basically a grid, together with the values on it, to perform thinning.</p></li>
-<li><p><code>PDMPState</code> is used to keep the position of the sampler. In addition to the <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> tuple, there are</p>
+<li><p><code>PDMPState</code> is used to keep the position of the sampler. The whole <code>SamplingLoop.jl</code> Section&nbsp;1.3 is implemented as functions that modify the <code>PDMPState</code> in place. In addition to the <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> tuple, the fields include</p>
 <ul>
-<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not.</li>
+<li><code>state.rate</code> and <code>state.rate_vect</code> are the rate function and its vectorized version. These slots are determined after checking the field <code>pdmp.signed_bound</code> in <code>init_state()</code> in <code>AbstractPDMP.jl</code> Section&nbsp;2.1.</li>
+<li><code>state.upper_bound_func()</code> is a function that takes <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> and returns the <code>BoundBox</code> object. Basically, <code>state.upper_bound_func()</code> is the only field that differs among samplers.</li>
+<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not, which is used within <code>ac_step_with_proxy()</code> in the <code>SamplingLoop.jl</code> Section&nbsp;1.3.</li>
+<li>proposed jump time <code>tp</code> and time already spent <code>ts</code>. They are using in <code>SamplingLoop.jl</code> Section&nbsp;1.3 to conduct poisson thinning, where <code>tp</code> is the proposed jump time, and is added to <code>ts</code> when rejected.</li>
+<li>statistics to diagnose the sampler dynamic.</li>
 </ul></li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-sample" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="sec-sample"><span class="header-section-number">1.2</span> <code>sample.jl</code></h3>
+<p><code>sample.jl</code> contains functions, called by users, to start MCMC sampling. The <code>ProgressBar</code> package is used to be friendly to users.</p>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><code>sample.jl</code> contains 2 functions, and <code>sample()</code> that calls them in sequel.</p>
+<ul>
+<li><code>sample_skeleton() -&gt; PDMPHistory</code> initializes the progress bar and <code>PDMPState</code> &amp; <code>PDMPHistory</code> objects, using <code>init_state()</code> and <code>PDMPHistory()</code> constructor respectively. Then call <code>get_event_state()</code> in <code>SamplingLoop.jl</code> Section&nbsp;1.3 for <code>iter::Int</code> times.</li>
+<li><code>sample_from_skeleton() -&gt; Matrix{Float64}</code> is a function that generates samples, which might subsequently be called by the plotting functions in <code>plot.jl</code>.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-SamplingLoop" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-SamplingLoop"><span class="header-section-number">1.3</span> <code>SamplingLoop.jl</code></h3>
+<p>This module contains 10 functions. Some of them are summarized in the following figure:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2024/Julia/Files/NewSamplingLoop.jpg" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:50.0%"></p>
+</figure>
+</div>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>The main loop for sampling is implemented here.</p>
+<ul>
+<li><p><code>get_event_state() -&gt; PDMPState</code> is the entering point from <code>sample.jl</code>.</p>
+<ul>
+<li><p>There is only one thing in <code>get_event_state()</code>, i.e., callling <code>one_step_of_thinning()</code> until <code>state.accept</code> becomes <code>true</code>.</p></li>
+<li><p><code>get_event_state()</code> returns a <code>PDMPState</code> object with the field <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> indicating where an accepted event happens, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;1.2.</p></li>
+</ul></li>
+<li><p><code>one_step_of_thinning()</code> returns where simulation has completed up to, with <code>state.accept = false</code> if any proposal isnot accepted yet.</p>
+<ul>
+<li><p>Firstly, it proposes the next jump event, by simulating <code>exp_rv</code> and calling <code>next_event(upper_bound, exp_rv) -&gt; (tp, lambda_bar)</code>.</p>
+<ul>
+<li><code>upper_bound</code> is the <code>BoundBox</code> object, which is calculated by <code>state.upper_bound_func()</code> and the current state <code>(x,v,t)</code>.</li>
+<li><code>tp</code> is the proposed jump time.</li>
+<li><code>lambda_bar</code> is a upper bound, <em>with error</em>, for the rate function <img src="https://latex.codecogs.com/png.latex?%5Clambda">.</li>
+</ul></li>
+<li><p>Secondly, it checks whether <code>tp &lt;= state.horizon</code>.</p>
+<ul>
+<li>If not, it calls <code>move_to_horizon()</code> and continues the loop <code>one_step_of_thinning()</code> inside <code>get_event_state()</code>.</li>
+<li>If yes, it proceeds to <code>moves_until_horizon()</code>, where another loop, calling <code>ac_step()</code>, is performed until one of the following 2 happens
+<ul>
+<li>when <code>state.accept</code> becomes <code>true</code>, it gets out of the both loops.</li>
+<li>when <code>tp &gt; state.horizon</code>, it calls <code>move_to_horizon2()</code> to get out of <code>ac_step()</code> loop, and continues the loop <code>one_step_of_thinning()</code> inside <code>get_event_state()</code>.</li>
+</ul></li>
+</ul></li>
+</ul></li>
+<li><p><code>ac_step()</code>, standing for acceptance-rejection step, is the core of Poisson thinning.</p>
+<ul>
+<li><p>calculating the <strong>acceptance rate</strong> <code>ar</code>, <em>which might exceed <img src="https://latex.codecogs.com/png.latex?1.0"></em>.</p>
+<p>In that case, <code>erroneous_acceptance_rate()</code> is called to shrink the <code>horizon</code> by half, and then continues the <code>ac_step()</code> loop in <code>moves_until_horizon()</code> function. Shrinking <code>horizon</code> leads to a finer grid, since <code>n_grid</code> is fixed.</p></li>
+<li><p>Otherwise, it performs the Poisson thinning using the proxy rate <code>lambda_bar</code>, in <code>ac_step_with_proxy()</code> call.</p>
+<ul>
+<li>Within <code>ac_step_with_proxy()</code>, either <code>if_accept()</code> or <code>if_reject()</code> is called depending on the result of Poisson thinning, followed by <code>move_to_horizon2()</code> if accepted. Whether accepted or not is informed by <code>state.accept</code> flag, which will lead you out of all the loops.</li>
+<li>In <code>if_accept()</code>, the flags are updated as <code>state.accept = true</code> &amp; <code>state.accept = true</code>, getting out of both <code>ac_step()</code> loop and <code>one_step_of_thinning()</code> loop, with the correct <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> stored in appropriate <code>state</code>’s fields, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;1.2.</li>
+<li><code>if_reject()</code> being called, we are still in the <code>ac_step()</code> loop in <code>moves_until_horizon()</code>, until acceptance or <code>tp &gt; state.horizon</code>.</li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-UpperBound" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="sec-UpperBound"><span class="header-section-number">1.4</span> <code>UpperBound.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This module contains 2 functions, <code>upper_bound_constant()</code> and <code>upper_bound_adaptive()</code>.</p>
+<ul>
+<li><code>upper_bound_constant()</code> computes the constant upper bound using the Brent’s algorithm.</li>
+<li><code>upper_bound_adaptive()</code> computes the adaptive upper bound using the Brent’s algorithm.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="plot.jl" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="plot.jl"><span class="header-section-number">1.5</span> <code>plot.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This file contains functions to plot the samples generated by <code>sample.jl</code>.</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="implementation-of-the-samplers" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="implementation-of-the-samplers"><span class="header-section-number">2</span> Implementation of the Samplers</h2>
+<section id="sec-AbstractPDMP" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="sec-AbstractPDMP"><span class="header-section-number">2.1</span> <code>Samplers/AbstractPDMP.jl</code></h3>
+<p>This module contains one line</p>
+<div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">abstract type</span> AbstractPDMP <span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">end</span></span></code></pre></div>
+<p>and one function</p>
+<div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">init_state</span>(pdmp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">AbstractPDMP</span>, xinit<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Array{Float64}</span>, vinit<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Array{Float64}</span>, seed<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-&gt;</span> PDMPState</span></code></pre></div>
+<p><code>init_state()</code> is basically a constructor for <code>PDMPState</code>. This is defined in <code>AbstractPDMP.jl</code>, because the composite <code>PDMPState</code> must have different field values depending on the type of the samplers.</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="`init_state()` mainly does two things">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<code>init_state()</code> mainly does two things
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>Check the field <code>pdmp.signed_bound</code> and initialize the 3 fields <code>rate</code>, <code>rate_vect</code>, <code>refresh_rate</code> accordingly.</li>
+<li>Check the field <code>pdmp.grid_size</code> &amp; <code>pdmp.vectorized_bound</code> and initialize the field <code>upper_bound_func</code> as one of the functions in the <code>UpperBound.jl</code> Section&nbsp;1.4 module accordingly.</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="samplersstickyzigzagsamplers.jl" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="samplersstickyzigzagsamplers.jl"><span class="header-section-number">2.2</span> <code>Samplers/StickyZigZagSamplers.jl</code></h3>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>This module implements the Sticky Zig-Zag sampler, a variant of the Zig-Zag sampler that allows for sticky behavior at boundaries or other specified conditions.</p>
+<ul>
+<li>The sampler modifies the velocity component of the state when certain conditions are met.</li>
+<li>It is particularly useful for models with reflective or sticky boundaries.</li>
 </ul>
 </div>
 </div>
@@ -80,7 +257,7 @@
 <p>その他の推定法は別稿で扱う：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -102,7 +279,7 @@
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -124,7 +301,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -344,7 +521,7 @@ BLUE
 <p>この重み付けの考え方は標本抽出の際にも重要であり，<span class="citation" data-cites="Horvitz-Thompson1952">(Horvitz and Thompson, 1952)</span> の逆確率重み付け法とも呼ばれる：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -386,7 +563,7 @@ No matching items
 <p>具体的には，基準点 <img src="https://latex.codecogs.com/png.latex?x_0"> の近傍でのベストな線型近似 <img src="https://latex.codecogs.com/png.latex?%0Ay(x)=%5Calpha+%5Cbeta(x-x_0)%0A"> を得るために，あるカーネル <img src="https://latex.codecogs.com/png.latex?K"> と帯域幅 <img src="https://latex.codecogs.com/png.latex?h%3E0"> を通じて <img src="https://latex.codecogs.com/png.latex?%0A(%5Cwidehat%7B%5Calpha%7D,%5Cwidehat%7B%5Cbeta%7D):=%5Coperatorname*%7Bargmin%7D_%7Ba,b%7D%5Csum_%7Bi=1%7D%5Enw_i%5Cbiggl%7Cy_i-a-b(x_i-x_0)%5Cbiggr%7C%5E2_2,%5Cqquad%20w_i:=K%5Cleft(%5Cfrac%7Bx_i-x_0%7D%7Bh%7D%5Cright),%0A"> によって定める．</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="S2VybmVs" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1735639619836" data-listing-date-modified-sort="1723334400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="523">
+<div class="g-col-1" data-index="0" data-categories="S2VybmVs" data-listing-date-sort="1723248000000" data-listing-file-modified-sort="1735897151579" data-listing-date-modified-sort="1723334400000" data-listing-reading-time-sort="3" data-listing-word-count-sort="523">
 <a href="../../../posts/2024/Kernels/Kernel.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -776,7 +953,7 @@ Listing&nbsp;1
 
 <div class="quarto-listing quarto-listing-container-grid" id="listing-lst-embedding">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735639621899" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735897153643" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
 <a href="../../../posts/2024/Survey/BayesGLMM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -812,7 +989,7 @@ Stan
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -848,7 +1025,7 @@ R
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3481,7 +3658,7 @@ summary(fit_1PL_maximal)
 
 <div class="quarto-listing quarto-listing-container-grid" id="listing-lst-survey">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3503,7 +3680,7 @@ summary(fit_1PL_maximal)
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3525,7 +3702,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3615,7 +3792,7 @@ Vansteelandt, K. (2001). <em>Formal models for contextualized personality psycho
 <p>本稿ではロジスティック回帰を主に扱う．</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3637,7 +3814,7 @@ Vansteelandt, K. (2001). <em>Formal models for contextualized personality psycho
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -3659,7 +3836,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735639621899" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUiUyQ1N0YW4=" data-listing-date-sort="1734134400000" data-listing-file-modified-sort="1735897153643" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1355">
 <a href="../../../posts/2024/Survey/BayesGLMM.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4189,7 +4366,7 @@ font-style: inherit;">"b_z_log_LDL"</span>))</span></code></pre></div>
 <p>さらには <code>LAB</code> と <code>LDL</code> がモデルに入っている確率を出す方法は別稿で追求する：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622522" data-listing-date-modified-sort="1735603200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="625">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897154250" data-listing-date-modified-sort="1735603200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="625">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/BayesSelection.html -->
@@ -4426,7 +4603,7 @@ grid.arrange(p1_ppc, p2_ppc, nrow = 1)
 <h3 data-number="2.7" class="anchored" data-anchor-id="非線型関係の追求"><span class="header-section-number">2.7</span> 非線型関係の追求</h3>
 <div id="listing-lst-embedding-nonlinear" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1734307200000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1734307200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="32">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1734307200000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1734307200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="32">
 <a href="../../../posts/2024/Survey/BayesNonparametrics.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding-nonlinear:posts/2024/Survey/BayesNonparametrics.html -->
@@ -4886,7 +5063,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4908,7 +5085,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735639619854" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<div class="g-col-1" data-index="1" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735897151597" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
 <a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4930,7 +5107,7 @@ Wu, W. A. C., Yuxiang AND Ma. (2024). <a href="https://doi.org/10.1371/journal.p
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1735639619817" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
+<div class="g-col-1" data-index="2" data-categories="U3RhdGlzdGljcyUyQ0tlcm5lbCUyQ1Byb2JhYmlsaXR5JTJDQmF5ZXNpYW4=" data-listing-date-sort="1723420800000" data-listing-file-modified-sort="1735897151560" data-listing-date-modified-sort="1723593600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1072">
 <a href="../../../posts/2024/Kernels/HierarchicalModel.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4973,7 +5150,7 @@ No matching items
 <p>さらには一般化線型モデルを用いることで，連続・離散データの簡単な非線型関係まで扱うことができる．</p>
 <div id="listing-lst-regression" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -4995,7 +5172,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5017,7 +5194,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5111,7 +5288,7 @@ No matching items
 <p>その縮小効果については次稿も参照：</p>
 <div id="listing-lst-embed" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735639619641" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735897151387" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5500,7 +5677,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 <p>ベイズ線型回帰分析は多くのデータ解析における「最初の一歩」である．ベイズ回帰分析から始まるベイズのワークフローや，理論的な背景は次稿を参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639621884" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5522,7 +5699,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735639619641" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735897151387" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -5544,7 +5721,7 @@ Solomon, P. J. (2005). <a href="https://doi.org/10.1002/0470011815.b2a09056">Var
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7261,7 +7438,7 @@ font-style: inherit;">loo_R2</span>(fit1_loglog))</span></code></pre></div>
 <p>離散変数の扱いは連続変数よりも難しくなる．基本的に一般化線型モデルの枠組みが必要になる．</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -7301,7 +7478,7 @@ No matching items
 <p>事後予測分布のプロットだけでなく，その「よさ」の定量的な指標として交差検証による事後予測スコア elpd <span class="citation" data-cites="Vehtari+2017">(Vehtari et al., 2017)</span> があることを学んだ．</p>
 <div id="listing-lst-embedding2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622522" data-listing-date-modified-sort="1735603200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="625">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897154250" data-listing-date-modified-sort="1735603200000" data-listing-reading-time-sort="4" data-listing-word-count-sort="625">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSelection.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding2:posts/2024/TransDimensionalModels/BayesSelection.html -->
@@ -7401,7 +7578,7 @@ Vehtari, A., Simpson, D., Gelman, A., Yao, Y., and Gabry, J. (2024). <a href="ht
 <p>その方法を <code>brms</code> パッケージを用いて実践したのが次の記事である：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7557,7 +7734,7 @@ No matching items
 <p>詳しくは別稿で取り上げるが，特に Sticky PDMP <span class="citation" data-cites="Bierkens+2023">(Bierkens et al., 2023)</span> は有力な PIP 算出法になる．</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726963200000" data-listing-file-modified-sort="1735639622523" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="349">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDU3RhdGlzdGljcw==" data-listing-date-sort="1726963200000" data-listing-file-modified-sort="1735897154252" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="349">
 <a href="../../../posts/2024/TransDimensionalModels/BayesTrans.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7579,7 +7756,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735639622523" data-listing-date-modified-sort="1735689600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="197">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735897154252" data-listing-date-modified-sort="1735689600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="197">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-survey:posts/2024/TransDimensionalModels/BayesSticky.html -->
@@ -7599,7 +7776,7 @@ Sticky PDMP によるベイズ変数選択
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735639622523" data-listing-date-modified-sort="1734739200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="97">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735897154252" data-listing-date-modified-sort="1734739200000" data-listing-reading-time-sort="1" data-listing-word-count-sort="97">
 <a href="../../../posts/2024/TransDimensionalModels/BayesTraverse.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-survey:posts/2024/TransDimensionalModels/BayesTraverse.html -->
@@ -7633,7 +7810,7 @@ No matching items
 <p>推定したいモデルが階層モデルである限り，多峰性の問題は常に付きものである．</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735639622521" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735897154250" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
 <a href="../../../posts/2024/TransDimensionalModels/Bafumi.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding1:posts/2024/TransDimensionalModels/Bafumi.html -->
@@ -7698,7 +7875,7 @@ SVEN (Selection of Variables with Embedded screeNing) [@Li-Dutta-Roy2023]．
 <p>これに関しては次稿で詳しく取り上げる：</p>
 <div id="listing-lst-embedding2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735639622523" data-listing-date-modified-sort="1735689600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="197">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQw==" data-listing-date-sort="1734739200000" data-listing-file-modified-sort="1735897154252" data-listing-date-modified-sort="1735689600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="197">
 <a href="../../../posts/2024/TransDimensionalModels/BayesSticky.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding2:posts/2024/TransDimensionalModels/BayesSticky.html -->
@@ -7913,7 +8090,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735639619641" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735897151387" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7935,7 +8112,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1735430400000" data-listing-reading-time-sort="2" data-listing-word-count-sort="371">
 <a href="../../../posts/2024/Survey/BDA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7957,7 +8134,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -7979,7 +8156,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="3" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8001,7 +8178,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="4" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8023,7 +8200,7 @@ Zhou, Q., Yang, J., Vats, D., Roberts, G. O., and Rosenthal, J. S. (2022). <a hr
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="5" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897154244" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8129,7 +8306,7 @@ No matching items
 <p>ベイズの立場からは，「変量」と「固定」の名称は歴史的なもので，実質的な違いは「次の階層で回帰モデルを仮定するか，モデルを持たない最終階層の変数と扱い一様事前分布に従うとするか」という仮定の違いにすぎない．詳しくは次節：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735639619854" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
+<div class="g-col-1" data-index="0" data-categories="T3BpbmlvbiUyQ1N0YXRpc3RpY3M=" data-listing-date-sort="1733875200000" data-listing-file-modified-sort="1735897151597" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="511">
 <a href="../../../posts/2024/Lifestyle/FixedRandom.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -8170,7 +8347,7 @@ No matching items
 <p>こうして設定された各因子の各水準ごとの係数 <img src="https://latex.codecogs.com/png.latex?%5Cbeta%5E%7B(m)%7D_j"> の事後分布を見ることで「分散分析」を実行することになる．これがベイズによる分散分析の再解釈である．</p>
 <div id="listing-lst-ANOVA" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639621884" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8192,7 +8369,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8214,7 +8391,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735639619641" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735897151387" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8496,7 +8673,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 <p>回帰モデルや分散分析では，暗黙裡に応答変数が連続であることが仮定されている．</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8518,7 +8695,7 @@ Tversky, A., and Kahneman, D. (1973). <a href="https://doi.org/10.1016/0010-0285
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735639622267" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1733788800000" data-listing-file-modified-sort="1735897153998" data-listing-date-modified-sort="1733961600000" data-listing-reading-time-sort="5" data-listing-word-count-sort="945">
 <a href="../../../posts/2024/Survey/BayesRegression.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8540,7 +8717,7 @@ BMI データを題材として
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639621884" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDUg==" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733702400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="848">
 <a href="../../../posts/2024/Survey/BayesANOVA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8590,7 +8767,7 @@ No matching items
 <p>この潜在変数 <img src="https://latex.codecogs.com/png.latex?Y_i%5E*"> は単位 <img src="https://latex.codecogs.com/png.latex?i%5Cin%5BN%5D"> の潜在的な尺度として解釈できる．これを用いて因子分析様の解析を行う例には <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html">理想点推定</a> もある．</p>
 <div id="listing-lst-ideal" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-2">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8612,7 +8789,7 @@ No matching items
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1727827200000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="28" data-listing-word-count-sort="5498">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -8677,7 +8854,7 @@ No matching items
 <p>これに関しては <a href="../../../posts/2024/Survey/BDA3.html#sec-choice-model">階層ロジスティックモデルの稿</a> で詳しく扱う．</p>
 <div id="listing-lst-embed" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733961600000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="295">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733961600000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="295">
 <a href="../../../posts/2024/Survey/BDA3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embed:posts/2024/Survey/BDA3.html -->
@@ -9033,7 +9210,7 @@ PDMP サンプラーの特徴
 <p>詳しくは次の記事も参照：</p>
 <div id="listing-PDMP-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1735639621862" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
+<div class="g-col-1" data-index="0" data-categories="TUNNQyUyQ0NvbXB1dGF0aW9uJTJDSnVsaWElMkNTYW1wbGluZw==" data-listing-date-sort="1721260800000" data-listing-file-modified-sort="1735897153605" data-listing-date-modified-sort="1724889600000" data-listing-reading-time-sort="14" data-listing-word-count-sort="2629">
 <a href="../../../posts/2024/Stat/ZigZagSubsampling.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -9069,7 +9246,7 @@ Sampling
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1735639620915" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
+<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDSnVsaWElMkNNQ01D" data-listing-date-sort="1719964800000" data-listing-file-modified-sort="1735897152637" data-listing-date-modified-sort="1721260800000" data-listing-reading-time-sort="13" data-listing-word-count-sort="2593">
 <a href="../../../posts/2024/Process/ZigZag.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:PDMP-listing:posts/2024/Process/ZigZag.html -->
@@ -9103,7 +9280,7 @@ MCMC
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1735639620912" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
+<div class="g-col-1" data-index="2" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUg==" data-listing-date-sort="1706659200000" data-listing-file-modified-sort="1735897152634" data-listing-date-modified-sort="1719878400000" data-listing-reading-time-sort="7" data-listing-word-count-sort="1230">
 <a href="../../../posts/2024/Process/PureJump.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -10310,7 +10487,7 @@ Sutton, M., and Fearnhead, P. (2023). <a href="https://doi.org/10.1080/10618600.
 <h3 class="unnumbered unlisted anchored" data-anchor-id="関連ページ">関連ページ</h3>
 <div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735639619573" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735897151319" data-listing-date-modified-sort="1728691200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="300">
 <a href="../../../posts/2024/Bridges/SB0.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:diffusion-listing:posts/2024/Bridges/SB0.html -->
@@ -10330,7 +10507,7 @@ Langevin 拡散の時間反転を用いたシミュレーションベースの�
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735639619573" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
+<div class="g-col-1" data-index="1" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5nJTJDUChYKQ==" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735897151319" data-listing-date-modified-sort="1728604800000" data-listing-reading-time-sort="2" data-listing-word-count-sort="219">
 <a href="../../../posts/2024/Bridges/SB1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -10352,7 +10529,7 @@ Iterative Proportional Fitting アルゴリズムについて
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735639619573" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="2" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735897151319" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -10388,7 +10565,7 @@ No matching items
 <p>雑音除去過程に関しては次の記事を参照：</p>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1735639621119" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
+<div class="g-col-1" data-index="0" data-categories="UHJvY2VzcyUyQ1NhbXBsaW5n" data-listing-date-sort="1724630400000" data-listing-file-modified-sort="1735897152854" data-listing-date-modified-sort="1724803200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="350">
 <a href="../../../posts/2024/Samplers/DD1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -10418,7 +10595,7 @@ No matching items
 <p>DDS については次の記事を参照：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735639619573" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
+<div class="g-col-1" data-index="0" data-categories="U2FtcGxpbmclMkNQcm9jZXNz" data-listing-date-sort="1722643200000" data-listing-file-modified-sort="1735897151319" data-listing-date-modified-sort="1728172800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="96">
 <a href="../../../posts/2024/Bridges/SB2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-center">
 <p class="card-img-top">
@@ -11348,7 +11525,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-listing" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1735639619934" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
+<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDU3VydmV5" data-listing-date-sort="1712448000000" data-listing-file-modified-sort="1735897151675" data-listing-date-modified-sort="1728345600000" data-listing-reading-time-sort="2" data-listing-word-count-sort="353">
 <a href="../../../posts/2024/Particles/ParticleMethods.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -11370,7 +11547,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1735639622651" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDTUNNQyUyQ1N1cnZleQ==" data-listing-date-sort="1702512000000" data-listing-file-modified-sort="1735897154382" data-listing-date-modified-sort="1722816000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/Surveys/SMCSamplers.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -11392,7 +11569,7 @@ Vargas, F., Grathwohl, W. S., and Doucet, A. (2023). <a href="https://openreview
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1735639619338" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
+<div class="g-col-1" data-index="2" data-categories="UGFydGljbGVzJTJDU3VydmV5JTJDQ29tcHV0YXRpb24=" data-listing-date-sort="1700870400000" data-listing-file-modified-sort="1735897151086" data-listing-date-modified-sort="1702598400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="821">
 <a href="../../../posts/2023/Surveys/ParticleFilter.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12443,7 +12620,7 @@ van/ Kekem, D. L. (2018). <em>Dynamics of the lorenz-96 model: Bifurcations, sym
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735639622533" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1721088000000" data-listing-file-modified-sort="1735897154261" data-listing-date-modified-sort="1727827200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="829">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -12473,7 +12650,7 @@ Statistics
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1732233600000" data-listing-file-modified-sort="1735639622635" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="1" data-listing-word-count-sort="186">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1732233600000" data-listing-file-modified-sort="1735897154366" data-listing-date-modified-sort="1734048000000" data-listing-reading-time-sort="1" data-listing-word-count-sort="186">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/IdealPoint2.html -->
@@ -12507,7 +12684,7 @@ Computation
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1734220800000" data-listing-file-modified-sort="1735639622635" data-listing-date-modified-sort="1734220800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="76">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ0NvbXB1dGF0aW9u" data-listing-date-sort="1734220800000" data-listing-file-modified-sort="1735897154366" data-listing-date-modified-sort="1734220800000" data-listing-reading-time-sort="1" data-listing-word-count-sort="76">
 <a href="../../../posts/2024/TransDimensionalModels/IdealPoint3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding:posts/2024/TransDimensionalModels/IdealPoint3.html -->
@@ -16310,7 +16487,7 @@ font-style: inherit;">".png"</span>), p)</span>
 <p>この点については次の稿も参照：</p>
 <div id="listing-lst-embedding1" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735639622521" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNzJTJDTUNNQyUyQ1I=" data-listing-date-sort="1734825600000" data-listing-file-modified-sort="1735897154250" data-listing-date-modified-sort="1734912000000" data-listing-reading-time-sort="5" data-listing-word-count-sort="954">
 <a href="../../../posts/2024/TransDimensionalModels/Bafumi.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <!-- img(9CEB782EFEE6)[progressive=false, height=150px]:lst-embedding1:posts/2024/TransDimensionalModels/Bafumi.html -->
@@ -17426,7 +17603,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17448,7 +17625,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -17470,7 +17647,7 @@ Zeileis, A., Kleiber, C., and Jackman, S. (2008). <a href="https://www.jstatsoft
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897154244" data-listing-date-modified-sort="1727395200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="269">
 <a href="../../../posts/2024/Survey/Survey4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -18125,7 +18302,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 <p>この「別のモデル」の選び方は <span class="citation" data-cites="Rouder+2012">(Rouder et al., 2012)</span> によって一致性とスケール不変性を持つものが提案されている．詳しくは次の関連記事も参照：</p>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -18147,7 +18324,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735639619641" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1735897151387" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -18169,7 +18346,7 @@ Zieschang, K. D. (1990). <a href="http://www.jstor.org/stable/2289595">Sample we
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735639621883" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1733356800000" data-listing-file-modified-sort="1735897153627" data-listing-date-modified-sort="1733875200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="453">
 <a href="../../../posts/2024/Survey/BDA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -19412,7 +19589,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 <h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
 <div id="listing-lst-survey" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1733616000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="564">
 <a href="../../../posts/2024/Survey/Survey1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -19434,7 +19611,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
+<div class="g-col-1" data-index="1" data-categories="U3RhdGlzdGljcw==" data-listing-date-sort="1727049600000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1735516800000" data-listing-reading-time-sort="3" data-listing-word-count-sort="489">
 <a href="../../../posts/2024/Survey/Survey2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -19456,7 +19633,7 @@ Rouder, J. N., Morey, R. D., Speckman, P. L., and Province, J. M. (2012). <a hre
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735639622515" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1727136000000" data-listing-file-modified-sort="1735897154243" data-listing-date-modified-sort="1727568000000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1038">
 <a href="../../../posts/2024/Survey/Survey3.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
