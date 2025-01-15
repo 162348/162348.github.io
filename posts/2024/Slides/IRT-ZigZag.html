@@ -2,13 +2,14 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.6.40">
+<meta name="generator" content="quarto-1.4.552">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
+<meta name="description" content="スライドはこちら．">
 
-<title>粒子フィルターの実装 – Hirofumi Shiba</title>
+<title>Hirofumi Shiba - Zig-Zag サンプラーのモデル選択への応用</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -21,26 +22,7 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for citations */
-div.csl-bib-body { }
-div.csl-entry {
-  clear: both;
-}
-.hanging-indent div.csl-entry {
-  margin-left:2em;
-  text-indent:-2em;
-}
-div.csl-left-margin {
-  min-width:2em;
-  float:left;
-}
-div.csl-right-inline {
-  margin-left:2em;
-  padding-left:1em;
-}
-div.csl-indent {
-  margin-left: 2em;
-}</style>
+</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -51,17 +33,15 @@ div.csl-indent {
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
 <link href="../../../assets/profile.jpg" rel="icon" type="image/jpeg">
-<script src="../../../site_libs/quarto-listing/list.min.js"></script>
-<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-23b8e6f3f748bc5bdbba311d511a5b21.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../../site_libs/bootstrap/bootstrap-cbbf670b64ffb0f4f82a1bdb363d1e3a.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -87,35 +67,6 @@ div.csl-indent {
     "search-label": "Search"
   }
 }</script>
-<script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-lst-embedding .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-lst-embedding'] = new List('listing-lst-embedding', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
 <script type="text/javascript">
@@ -157,49 +108,16 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   }
 </style> -->
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN") {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="粒子フィルターの実装 – Hirofumi Shiba">
-<meta property="og:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．">
-<meta property="og:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta property="og:title" content="Hirofumi Shiba - Zig-Zag サンプラーのモデル選択への応用">
+<meta property="og:description" content="スライドはこちら．">
+<meta property="og:image" content="https://162348.github.io/posts/2024/Slides/Files/ZigZag_Banana3D.gif">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta property="og:image:height" content="480">
-<meta property="og:image:width" content="672">
-<meta name="twitter:title" content="粒子フィルターの実装 – Hirofumi Shiba">
-<meta name="twitter:description" content="粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2023/Particles/sample_plot.png">
+<meta name="twitter:title" content="Hirofumi Shiba - Zig-Zag サンプラーのモデル選択への応用">
+<meta name="twitter:description" content="スライドはこちら．">
+<meta name="twitter:image" content="https://162348.github.io/posts/2024/Slides/Files/ZigZag_Banana3D.gif">
 <meta name="twitter:creator" content="@ano2math5">
-<meta name="twitter:image-height" content="480">
-<meta name="twitter:image-width" content="672">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -215,7 +133,7 @@ window.Quarto = {
     </a>
   </div>
             <div id="quarto-search" class="" title="Search"></div>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
   <span class="navbar-toggler-icon"></span>
 </button>
           <div class="collapse navbar-collapse" id="navbarCollapse">
@@ -242,7 +160,7 @@ window.Quarto = {
   </li>  
 </ul>
           </div> <!-- /navcollapse -->
-            <div class="quarto-navbar-tools">
+          <div class="quarto-navbar-tools">
     <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
 </div>
       </div> <!-- /container-fluid -->
@@ -252,29 +170,42 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">粒子フィルターの実装</h1>
-            <p class="subtitle lead">リサンプリング編</p>
-                                <div class="quarto-categories">
-                <div class="quarto-category">Particles</div>
+      <h1 class="title">Zig-Zag サンプラーのモデル選択への応用</h1>
+            <p class="subtitle lead">Reversible Jump Zig-Zag Sampler</p>
+                  <div>
+        <div class="description">
+          <p>スライドは<a href="Master_Slides.html"><u>こちら</u></a>．</p>
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">Slide</div>
+                <div class="quarto-category">MCMC</div>
                 <div class="quarto-category">Julia</div>
               </div>
                   </div>
   </div>
     
-  
+  <div class="quarto-title-meta-author">
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-heading">Affiliation</div>
+    
+      <div class="quarto-title-meta-contents">
+      <p class="author">司馬博文 </p>
+    </div>
+    <div class="quarto-title-meta-contents">
+          <p class="affiliation">
+              総合研究大学院大学（５年一貫博士課程）
+            </p>
+        </div>
+    </div>
+
   <div class="quarto-title-meta">
 
-      <div>
-      <div class="quarto-title-meta-heading">Author</div>
-      <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
-            </div>
-    </div>
-      
+        
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">1/14/2024</p>
+        <p class="date">2/07/2025</p>
       </div>
     </div>
     
@@ -284,7 +215,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      粒子フィルターは，リサンプリングを取り入れた逐次重点サンプリングと見れる．リサンプリングにより荷重の退化を防げるが本質的な問題は回避できないことが多い．本稿では，リサンプリングのアルゴリズムを複数紹介し比較する．
+      <p>統計数理研究所． スライドは<a href="Master_Slides.html"><u>こちら</u></a>．</p>
     </div>
   </div>
   
@@ -296,12 +227,9 @@ window.Quarto = {
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#リサンプリング法の形式化" id="toc-リサンプリング法の形式化" class="nav-link active" data-scroll-target="#リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</a>
-  <ul class="collapse">
-  <li><a href="#リサンプリングとは" id="toc-リサンプリングとは" class="nav-link" data-scroll-target="#リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</a></li>
-  </ul></li>
+  <li><a href="#zig-zag-サンプラー" id="toc-zig-zag-サンプラー" class="nav-link active" data-scroll-target="#zig-zag-サンプラー"><span class="header-section-number">1</span> Zig-Zag サンプラー</a></li>
   </ul>
-</nav>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="IRT-ZigZag_Slides.html"><i class="bi bi-file-slides"></i>RevealJS</a></li></ul></div></nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -310,207 +238,37 @@ window.Quarto = {
 
 
 
-<section id="関連記事" class="level2 unnumbered unlisted">
-<h2 class="unnumbered unlisted anchored" data-anchor-id="関連記事">関連記事</h2>
-<div id="listing-lst-embedding" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="UGFydGljbGVzJTJDSnVsaWE=" data-listing-date-sort="1729900800000" data-listing-file-modified-sort="1736904958174" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="31">
-<a href="../../../posts/2024/Particles/AdvancedPS.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top"><img src="../Julia/MCMCChains.svg" style="height: 150px;"  class="thumbnail-image card-img"/></p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-<code>AdvancedPS.jl</code> パッケージ
-</h5>
-<div class="card-subtitle listing-subtitle">
-Turing エコシステムにおける粒子フィルター
-</div>
-<div class="listing-categories">
-<div class="listing-category" onclick="window.quartoListingCategory('UGFydGljbGVz'); return false;">
-Particles
-</div>
-<div class="listing-category" onclick="window.quartoListingCategory('SnVsaWE='); return false;">
-Julia
-</div>
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-10-26
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-<div class="g-col-1" data-index="1" data-categories="UGFydGljbGVzJTJDUHl0aG9u" data-listing-date-sort="1702252800000" data-listing-file-modified-sort="1736904957554" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="12" data-listing-word-count-sort="2261">
-<a href="../../../posts/2023/Particles/ParticleFilter.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2023/Particles/sample_plot.png" class="thumbnail-image card-img" style="height: 150px;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-粒子フィルターの実装 | Particles Package
-</h5>
-<div class="card-subtitle listing-subtitle">
-<code>NumPy</code> と <code>SciPy</code> で粒子フィルターを実装する
-</div>
-<div class="listing-categories">
-<div class="listing-category" onclick="window.quartoListingCategory('UGFydGljbGVz'); return false;">
-Particles
-</div>
-<div class="listing-category" onclick="window.quartoListingCategory('UHl0aG9u'); return false;">
-Python
-</div>
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2023-12-11
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
+<section id="zig-zag-サンプラー" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="zig-zag-サンプラー"><span class="header-section-number">1</span> Zig-Zag サンプラー</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Files/ZigZag_Banana3D_background.gif" class="img-fluid figure-img"></p>
+<figcaption>Output from <code>anim_traj()</code> in <code>PDMPFlux.jl</code> package</figcaption>
+</figure>
 </div>
 <div class="hidden">
 <p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
 <p>$$</p>
 <p>$$</p>
 </div>
-</section>
-<section id="リサンプリング法の形式化" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="リサンプリング法の形式化"><span class="header-section-number">1</span> リサンプリング法の形式化</h2>
-<p>リサンプリング法を調べるにあたって，これを数学的な枠組みに落とし込む必要があり，これが意外と一筋縄ではいかない．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="問題設定と記法">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-問題設定と記法
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ol type="1">
-<li>状態空間を Polish 空間 <span class="math inline">\(E\)</span> とし，この上の Markov 過程 <span class="math inline">\(\{X_n\}_{n=0}^\infty\subset\mathcal{L}(\Omega;E)\)</span> を既知とし，<strong>参照過程</strong> と呼ぶ．</li>
-<li>この Markov 過程の，時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> までの見本道の分布を <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> と表す．</li>
-<li>非負値な有界可測関数の列 <span class="math inline">\(\{G_n\}_{n=0}^t\subset \mathcal{L}_b(E^2)_+\)</span> に関して， <span class="math display">\[
-\mathbb{Q}_{t}(dx_{0:t}):=\frac{1}{L_t}G_0(x_0)\left(\prod_{s=1}^tG_s(x_{s-1},x_s)\right)\mathbb{M}_t(dx_{0:t})
-\]</span> という形で表現される分布 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\in\mathcal{P}(E^{t+1})\)</span> を，<strong>ポテンシャル関数</strong> <span class="math inline">\((G_n)_{n=0}^t\)</span> に関する <strong>Feynman-Kac 測度</strong> という．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></li>
-<li>積測度の確率核による分解 <span class="math display">\[
-\mathbb{M}_t(dx_{0:t})=\mathbb{M}_0(dx_0)M_1(x_0,dx_1)\cdots M_t(x_{t-1},dx_t)
-\]</span> を用いる．黒板ボールド <span class="math inline">\(\mathbb{M}_0,\cdots,\mathbb{M}_t\)</span> は積確率測度で，イタリック体 <span class="math inline">\(M_1,\cdots,M_t\)</span> は確率核を表す．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
-</ol>
-</div>
-</div>
-<div class="callout callout-style-simple callout-caution no-icon callout-titled" title="例（フィルタリング問題と Feynman-Kac 測度）">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-例（フィルタリング問題と Feynman-Kac 測度）
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\{X_n\}\)</span> をシステムダイナミクス，<span class="math inline">\(\{Y_n\}\subset\mathcal{L}(\Omega;\mathbb{R}^d)\)</span> を観測モデル <span class="math display">\[
-\operatorname{P}[Y_n\in A|X_n=x]=\int_Af_n(y|x)\,dy
-\]</span> <span class="math display">\[
-A\in\mathcal{B}(\mathbb{R}^d),\quad x\in E,
-\]</span> に従った観測の過程とした，<a href="../../../posts/2023/Surveys/SSM.html">状態空間モデル</a> <span class="math inline">\((X_n,Y_n)\)</span> におけるフィルタリング問題とは，<span class="math inline">\(y_1,\cdots,y_n\in\mathbb{R}^d\)</span> を観測として <span class="math display">\[
-G_n(x_{n-1},x_n):=f_n(y_n|x_n)
-\]</span> と定めた場合の Feynman-Kac 測度 <span class="math inline">\(\mathbb{Q}_t(dx_{0:t})\)</span> がフィルタリング分布に他ならないから，これを時刻 <span class="math inline">\(t\in\mathbb{N}\)</span> 毎に観測 <span class="math inline">\(y_1,\cdots,y_t\)</span> から逐次推定する問題と解釈できる．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
-</div>
-</div>
-<section id="リサンプリングとは" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="リサンプリングとは"><span class="header-section-number">1.1</span> リサンプリングとは</h3>
-<p>Feynman-Kac 測度を <span class="math inline">\(\mathbb{Q}_0,\mathbb{Q}_1,\cdots\)</span> と逐次的に推定していく問題を考える．</p>
-<ol type="1">
-<li>時刻 <span class="math inline">\(t=0\)</span> にて，提案分布を <span class="math inline">\(\mathbb{M}_0\)</span>，目標分布を <span class="math inline">\(\mathbb{Q}_0(dx_0)\propto G_0(x_0)\mathbb{M}_0(dx_0)\)</span> とした重点サンプリングを行って，<span class="math inline">\(\mathbb{Q}_0\)</span> の重点サンプリング推定量 <span class="math display">\[
-\mathbb{Q}_0^N(dx_0):=\sum_{i=1}^NW_0^{i}\delta_{X_0^{i}}(dx_0),
-\]</span> <span class="math display">\[
-X_0^i\overset{\text{i.i.d.}}{\sim}\mathbb{M}_0,\quad W^i_0:=\frac{G_0(X_0^i)}{\sum_{j=1}^NG_0(X_0^j)}
-\]</span> を得る．</li>
-<li>時刻 <span class="math inline">\(t=1\)</span> では目標分布 <span class="math inline">\(\mathbb{Q}_1(dx_{0:1})\propto G_1(x_0,x_1)\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> を，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> から重点サンプリングすることを考える．</li>
-</ol>
-<p>そこで，提案分布 <span class="math inline">\(\mathbb{Q}_0(dx_0)M_1(x_0,dx_1)\)</span> に従う標本 <span class="math inline">\(\{(X_0^i,X_1^i)\}_{i=1}^N\)</span> をどう得るかが問題になる．これを得たならば，残る重点サンプリングのステップとは，ポテンシャル <span class="math inline">\(G_1(x_0,x_1)\propto\frac{d \mathbb{Q}_1}{d \mathbb{Q}_0\otimes M_1}\)</span> に関して重み付けするのみである．</p>
-<p>まず，リサンプリングをしない粒子フィルターは，逐次重点サンプリングに等しい．その考え方は次の通りである：</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="逐次重点サンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-逐次重点サンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><span class="math inline">\(\mathbb{Q}_0\)</span> の近似 <span class="math inline">\(\mathbb{Q}_0^N\)</span> を得た Step 1. はこの提案分布を計算する途中だったと見做す．</p>
-<p>つまり，Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させて得る粒子の荷重和 <span class="math display">\[
-\sum_{i=1}^NW^i_0(\delta_{X_0^i}\otimes\delta_{X_1^i}),
-\]</span> <span class="math display">\[
-X_1^i\sim M_1(X_0^i,-)
-\]</span> を，<span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の良い近似として利用することが出来る．</p>
-<p>これは極めて計算効率が良い戦略である．</p>
-</div>
-</div>
-<p>しかし荷重 <span class="math inline">\(W_0^i\le1\)</span> が引き継がれている点に注目して欲しい．ここに新たに <span class="math inline">\(W_0^iW_1^i\cdots\)</span> と連なっていくことになる．これでは，時間が経つ <span class="math inline">\(t\to\infty\)</span> につれて荷重の分散が拡大し，殆ど１つの粒子しか Feynman-Kac 分布 <span class="math inline">\(\mathbb{Q}_t\)</span> の推定に寄与しないことになる．これでは，たくさん粒子を用意した意味がない．</p>
-<p>そこで，定期的にリサンプリングを行い，<span class="math inline">\(\mathbb{Q}_t^N\)</span> の表現を荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> に頼り切るのではなく，粒子の濃密で代替して，荷重の方は一様化に戻すという段階を挟む．</p>
-<p>このリサンプリングの段階は，実用上はほとんどの場合，荷重 <span class="math inline">\(\{W_t^i\}_{i=1}^N\)</span> の状態を監視して適応的に行うことが多い．</p>
-<div class="callout callout-style-default callout-tip no-icon callout-titled" title="リサンプリングの考え方">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-リサンプリングの考え方
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>計算が効率的である点を除けば，前段階 Step 1. の結果 <span class="math inline">\(\mathbb{Q}^N_0\)</span> をそのまま発展させる必要はなかったのである．</p>
-<p>むしろ，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> から直接 i.i.d. サンプリング（のようなもの）を行えば，追加の計算は必要になろうと，荷重が一様な <span class="math inline">\(\mathbb{Q}_0\otimes M_1\)</span> の近似を得ることが出来る．</p>
-<p>これはリサンプリングによって実現できる．</p>
-<p>というのは，まず <span class="math inline">\(\mathbb{Q}_0^N\)</span> からサンプリングを行う！．（完全に無駄なステップに見えるかも知れないが！）．</p>
-<p>正確に言えば，粒子番号 <span class="math inline">\([N]=\left\{1,\cdots,N\right\}\)</span> から，その重み <span class="math inline">\(W_0^1,\cdots,W_0^N\)</span> に従って，重複を許して <span class="math inline">\(N\)</span> 個の番号 <span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> をサンプリングする．すなわち，<span class="math inline">\(A_1^1,\cdots,A_1^N\)</span> を多項分布 <span class="math inline">\(\mathrm{Mult}_N(W_0^{1:N})\)</span> のサンプルとする．すると，元の近似と分布同等である： <span class="math display">\[
-\mathbb{Q}^N_0=\sum_{n=1}^NW_0^n\delta_{X_0^n}\overset{\text{d}}{=}\sum_{n=1}^N\delta_{X_0^{A_1^n}}.
-\]</span> この操作を <strong>リサンプリング</strong> という．</p>
-<p>続いて，これを発展させる： <span class="math display">\[
-X_1^n\sim M_1(X_0^{A_1^n},-),\quad n\in[N].
-\]</span></p>
-<p>こうして得る粒子系 <span class="math inline">\(\{(X_0^{A_1^n},X_1^n)\}_{n=1}^N\)</span> は <span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> を一様な荷重で近似している： <span class="math display">\[
-\mathbb{Q}^N_0\otimes M_1\approx\frac{1}{N}\sum_{n=1}^N\delta_{(X_0^{A_1^n},X_1^n)}.
-\]</span></p>
-<p>ただし，<span class="math inline">\(\mathbb{Q}^N_0\otimes M_1\)</span> の <strong>i.i.d. サンプルではない</strong> 点に注意すべきである．新たな粒子 <span class="math inline">\(X_1^n\)</span> の祖先番号 <span class="math inline">\(A_1^{n}\)</span> に重複を許しているため，いずれか２つのサンプルは依存関係をもち得る．</p>
-</div>
-</div>
-
-
 
 
 </section>
-</section>
 
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
-<div id="ref-Chopin-Papaspiliopoulos20-SMC" class="csl-entry" role="listitem">
-Chopin, N., and Papaspiliopoulos, O. (2020). <em><a href="https://link.springer.com/book/10.1007/978-3-030-47845-2">An introduction to sequential monte carlo</a></em>. Springer Cham.
-</div>
-<div id="ref-DelMoral-Penev14-StochasticProcesses" class="csl-entry" role="listitem">
-Del&nbsp;Moral, P., and Penev, S. (2014). <em>Stochastic processes. From applications to theory</em>. Chapman; Hall/CRC Press.
-</div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
-
-<ol>
-<li id="fn1"><p><span class="math inline">\(L_t\)</span> は積分を <span class="math inline">\(1\)</span> にするための正規化定数である．詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, pp. 51–52</a>)</span>, <span class="citation" data-cites="DelMoral-Penev14-StochasticProcesses">(<a href="#ref-DelMoral-Penev14-StochasticProcesses" role="doc-biblioref">Del&nbsp;Moral and Penev, 2014, p. 239</a>)</span> も参照．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>確率核に関する記法は <a href="../../../static/Notations.html#sec-kernels">本サイトの数学記法一覧</a> を参照．<span class="math inline">\(E\)</span> を Polish 空間としたため，全ての確率測度 <span class="math inline">\(\mathbb{M}_t(dx_{0:t})\)</span> はこのように分解 (disintegration) できる．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn3"><p>詳しくは <span class="citation" data-cites="Chopin-Papaspiliopoulos20-SMC">(<a href="#ref-Chopin-Papaspiliopoulos20-SMC" role="doc-biblioref">Chopin and Papaspiliopoulos, 2020, p. 53</a>)</span> 参照．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section></div></main> <!-- /main -->
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@unpublished{2025,
+  author = {, 司馬博文},
+  title = {Zig-Zag {サンプラーのモデル選択への応用}},
+  date = {2025-02-07},
+  url = {https://162348.github.io//posts/2024/Slides/IRT-ZigZag.html},
+  langid = {en},
+  abstract = {統計数理研究所．
+    スライドは{[}{[}こちら{]}\{.underline\}{]}(Master\_Slides.html)．}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-2025" class="csl-entry quarto-appendix-citeas" role="listitem">
+司馬博文. (2025, February). <em><a href="https://162348.github.io//posts/2024/Slides/IRT-ZigZag.html">Zig-Zag
+サンプラーのモデル選択への応用</a></em>.
+<em>学生研究発表会（統数研）</em>.
+</div></div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
@@ -546,7 +304,18 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }
     return false;
   }
-  const onCopySuccess = function(e) {
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
     // button target
     const button = e.trigger;
     // don't keep focus
@@ -578,27 +347,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }, 1000);
     // clear code selection
     e.clearSelection();
-  }
-  const getTextToCopy = function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
-  }
-  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
-    text: getTextToCopy
   });
-  clipboard.on('success', onCopySuccess);
-  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
-    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
-      text: getTextToCopy,
-      container: window.document.getElementById('quarto-embedded-source-code-modal')
-    });
-    clipboardModal.on('success', onCopySuccess);
-  }
     var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
     var mailtoRegex = new RegExp(/^mailto:/);
       var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
@@ -606,7 +355,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
     }
     // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
     for (var i=0; i<links.length; i++) {
       const link = links[i];
       if (!isInternal(link.href)) {
@@ -703,6 +452,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       if (window.Quarto?.typesetMath) {
         window.Quarto.typesetMath(note);
       }
+      // TODO in 1.5, we should make sure this works without a callout special case
       if (note.classList.contains("callout")) {
         return note.outerHTML;
       } else {
