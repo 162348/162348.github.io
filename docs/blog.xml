@@ -14,7 +14,7 @@
 <title>Hirofumi Shiba</title>
 <link>https://162348.github.io/blog.html</link>
 </image>
-<generator>quarto-1.4.552</generator>
+<generator>quarto-1.6.39</generator>
 <lastBuildDate>Mon, 30 Dec 2024 15:00:00 GMT</lastBuildDate>
 <item>
   <title>Implementation Details of PDMPFlux.jl</title>
@@ -26,10 +26,21 @@
 
 
 
-<section id="directory-structure-of-pdmpflux.jlsrc" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="directory-structure-of-pdmpflux.jlsrc"><span class="header-section-number">1</span> Directory Structure of <code>PDMPFlux.jl/src</code></h2>
-<section id="composites.jl" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="composites.jl"><span class="header-section-number">1.1</span> <code>Composites.jl</code></h3>
+<section id="introduction" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="introduction"><span class="header-section-number">1</span> Introduction</h2>
+<p>In this introduction, we quickly give an overview of how the PDMPFlux.jl package works, through a standard example.</p>
+<p>Take the Sticky Zig-Zag Sampler <span class="citation" data-cites="Bierkens+2023">(Bierkens et al., 2023)</span> as an example.</p>
+<ol type="1">
+<li><p><code>sampler = StickyZigZag(dim, ∇U)</code></p>
+<p>This instantiates the sampler, an object of an <code>AbstractPDMP</code> subtype.</p></li>
+<li><p><code>output = sample_skeleton(sampler, N_sk, xinit, vinit)</code></p>
+<p>This takes a sampler object, and returns a <code>PDMPHistory</code> object, by transforming the <code>PDMPState</code> object while pushing its snapshots into the <code>PDMPHistory</code> object.</p></li>
+</ol>
+</section>
+<section id="directory-structure-of-pdmpflux.jlsrc" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="directory-structure-of-pdmpflux.jlsrc"><span class="header-section-number">2</span> Directory Structure of <code>PDMPFlux.jl/src</code></h2>
+<section id="sec-Composites" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="sec-Composites"><span class="header-section-number">2.1</span> <code>Composites.jl</code></h3>
 <div class="callout callout-style-simple callout-tip no-icon">
 <div class="callout-body d-flex">
 <div class="callout-icon-container">
@@ -38,13 +49,28 @@
 <div class="callout-body-container">
 <p>composites / constructs such as <code>BoundBox</code>, <code>PDMPState</code>, <code>PDMPHistory</code> are defined.</p>
 <ul>
-<li><p><code>BoundBox</code> is basically a grid, together with the values on it, to perform thinning.</p></li>
-<li><p><code>PDMPState</code> is used to keep the position of the sampler. The whole <code>SamplingLoop.jl</code> Section&nbsp;1.3 is implemented as functions that modify the <code>PDMPState</code> in place. In addition to the <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> tuple, the fields include</p>
+<li><p><code>BoundBox</code> is basically a grid, together with the values on it, tailored to perform Poisson thinning. 3 constructors are defined in <code>UpperBound.jl</code> Section&nbsp;2.4.</p>
 <ul>
-<li><code>state.rate</code> and <code>state.rate_vect</code> are the rate function and its vectorized version. These slots are determined after checking the field <code>pdmp.signed_bound</code> in <code>init_state()</code> in <code>AbstractPDMP.jl</code> Section&nbsp;2.1.</li>
-<li><code>state.upper_bound_func()</code> is a function that takes <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> and returns the <code>BoundBox</code> object. Basically, <code>state.upper_bound_func()</code> is the only field that differs among samplers.</li>
-<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not, which is used within <code>ac_step_with_proxy()</code> in the <code>SamplingLoop.jl</code> Section&nbsp;1.3.</li>
-<li>proposed jump time <code>tp</code> and time already spent <code>ts</code>. They are using in <code>SamplingLoop.jl</code> Section&nbsp;1.3 to conduct poisson thinning, where <code>tp</code> is the proposed jump time, and is added to <code>ts</code> when rejected.</li>
+<li><code>boundbox.grid</code> is the grid points. Let the dimension be <code>n_grid</code>, which is a field of any <code>AbstractPDMP</code> subtype.</li>
+<li>The grid is equi-spaced, with the step size <code>step_size</code>.</li>
+<li><code>boundbox.box_max</code> has <code>n_grid - 1</code> elements <img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bbox%5C_max%5Bi%5D%7D%7D%20=%20%5Cmax_%7Bt%20%5Cin%20%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bi%5D%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bi+1%5D%7D%7D%5D%7D%20%5Clambda(t),%5Cqquad%20i%5Cin%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bn%5C_grid-1%7D%7D%5D.%0A"></li>
+<li><code>boundbox.cum_sum</code> has <code>n_grid</code> elements, and <img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bcum%5C_sum%5Bi%5D%7D%7D%20=%20%5Csum_%7Bj=1%7D%5E%7Bi-1%7D%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bbox%5C_max%5Bj%5D%7D%7D%5Ctimes%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bstep%5C_size%7D%7D,%5Cqquad%20i%5Cin%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bn%5C_grid%7D%7D%5D.%0A"> Note that it is not the cumulative sum of <code>box_max</code>, but the cumulative sum of the piecewise constant (upper bound) function represented by <code>box_max</code>’s: <img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bcum%5C_sum%5Bi%5D%7D%7D%20=%20%5Cint%5Ei_0%5Csum_%7Bj=1%7D%5E%7B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bn%5C_grid%7D-1%7D%7D1_%7B%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bj%5D%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bj+1%5D%7D%7D)%7D(t)%5Ccdot%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bbox%5C_max%5Bj%5D%7D%7D%5C,dt,%5Cqquad%20i%5Cin%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bn%5C_grid%7D%7D%5D.%0A"></li>
+</ul></li>
+<li><p><code>PDMPState</code> is used to keep the position of the sampler, together with caracteristics and diagnostic information. The whole <code>SamplingLoop.jl</code> Section&nbsp;2.3 is implemented as a collection of functions that modify the <code>PDMPState</code> object in place. In addition to the <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> tuple, the fields include</p>
+<ul>
+<li>methods specific to the sampler.
+<ul>
+<li><code>state.rate</code> and <code>state.rate_vect</code> are the rate function and its vectorized version. These slots are determined after checking the field <code>pdmp.signed_bound</code> in <code>init_state()</code> in <code>AbstractPDMP.jl</code> Section&nbsp;3.2.</li>
+<li><code>state.upper_bound_func()</code> takes <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> and returns the <code>BoundBox</code> object. Basically, <code>state.upper_bound_func()</code> is the only field that differs among samplers.</li>
+<li><code>state.velocity_jump()</code> takes <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> and returns the velocity vector after the PDMP’s jump.</li>
+<li><code>state.flow()</code> takes <img src="https://latex.codecogs.com/png.latex?(x_0,v_0,t)"> and returns <img src="https://latex.codecogs.com/png.latex?(x_t,v_t)">, which indicates the PDMP’s position after the time <img src="https://latex.codecogs.com/png.latex?t"> from <img src="https://latex.codecogs.com/png.latex?(x_0,v_0)">.</li>
+</ul></li>
+<li>fields to facilitate the sampling loop.
+<ul>
+<li>boolean flags to indicate whether Poisson thinning proposal is accepted or not, which is used within <code>ac_step_with_proxy()</code> in the <code>SamplingLoop.jl</code> Section&nbsp;2.3.</li>
+<li>proposed jump time <code>tp</code> and time already spent <code>ts</code>. They are using in <code>SamplingLoop.jl</code> Section&nbsp;2.3 to conduct poisson thinning, where <code>tp</code> is the proposed jump time, and is added to <code>ts</code> when rejected.</li>
+<li><code>horizon</code> is passed to upper-bounding functions to create a <code>BoundBox</code> object.</li>
+</ul></li>
 <li>statistics to diagnose the sampler dynamic.</li>
 </ul></li>
 </ul>
@@ -52,8 +78,8 @@
 </div>
 </div>
 </section>
-<section id="sec-sample" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="sec-sample"><span class="header-section-number">1.2</span> <code>sample.jl</code></h3>
+<section id="sec-sample" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-sample"><span class="header-section-number">2.2</span> <code>sample.jl</code></h3>
 <p><code>sample.jl</code> contains functions, called by users, to start MCMC sampling. The <code>ProgressBar</code> package is used to be friendly to users.</p>
 <div class="callout callout-style-simple callout-tip no-icon">
 <div class="callout-body d-flex">
@@ -63,15 +89,15 @@
 <div class="callout-body-container">
 <p><code>sample.jl</code> contains 2 functions, and <code>sample()</code> that calls them in sequel.</p>
 <ul>
-<li><code>sample_skeleton() -&gt; PDMPHistory</code> initializes the progress bar and <code>PDMPState</code> &amp; <code>PDMPHistory</code> objects, using <code>init_state()</code> and <code>PDMPHistory()</code> constructor respectively. Then call <code>get_event_state()</code> in <code>SamplingLoop.jl</code> Section&nbsp;1.3 for <code>iter::Int</code> times.</li>
+<li><code>sample_skeleton() -&gt; PDMPHistory</code> initializes the progress bar and <code>PDMPState</code> &amp; <code>PDMPHistory</code> objects, using <code>init_state()</code> and <code>PDMPHistory()</code> constructor respectively. Then call <code>get_event_state()</code> in <code>SamplingLoop.jl</code> Section&nbsp;2.3 for <code>iter::Int</code> times.</li>
 <li><code>sample_from_skeleton() -&gt; Matrix{Float64}</code> is a function that generates samples, which might subsequently be called by the plotting functions in <code>plot.jl</code>.</li>
 </ul>
 </div>
 </div>
 </div>
 </section>
-<section id="sec-SamplingLoop" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sec-SamplingLoop"><span class="header-section-number">1.3</span> <code>SamplingLoop.jl</code></h3>
+<section id="sec-SamplingLoop" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-SamplingLoop"><span class="header-section-number">2.3</span> <code>SamplingLoop.jl</code></h3>
 <p>This module contains 10 functions. Some of them are summarized in the following figure:</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -89,7 +115,7 @@
 <li><p><code>get_event_state() -&gt; PDMPState</code> is the entering point from <code>sample.jl</code>.</p>
 <ul>
 <li><p>There is only one thing in <code>get_event_state()</code>, i.e., callling <code>one_step_of_thinning()</code> until <code>state.accept</code> becomes <code>true</code>.</p></li>
-<li><p><code>get_event_state()</code> returns a <code>PDMPState</code> object with the field <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> indicating where an accepted event happens, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;1.2.</p></li>
+<li><p><code>get_event_state()</code> returns a <code>PDMPState</code> object with the field <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> indicating where an accepted event happens, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;2.2.</p></li>
 </ul></li>
 <li><p><code>one_step_of_thinning()</code> returns where simulation has completed up to, with <code>state.accept = false</code> if any proposal isnot accepted yet.</p>
 <ul>
@@ -116,7 +142,7 @@
 <li><p>Otherwise, it performs the Poisson thinning using the proxy rate <code>lambda_bar</code>, in <code>ac_step_with_proxy()</code> call.</p>
 <ul>
 <li>Within <code>ac_step_with_proxy()</code>, either <code>if_accept()</code> or <code>if_reject()</code> is called depending on the result of Poisson thinning, followed by <code>move_to_horizon2()</code> if accepted. Whether accepted or not is informed by <code>state.accept</code> flag, which will lead you out of all the loops.</li>
-<li>In <code>if_accept()</code>, the flags are updated as <code>state.accept = true</code> &amp; <code>state.accept = true</code>, getting out of both <code>ac_step()</code> loop and <code>one_step_of_thinning()</code> loop, with the correct <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> stored in appropriate <code>state</code>’s fields, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;1.2.</li>
+<li>In <code>if_accept()</code>, the flags are updated as <code>state.accept = true</code> &amp; <code>state.accept = true</code>, getting out of both <code>ac_step()</code> loop and <code>one_step_of_thinning()</code> loop, with the correct <img src="https://latex.codecogs.com/png.latex?(x,v,t)"> stored in appropriate <code>state</code>’s fields, which is pushed to <code>PDMPHistory</code> back in <code>sample_skeleton()</code> in <code>sample.jl</code> Section&nbsp;2.2.</li>
 <li><code>if_reject()</code> being called, we are still in the <code>ac_step()</code> loop in <code>moves_until_horizon()</code>, until acceptance or <code>tp &gt; state.horizon</code>.</li>
 </ul></li>
 </ul></li>
@@ -125,25 +151,195 @@
 </div>
 </div>
 </section>
-<section id="sec-UpperBound" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="sec-UpperBound"><span class="header-section-number">1.4</span> <code>UpperBound.jl</code></h3>
-<div class="callout callout-style-simple callout-tip no-icon">
-<div class="callout-body d-flex">
+<section id="sec-UpperBound" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="sec-UpperBound"><span class="header-section-number">2.4</span> <code>UpperBound.jl</code></h3>
+<p>This module contains <code>next_event()</code> function and 3 constructors for <code>BoundBox</code> object, with the name of <code>upper_bound_**()</code>.</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="3 constructors for `BoundBox` object">
+<div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
-<div class="callout-body-container">
-<p>This module contains 2 functions, <code>upper_bound_constant()</code> and <code>upper_bound_adaptive()</code>.</p>
+<div class="callout-title-container flex-fill">
+3 constructors for <code>BoundBox</code> object
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">upper_bound_**</span>(func<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Function</span>, start<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Float64</span>, horizon<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Float64</span>) <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">-&gt;</span> BoundBox</span></code></pre></div>
 <ul>
-<li><code>upper_bound_constant()</code> computes the constant upper bound using the Brent’s algorithm.</li>
-<li><code>upper_bound_adaptive()</code> computes the adaptive upper bound using the Brent’s algorithm.</li>
+<li><p><code>upper_bound_constant()</code> computes the constant upper bound for the function <code>func</code> over the interval <code>[start, horizon]</code>.</p>
+<p>Technically, it returns the <code>BoundBox</code> object, with just 2 grid points, <code>start</code> and <code>horizon</code>. The maximum value is searched by the Brent’s algorithm via <a href="https://github.com/JuliaNLSolvers/Optim.jl"><code>Optim.jl</code> package</a>.</p></li>
+<li><p><code>upper_bound_grid()</code> computes a piecewise constant upper bound, using the <code>n_grid</code> grid points.</p>
+<p>The <code>box_max[i]</code> field is the maximum value of the three points in the interval <code>[grid[i], grid[i+1]]</code>, which are the values on the two edges <code>func(grid[i])</code>, <code>func(grid[i+1])</code>, and the intersection point of the two tangents on the two edges of the interval.</p></li>
+<li><p><code>upper_bound_grid_vect()</code> is a <code>LinearAlgebra</code> implementation of <code>upper_bound_grid()</code>.</p></li>
 </ul>
 </div>
 </div>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="`next_event(boundbox, exp_rv)` takes `boundbox` to propose a next event time">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<code>next_event(boundbox, exp_rv)</code> takes <code>boundbox</code> to propose a next event time
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1">index <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">searchsortedfirst</span>(boundbox.cum_sum, exp_rv)</span></code></pre></div>
+<p>is performed to find the <code>index</code> that satisfies</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bexp%5C_rv%7D%7D%20%5Cin%20%5Cleft%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bcum%5C_sum%5Bindex-1%5D%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bcum%5C_sum%5Bindex%5D%7D%7D%5Cright).%0A"></p>
+<p>Finally, <code>t_prop</code> that satisfies</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cint%5E%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bt%5C_prop%7D%7D_0%20%5Coverline%7B%5Clambda%7D(t)%5C,dt%20=%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bexp%5C_rv%7D%7D,%0A"> where <img src="https://latex.codecogs.com/png.latex?%5Coverline%7B%5Clambda%7D(t)"> is the piecewise constant upper-bounding function defined by <img src="https://latex.codecogs.com/png.latex?%0A%5Coverline%7B%5Clambda%7D(t)%20=%20%5Csum_%7Bj=1%7D%5E%7B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bn%5C_grid%7D-1%7D%7D1_%7B%5B%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bj%5D%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bgrid%5Bj+1%5D%7D%7D)%7D(t)%5Ccdot%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bbox%5C_max%5Bj%5D%7D%7D.%0A"></p>
+<p><code>next_event()</code> returns the jump time <code>t_prop</code> and the corresponding upper bound value <code>upper_bound</code>, i.e., <img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bupper%5C_bound%7D%7D%20=%20%5Coverline%7B%5Clambda%7D(%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bt%5C_prop%7D%7D)%20=%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bbox%5C_max%5Bindex-1%5D%7D%7D.%0A"></p>
+</div>
 </div>
 </section>
-<section id="plot.jl" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="plot.jl"><span class="header-section-number">1.5</span> <code>plot.jl</code></h3>
+<section id="diagnostic.jl" class="level3" data-number="2.5">
+<h3 data-number="2.5" class="anchored" data-anchor-id="diagnostic.jl"><span class="header-section-number">2.5</span> <code>diagnostic.jl</code></h3>
+<div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">anim_traj</span>(</span>
+<span id="cb3-2">    history<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">PDMPHistory</span>, </span>
+<span id="cb3-3">    N_max<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>; </span>
+<span id="cb3-4">    N_start<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, </span>
+<span id="cb3-5">    plot_start<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>, </span>
+<span id="cb3-6">    filename<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Union{String, Nothing}</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">nothing</span>, </span>
+<span id="cb3-7">    plot_type<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"2D"</span>, </span>
+<span id="cb3-8">    color<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"#78C2AD"</span>, </span>
+<span id="cb3-9">    background<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"#FFF"</span>, </span>
+<span id="cb3-10">    coordinate_numbers<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>[<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">1</span>,<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>,<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">3</span>], </span>
+<span id="cb3-11">    dt<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Float64</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.1</span>, </span>
+<span id="cb3-12">    verbose<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, </span>
+<span id="cb3-13">    fps<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">60</span>, </span>
+<span id="cb3-14">    frame_upper_limit<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10000</span>, </span>
+<span id="cb3-15">    linewidth<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2</span>, </span>
+<span id="cb3-16">    dynamic_range<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">false</span></span>
+<span id="cb3-17">)</span></code></pre></div>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="arguments of `anim_traj()`">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+arguments of <code>anim_traj()</code>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><code>history</code> takes the output of <code>sample_skeleton()</code>.</li>
+<li><code>N_start, N_max</code> are the indeces of <code>history</code> to be plotted. Namely, from <code>N_start</code> th event, including reflection, refreshing, and thawing events, to <code>N_max</code> th event.</li>
+<li><code>plot_start</code> is the starting index of the animation. The points of <code>history.x[1:plot_start]</code> will be already there in the first frame of the animation.</li>
+<li><code>frame_upper_limit</code> is the maximum number of frames to be plotted.</li>
+<li><code>fps</code> is the frame rate of the animation.</li>
+<li><code>dynamic_range</code> is a boolean flag to determine whether to use the dynamic range for the animation.</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="plot.jl" class="level3" data-number="2.6">
+<h3 data-number="2.6" class="anchored" data-anchor-id="plot.jl"><span class="header-section-number">2.6</span> <code>plot.jl</code></h3>
 <div class="callout callout-style-simple callout-tip no-icon">
 <div class="callout-body d-flex">
 <div class="callout-icon-container">
@@ -156,18 +352,26 @@
 </div>
 </section>
 </section>
-<section id="implementation-of-the-samplers" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="implementation-of-the-samplers"><span class="header-section-number">2</span> Implementation of the Samplers</h2>
-<section id="sec-AbstractPDMP" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="sec-AbstractPDMP"><span class="header-section-number">2.1</span> <code>Samplers/AbstractPDMP.jl</code></h3>
+<section id="implementation-of-the-samplers" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="implementation-of-the-samplers"><span class="header-section-number">3</span> Implementation of the Samplers</h2>
+<section id="introduction-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="introduction-1"><span class="header-section-number">3.1</span> Introduction</h3>
+<p>All samplers are defined as subtypes of <code>AbstractPDMP</code> in <code>Samplers/AbstractPDMP.jl</code> Section&nbsp;3.2.</p>
+<p>Different samplers have four different fields in <code>PDMPState</code> object, which are <code>upper_bound_func</code>, <code>rate</code>, <code>rate_vect</code>, and <code>velocity_jump</code>, as we learned in Section&nbsp;2.1.</p>
+<p>The four special fields are initialized in the constructor defined in the respective <code>Samplers/&lt;Name&gt;.jl</code> module.</p>
+</section>
+<section id="sec-AbstractPDMP" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-AbstractPDMP"><span class="header-section-number">3.2</span> <code>Samplers/AbstractPDMP.jl</code></h3>
 <p>This module contains one line</p>
-<div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><span class="kw" style="color: #003B4F;
+<div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">abstract type</span> AbstractPDMP <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span></code></pre></div>
-<p>and one function</p>
-<div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><span class="fu" style="color: #4758AB;
+<p>and one function, whose signature is</p>
+<div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">init_state</span>(pdmp<span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -188,7 +392,8 @@ background-color: null;
 font-style: inherit;">Int</span>) <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-&gt;</span> PDMPState</span></code></pre></div>
-<p><code>init_state()</code> is basically a constructor for <code>PDMPState</code>. This is defined in <code>AbstractPDMP.jl</code>, because the composite <code>PDMPState</code> must have different field values depending on the type of the samplers.</p>
+<p>This <code>init_state()</code> is basically a constructor for <code>PDMPState</code>, called in <code>sample_skeleton()</code> Section&nbsp;2.2.</p>
+<p>It is defined in <code>AbstractPDMP.jl</code> because the composite <code>PDMPState</code> must have different field values depending on the type of the argument <code>pdmp</code>.</p>
 <div class="callout callout-style-simple callout-tip no-icon callout-titled" title="`init_state()` mainly does two things">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -200,36 +405,224 @@ font-style: inherit;">-&gt;</span> PDMPState</span></code></pre></div>
 </div>
 <div class="callout-body-container callout-body">
 <ol type="1">
-<li>Check the field <code>pdmp.signed_bound</code> and initialize the 3 fields <code>rate</code>, <code>rate_vect</code>, <code>refresh_rate</code> accordingly.</li>
-<li>Check the field <code>pdmp.grid_size</code> &amp; <code>pdmp.vectorized_bound</code> and initialize the field <code>upper_bound_func</code> as one of the functions in the <code>UpperBound.jl</code> Section&nbsp;1.4 module accordingly.</li>
+<li>Check the field <code>pdmp.signed_bound</code> and modify the 3 fields <code>rate</code>, <code>rate_vect</code>, <code>refresh_rate</code> accordingly, which were already initialized in the respective constructor of <code>pdmp</code>.</li>
+<li>Check the field <code>pdmp.grid_size</code> &amp; <code>pdmp.vectorized_bound</code> and initialize the field <code>upper_bound_func</code> as one of the functions in the <code>UpperBound.jl</code> Section&nbsp;2.4 module accordingly.</li>
 </ol>
 </div>
 </div>
+<p>The remaining special fields, <code>velocity_jump</code> and <code>flow</code> are defined, together with initialization of <code>rate</code> and <code>rate_vect</code>, in the sampler specific modules, to which we will turnin the following sections.</p>
 </section>
-<section id="samplersstickyzigzagsamplers.jl" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="samplersstickyzigzagsamplers.jl"><span class="header-section-number">2.2</span> <code>Samplers/StickyZigZagSamplers.jl</code></h3>
+<section id="samplerszigzagsamplers.jl" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="samplerszigzagsamplers.jl"><span class="header-section-number">3.3</span> <code>Samplers/ZigZagSamplers.jl</code></h3>
+<p>In this module, the declaration</p>
+<div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">mutable struct</span> ZigZag <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">&lt;:</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;"> AbstractPDMP</span></span></code></pre></div>
+<p>is followed by the 2 constructors, <code>ZigZag()</code> and <code>ZigZagAD()</code>, whose signatures are</p>
+<div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ZigZag</span>(dim<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>, ∇U<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Function</span>; refresh_rate<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Float64</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.0</span>, grid_size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10</span>, tmax<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Union{Float64, Int}</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2.0</span>, </span>
+<span id="cb7-2">                    vectorized_bound<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, signed_bound<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, adaptive<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>)</span>
+<span id="cb7-3"><span class="kw" style="color: #003B4F;
+background-color: null;
+font-weight: bold;
+font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
+background-color: null;
+font-style: inherit;">ZigZagAD</span>(dim<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>, U<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Function</span>; refresh_rate<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Float64</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.0</span>, grid_size<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Int</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">10</span>, tmax<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Union{Float64, Int}</span>=<span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">2.0</span>, </span>
+<span id="cb7-4">                    vectorized_bound<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, signed_bound<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, adaptive<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">Bool</span>=<span class="cn" style="color: #8f5902;
+background-color: null;
+font-style: inherit;">true</span>, AD_backend<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">::</span><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">String</span>=<span class="st" style="color: #20794D;
+background-color: null;
+font-style: inherit;">"Zygote"</span>)</span></code></pre></div>
+<p>Notice the difference in <code>∇U</code> and <code>U</code> in the arguments.</p>
+<div class="callout callout-style-simple callout-tip no-icon callout-titled" title="In `ZigZag()` and `ZigZagAD()`, two fields are initialized">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+In <code>ZigZag()</code> and <code>ZigZagAD()</code>, two fields are initialized
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><code>flow</code> is defined as</li>
+</ol>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%20%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bflow%7D%7D%5C,(x_0,v_0,t)%20=(x_0+v_0t,%20v_0)%0A%20%20"></p>
+<ol start="2" type="1">
+<li><p><code>rate_vect</code> is defined component-wisely as</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Brate%5C_vect%5Bi%5D%7D%7D(x_0,v_0,t)%20=%20%5Cmax(0,%20%5Cnabla%20U_i(x_0+v_0t)v_0),%0A"> where <img src="https://latex.codecogs.com/png.latex?%5Cnabla%20U=(%5Cnabla%20U_1,%5Cdots,%5Cnabla%20U_d)%5E%5Ctop"> is the gradient <img src="https://latex.codecogs.com/png.latex?%5Cnabla%20U:%5Cmathbb%7BR%7D%5Ed%5Cto%5Cmathbb%7BR%7D%5Ed">.</p>
+<p><code>rate</code> is the sum of <code>rate_vect</code>, i.e.,</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Brate%7D%7D(x_0,v_0,t)%20=%20%5Csum_%7Bi=1%7D%5Ed%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Brate%5C_vect%5Bi%5D%7D%7D(x_0,v_0,t).%0A"></p>
+<p><code>signed_rate_vect</code> is a version of <code>rate_vect</code> without taking the <code>max</code> with <img src="https://latex.codecogs.com/png.latex?0">.</p></li>
+</ol>
+</div>
+</div>
+<p>Two flags <code>signed_bound</code> and <code>vectorized_bound</code> are <code>true</code> in default, in which case <code>signed_rate_vect</code> is used.</p>
+<p>This is called the <em>signed strategy</em>, detailed in <span class="citation" data-cites="Andral-Kamatani2024">(Section 4.4.2 Andral and Kamatani, 2024)</span>.</p>
+<p>The <code>vectorized_bound</code> is also special to the Zig-Zag samplers.</p>
+</section>
+<section id="samplersbouncyparticlesamplers.jl" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="samplersbouncyparticlesamplers.jl"><span class="header-section-number">3.4</span> <code>Samplers/BouncyParticleSamplers.jl</code></h3>
+<p>Similar to the Zig-Zag samplers, mutable struct <code>BPS</code> and 2 constructors <code>BPS()</code> and <code>BPSAD()</code> are defined.</p>
+<p>Difference is that, in <code>BPS</code>, vectorization is not used, therefore <code>vectorized_bound=false</code> no matter what the user specifies.</p>
+<p>Note that typically Bouncy Particle Samplers need nonzero refresh rate, therefore <code>refresh_rate=0.0</code> would result in erronous samples.</p>
+</section>
+<section id="samplersforwardeventchainmontecarlo.jl" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="samplersforwardeventchainmontecarlo.jl"><span class="header-section-number">3.5</span> <code>Samplers/ForwardEventChainMonteCarlo.jl</code></h3>
+<p>Forward ECMC (Event Chain Monte Carlo) is a generalizatione of the Bouncy Particle Sampler, being free from the need of refreshing, substituting it with a ‘informed’ velocity jump.</p>
+<p>Regarding the implementation, however, note there is an error in the pseudo-code of <span class="citation" data-cites="Michel+2020">(Michel et al., 2020)</span>’s paper, and in the implementation of the <code>pdmp_jax</code> package.</p>
+<p>To sum it up, the velocity jump is implemented separately on <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D%5Cnabla%20U"> and <img src="https://latex.codecogs.com/png.latex?(%5Cmathbb%7BR%7D%5Cnabla%20U)%5E%5Cperp">. To the former, the velocity is newly sampled from the invariant distribution directly, while to the latter, occasionally (tuned by <code>mix_p</code>) only two dimensions of them are changed. (If <code>ran_p=false</code>, they are swaped.)</p>
+<p>As a result, the sampler loses ergodicity and confined to a certain subspace when, for example, <img src="https://latex.codecogs.com/png.latex?U"> is completely isotropic and the initial velocity is proportional to its contours.</p>
+</section>
+<section id="samplersstickyzigzagsamplers.jl" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="samplersstickyzigzagsamplers.jl"><span class="header-section-number">3.6</span> <code>Samplers/StickyZigZagSamplers.jl</code></h3>
+<p>This module implements the Sticky Zig-Zag sampler, for variable selection with the spike-and-slab prior.</p>
+<p>The sampler takes additional argument <code>κ</code>, which has to be positive <code>Float64</code> or <code>Inf</code>, determining the ‘stickyness’ of the sampler.</p>
+</section>
+<section id="stickysamplingloops.jl" class="level3" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="stickysamplingloops.jl"><span class="header-section-number">3.7</span> <code>StickySamplingLoops.jl</code></h3>
+<p><code>StickyPDMP</code> samplers have their own sampling loop, implemented in <code>StickySamplingLoops.jl</code> using multiple dispatch.</p>
 <div class="callout callout-style-simple callout-tip no-icon">
 <div class="callout-body d-flex">
 <div class="callout-icon-container">
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-body-container">
-<p>This module implements the Sticky Zig-Zag sampler, a variant of the Zig-Zag sampler that allows for sticky behavior at boundaries or other specified conditions.</p>
 <ul>
-<li>The sampler modifies the velocity component of the state when certain conditions are met.</li>
-<li>It is particularly useful for models with reflective or sticky boundaries.</li>
+<li>In one step of <code>one_step_of_thinning_or_sticking_or_thawing()</code>, it is first checked whether the sampler crosses any axes by <img src="https://latex.codecogs.com/png.latex?%5Cmin(%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Btp%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Btt%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bhorizon%7D%7D)0">.
+<ul>
+<li>If it does cross, <code>move_to_axes_and_stick()</code> is called.</li>
+<li>Else, <img src="https://latex.codecogs.com/png.latex?%5Cmin(%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Btp%7D%7D,%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Btt%7D%7D)%20%3E%20%5Ctextcolor%7Bpurple%7D%7B%5Cmathtt%7Bhorizon%7D%7D"> is checked.
+<ul>
+<li>If it is true, <code>move_to_horizon()</code> is called.</li>
+</ul></li>
+<li>Else, <code>moves_until_horizon_or_axes()</code> is called.
+<ul>
+<li></li>
+</ul></li>
+</ul></li>
 </ul>
 </div>
 </div>
 </div>
 
 
+
 </section>
 </section>
 
- ]]></description>
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Andral-Kamatani2024" class="csl-entry">
+Andral, C., and Kamatani, K. (2024). <a href="https://arxiv.org/abs/2408.03682">Automated techniques for efficient sampling of piecewise-deterministic markov processes</a>.
+</div>
+<div id="ref-Bierkens+2023" class="csl-entry">
+Bierkens, J., Grazzi, S., Meulen, F. van der, and Schauer, M. (2023). <a href="https://doi.org/10.1007/s11222-022-10180-5"><span class="nocase">Sticky PDMP Samplers for Sparse and Local Inference Problems</span></a>. <em>Statistics and Computing</em>, <em>33</em>(1), 8.
+</div>
+<div id="ref-Michel+2020" class="csl-entry">
+Michel, M., Durmus, A., and Sénécal, S. (2020). <a href="https://doi.org/10.1080/10618600.2020.1750417">Forward event-chain monte carlo: Fast sampling by randomness control in irreversible markov chains</a>. <em>Journal of Computational and Graphical Statistics</em>, <em>29</em>(4), 689–702.
+</div>
+</div></section></div> ]]></description>
   <category>Julia</category>
-  <category>MCMC</category>
+  <category>PDMP</category>
   <guid>https://162348.github.io/posts/2024/Julia/Details.html</guid>
   <pubDate>Mon, 30 Dec 2024 15:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2024/Slides/zigzag_fps14_WhiteBackground.gif" medium="image" type="image/gif"/>
@@ -1311,11 +1704,13 @@ font-style: inherit;">head</span>(Rehnquist))</span></code></pre></div>
 </div>
 <div class="sourceCode" id="cb2" data-filename="bafumi_normal.stan" style="background: #f1f3f5;"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb2-1"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb2-2">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; n;  <span class="co" style="color: #5E5E5E;
@@ -1325,6 +1720,7 @@ font-style: inherit;">// n = N * J - #(NA responses)</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -1334,6 +1730,7 @@ font-style: inherit;">// number of judges</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J;  <span class="co" style="color: #5E5E5E;
@@ -1346,10 +1743,12 @@ font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>, <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">upper</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; Y;  <span class="co" style="color: #5E5E5E;
@@ -1366,10 +1765,12 @@ font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>, <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">upper</span>=N&gt; i;  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// indicator for judges i in [N]</span></span>
@@ -1379,16 +1780,19 @@ font-style: inherit;">array</span>[n] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>, <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">upper</span>=J&gt; j;  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// indicator for cases j in [J]</span></span>
 <span id="cb2-10">}</span>
 <span id="cb2-11"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb2-12">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -1411,6 +1815,7 @@ font-style: inherit;">real</span> gamma;</span>
 <span id="cb2-18">}</span>
 <span id="cb2-19"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb2-20">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -1426,6 +1831,7 @@ font-style: inherit;">0</span>;</span>
 <span id="cb2-27">}</span>
 <span id="cb2-28"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb2-29">  X ~ normal(delta + Z * exp(gamma), <span class="dv" style="color: #AD0000;
 background-color: null;
@@ -1438,8 +1844,10 @@ background-color: null;
 font-style: inherit;">0</span>, n);</span>
 <span id="cb2-32">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:n) {</span>
@@ -1447,9 +1855,11 @@ font-style: inherit;">1</span>:n) {</span>
 <span id="cb2-34">  }</span>
 <span id="cb2-35">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb2-36">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb2-37">}</span></code></pre></div>
 </div>
@@ -1460,8 +1870,10 @@ font-style: inherit;">target +=</span> lprior;</span>
 </div>
 <div class="sourceCode" id="cb3" data-filename="Files/experiment.r" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
@@ -1532,6 +1944,7 @@ background-color: null;
 font-style: inherit;">2</span>, mean)</span>
 <span id="cb3-7">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">if</span> (mean[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">9</span>] <span class="sc" style="color: #5E5E5E;
@@ -1964,15 +2377,18 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb7-2"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb7-3">}</span>
 <span id="cb7-4"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb7-5">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -1992,6 +2408,7 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -2001,6 +2418,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -2012,6 +2430,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -2030,6 +2449,7 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -2039,6 +2459,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -2050,6 +2471,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -2069,10 +2491,12 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb7-20">}</span>
 <span id="cb7-21"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb7-22">}</span>
 <span id="cb7-23"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb7-24">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -2083,6 +2507,7 @@ font-style: inherit;">// temporary intercept for centered predictors</span></spa
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -2099,6 +2524,7 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -2114,6 +2540,7 @@ font-style: inherit;">// standardized group-level effects</span></span>
 <span id="cb7-29">}</span>
 <span id="cb7-30"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb7-31">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -2180,12 +2607,14 @@ font-style: inherit;">3</span>);</span>
 <span id="cb7-41">}</span>
 <span id="cb7-42"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb7-43">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb7-44">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb7-45">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -2198,8 +2627,10 @@ font-style: inherit;">0.0</span>, N);</span>
 <span id="cb7-47">    mu += Intercept;</span>
 <span id="cb7-48">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -2210,6 +2641,7 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb7-51">    }</span>
 <span id="cb7-52">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb7-53">  }</span>
 <span id="cb7-54">  <span class="co" style="color: #5E5E5E;
@@ -2217,20 +2649,24 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb7-55">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb7-56">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb7-57">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_2[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb7-58">}</span>
 <span id="cb7-59"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb7-60">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -6643,8 +7079,10 @@ background-color: null;
 font-style: inherit;">100</span>)</span>
 <span id="cb10-4"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> sims_to_display) {</span>
 <span id="cb10-5">  <span class="fu" style="color: #4758AB;
 background-color: null;
@@ -9357,6 +9795,7 @@ font-style: inherit;">PDMPFlux</span></span></code></pre></div>
 <li><p>まずポテンシャル＝<strong>負の対数尤度</strong>を（定数倍の違いを除いて）自分で定義する：</p>
 <div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">U_Gauss</span>(x<span class="op" style="color: #5E5E5E;
@@ -9366,6 +9805,7 @@ background-color: null;
 font-style: inherit;">Vector</span>)</span>
 <span id="cb2-2">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sum</span>(x<span class="op" style="color: #5E5E5E;
@@ -9379,6 +9819,7 @@ background-color: null;
 font-style: inherit;">2</span></span>
 <span id="cb2-3"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span></code></pre></div>
 <p>標準正規分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BN%7D_d(0,I_d)"> だと，対数尤度は <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%5Cphi(x)%20=%20-%20%5Cfrac%7B1%7D%7B2%7D%5Csum_%7Bi=1%7D%5Ed%20x_i%5E2%20-%20%5Cfrac%7Bd%7D%7B2%7D%5Clog(2%5Cpi)%0A"> 第二項は定数であるから無視して良い．<img src="https://latex.codecogs.com/png.latex?U(x)%20=%20-%5Clog%5Cphi(x)"> とすべき点に注意（先頭のマイナス符号は落とす）．</p></li>
 <li><p>次のようにしてサンプラーをインスタンス化する：</p>
@@ -9503,6 +9944,7 @@ font-style: inherit;">as</span> jnp</span>
 <span id="cb8-6"></span>
 <span id="cb8-7"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> funnel(d<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -9522,6 +9964,7 @@ font-style: inherit;">"""Funnel distribution for testing. Returns energy and sam
 <span id="cb8-9"></span>
 <span id="cb8-10">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> unbatched(x):</span>
 <span id="cb8-11">    y <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -9572,6 +10015,7 @@ font-style: inherit;">*</span> variance_other)</span>
 <span id="cb8-17"></span>
 <span id="cb8-18">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span> log_density_y <span class="op" style="color: #5E5E5E;
@@ -9580,6 +10024,7 @@ font-style: inherit;">-</span> log_density_other</span>
 <span id="cb8-19"></span>
 <span id="cb8-20">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> sample_data(n_samples):</span>
 <span id="cb8-21">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -9610,6 +10055,7 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb8-24">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> jnp.concatenate((y, x), axis<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -9618,6 +10064,7 @@ font-style: inherit;">1</span>)</span>
 <span id="cb8-25"></span>
 <span id="cb8-26">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> unbatched, sample_data</span></code></pre></div>
 <div class="sourceCode" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><span class="im" style="color: #00769E;
 background-color: null;
@@ -9819,6 +10266,7 @@ background-color: null;
 font-style: inherit;">"""</span></span>
 <span id="cb11-9"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">funnel</span>(d<span class="op" style="color: #5E5E5E;
@@ -9843,6 +10291,7 @@ font-style: inherit;">11</span>)</span>
 <span id="cb11-10"></span>
 <span id="cb11-11">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">neg_energy</span>(x<span class="op" style="color: #5E5E5E;
@@ -9900,9 +10349,11 @@ font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">:</span><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span>])</span>
 <span id="cb11-19">        <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span> log_density_v <span class="op" style="color: #5E5E5E;
@@ -9910,10 +10361,12 @@ background-color: null;
 font-style: inherit;">-</span> log_density_other</span>
 <span id="cb11-20">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-21"></span>
 <span id="cb11-22">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sample_data</span>(n_samples<span class="op" style="color: #5E5E5E;
@@ -9958,22 +10411,27 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb11-26">        <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">hcat</span>(y, x)</span>
 <span id="cb11-27">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-28"></span>
 <span id="cb11-29">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> neg_energy, sample_data</span>
 <span id="cb11-30"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-31"></span>
 <span id="cb11-32"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">plot_funnel</span>(d<span class="op" style="color: #5E5E5E;
@@ -10085,6 +10543,7 @@ background-color: null;
 font-style: inherit;"># y軸の範囲を -7 から 7 に設定</span></span>
 <span id="cb11-47"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-48"><span class="fu" style="color: #4758AB;
 background-color: null;
@@ -10092,6 +10551,7 @@ font-style: inherit;">plot_funnel</span>()</span>
 <span id="cb11-49"></span>
 <span id="cb11-50"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">run_ZigZag_on_funnel</span>(N_sk<span class="op" style="color: #5E5E5E;
@@ -10182,9 +10642,11 @@ background-color: null;
 font-style: inherit;">sample_from_skeleton</span>(sampler, N, out)</span>
 <span id="cb11-60">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> out, samples</span>
 <span id="cb11-61"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-62">output, samples <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -10640,6 +11102,7 @@ font-style: inherit;">as</span> jnp</span>
 <span id="cb1-6"></span>
 <span id="cb1-7"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> funnel(d<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -10659,9 +11122,11 @@ font-style: inherit;">"""Funnel distribution for testing. Returns energy and sam
 <span id="cb1-9"></span>
 <span id="cb1-10">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> neg_energy(x):</span>
 <span id="cb1-11">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> unbatched(x):</span>
 <span id="cb1-12">      v <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -10712,6 +11177,7 @@ background-color: null;
 font-style: inherit;">=</span>cov_other)</span>
 <span id="cb1-23">      <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> log_density_v <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">+</span> log_density_other</span>
@@ -10720,10 +11186,12 @@ background-color: null;
 font-style: inherit;">=</span> jax.vmap(unbatched)(x)</span>
 <span id="cb1-25">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> output</span>
 <span id="cb1-26"></span>
 <span id="cb1-27">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> sample_data(n_samples):</span>
 <span id="cb1-28">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -10754,6 +11222,7 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb1-31">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> jnp.concatenate((y, x), axis<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -10762,6 +11231,7 @@ font-style: inherit;">1</span>)</span>
 <span id="cb1-32"></span>
 <span id="cb1-33">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> neg_energy, sample_data</span></code></pre></div>
 </details>
 </div>
@@ -11388,10 +11858,12 @@ background-color: null;
 font-style: inherit;"># 初期化関数</span></span>
 <span id="cb7-45"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> init():</span>
 <span id="cb7-46">    scat.set_offsets(data0)</span>
 <span id="cb7-47">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> scat,</span>
 <span id="cb7-48"></span>
 <span id="cb7-49"><span class="co" style="color: #5E5E5E;
@@ -11399,6 +11871,7 @@ background-color: null;
 font-style: inherit;"># フレームごとの更新関数</span></span>
 <span id="cb7-50"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">def</span> animate(i):</span>
 <span id="cb7-51">    y <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -11420,6 +11893,7 @@ font-style: inherit;">=</span> np.column_stack((y, x))</span>
 <span id="cb7-54">    scat.set_offsets(data)</span>
 <span id="cb7-55">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> scat,</span>
 <span id="cb7-56"></span>
 <span id="cb7-57"><span class="co" style="color: #5E5E5E;
@@ -11613,6 +12087,7 @@ font-style: inherit;">DynamicalSystems</span></span>
 <span id="cb1-2"></span>
 <span id="cb1-3"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">lorenz96_rule!</span>(du, u, p, t)</span>
@@ -11694,8 +12169,10 @@ background-color: null;
 font-style: inherit;"># then the general case</span></span>
 <span id="cb1-10">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> n <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span><span class="op" style="color: #5E5E5E;
@@ -11730,9 +12207,11 @@ background-color: null;
 font-style: inherit;">+</span> F</span>
 <span id="cb1-12">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb1-13">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> <span class="cn" style="color: #8f5902;
 background-color: null;
 font-style: inherit;">nothing</span> <span class="co" style="color: #5E5E5E;
@@ -11740,6 +12219,7 @@ background-color: null;
 font-style: inherit;"># always `return nothing` for in-place form!</span></span>
 <span id="cb1-14"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb1-15"></span>
 <span id="cb1-16">N <span class="op" style="color: #5E5E5E;
@@ -11820,8 +12300,10 @@ background-color: null;
 font-style: inherit;">false</span>)</span>
 <span id="cb3-4"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> var <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">eachcol</span>(Y)</span>
@@ -11830,6 +12312,7 @@ background-color: null;
 font-style: inherit;">plot!</span>(p, t, var)</span>
 <span id="cb3-6"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb3-7"><span class="fu" style="color: #4758AB;
 background-color: null;
@@ -11950,6 +12433,7 @@ background-color: null;
 font-style: inherit;">=</span> sampling_time)</span>
 <span id="cb4-6">Y[<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">end</span>]</span></code></pre></div>
 </div>
 </div>
@@ -13075,6 +13559,7 @@ font-style: inherit;">apply</span>(selected_theta_mcmc, <span class="dv" style="
 background-color: null;
 font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span>(x) <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">quantile</span>(x, <span class="fl" style="color: #AD0000;
@@ -13088,6 +13573,7 @@ font-style: inherit;">apply</span>(selected_theta_mcmc, <span class="dv" style="
 background-color: null;
 font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">function</span>(x) <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">quantile</span>(x, <span class="fl" style="color: #AD0000;
@@ -13266,8 +13752,10 @@ background-color: null;
 font-style: inherit;">"blue"</span></span>
 <span id="cb4-13"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span>(i <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">c</span>(<span class="dv" style="color: #AD0000;
@@ -13702,15 +14190,18 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb14-2"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb14-3">}</span>
 <span id="cb14-4"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb14-5">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -13730,6 +14221,7 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -13739,6 +14231,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -13750,6 +14243,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -13768,6 +14262,7 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -13777,6 +14272,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -13788,6 +14284,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -13807,10 +14304,12 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb14-20">}</span>
 <span id="cb14-21"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb14-22">}</span>
 <span id="cb14-23"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb14-24">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -13821,6 +14320,7 @@ font-style: inherit;">// temporary intercept for centered predictors</span></spa
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -13837,6 +14337,7 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -13852,6 +14353,7 @@ font-style: inherit;">// standardized group-level effects</span></span>
 <span id="cb14-29">}</span>
 <span id="cb14-30"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb14-31">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -13926,12 +14428,14 @@ font-style: inherit;">2.5</span>);</span>
 <span id="cb14-41">}</span>
 <span id="cb14-42"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb14-43">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb14-44">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb14-45">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -13944,8 +14448,10 @@ font-style: inherit;">0.0</span>, N);</span>
 <span id="cb14-47">    mu += Intercept;</span>
 <span id="cb14-48">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -13956,6 +14462,7 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb14-51">    }</span>
 <span id="cb14-52">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb14-53">  }</span>
 <span id="cb14-54">  <span class="co" style="color: #5E5E5E;
@@ -13963,20 +14470,24 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb14-55">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb14-56">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb14-57">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_2[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb14-58">}</span>
 <span id="cb14-59"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb14-60">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15050,6 +15561,7 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb21-2"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb21-3"> <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15089,16 +15601,19 @@ background-color: null;
 font-style: inherit;">// r is stored in another dimension order than z</span></span>
 <span id="cb21-13">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">return</span> transpose(diag_pre_multiply(SD, L) * z);</span>
 <span id="cb21-14">  }</span>
 <span id="cb21-15">}</span>
 <span id="cb21-16"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb21-17">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -15118,6 +15633,7 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -15127,6 +15643,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -15138,6 +15655,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -15156,6 +15674,7 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -15165,6 +15684,7 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -15176,6 +15696,7 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -15194,6 +15715,7 @@ font-style: inherit;">vector</span>[N] Z_2_2;</span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; NC_2;  <span class="co" style="color: #5E5E5E;
@@ -15207,15 +15729,18 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb21-34">}</span>
 <span id="cb21-35"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb21-36">}</span>
 <span id="cb21-37"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb21-38">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -15232,6 +15757,7 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -15250,6 +15776,7 @@ font-style: inherit;">// cholesky factor of correlation matrix</span></span>
 <span id="cb21-43">}</span>
 <span id="cb21-44"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb21-45">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -15334,12 +15861,14 @@ font-style: inherit;">1</span>);</span>
 <span id="cb21-61">}</span>
 <span id="cb21-62"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb21-63">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb21-64">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb21-65">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15351,8 +15880,10 @@ background-color: null;
 font-style: inherit;">0.0</span>, N);</span>
 <span id="cb21-67">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -15363,6 +15894,7 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb21-70">    }</span>
 <span id="cb21-71">    <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb21-72">  }</span>
 <span id="cb21-73">  <span class="co" style="color: #5E5E5E;
@@ -15370,18 +15902,22 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb21-74">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb21-75">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb21-76">  <span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(to_vector(z_2));</span>
 <span id="cb21-77">}</span>
 <span id="cb21-78"><span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb21-79">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15393,10 +15929,12 @@ font-style: inherit;">corr_matrix</span>[M_2] Cor_2 = multiply_lower_tri_self_tr
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">lower</span>=-<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>,<span class="kw" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">upper</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt;[NC_2] cor_2;</span>
@@ -15405,15 +15943,19 @@ background-color: null;
 font-style: inherit;">// extract upper diagonal of correlation matrix</span></span>
 <span id="cb21-83">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:M_2) {</span>
 <span id="cb21-84">    <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (j <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:(k - <span class="dv" style="color: #AD0000;
@@ -15514,6 +16056,7 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> covariates <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> judges</span>
 <span id="cb23-8">  array[n] int<span class="sc" style="color: #5E5E5E;
 background-color: null;
@@ -15531,8 +16074,10 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> indicator <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> judges i <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> [N]</span>
 <span id="cb23-9">  array[n] int<span class="sc" style="color: #5E5E5E;
 background-color: null;
@@ -15550,8 +16095,10 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> indicator <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> cases j <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> [J]</span>
 <span id="cb23-10">}</span>
 <span id="cb23-11">parameters {</span>
@@ -15561,6 +16108,7 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> ideal points <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> judges</span>
 <span id="cb23-13">  vector[J] alpha;</span>
 <span id="cb23-14">  vector[J] beta;</span>
@@ -15708,8 +16256,10 @@ background-color: null;
 font-style: inherit;">0</span>, n);</span>
 <span id="cb23-35">  <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
@@ -16087,8 +16637,10 @@ p
 </div>
 <div class="sourceCode" id="cb25" data-filename="experiment.r" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
 background-color: null;
+font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
