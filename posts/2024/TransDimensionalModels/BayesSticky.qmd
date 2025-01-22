@@ -66,36 +66,16 @@ listing:
 
 ## はじめに
 
+### ベイズ変数選択
+
+ベイズ変数選択には多くの方法がある．次の記事を参照：
+
 ::: {#lst-survey}
 :::
 
-### 設定
+本記事ではパラメータ推定とベイズ変数選択を同時に行う方法としては State-of-the-art の１つだと思われる Sticky PDMP によるベイズ変数選択を紹介する．
 
-パラメータ $x\in\R^d$ 上に spike-and-slab 事前分布 [@Mitchell-Beauchamp1988]
-$$
-p(dx)=\prod_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
-$$ {#eq-spike-and-slab}
-を導入して，ベイズ変数選択を行うとしよう．
-
-このとき，モデルの対数尤度を $\ell(x):=\log p(y|x)$ とすると，事後分布は
-$$
-p(x|y)\,dx\propt p(y|x)p(dx)=e^{\ell(x)}\prod_{i=1}^d\Paren{\om_ip_i(x_i)+(1-\om_i)\delta_0(x_i)}
-$$ {#eq-posterior}
-と表せる．
-
-そこでこの設定を少し抽象化して，ポテンシャル $\Psi:\R^d\to\R$ を通じて
-$$
-\mu(dx)=Ce^{-\Psi(x)}\prod_{i=1}^d\paren{dx_1+\frac{1}{\kappa_i}\delta_0(dx_i)}
-$$ {#eq-target}
-と表せる分布 $\mu\in\cP(\R^d)$ からサンプリングする問題を考える．$\kappa_i$ が小さいほど $0$ に大きな重みがかかる．
-
-事後分布 ([-@eq-posterior]) は
-$$
-\kappa_i=\frac{\om_i}{1-\om_i}p_i(0)(>0)
-$$
-と取った場合にあたる．
-
-この $\mu$ ([-@eq-target]) は Lebesgue 測度に関して絶対連続でないため密度を持たず，通常の勾配を用いた MCMC 法を直接は適用できない．
+この方法はパラメータを PDMP によりサンプリングすると同時に，そのダイナミクスを活かすことで，パラメータ選択の離散空間上で非可逆なジャンプを達成する．
 
 ### 他手法との比較
 
@@ -110,11 +90,37 @@ $$
 
 さらにその上，Reversible-Jump MCMC の拡張と見れる通り，特定の部分空間にトラップされていた総時間を計算することで，ベイズ因子を計算せずに事後包含確率 (PIP: Posterior Inclusion Probability) を，１の方法と違って誤差なく計算できるという美点がある．
 
+### Sticky PDMP の設定
+
+パラメータ $x\in\R^d$ 上に spike-and-slab 事前分布 [@Mitchell-Beauchamp1988]
+$$
+p(dx)=\prod_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
+$$ {#eq-spike-and-slab}
+を導入して，ベイズ変数選択を行うとしよう．
+
+このとき，モデルの対数尤度を $\ell(x):=\log p(y|x)$ とすると，事後分布は
+$$
+p(x|y)\,dx\propt p(y|x)p(dx)=e^{\ell(x)}\prod_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
+$$ {#eq-posterior}
+と表せる．
+
+そこでこの設定を少し抽象化して，ポテンシャル $\Psi:\R^d\to\R$ を通じて
+$$
+\mu(dx)=Ce^{-\Psi(x)}\prod_{i=1}^d\paren{dx_i+\frac{1}{\kappa_i}\delta_0(dx_i)}
+$$ {#eq-target}
+と表せる分布 $\mu\in\cP(\R^d)$ からサンプリングする問題を考える．$\kappa_i$ が小さいほど $0$ に大きな重みがかかる．
+
+事後分布 ([-@eq-posterior]) は
+$$
+\kappa_i=\frac{\om_i}{1-\om_i}p_i(0)(>0)
+$$
+と取った場合にあたる．
+
+この $\mu$ ([-@eq-target]) は Lebesgue 測度に関して絶対連続でないため密度を持たず，通常の勾配を用いた MCMC 法を直接は適用できない．
 
 ## Sticky PDMP の理論
 
-
-### サンプラー
+### アルゴリズム
 
 ::: {.callout-tip appearance="simple" icon="false" title="The Sticky Zig-Zag Sampler [@Bierkens+2023]"}
 
@@ -130,19 +136,56 @@ $$
     $$
     \Brace{(x,v)\in\R^d\times\{\pm1\}^d\mid\exists i\in[d]\;x_i=0}
     $$
-    を通過したとき，座標成分 $x_i$ は $0$ に固定され，Poisson ジャンプが生じるまでそのままである．
+    を通過したとき，該当する座標成分 $x_i$ は $0$ に固定される．
+    
+3. 固定された座標 $x_i$ は，強度 $\kappa_i\abs{v_i}$ を持つ Poisson 過程が到着するまでそのままである．
 
 :::
 
 これは一見 Markov 過程にならないが，状態空間を拡張して
 $$
-E:=\R_{00}^d\times\{\pm1,0\}^d,\qquad\R_{00}:=\ocinterval{-\infty,0^-}\sqcup\cointerval{0^+,\infty}
+E_0:=\R_{0}^d\times\{\pm1\}^d,\qquad\R_{0}:=\ocinterval{-\infty,0^-}\sqcup\cointerval{0^+,\infty}
 $$
-と考えると，この上の Markov 過程になる．
+とし，この上の領域
+$$
+\partial E_i:=\Brace{(x,v)\in E_0\mid (x_i,v_i)=(0^-,-1)\text{ or }(0^+,1)},\qquad i\in[d],
+$$
+を吸収的だとすると，この $E_{0}$ 上の Markov 過程になる．
 
-第 $i\in[d]$ 成分が $(x_i,v_i)=(0^-,-1)$ または $(0^+,1)$ になったとき，この座標は $(x_i,v_i)$ のまま動かなくなり，この期間だけ $v_i$ は必ずしも「速さ」を表さなくなる，と解する．
+### 設定
 
-トラップ状態から脱出するレートは $\kappa_i$ とする．
+$\partial E_i$ に入った瞬間にその地点から動かなくなり，$v_i$ は必ずしも「速さ」を表さなくなる，と解する．代わりに
+$$
+\al(x,v):=\Brace{i\in[d]\mid(x,v)\notin \partial E_i}
+$$
+を「アクティブな座標番号」の全体とする．
+
+すると例えば Julia では `alpha::Vector{Bool}` として，`alpha .* v` が真の速度ベクトルとなり，簡単に実装できる．これを数式上は
+$$
+v_\al:=1_{\al(x,v)}\cdot v
+$$
+で表すこととする．
+
+続いて $T_i:\partial E_i\to E_0$ を，$i$ 番目の座標・速度成分 $(x_i,v_i)$ に関して
+$$
+(0^+,-1)\mapsto(0^-,-1),\qquad(0^-,1)\mapsto(0^+,1)
+$$
+と変換する写像とする．
+
+### 生成作用素
+
+Zig-Zag サンプラーは各成分ごとに完全に分離したダイナミクスを持つために，生成作用素も $\wh{A}=\sum_{i=1}^d\wh{A}_i$ と表せる．各 $\wh{A}_i$ は
+$$
+\wh{A}_if(x,v)=1_{\partial E_i^\comp}(x,v)\paren{v_i\partial_{x_i}f(x,v)+(v_i\partial_{x_i}\Phi(x))_+\Paren{F_i^*f(x,v)-f(x,v)}}
+$$
+$$
++1_{\partial E_i}(x,v)\kappa_i\Paren{T_i^*f(x,v)-f(x,v)}.
+$$
+と表せ，定義域は
+$$
+\D(\wh{A})=\Brace{f\in L(E_0)\mid f\circ\varphi(-,x,v)\;\text{は絶対連続で}\;\partial E_i\;\text{上にも連続延長する}}
+$$
+となる．
 
 ### エルゴード性
 
