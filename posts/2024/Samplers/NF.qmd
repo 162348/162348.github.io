@@ -104,6 +104,8 @@ $$
 $$
 で定まる変換を **カップリング層**，$f$ をカップリング関数，$\Theta$ を conditioner という．
 
+[@Kingma-Dhariwal2018] では，conditioner には ResNet を使っている．
+
 この逆変換は
 $$
 (x^{(1)},x^{(2)})\mapsto (f^{-1}_{\Theta(x^{(2)})}(x^{(1)}),x^{(2)})
@@ -116,9 +118,9 @@ $f_\theta$ は各成分が可逆になるように設計することで $f_\thet
 
 ### Real NVP
 
-カップリング流を最初に提案したのが [@Dinh+2015], [@Dinh+2017] の RealNVP (Real-valued Non-Volume-Preserving) である．
+カップリング流を最初に提案したのが [@Dinh+2015] であり，これを画像データに応用したのが [@Dinh+2017] の RealNVP (Real-valued Non-Volume-Preserving) である．
 
-この方法では特に
+RealNVP では特に
 $$
 f_{\Theta(z^{(2)})}(z^{(1)})=e^{f_{\Theta(z^{(2)})}^{(1)}} \odot z^{(1)}+f_{\Theta(z^{(2)})}^{(2)}(z^{(1)}),
 $$
@@ -163,6 +165,8 @@ $$
 
 $\Theta_i$ を単一の自己回帰型ニューラルネットワークを用いてモデリングするためには，$\Theta_i$ が $x_{1:i-1}$ のみに依存するようにマスク [@Germain+2015] をするとよい．
 
+こうすることで $x_1,x_2,\cdots$ と順々に生成する必要はなくなり，並列で計算することができる．（しかし逆の計算は並列化はできない）．
+
 この方法を採用したのが MAF (Masked Autoregressive Flow) [@Papamakarios+2017] であった．
 
 MAF では $f$ は affine 関数としている．
@@ -175,9 +179,9 @@ x_i=f_{\Theta_i(z_{1:i-1})}(z_i)
 $$
 としてモデリングする方法を IAF (Inverse Autoregressive Flow) [@Kingma+2016] という．
 
-これにより $x_i$ の生成のために $x_1,\cdots,x_{i-1}$ を先に評価する必要がなく，並列で生成することが可能になる．
+これにより $x_i$ の生成のために $x_1,\cdots,x_{i-1}$ を先に評価する必要がなく，並列で生成することが可能になり，サンプリングが高速になる．
 
-従って IAF はサンプリング用途に使われるが，その分 MAF より密度評価が遅くなってしまう．
+従って IAF はサンプリング用途に使われるが，その分 MAF より密度評価が遅くなってしまう [@Papamakarios+2017]．
 
 ### Parallel WaveNet でのサンプリング加速
 
@@ -240,7 +244,28 @@ $$
 \det J_f(u)=1+w^\top v\sigma'\Paren{w^\top u+b}.
 $$
 
+ただし非線型な活性化関数 $\sigma$ は全単射になるように選ぶ必要がある．
+
+::: {.callout-note title="証明" icon="false" collapse="true"}
+
+この Jacobian を導出する際には，次の [Matrix determinant lemma](https://en.wikipedia.org/wiki/Matrix_determinant_lemma) を用いる．
+
+$$
+\det(A+uv^\top)=\det(A)\Paren{1+v^\top A^{-1}u}.
+$$
+
+これは行列式の多重歪線型性を用いて簡単に示すことができる．
+
+:::
+
+Planar flow の欠点は逆の計算が難しい点であり，現在広く使われるわけではない [@Kobyzev+2021]．
+
 他に，circular flow [@Rezende-Mohamed2015] や Sylvester flow [@vandenBerg+2019] も同様な解析的な Jacobian の表示を与えるアーキテクチャである．
+
+Sylvester flow [@vandenBerg+2019] は $\sigma$ を多次元化したものである．この際の Jacobian は [Sylvester の行列式の補題](https://en.wikipedia.org/wiki/Weinstein%E2%80%93Aronszajn_identity) により導かれることから名前がついた：
+$$
+\det(I_n+AB)=\det(I_m+BA).
+$$
 
 ### Jacobian を推定する方法 {#sec-Hutchinson}
 
