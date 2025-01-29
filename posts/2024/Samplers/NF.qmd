@@ -4,7 +4,7 @@ subtitle: "深層生成モデル４"
 author: "司馬博文"
 image: Files/NF/NSF_result.png
 date: 2/14/2024
-date-modified: 8/19/2024
+date-modified: 1/28/2025
 categories: [Deep, Sampling]
 bibliography: 
     - ../../../assets/2023.bib
@@ -118,9 +118,13 @@ $f_\theta$ は各成分が可逆になるように設計することで $f_\thet
 
 ### Real NVP
 
-カップリング流を最初に提案したのが [@Dinh+2015] であり，これを画像データに応用したのが [@Dinh+2017] の RealNVP (Real-valued Non-Volume-Preserving) である．
+カップリング流を最初に提案したのが NICE (Non-linear Independent Component Estimation) [@Dinh+2015] であり，これを画像データに応用したのが [@Dinh+2017] の RealNVP (Real-valued Non-Volume-Preserving) である．
 
-RealNVP では特に
+NICE では affine カップリング
+$$
+f_\theta(x)=\theta_1x+\theta_2
+$$
+を考えていたが，RealNVP ではさらに
 $$
 f_{\Theta(z^{(2)})}(z^{(1)})=e^{f_{\Theta(z^{(2)})}^{(1)}} \odot z^{(1)}+f_{\Theta(z^{(2)})}^{(2)}(z^{(1)}),
 $$
@@ -227,9 +231,11 @@ u\mapsto u+F(u)
 $$
 において，残差ブロック $F$ が縮小写像になるようにすれば，全体として可逆な層となる．
 
-iResNet (Invertible Residual Networks) [@Behrmann+2019] では，これを CNN において実装した．
+iResNet (Invertible Residual Networks) [@Behrmann+2019] では，縮小写像 $F$ のモデリングに CNN を用いた．
 
 この方法のボトルネックは Jacobian の計算にある．愚直に計算すると入力の次元 $d$ に関して $O(d^3)$ の計算量が必要になるため，なんらかの方法で効率化が必要である．
+
+Residual Flow [@Chen+2019] では，Jacobian の推定に Monte Carlo 推定量を用いた．
 
 ### Jacobian が計算可能な場合
 
@@ -273,7 +279,9 @@ $$
 $$
 \log\abs{\det(I+J_F)}=\sum_{k=1}^\infty\frac{(-1)^{k+1}}{k}\Tr(J_F^k)
 $$
-を通じて，$\Tr(J_F^k)$ が [[@Skilling1989]-[@Hutchinson1990] の跡推定量](../Probability/Trace.qmd) により，その無限和が Russian-roulette 推定量により不偏推定できる [@Chen+2019]．
+を通じて，$\Tr(J_F)$ が [[@Skilling1989]-[@Hutchinson1990] の跡推定量](../Probability/Trace.qmd) により，その無限和が Russian-roulette 推定量により不偏推定できる [@Chen+2019]．
+
+Russian-roulette 推定量では，無限和を最初の $N$ 項のみの有限和で近似するとバイアスが入るので，$N$ を確率変数とすることで不偏推定が達成される．
 
 ## 応用
 
@@ -291,7 +299,7 @@ Householder flow [@Tomczak-Welling2017] は VAE の改良のために考えら�
 
 ### ベイズ計算
 
-Neural Importance Sampling [@Muller+2019] とは，困難な分布からの重点サンプリングの際に，提案分布を正規化流で近似する方法である．
+Neural Importance Sampling [@Muller+2019] とは，困難な分布からの重点サンプリングの際に，提案分布を正規化流で近似する方法である．この際に $f_\theta(x)$ にはスプラインを用いている．
 
 Boltzmann Generator [@Noe+2019] は名前の通り，多体系の平衡分布から正規化流でサンプリングをするという手法である．
 
