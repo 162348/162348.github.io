@@ -1,0 +1,68 @@
+\documentclass[lualatex,dfipdfmx,ja=standard]{bxjsarticle}
+\title{\Large PDMP によりスパイク付きの非絶対連続分布からもサンプリングが可能になる}\author{司馬博文\thanks{総合研究大学院大学先端学術院統計科学コース５年一貫博士課程２年（E-mail: shiba.hirofumi@ism.ac.jp）}}\date{\today}
+\input{../../../assets/preamble.tex}
+\geometry{top=30truemm,bottom=30truemm,left=20truemm,right=20truemm}
+\begin{document}
+\maketitle
+
+\section{導入：モンテカルロ法の歴史と新手法の出現}
+
+マルコフ連鎖モンテカルロ法 (MCMC: Markov Chain Monte Carlo) や逐次モンテカルロ法 (SMC: Sequential Monte Carlo) などのモンテカルロ法は，
+21世紀に入って計算機が普及してのち，ベイズ統計の応用範囲を爆発的に拡大する立役者となった \cite{InPractice1996,Doucet+2001}．
+近年提案された\textbf{区分確定的マルコフ過程} (PDMP: Piecewise Deterministic Markov Process) を利用した新たなモンテカルロ法も，この系列に続くものと理解できる．
+
+MCMCとSMCはいずれも離散時間のマルコフ過程$(X_n)_{n=1}^\infty$のシミュレーションに基づく．
+ここでは特にMCMCに焦点を当てる．
+ベイズ統計では事後分布$\pi$を導くことで推論を実行するが，事前分布や尤度の選択範囲を大きく制限しない限り，$\pi$は既知の分布とはならない．
+たとえ$\pi$の関数形がわかっていても，事後分布$\pi$の平均を求めるなど，これを後続の統計解析に供することは必ずしも簡単ではない．
+そんな中でも，事後分布$\pi$を平衡分布にもつエルゴード的なマルコフ連鎖$(X_n)$を設計することができれば，大数の強法則
+$$
+\frac{1}{N}\sum_{n=1}^Nf(X_n)\xrightarrow{N\to\infty}\int f(x)\pi(dx)\;\as\qquad f\in\L^1(\pi)
+$$
+が成り立つ \cite[pp.175-176]{Kulik2018}．この事実を用いて事後分布 $\pi$ を近似する枠組みがMCMCであり，
+条件を満たす$(X_n)$の構成法にGibbsサンプラー \cite{Geman-Geman1984} やランダムウォークMetropolis-Hastings法 \cite{Hastings1970} などがある．
+
+多くのMCMC法は物理学に由来する．例えばGibbsサンプラーはIsingモデル\cite{Glauber1963}，Metropolis-Hastings法は状態方程式\cite{Metropolis+1953}のシミュレーションにおいて
+最初に提案された．
+MCMCという名前は \cite{Geman-Geman1984,Hastings1970} で統計学における確率分布からのサンプリングの問題に応用されて初めて付いたものである．
+連続時間のマルコフ過程であるPDMPを用いた新しいモンテカルロ法も，やはり物理学における研究\cite{Bernard+2009,Peters-deWith2012}で最初に使われ始め，
+初の氷の液相転移の全原子シミュレーションも成功させている \cite{Faulkner+2018}．
+これに倣い統計でもBouncy Particle Sampler (BPS) \cite{Bouchard-Cote+2018-BPS}やZig-Zag Sampler \cite{Bierkens+2019}，Forward PDMC \cite{Michel+2020}などの汎用アルゴリズムが提案され，
+この手法群に PDMP に由来する\textbf{区分確定的モンテカルロ法} (PDMC: Piecewise Deterministic Monte Carlo) の名前がついた．
+
+本ポスターでは紙面を３つにわける．
+本稿もこれに対応する３つの節を用意し，それぞれを詳説する．
+初めにPDMCとMCMC（従来法）の違いを，シミュレートされるマルコフ過程の違いとアルゴリズムの違いの両面からみる（第\ref{sec-1}節）．
+続いてPoisson剪定をはじめとするPDMPのシミュレーションの自動化法を解説し，
+筆者が開発したパッケージ\texttt{PDMPFlux.jl} \cite{PDMPFlux2025}ではどのようなアプローチを取っているかを解説する（第\ref{sec-2}節）．
+最後にMCMCでは不可能であったがPDMCで可能になることとして，デルタ部分を持つ非絶対連続分布
+$$
+p(dx)=\prod_{i=1}^d\Paren{\om_ip_i(x_i)\,dx_i+(1-\om_i)\delta_0(dx_i)}
+$$
+からのサンプリング法を紹介し，ベイズ変数選択への応用に触れる（第\ref{sec-3}節）．
+
+\section{PDMPと従来法の違いと新しいシミュレーション法}\label{sec-1}
+
+% MCMCとPDMCではアルゴリズムは全く異なるものの，シミュレートされるマルコフ過程には深い繋がりがある．
+% 例えば，Lifted Metropolis-Hastings と呼ばれるMCMC法の生成するMarkov連鎖$(Z_n)$を
+% 適切に連続時間過程とみなし，過程のステップサイズを小さく，かつ，アルゴリズムの進行速度を加速するスケーリング極限を取ることで，
+% PDMPの例であるZig-Zag過程に収束することが示されている\cite{Bierkens-Roberts2017}．
+
+% 上述のようなリフティング（状態空間の拡張）がなされたMCMCとPDMCとの関係は普遍的に見られ，
+% 収束極限として得られるPDMPを従来の方法によらず直接シミュレートすることでアルゴリズムは大きく効率的になる \cite{Tartero-Krauth2023}．
+
+
+
+既存のPDMCはいずれも，
+$$
+\pi(x)\propt e^{-U(x)},\qquad U\in C^1(\R^d),
+$$
+という表示を持つ確率分布を対象に扱う．定数の差を除いて負の対数尤度にあたる $U$ をポテンシャルとも呼び，アルゴリズムはその勾配$\nabla U$のみを入力に取る．
+
+\section{開発パッケージの紹介と自動Poisson剪定}\label{sec-2}
+
+\section{スパイク付きの非絶対連続分布からのサンプリング}\label{sec-3}
+
+\bibliography{../../../assets/2023,../../../assets/2024,../../../assets/2025}
+
+\end{document}
