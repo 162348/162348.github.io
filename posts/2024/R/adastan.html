@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="司馬 博文">
+<meta name="author" content="司馬博文">
 
 <title>SDE のベイズ推定入門 – Hirofumi Shiba</title>
 <style>
@@ -358,13 +358,13 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="SDE のベイズ推定入門 – Hirofumi Shiba">
-<meta property="og:description" content="R パッケージ YUIMA を用いた SDE のベイズ推定に，Stan を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．">
+<meta property="og:description" content="R パッケージ YUIMA を用いた SDE のベイズ推定に，バックエンドとして Stan による HMC の実装を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．">
 <meta property="og:image" content="https://162348.github.io/posts/2024/R/Files/adastan1.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta property="og:image:height" content="768">
 <meta property="og:image:width" content="1152">
 <meta name="twitter:title" content="SDE のベイズ推定入門 – Hirofumi Shiba">
-<meta name="twitter:description" content="R パッケージ YUIMA を用いた SDE のベイズ推定に，Stan を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．">
+<meta name="twitter:description" content="R パッケージ YUIMA を用いた SDE のベイズ推定に，バックエンドとして Stan による HMC の実装を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．">
 <meta name="twitter:image" content="https://162348.github.io/posts/2024/R/Files/adastan1.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:image-height" content="768">
@@ -451,7 +451,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Author</div>
       <div class="quarto-title-meta-contents">
-               <p>司馬 博文 </p>
+               <p>司馬博文 </p>
             </div>
     </div>
       
@@ -465,7 +465,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">9/20/2024</p>
+        <p class="date-modified">1/13/2025</p>
       </div>
     </div>
       
@@ -474,7 +474,7 @@ window.Quarto = {
   <div>
     <div class="abstract">
       <div class="block-title">概要</div>
-      R パッケージ YUIMA を用いた SDE のベイズ推定に，Stan を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．
+      R パッケージ YUIMA を用いた SDE のベイズ推定に，バックエンドとして Stan による HMC の実装を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．
     </div>
   </div>
   
@@ -489,26 +489,29 @@ window.Quarto = {
   <li><a href="#問題提起" id="toc-問題提起" class="nav-link active" data-scroll-target="#問題提起"><span class="header-section-number">1</span> 問題提起</a>
   <ul class="collapse">
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">1.1</span> はじめに</a></li>
-  <li><a href="#確率的プログラミング言語-stan-との連携" id="toc-確率的プログラミング言語-stan-との連携" class="nav-link" data-scroll-target="#確率的プログラミング言語-stan-との連携"><span class="header-section-number">1.2</span> 確率的プログラミング言語 <code>Stan</code> との連携</a></li>
-  <li><a href="#sec-adaStan" id="toc-sec-adaStan" class="nav-link" data-scroll-target="#sec-adaStan"><span class="header-section-number">1.3</span> アイデアのスケッチ</a></li>
-  <li><a href="#sec-exp-OU" id="toc-sec-exp-OU" class="nav-link" data-scroll-target="#sec-exp-OU"><span class="header-section-number">1.4</span> サンプルコードの動き</a></li>
-  <li><a href="#cmdstanr-による方法" id="toc-cmdstanr-による方法" class="nav-link" data-scroll-target="#cmdstanr-による方法"><span class="header-section-number">1.5</span> <code>CmdStanR</code> による方法</a></li>
-  <li><a href="#stan-コードのベクトル化" id="toc-stan-コードのベクトル化" class="nav-link" data-scroll-target="#stan-コードのベクトル化"><span class="header-section-number">1.6</span> Stan コードのベクトル化</a></li>
-  <li><a href="#一般化ベイズへの拡張" id="toc-一般化ベイズへの拡張" class="nav-link" data-scroll-target="#一般化ベイズへの拡張"><span class="header-section-number">1.7</span> 一般化ベイズへの拡張</a></li>
   </ul></li>
-  <li><a href="#stan-インターフェイスの調査" id="toc-stan-インターフェイスの調査" class="nav-link" data-scroll-target="#stan-インターフェイスの調査"><span class="header-section-number">2</span> Stan インターフェイスの調査</a>
+  <li><a href="#sec-final-form" id="toc-sec-final-form" class="nav-link" data-scroll-target="#sec-final-form"><span class="header-section-number">2</span> 最終的なコード</a></li>
+  <li><a href="#背景" id="toc-背景" class="nav-link" data-scroll-target="#背景"><span class="header-section-number">3</span> 背景</a>
   <ul class="collapse">
-  <li><a href="#我々のインターフェイス" id="toc-我々のインターフェイス" class="nav-link" data-scroll-target="#我々のインターフェイス"><span class="header-section-number">2.1</span> 我々のインターフェイス</a></li>
-  <li><a href="#rstan-パッケージ" id="toc-rstan-パッケージ" class="nav-link" data-scroll-target="#rstan-パッケージ"><span class="header-section-number">2.2</span> <code>RStan</code> パッケージ</a></li>
-  <li><a href="#brms-パッケージ" id="toc-brms-パッケージ" class="nav-link" data-scroll-target="#brms-パッケージ"><span class="header-section-number">2.3</span> <code>brms</code> パッケージ</a></li>
-  <li><a href="#cmdstanr-パッケージ" id="toc-cmdstanr-パッケージ" class="nav-link" data-scroll-target="#cmdstanr-パッケージ"><span class="header-section-number">2.4</span> <code>cmdstanr</code> パッケージ</a></li>
+  <li><a href="#確率的プログラミング言語-stan-との連携" id="toc-確率的プログラミング言語-stan-との連携" class="nav-link" data-scroll-target="#確率的プログラミング言語-stan-との連携"><span class="header-section-number">3.1</span> 確率的プログラミング言語 <code>Stan</code> との連携</a></li>
+  <li><a href="#sec-adaStan" id="toc-sec-adaStan" class="nav-link" data-scroll-target="#sec-adaStan"><span class="header-section-number">3.2</span> アイデアのスケッチ</a></li>
+  <li><a href="#sec-exp-OU" id="toc-sec-exp-OU" class="nav-link" data-scroll-target="#sec-exp-OU"><span class="header-section-number">3.3</span> サンプルコードの動き</a></li>
+  <li><a href="#cmdstanr-による方法" id="toc-cmdstanr-による方法" class="nav-link" data-scroll-target="#cmdstanr-による方法"><span class="header-section-number">3.4</span> <code>CmdStanR</code> による方法</a></li>
+  <li><a href="#stan-コードのベクトル化" id="toc-stan-コードのベクトル化" class="nav-link" data-scroll-target="#stan-コードのベクトル化"><span class="header-section-number">3.5</span> Stan コードのベクトル化</a></li>
+  <li><a href="#一般化ベイズへの拡張" id="toc-一般化ベイズへの拡張" class="nav-link" data-scroll-target="#一般化ベイズへの拡張"><span class="header-section-number">3.6</span> 一般化ベイズへの拡張</a></li>
   </ul></li>
-  <li><a href="#テンプレート操作" id="toc-テンプレート操作" class="nav-link" data-scroll-target="#テンプレート操作"><span class="header-section-number">3</span> テンプレート操作</a>
+  <li><a href="#stan-インターフェイスの調査" id="toc-stan-インターフェイスの調査" class="nav-link" data-scroll-target="#stan-インターフェイスの調査"><span class="header-section-number">4</span> Stan インターフェイスの調査</a>
   <ul class="collapse">
-  <li><a href="#glue-パッケージ" id="toc-glue-パッケージ" class="nav-link" data-scroll-target="#glue-パッケージ"><span class="header-section-number">3.1</span> <code>glue</code> パッケージ</a></li>
-  <li><a href="#whisker-パッケージ" id="toc-whisker-パッケージ" class="nav-link" data-scroll-target="#whisker-パッケージ"><span class="header-section-number">3.2</span> <code>whisker</code> パッケージ</a></li>
+  <li><a href="#我々のインターフェイス" id="toc-我々のインターフェイス" class="nav-link" data-scroll-target="#我々のインターフェイス"><span class="header-section-number">4.1</span> 我々のインターフェイス</a></li>
+  <li><a href="#brms-パッケージ" id="toc-brms-パッケージ" class="nav-link" data-scroll-target="#brms-パッケージ"><span class="header-section-number">4.2</span> <code>brms</code> パッケージ</a></li>
+  <li><a href="#cmdstanr-パッケージ" id="toc-cmdstanr-パッケージ" class="nav-link" data-scroll-target="#cmdstanr-パッケージ"><span class="header-section-number">4.3</span> <code>cmdstanr</code> パッケージ</a></li>
+  <li><a href="#rstanarm-パッケージ" id="toc-rstanarm-パッケージ" class="nav-link" data-scroll-target="#rstanarm-パッケージ"><span class="header-section-number">4.4</span> <code>RStanArm</code> パッケージ</a></li>
   </ul></li>
-  <li><a href="#sec-final-form" id="toc-sec-final-form" class="nav-link" data-scroll-target="#sec-final-form"><span class="header-section-number">4</span> 最終的なコード</a></li>
+  <li><a href="#テンプレート操作" id="toc-テンプレート操作" class="nav-link" data-scroll-target="#テンプレート操作"><span class="header-section-number">5</span> テンプレート操作</a>
+  <ul class="collapse">
+  <li><a href="#glue-パッケージ" id="toc-glue-パッケージ" class="nav-link" data-scroll-target="#glue-パッケージ"><span class="header-section-number">5.1</span> <code>glue</code> パッケージ</a></li>
+  <li><a href="#whisker-パッケージ" id="toc-whisker-パッケージ" class="nav-link" data-scroll-target="#whisker-パッケージ"><span class="header-section-number">5.2</span> <code>whisker</code> パッケージ</a></li>
+  </ul></li>
   
   </ul>
 </nav>
@@ -528,7 +531,7 @@ window.Quarto = {
 <p>R の YUIMA パッケージに関する詳細は，次の記事も参照：</p>
 <div id="listing-lst-adaStan" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743426247842" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
+<div class="g-col-1" data-index="0" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743496419891" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
 <a href="../../../posts/2024/R/YUIMA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Files/YUIMA.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -545,7 +548,7 @@ YUIMA 入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743426247809" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743496419859" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
 <a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -564,7 +567,7 @@ Stan 入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743426247809" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
+<div class="g-col-1" data-index="2" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743496419859" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
 <a href="../../../posts/2024/R/Stan2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -600,7 +603,7 @@ dX_t=b_t^\theta(X_t)\,dt+\sigma_t^\phi(X_t)\,dW_t,\qquad X_0\in\mathbb{R}^d,
 \]</span> に対してパラメータ <span class="math inline">\(\theta\in\mathbb{R}^{d_\theta},\phi\in\mathbb{R}^{d_\phi}\)</span> の推定を実行することができる（<a href="../../../posts/2024/R/YUIMA.html#sec-model-constructor"><code>YUIMA</code> の記事</a> も参照）．</p>
 <div id="listing-lst-yuima" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743426247842" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
+<div class="g-col-1" data-index="0" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743496419891" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="5" data-listing-word-count-sort="859">
 <a href="../../../posts/2024/R/YUIMA.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Files/YUIMA.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -617,7 +620,7 @@ YUIMA 入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715990400000" data-listing-file-modified-sort="1743426247842" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="317">
+<div class="g-col-1" data-index="1" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715990400000" data-listing-file-modified-sort="1743496419891" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="2" data-listing-word-count-sort="317">
 <a href="../../../posts/2024/R/YUIMA1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -639,7 +642,7 @@ YUIMA による汎函数計算
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715990400000" data-listing-file-modified-sort="1743426247843" data-listing-date-modified-sort="1726704000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="339">
+<div class="g-col-1" data-index="2" data-categories="U3RhbiUyQ1IlMkNZVUlNQSUyQ1Byb2Nlc3M=" data-listing-date-sort="1715990400000" data-listing-file-modified-sort="1743496419892" data-listing-date-modified-sort="1726704000000" data-listing-reading-time-sort="2" data-listing-word-count-sort="339">
 <a href="../../../posts/2024/R/YUIMA2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top"><img src="Files/YUIMA.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
@@ -666,15 +669,58 @@ No matching items
 </div>
 <p>YUIMA におけるパラメータ <span class="math inline">\(\theta,\varphi\)</span> の推定には，<code>qmle()</code> による擬似最尤推定量を用いることだけでなく，<a href="https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R"><code>adaBayes()</code></a> を通じて，一般化ベイズによる事後平均推定を実行することも可能である．</p>
 <p>現状の <code>adaBayes()</code> 関数では，自前のランダムウォーク MH アルゴリズムや p-CN アルゴリズムを用いているが，HMC (Hamiltonian Monte Carlo) <span class="citation" data-cites="Duane+1987">(<a href="#ref-Duane+1987" role="doc-biblioref">Duane et al., 1987</a>)</span>, <span class="citation" data-cites="Neal1996">(<a href="#ref-Neal1996" role="doc-biblioref">Neal, 1996</a>)</span> も利用可能なように拡張することを考えたい．</p>
+<p>ここでは新たな関数 <code>adaStan()</code> を定義することを考える．</p>
 </section>
-<section id="確率的プログラミング言語-stan-との連携" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="確率的プログラミング言語-stan-との連携"><span class="header-section-number">1.2</span> 確率的プログラミング言語 <code>Stan</code> との連携</h3>
+</section>
+<section id="sec-final-form" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="sec-final-form"><span class="header-section-number">2</span> 最終的なコード</h2>
+<p><a href="adaStan.R"><code>adaStan.R</code></a> を参照．</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"adaStan.R"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">setModel</span>(<span class="at">drift =</span> <span class="st">"theta*(mu-x)"</span>, <span class="at">diffusion =</span> <span class="st">"sigma"</span>, <span class="at">state.variable =</span> <span class="st">"x"</span>, <span class="at">solve.variable =</span> <span class="st">"x"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>sampling <span class="ot">&lt;-</span> <span class="fu">setSampling</span>(<span class="at">Initial =</span> <span class="dv">0</span>, <span class="at">Terminal =</span> <span class="dv">3</span>, <span class="at">n =</span> <span class="dv">1000</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>yuima <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model, <span class="at">sampling =</span> sampling)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">simulate</span>(yuima, <span class="at">true.parameter =</span> <span class="fu">c</span>(<span class="at">theta =</span> <span class="dv">1</span>, <span class="at">mu =</span> <span class="dv">0</span>, <span class="at">sigma =</span> <span class="fl">0.5</span>), <span class="at">xinit =</span> <span class="fu">rnorm</span>(<span class="dv">1</span>))</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">adaStan</span>(simulation, <span class="at">iter=</span><span class="dv">2000</span>, <span class="at">rstan=</span><span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span><span class="fu">summary</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 10
+  variable     mean   median      sd    mad       q5      q95  rhat ess_bulk
+  &lt;chr&gt;       &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;
+1 lp__     3049.    3049.     1.34   1.39   3047.    3051.     1.08    35.5 
+2 theta       0.503    0.342  0.590  0.538    -0.103    1.64   1.15    21.0 
+3 mu         -6.60    -0.525 13.3    1.56    -35.8      3.89   1.39     9.57
+4 sigma       0.528    0.529  0.0118 0.0128    0.508    0.544  1.09    30.0 
+# ℹ 1 more variable: ess_tail &lt;dbl&gt;</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_hist</span>(fit<span class="sc">$</span><span class="fu">draws</span>(<span class="st">"theta"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="adastan_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>面白い！事後分布は２峰性をもっており，2000 回繰り返すと事後平均はかろうじて正解に近づいている．</p>
+</section>
+<section id="背景" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="背景"><span class="header-section-number">3</span> 背景</h2>
+<section id="確率的プログラミング言語-stan-との連携" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="確率的プログラミング言語-stan-との連携"><span class="header-section-number">3.1</span> 確率的プログラミング言語 <code>Stan</code> との連携</h3>
 <p><code>Stan</code> は Hamiltonian Monte Carlo 法を用いた事後分布サンプリングを，確率モデルを定義するだけで実行することができる言語である．</p>
 <p>加えて，バックグラウンドで C++ を用いているため，非常に高速な MCMC 計算が可能である．</p>
 <p>確率的プログラミング言語 Stan については次の記事も参照：</p>
 <div id="listing-lst-stan" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743426247809" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4=" data-listing-date-sort="1715904000000" data-listing-file-modified-sort="1743496419859" data-listing-date-modified-sort="1726531200000" data-listing-reading-time-sort="3" data-listing-word-count-sort="556">
 <a href="../../../posts/2024/R/Stan1.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -693,7 +739,7 @@ Stan 入門
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743426247809" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
+<div class="g-col-1" data-index="1" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743496419859" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
 <a href="../../../posts/2024/R/Stan2.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -723,80 +769,80 @@ No matching items
 <p><code>RStan</code> は確率的プログラミング言語 Stan とのインターフェイスを提供する R パッケージであり，これを用いることで R からでも Stan を通じた HMC を用いた事後分布からのサンプリングが実行できる．</p>
 <p>ここでは YUIMA の <code>adaBayes()</code> 関数と同じ推定を，内部で Stan を用いて実行する関数 <code>adaStan()</code> の実装を試みる．</p>
 </section>
-<section id="sec-adaStan" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="sec-adaStan"><span class="header-section-number">1.3</span> アイデアのスケッチ</h3>
+<section id="sec-adaStan" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="sec-adaStan"><span class="header-section-number">3.2</span> アイデアのスケッチ</h3>
 <p>具体的には，R において次のような関数を定義することになるだろう．</p>
-<p>必ずしもベストな方法ではないかもしれないが，まずは <code>RStan</code> を用いてスケッチをしてみる．改良版は第 <a href="#sec-final-form" class="quarto-xref">4</a> 節参照．</p>
+<p>必ずしもベストな方法ではないかもしれないが，まずは <code>RStan</code> を用いてスケッチをしてみる．改良版は第 <a href="#sec-final-form" class="quarto-xref">2</a> 節参照．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="annotated-cell-1"><pre class="sourceCode r code-annotation-code code-with-copy code-annotated"><code class="sourceCode r"><span id="annotated-cell-1-1"><a href="#annotated-cell-1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(yuima)</span>
-<span id="annotated-cell-1-2"><a href="#annotated-cell-1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rstan)</span>
-<span id="annotated-cell-1-3"><a href="#annotated-cell-1-3" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="1">1</button><span id="annotated-cell-1-4" class="code-annotation-target"><a href="#annotated-cell-1-4" aria-hidden="true" tabindex="-1"></a>yuima_to_stan <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima){</span>
-<span id="annotated-cell-1-5"><a href="#annotated-cell-1-5" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="st">'data {</span><span class="sc">\n</span><span class="st">  int N;</span><span class="sc">\n</span><span class="st">  vector[N+1] x;</span><span class="sc">\n</span><span class="st">  real T;</span><span class="sc">\n</span><span class="st">  real h;</span><span class="sc">\n</span><span class="st">}</span></span>
-<span id="annotated-cell-1-6"><a href="#annotated-cell-1-6" aria-hidden="true" tabindex="-1"></a><span class="st">parameters {</span><span class="sc">\n</span><span class="st">'</span></span>
-<span id="annotated-cell-1-7"><a href="#annotated-cell-1-7" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="2">2</button><span id="annotated-cell-1-8" class="code-annotation-target"><a href="#annotated-cell-1-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all)){</span>
-<span id="annotated-cell-1-9"><a href="#annotated-cell-1-9" aria-hidden="true" tabindex="-1"></a>    excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode, <span class="st">" real"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all[i], <span class="st">";</span><span class="sc">\n</span><span class="st">"</span>)</span>
-<span id="annotated-cell-1-10"><a href="#annotated-cell-1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="annotated-cell-1-11"><a href="#annotated-cell-1-11" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="3">3</button><span id="annotated-cell-1-12" class="code-annotation-target"><a href="#annotated-cell-1-12" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">"</span><span class="sc">\n</span><span class="st">}"</span>)</span>
-<span id="annotated-cell-1-13"><a href="#annotated-cell-1-13" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="4">4</button><span id="annotated-cell-1-14" class="code-annotation-target"><a href="#annotated-cell-1-14" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">'</span><span class="sc">\n</span><span class="st">model {</span><span class="sc">\n</span><span class="st">  x[1] ~ normal(0,1);</span><span class="sc">\n</span><span class="st">  for(n in 2:(N+1)){'</span>)</span>
-<span id="annotated-cell-1-15"><a href="#annotated-cell-1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="annotated-cell-1-16"><a href="#annotated-cell-1-16" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,</span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="5">5</button><span id="annotated-cell-1-17" class="code-annotation-target"><a href="#annotated-cell-1-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st">  x[n] ~ normal(x[n-1] + h *"</span>, <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>drift), <span class="st">",sqrt(h) *"</span>, <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]]),<span class="st">");</span><span class="sc">\n</span><span class="st">  }"</span>)</span>
-<span id="annotated-cell-1-18"><a href="#annotated-cell-1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="annotated-cell-1-19"><a href="#annotated-cell-1-19" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">'</span><span class="sc">\n</span><span class="st">}</span><span class="sc">\n</span><span class="st">'</span>)</span>
-<span id="annotated-cell-1-20"><a href="#annotated-cell-1-20" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="annotated-cell-1-21"><a href="#annotated-cell-1-21" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="6">6</button><span id="annotated-cell-1-22" class="code-annotation-target"><a href="#annotated-cell-1-22" aria-hidden="true" tabindex="-1"></a>adaStan <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima){</span>
-<span id="annotated-cell-1-23"><a href="#annotated-cell-1-23" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">yuima_to_stan</span>(yuima)</span>
-<span id="annotated-cell-1-24"><a href="#annotated-cell-1-24" aria-hidden="true" tabindex="-1"></a></span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="7">7</button><span id="annotated-cell-1-25" class="code-annotation-target"><a href="#annotated-cell-1-25" aria-hidden="true" tabindex="-1"></a>  sde_dat <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">N =</span>  yuima<span class="sc">@</span>sampling<span class="sc">@</span>n,</span>
-<span id="annotated-cell-1-26"><a href="#annotated-cell-1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="fu">as.numeric</span>(yuima<span class="sc">@</span>data<span class="sc">@</span>original.data), </span>
-<span id="annotated-cell-1-27"><a href="#annotated-cell-1-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">T=</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>Terminal,</span>
-<span id="annotated-cell-1-28"><a href="#annotated-cell-1-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">h=</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>Terminal<span class="sc">/</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>n)</span>
-<span id="annotated-cell-1-29"><a href="#annotated-cell-1-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="annotated-cell-1-30"><a href="#annotated-cell-1-30" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">stan</span>(<span class="at">model_code=</span>excode,</span>
-<span id="annotated-cell-1-31"><a href="#annotated-cell-1-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> sde_dat, </span>
-<span id="annotated-cell-1-32"><a href="#annotated-cell-1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">iter =</span> <span class="dv">1000</span>,</span>
-<button class="code-annotation-anchor" data-target-cell="annotated-cell-1" data-target-annotation="8">8</button><span id="annotated-cell-1-33" class="code-annotation-target"><a href="#annotated-cell-1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">chains =</span> <span class="dv">4</span>)</span>
-<span id="annotated-cell-1-34"><a href="#annotated-cell-1-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="annotated-cell-1-35"><a href="#annotated-cell-1-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(fit)</span>
-<span id="annotated-cell-1-36"><a href="#annotated-cell-1-36" aria-hidden="true" tabindex="-1"></a>}</span><div class="code-annotation-gutter-bg"></div><div class="code-annotation-gutter"></div></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="annotated-cell-4"><pre class="sourceCode r code-annotation-code code-with-copy code-annotated"><code class="sourceCode r"><span id="annotated-cell-4-1"><a href="#annotated-cell-4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(yuima)</span>
+<span id="annotated-cell-4-2"><a href="#annotated-cell-4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rstan)</span>
+<span id="annotated-cell-4-3"><a href="#annotated-cell-4-3" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="1">1</button><span id="annotated-cell-4-4" class="code-annotation-target"><a href="#annotated-cell-4-4" aria-hidden="true" tabindex="-1"></a>yuima_to_stan <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima){</span>
+<span id="annotated-cell-4-5"><a href="#annotated-cell-4-5" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="st">'data {</span><span class="sc">\n</span><span class="st">  int N;</span><span class="sc">\n</span><span class="st">  vector[N+1] x;</span><span class="sc">\n</span><span class="st">  real T;</span><span class="sc">\n</span><span class="st">  real h;</span><span class="sc">\n</span><span class="st">}</span></span>
+<span id="annotated-cell-4-6"><a href="#annotated-cell-4-6" aria-hidden="true" tabindex="-1"></a><span class="st">parameters {</span><span class="sc">\n</span><span class="st">'</span></span>
+<span id="annotated-cell-4-7"><a href="#annotated-cell-4-7" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="2">2</button><span id="annotated-cell-4-8" class="code-annotation-target"><a href="#annotated-cell-4-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all)){</span>
+<span id="annotated-cell-4-9"><a href="#annotated-cell-4-9" aria-hidden="true" tabindex="-1"></a>    excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode, <span class="st">" real"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all[i], <span class="st">";</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="annotated-cell-4-10"><a href="#annotated-cell-4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="annotated-cell-4-11"><a href="#annotated-cell-4-11" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="3">3</button><span id="annotated-cell-4-12" class="code-annotation-target"><a href="#annotated-cell-4-12" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">"</span><span class="sc">\n</span><span class="st">}"</span>)</span>
+<span id="annotated-cell-4-13"><a href="#annotated-cell-4-13" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="4">4</button><span id="annotated-cell-4-14" class="code-annotation-target"><a href="#annotated-cell-4-14" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">'</span><span class="sc">\n</span><span class="st">model {</span><span class="sc">\n</span><span class="st">  x[1] ~ normal(0,1);</span><span class="sc">\n</span><span class="st">  for(n in 2:(N+1)){'</span>)</span>
+<span id="annotated-cell-4-15"><a href="#annotated-cell-4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="annotated-cell-4-16"><a href="#annotated-cell-4-16" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,</span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="5">5</button><span id="annotated-cell-4-17" class="code-annotation-target"><a href="#annotated-cell-4-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st">  x[n] ~ normal(x[n-1] + h *"</span>, <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>drift), <span class="st">",sqrt(h) *"</span>, <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]]),<span class="st">");</span><span class="sc">\n</span><span class="st">  }"</span>)</span>
+<span id="annotated-cell-4-18"><a href="#annotated-cell-4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="annotated-cell-4-19"><a href="#annotated-cell-4-19" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">paste</span>(excode,<span class="st">'</span><span class="sc">\n</span><span class="st">}</span><span class="sc">\n</span><span class="st">'</span>)</span>
+<span id="annotated-cell-4-20"><a href="#annotated-cell-4-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="annotated-cell-4-21"><a href="#annotated-cell-4-21" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="6">6</button><span id="annotated-cell-4-22" class="code-annotation-target"><a href="#annotated-cell-4-22" aria-hidden="true" tabindex="-1"></a>adaStan <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima){</span>
+<span id="annotated-cell-4-23"><a href="#annotated-cell-4-23" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> <span class="fu">yuima_to_stan</span>(yuima)</span>
+<span id="annotated-cell-4-24"><a href="#annotated-cell-4-24" aria-hidden="true" tabindex="-1"></a></span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="7">7</button><span id="annotated-cell-4-25" class="code-annotation-target"><a href="#annotated-cell-4-25" aria-hidden="true" tabindex="-1"></a>  sde_dat <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">N =</span>  yuima<span class="sc">@</span>sampling<span class="sc">@</span>n,</span>
+<span id="annotated-cell-4-26"><a href="#annotated-cell-4-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="fu">as.numeric</span>(yuima<span class="sc">@</span>data<span class="sc">@</span>original.data), </span>
+<span id="annotated-cell-4-27"><a href="#annotated-cell-4-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">T=</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>Terminal,</span>
+<span id="annotated-cell-4-28"><a href="#annotated-cell-4-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">h=</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>Terminal<span class="sc">/</span>yuima<span class="sc">@</span>sampling<span class="sc">@</span>n)</span>
+<span id="annotated-cell-4-29"><a href="#annotated-cell-4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="annotated-cell-4-30"><a href="#annotated-cell-4-30" aria-hidden="true" tabindex="-1"></a>  fit <span class="ot">&lt;-</span> <span class="fu">stan</span>(<span class="at">model_code=</span>excode,</span>
+<span id="annotated-cell-4-31"><a href="#annotated-cell-4-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> sde_dat, </span>
+<span id="annotated-cell-4-32"><a href="#annotated-cell-4-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">iter =</span> <span class="dv">1000</span>,</span>
+<button class="code-annotation-anchor" data-target-cell="annotated-cell-4" data-target-annotation="8">8</button><span id="annotated-cell-4-33" class="code-annotation-target"><a href="#annotated-cell-4-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">chains =</span> <span class="dv">4</span>)</span>
+<span id="annotated-cell-4-34"><a href="#annotated-cell-4-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="annotated-cell-4-35"><a href="#annotated-cell-4-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(fit)</span>
+<span id="annotated-cell-4-36"><a href="#annotated-cell-4-36" aria-hidden="true" tabindex="-1"></a>}</span><div class="code-annotation-gutter-bg"></div><div class="code-annotation-gutter"></div></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-annotation">
 <dl class="code-annotation-container-hidden code-annotation-container-grid">
-<dt data-target-cell="annotated-cell-1" data-target-annotation="1">1</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="1">1</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="4" data-code-annotation="1">Stan モデルのコード（パラメータ部分は未定）を文字列として <code>excode</code> 変数に格納する．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="4" data-code-annotation="1">Stan モデルのコード（パラメータ部分は未定）を文字列として <code>excode</code> 変数に格納する．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="2">2</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="2">2</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="8" data-code-annotation="2">ここからが <code>adaStan</code> 関数の本体である．Yuima モデルの全てのパラメータについてループを開始して，<code>excode</code> にパラメータの宣言を追加していく．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="8" data-code-annotation="2">ここからが <code>adaStan</code> 関数の本体である．Yuima モデルの全てのパラメータについてループを開始して，<code>excode</code> にパラメータの宣言を追加していく．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="3">3</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="3">3</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="12" data-code-annotation="3">ここでついに Stan モデルのパラメータの定義部分が完成する．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="12" data-code-annotation="3">ここでついに Stan モデルのパラメータの定義部分が完成する．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="4">4</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="4">4</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="14" data-code-annotation="4">最後はモデルの定義部分を追加して，Stan モデルのコードが完成する．最初の観測値 <code>x[1]</code> は <span class="math inline">\(\mathrm{N}(0,1)\)</span> に従う．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="14" data-code-annotation="4">最後はモデルの定義部分を追加して，Stan モデルのコードが完成する．最初の観測値 <code>x[1]</code> は <span class="math inline">\(\operatorname{N}(0,1)\)</span> に従う．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="5">5</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="5">5</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="17" data-code-annotation="5">それ以降の観測値 <code>x[n]</code> は，前の観測値 <code>x[n-1]</code> に drift 項と diffusion 項を加えたものに従う．これを実装するために，Yuima モデルの drift 項と diffusion 項の定義文を呼び出し，<code>x</code> を <code>x[n-1]</code> に置換することで Stan モデルのコードに埋め込む．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="17" data-code-annotation="5">それ以降の観測値 <code>x[n]</code> は，前の観測値 <code>x[n-1]</code> に drift 項と diffusion 項を加えたものに従う．これを実装するために，Yuima モデルの drift 項と diffusion 項の定義文を呼び出し，<code>x</code> を <code>x[n-1]</code> に置換することで Stan モデルのコードに埋め込む．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="6">6</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="6">6</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="22" data-code-annotation="6"><code>adaStan</code> という関数を定義する．この関数は，Yuima パッケージのオブジェクトを引数として受け取り，Stan での推定を行い，その結果を <code>fit</code> オブジェクトとして返す．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="22" data-code-annotation="6"><code>adaStan</code> という関数を定義する．この関数は，Yuima パッケージのオブジェクトを引数として受け取り，Stan での推定を行い，その結果を <code>fit</code> オブジェクトとして返す．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="7">7</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="7">7</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="25" data-code-annotation="7">Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト <code>sde_dat</code> を作成する．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="25" data-code-annotation="7">Stan での推定を実行するために，Yuima モデルのデータを Stan モデルに渡すためのリスト <code>sde_dat</code> を作成する．</span>
 </dd>
-<dt data-target-cell="annotated-cell-1" data-target-annotation="8">8</dt>
+<dt data-target-cell="annotated-cell-4" data-target-annotation="8">8</dt>
 <dd>
-<span data-code-cell="annotated-cell-1" data-code-lines="33" data-code-annotation="8">最後に Stan モデルをコンパイルして実行し，結果を <code>fit</code> オブジェクトとして返す．</span>
+<span data-code-cell="annotated-cell-4" data-code-lines="33" data-code-annotation="8">最後に Stan モデルをコンパイルして実行し，結果を <code>fit</code> オブジェクトとして返す．</span>
 </dd>
 </dl>
 </div>
@@ -818,8 +864,8 @@ No matching items
 </div>
 <p>Stan を使う以上，どこかで Stan モデルの情報を受け渡すことは必要になるが，できることならばもっと良い方法を考えたい．</p>
 </section>
-<section id="sec-exp-OU" class="level3" data-number="1.4">
-<h3 data-number="1.4" class="anchored" data-anchor-id="sec-exp-OU"><span class="header-section-number">1.4</span> サンプルコードの動き</h3>
+<section id="sec-exp-OU" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-exp-OU"><span class="header-section-number">3.3</span> サンプルコードの動き</h3>
 <p><code>adaStan()</code> 関数の挙動を詳しく見るために，次の具体例を考える．</p>
 <p>YUIMA を通じて１次元 OU 過程</p>
 <p><span class="math display">\[
@@ -827,45 +873,45 @@ dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
 \]</span></p>
 <p>をシミュレーションをするためには，次のようにモデル定義をする：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">setModel</span>(<span class="at">drift =</span> <span class="st">"theta*(mu-x)"</span>, <span class="at">diffusion =</span> <span class="st">"sigma"</span>, <span class="at">state.variable =</span> <span class="st">"x"</span>, <span class="at">solve.variable =</span> <span class="st">"x"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">setModel</span>(<span class="at">drift =</span> <span class="st">"theta*(mu-x)"</span>, <span class="at">diffusion =</span> <span class="st">"sigma"</span>, <span class="at">state.variable =</span> <span class="st">"x"</span>, <span class="at">solve.variable =</span> <span class="st">"x"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>これだけで，YUIMA は勝手にパラメータを識別してくれる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">@</span>drift</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">@</span>drift</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>expression((theta * (mu - x)))</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>expression((sigma))</code></pre>
 </div>
 </div>
 <p>これを通じて生成される Stan モデル文は</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> N;</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[N+<span class="dv">1</span>] x;</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> T;</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> h;</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span> {</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> theta;</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> mu;</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> sigma;</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">1</span>] ~ normal(<span class="dv">0</span>,<span class="dv">1</span>);</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(n <span class="cf">in</span> <span class="dv">2</span>:(N+<span class="dv">1</span>)){</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    x[n] ~ normal(x[n<span class="dv">-1</span>] + h * theta * (mu - x[n<span class="dv">-1</span>]),</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>                  sqrt(h) * sigma);</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> N;</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[N+<span class="dv">1</span>] x;</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> T;</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> h;</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span> {</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> theta;</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> mu;</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> sigma;</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">1</span>] ~ normal(<span class="dv">0</span>,<span class="dv">1</span>);</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(n <span class="cf">in</span> <span class="dv">2</span>:(N+<span class="dv">1</span>)){</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    x[n] ~ normal(x[n<span class="dv">-1</span>] + h * theta * (mu - x[n<span class="dv">-1</span>]),</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>                  sqrt(h) * sigma);</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>となるべきであるが，実際その通りになる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>stancode <span class="ot">&lt;-</span> <span class="fu">yuima_to_stan</span>(x)</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(stancode)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>stancode <span class="ot">&lt;-</span> <span class="fu">yuima_to_stan</span>(x)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(stancode)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>data {
   int N;
@@ -888,17 +934,17 @@ model {
 </div>
 </div>
 </section>
-<section id="cmdstanr-による方法" class="level3" data-number="1.5">
-<h3 data-number="1.5" class="anchored" data-anchor-id="cmdstanr-による方法"><span class="header-section-number">1.5</span> <code>CmdStanR</code> による方法</h3>
+<section id="cmdstanr-による方法" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="cmdstanr-による方法"><span class="header-section-number">3.4</span> <code>CmdStanR</code> による方法</h3>
 <p>同様のことが <code>CmdStanR</code> というパッケージを用いても実行可能である．</p>
 <p><code>CmdStanR</code> では一時ファイル上に stan ファイルを作成して，それをコンパイルして実行する．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cmdstanr)</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>stan_file_variables <span class="ot">&lt;-</span> <span class="fu">write_stan_file</span>(stancode)</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(stan_file_variables)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cmdstanr)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>stan_file_variables <span class="ot">&lt;-</span> <span class="fu">write_stan_file</span>(stancode)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(stan_file_variables)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>mod<span class="sc">$</span><span class="fu">print</span>()  <span class="co"># R6 オブジェクトなので $ を用いた method 呼び出しができる</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>mod<span class="sc">$</span><span class="fu">print</span>()  <span class="co"># R6 オブジェクトなので $ を用いた method 呼び出しができる</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>data {
   int N;
@@ -922,34 +968,34 @@ model {
 </div>
 <p>この方法ではバイナリファイルを作成・操作することができる．R セッションの終了とともに一時ファイルは削除される．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>mod<span class="sc">$</span><span class="fu">stan_file</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>mod<span class="sc">$</span><span class="fu">stan_file</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] "/var/folders/gx/6w78f6997l5___173r25fp3m0000gn/T/RtmpJ8Y4Xb/model_28b66dedb9ecfce181f60d7f27d0c76d.stan"</code></pre>
+<pre><code>[1] "/var/folders/7c/j9mzb7pn0wn1k_f9j58c8y480000gn/T/RtmpFQDHJ2/model_28b66dedb9ecfce181f60d7f27d0c76d.stan"</code></pre>
 </div>
 </div>
 </section>
-<section id="stan-コードのベクトル化" class="level3" data-number="1.6">
-<h3 data-number="1.6" class="anchored" data-anchor-id="stan-コードのベクトル化"><span class="header-section-number">1.6</span> Stan コードのベクトル化</h3>
+<section id="stan-コードのベクトル化" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="stan-コードのベクトル化"><span class="header-section-number">3.5</span> Stan コードのベクトル化</h3>
 <p>Stan モデルの問題であるが，なるべくベクトル記法を用いた方が，Stan コードの処理（特に自動微分の計算）が速くなる．</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">1</span>] ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);  <span class="co">// 初期（値の事前）分布</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">2</span>:(N + <span class="dv">1</span>)] ~ normal(x[<span class="dv">1</span>:N] + h * theta * (rep_vector(mu, N) - x[<span class="dv">1</span>:N]), sqrt(h) * sigma);  <span class="co">// xの2番目からN+1番目までをベクトル化して定義</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">1</span>] ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);  <span class="co">// 初期（値の事前）分布</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  x[<span class="dv">2</span>:(N + <span class="dv">1</span>)] ~ normal(x[<span class="dv">1</span>:N] + h * theta * (rep_vector(mu, N) - x[<span class="dv">1</span>:N]), sqrt(h) * sigma);  <span class="co">// xの2番目からN+1番目までをベクトル化して定義</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="一般化ベイズへの拡張" class="level3" data-number="1.7">
-<h3 data-number="1.7" class="anchored" data-anchor-id="一般化ベイズへの拡張"><span class="header-section-number">1.7</span> 一般化ベイズへの拡張</h3>
-<p>第 <a href="#sec-adaStan" class="quarto-xref">1.3</a> 節のサンプルコードでは，ひとまず拡散過程のみにターゲットを絞って <code>adaStan()</code> を定義した．</p>
+<section id="一般化ベイズへの拡張" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="一般化ベイズへの拡張"><span class="header-section-number">3.6</span> 一般化ベイズへの拡張</h3>
+<p>第 <a href="#sec-adaStan" class="quarto-xref">3.2</a> 節のサンプルコードでは，ひとまず拡散過程のみにターゲットを絞って <code>adaStan()</code> を定義した．</p>
 <p>ゆくゆくは遷移確率が極めて複雑になるような確率過程に対する推論も考える必要がある．</p>
 <p>一方で Stan では <code>target</code> 変数を用いて明示的に対数密度を定義することができる．</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">target +=</span> normal_lpdf(y | mu, sigma);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">target +=</span> normal_lpdf(y | mu, sigma);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>この明示的な記法を用いることで，擬似尤度などを用いた一般化ベイズ推定も実行できる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 </section>
 </section>
-<section id="stan-インターフェイスの調査" class="level2" data-number="2">
-<h2 data-number="2" class="anchored" data-anchor-id="stan-インターフェイスの調査"><span class="header-section-number">2</span> Stan インターフェイスの調査</h2>
-<section id="我々のインターフェイス" class="level3" data-number="2.1">
-<h3 data-number="2.1" class="anchored" data-anchor-id="我々のインターフェイス"><span class="header-section-number">2.1</span> 我々のインターフェイス</h3>
-<p>前述の OU 過程 <a href="#sec-exp-OU" class="quarto-xref">1.4</a></p>
+<section id="stan-インターフェイスの調査" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="stan-インターフェイスの調査"><span class="header-section-number">4</span> Stan インターフェイスの調査</h2>
+<section id="我々のインターフェイス" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="我々のインターフェイス"><span class="header-section-number">4.1</span> 我々のインターフェイス</h3>
+<p>前述の OU 過程 <a href="#sec-exp-OU" class="quarto-xref">3.3</a></p>
 <p><span class="math display">\[
 dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
 \]</span></p>
@@ -959,46 +1005,46 @@ dX_t=\theta(\mu-X_t)\,dt+\sigma\,dW_t
 \begin{pmatrix}1\\0\\0.5\end{pmatrix}
 \]</span> として YUIMA を用いてシミュレーションをし，そのデータを与えてパラメータが復元できるかをみる．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>sampling <span class="ot">&lt;-</span> <span class="fu">setSampling</span>(<span class="at">Initial =</span> <span class="dv">0</span>, <span class="at">Terminal =</span> <span class="dv">3</span>, <span class="at">n =</span> <span class="dv">1000</span>)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>yuima <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model, <span class="at">sampling =</span> sampling)</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">simulate</span>(yuima, <span class="at">true.parameter =</span> <span class="fu">c</span>(<span class="at">theta =</span> <span class="dv">1</span>, <span class="at">mu =</span> <span class="dv">0</span>, <span class="at">sigma =</span> <span class="fl">0.5</span>), <span class="at">xinit =</span> <span class="fu">rnorm</span>(<span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>sampling <span class="ot">&lt;-</span> <span class="fu">setSampling</span>(<span class="at">Initial =</span> <span class="dv">0</span>, <span class="at">Terminal =</span> <span class="dv">3</span>, <span class="at">n =</span> <span class="dv">1000</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>yuima <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model, <span class="at">sampling =</span> sampling)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">simulate</span>(yuima, <span class="at">true.parameter =</span> <span class="fu">c</span>(<span class="at">theta =</span> <span class="dv">1</span>, <span class="at">mu =</span> <span class="dv">0</span>, <span class="at">sigma =</span> <span class="fl">0.5</span>), <span class="at">xinit =</span> <span class="fu">rnorm</span>(<span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># シミュレーション結果</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(simulation)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># シミュレーション結果</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(simulation)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="adastan_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="adastan_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 <p>さて，このシミュレーション結果から，<code>adaStan()</code> 関数でパラメータが復元できるかを確認しましょう．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rstan_options</span>(<span class="at">auto_write =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">mc.cores =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>())</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">adaStan</span>(simulation)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rstan_options</span>(<span class="at">auto_write =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">mc.cores =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>())</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">adaStan</span>(simulation)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Inference for Stan model: anon_model.
 4 chains, each with iter=1000; warmup=500; thin=1; 
 post-warmup draws per chain=500, total post-warmup draws=2000.
 
-         mean se_mean    sd    2.5%     25%     50%     75%   97.5% n_eff  Rhat
-theta    0.88    0.34  0.95   -0.11    0.00    0.60    1.61    2.93     8  1.21
-mu     -45.22   55.65 78.78 -190.40  -50.57   -0.23    0.11    4.41     2 38.57
-sigma    0.53    0.00  0.01    0.50    0.52    0.53    0.54    0.54     9  1.18
-lp__  3055.22    0.53  1.41 3052.24 3054.32 3055.20 3056.44 3057.30     7  1.21
+         mean se_mean   sd    2.5%     25%     50%     75%   97.5% n_eff Rhat
+theta    0.63    0.26 0.78   -0.30    0.01    0.30    1.11    2.47     9 1.22
+mu       0.55    0.45 6.96  -11.26   -0.30    0.22    0.67   19.25   241 1.01
+sigma    0.52    0.00 0.01    0.50    0.51    0.52    0.53    0.54   595 1.01
+lp__  3059.51    0.28 1.30 3056.61 3058.78 3059.52 3060.53 3061.47    21 1.10
 
-Samples were drawn using NUTS(diag_e) at Mon Jan 13 17:26:50 2025.
+Samples were drawn using NUTS(diag_e) at Fri Mar 28 15:08:12 2025.
 For each parameter, n_eff is a crude measure of effective sample size,
 and Rhat is the potential scale reduction factor on split chains (at 
 convergence, Rhat=1).</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>ci_level: 0.8 (80% intervals)</code></pre>
 </div>
@@ -1008,73 +1054,40 @@ convergence, Rhat=1).</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="adastan_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="adastan_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"bayesplot"</span>)</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"rstanarm"</span>)</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>posterior <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(fit)</span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>plot_title <span class="ot">&lt;-</span> <span class="fu">ggtitle</span>(<span class="st">"Posterior distributions"</span>,</span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>                      <span class="st">"with medians and 80% intervals"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"bayesplot"</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"rstanarm"</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>posterior <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(fit)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>plot_title <span class="ot">&lt;-</span> <span class="fu">ggtitle</span>(<span class="st">"Posterior distributions"</span>,</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>                      <span class="st">"with medians and 80% intervals"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(posterior,</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>           <span class="at">pars =</span> <span class="fu">c</span>(<span class="st">"theta"</span>, <span class="st">"mu"</span>, <span class="st">"sigma"</span>),</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>           <span class="at">prob =</span> <span class="fl">0.8</span>) <span class="sc">+</span> plot_title</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(posterior,</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>           <span class="at">pars =</span> <span class="fu">c</span>(<span class="st">"theta"</span>, <span class="st">"mu"</span>, <span class="st">"sigma"</span>),</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>           <span class="at">prob =</span> <span class="fl">0.8</span>) <span class="sc">+</span> plot_title</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="adastan_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="adastan_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 <p><span class="math inline">\(\sigma\)</span> の推定はよくできているが <span class="math inline">\(\mu\)</span> の精度はあまりよくなく，<span class="math inline">\(\theta\)</span> はバイアスがある様で，自信を持って間違えることも多い．</p>
 </section>
-<section id="rstan-パッケージ" class="level3" data-number="2.2">
-<h3 data-number="2.2" class="anchored" data-anchor-id="rstan-パッケージ"><span class="header-section-number">2.2</span> <code>RStan</code> パッケージ</h3>
-<p>詳しくは次稿参照：</p>
-<div id="listing-lst-stan2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
-<div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743426247809" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
-<a href="../../../posts/2024/R/Stan2.html" class="quarto-grid-link">
-<div class="quarto-grid-item card h-100 card-left">
-<p class="card-img-top">
-<img loading="lazy" src="../../../posts/2024/R/Files/adastan.png" class="thumbnail-image card-img" style="height: 100%;">
-</p>
-<div class="card-body post-contents">
-<h5 class="no-anchor card-title listing-title">
-R 上の Stan インターフェイス
-</h5>
-<div class="card-subtitle listing-subtitle">
-<code>RStan</code>, <code>RStanArm</code>, <code>CmdStanR</code>
-</div>
-<div class="card-attribution card-text-small end">
-<div class="listing-date">
-2024-09-19
-</div>
-</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-<div class="listing-no-matching d-none">
-No matching items
-</div>
-</div>
-</section>
-<section id="brms-パッケージ" class="level3" data-number="2.3">
-<h3 data-number="2.3" class="anchored" data-anchor-id="brms-パッケージ"><span class="header-section-number">2.3</span> <code>brms</code> パッケージ</h3>
+<section id="brms-パッケージ" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="brms-パッケージ"><span class="header-section-number">4.2</span> <code>brms</code> パッケージ</h3>
 <p><a href="https://cran.r-project.org/web/packages/brms/index.html"><code>brms</code></a> や <code>rethinking</code> も，背後で Stan を利用している．これらが文字式をどのように取り扱っているかを調査する．</p>
 <div id="listing-lst-brms" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1743426246520" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNNQ01DJTJDUiUyQ1N0YW4lMkNTdGF0aXN0aWNz" data-listing-date-sort="1715472000000" data-listing-file-modified-sort="1743496418559" data-listing-date-modified-sort="1734480000000" data-listing-reading-time-sort="8" data-listing-word-count-sort="1598">
 <a href="../../../posts/2024/Computation/brms.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -1103,7 +1116,7 @@ No matching items
 </div>
 <p>Stan コードを扱っている関数は <a href="https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/stancode.R"><code>.stancode()</code></a> であった．</p>
 <p>最終的に，<a href="https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L67"><code>.compile_model_rstan()</code></a> と <a href="https://github.com/paul-buerkner/brms/blob/d42adcd22f5af441870038b1d78ad4d9408f344f/R/backends.R#L145"><code>.fit_model_rstan()</code></a> が呼ばれるようになっている．</p>
-<p>最終的にはこれらの関数も，第 <a href="#sec-adaStan" class="quarto-xref">1.3</a> 節で用意した我々の実装と同様の要領で <code>gsub</code> と <code>paste0</code> を使って Stan コードを生成していた．</p>
+<p>最終的にはこれらの関数も，第 <a href="#sec-adaStan" class="quarto-xref">3.2</a> 節で用意した我々の実装と同様の要領で <code>gsub</code> と <code>paste0</code> を使って Stan コードを生成していた．</p>
 <div class="callout callout-style-default callout-caution no-icon callout-titled" title="`paste0` と `paste` の違い">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -1117,20 +1130,20 @@ No matching items
 <div id="callout-2" class="callout-2-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paste0() の使用例</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>result1 <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>)</span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result1)  <span class="co"># "Helloworld"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paste0() の使用例</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>result1 <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result1)  <span class="co"># "Helloworld"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] "Helloworld"</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paste() の使用例</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>result2 <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>)</span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result2)  <span class="co"># "Hello world"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paste() の使用例</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>result2 <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>)</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result2)  <span class="co"># "Hello world"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] "Hello world"</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>result3 <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>, <span class="at">sep =</span> <span class="st">"-"</span>)</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result3)  <span class="co"># "Hello-world"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>result3 <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">"Hello"</span>, <span class="st">"world"</span>, <span class="at">sep =</span> <span class="st">"-"</span>)</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result3)  <span class="co"># "Hello-world"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] "Hello-world"</code></pre>
 </div>
@@ -1139,14 +1152,65 @@ No matching items
 </div>
 </div>
 </section>
-<section id="cmdstanr-パッケージ" class="level3" data-number="2.4">
-<h3 data-number="2.4" class="anchored" data-anchor-id="cmdstanr-パッケージ"><span class="header-section-number">2.4</span> <code>cmdstanr</code> パッケージ</h3>
+<section id="cmdstanr-パッケージ" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="cmdstanr-パッケージ"><span class="header-section-number">4.3</span> <code>cmdstanr</code> パッケージ</h3>
 <p><code>cmdstanr</code> パッケージは 2020 年に beta 版がリリースされた，大変新しいパッケージである．</p>
 <p><code>R6</code> クラスを用いた現代的な実装がなされている．</p>
 </section>
+<section id="rstanarm-パッケージ" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="rstanarm-パッケージ"><span class="header-section-number">4.4</span> <code>RStanArm</code> パッケージ</h3>
+<p>詳しくは次稿参照：</p>
+<div id="listing-lst-stan2" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
+<div class="list grid quarto-listing-cols-1">
+<div class="g-col-1" data-index="0" data-categories="QmF5ZXNpYW4lMkNDb21wdXRhdGlvbiUyQ1N0YW4lMkNS" data-listing-date-sort="1726704000000" data-listing-file-modified-sort="1743496419859" data-listing-date-modified-sort="1734825600000" data-listing-reading-time-sort="6" data-listing-word-count-sort="1190">
+<a href="../../../posts/2024/R/Stan2.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img loading="lazy" src="../../../posts/2024/R/Files/adastan.png" class="thumbnail-image card-img" style="height: 100%;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+R 上の Stan インターフェイス
+</h5>
+<div class="card-subtitle listing-subtitle">
+<code>RStan</code>, <code>RStanArm</code>, <code>CmdStanR</code>
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-09-19
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<p><code>RStan</code> と <code>RStanArm</code> パッケージでは極めて洗練された方法を持つ．</p>
+<p><a href="https://github.com/stan-dev/rstanarm/blob/master/R/stanmodels.R"><code>stanmodels.R</code></a> というファイルにおいて，大変洗練された方法で，複数の Stan コードのファイルをコンパイルして，C++ コードへのポインタを格納した <a href="https://mc-stan.org/rstan/reference/stanmodel-class.html"><code>stanmodel</code> オブジェクト</a>を生成している．</p>
+<p>Stan コードは <a href="https://github.com/stan-dev/rstanarm/tree/master/src/stan_files"><code>src/stan_files/</code></a> ディレクトリに，<code>bernoulli.stan</code> や <code>count.stan</code> など，８つ保存されている．</p>
+<p>まず各ファイルに対して <a href="https://mc-stan.org/rstan/reference/stanc.html"><code>rstan::stanc()</code></a> を呼び出して，Stan コードを C++ コードへのポインタに変換している．この際 <code>allow_undefined = TRUE</code> という引数があり，未定義の変数が存在してもエラーは出されず，すぐには実行されない．</p>
+<p>このファイルでの出力は <code>stanmodel</code> オブジェクトのコンストラクタに渡される．<code>stanmodels</code> は <code>stanmodel</code> オブジェクトのリストである．<code>stanmodel</code> オブジェクトは <code>mk_cppmodule()</code> のスロットを持ち，ここから RCpp モジュールが呼び出せる．</p>
+<p>このオブジェクトを通じて，<a href="https://github.com/stan-dev/rstanarm/blob/master/R/stan_glm.fit.R"><code>stan_glm.fit.R</code></a> で，<code>stanmodel</code> クラスのオブジェクト <code>stanfit</code> （<code>stanmodels</code> の適切な要素を用いる）に対して <code>rstan::sampling()</code> 関数を呼ぶことで推論が実行される．</p>
+<div class="sourceCode" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (algorithm <span class="sc">==</span> <span class="st">"sampling"</span>) {</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>      sampling_args <span class="ot">&lt;-</span> <span class="fu">set_sampling_args</span>(</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">object =</span> stanfit, </span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">prior =</span> prior, </span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">user_dots =</span> <span class="fu">list</span>(...), </span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">user_adapt_delta =</span> adapt_delta, </span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">data =</span> standata, </span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>        <span class="at">pars =</span> pars, </span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">show_messages =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>      stanfit <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rstan<span class="sc">::</span>sampling, sampling_args)</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>    }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>この際の <code>set_sampling_args</code> 関数によって実行されている引数設定が肝心である</p>
 </section>
-<section id="テンプレート操作" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="テンプレート操作"><span class="header-section-number">3</span> テンプレート操作</h2>
+</section>
+<section id="テンプレート操作" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="テンプレート操作"><span class="header-section-number">5</span> テンプレート操作</h2>
 <div class="callout callout-style-default callout-caution no-icon callout-titled" title="R の Expression について">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -1162,7 +1226,7 @@ R の Expression について
 <p>オブジェクト志向言語ではコード自体もオブジェクトであり，これを R では Expression と呼ぶ．</p>
 <div id="listing-lst-R4" class="listing quarto-float quarto-figure quarto-figure-left quarto-listing quarto-listing-container-grid anchored">
 <div class="list grid quarto-listing-cols-1">
-<div class="g-col-1" data-index="0" data-categories="Q29tcHV0YXRpb24lMkNS" data-listing-date-sort="1620345600000" data-listing-file-modified-sort="1743426247808" data-listing-date-modified-sort="1717545600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="105">
+<div class="g-col-1" data-index="0" data-categories="Q29tcHV0YXRpb24lMkNS" data-listing-date-sort="1620345600000" data-listing-file-modified-sort="1743496419857" data-listing-date-modified-sort="1717545600000" data-listing-reading-time-sort="1" data-listing-word-count-sort="105">
 <a href="../../../posts/2024/R/R4.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <p class="card-img-top">
@@ -1193,35 +1257,35 @@ No matching items
 <p>次のような操作ができる<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
 <p><code>rlang::expr</code> がコンストラクタである：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rlang)</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>z <span class="ot">&lt;-</span> <span class="fu">expr</span>(y <span class="ot">&lt;-</span> x<span class="sc">*</span><span class="dv">10</span>)</span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>z</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rlang)</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>z <span class="ot">&lt;-</span> <span class="fu">expr</span>(y <span class="ot">&lt;-</span> x<span class="sc">*</span><span class="dv">10</span>)</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>z</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>y &lt;- x * 10</code></pre>
 </div>
 </div>
 <p><code>expression</code> オブジェクトは <code>base::eval()</code> で評価できる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="dv">4</span></span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">eval</span>(z)</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>y</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="dv">4</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="fu">eval</span>(z)</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>y</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 40</code></pre>
 </div>
 </div>
 <p><code>expression</code> には list のようにアクセス可能である：<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="fu">expr</span>(<span class="fu">f</span>(<span class="at">x =</span> <span class="dv">1</span>, <span class="at">y =</span> <span class="dv">2</span>))</span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>f<span class="sc">$</span>z <span class="ot">&lt;-</span> <span class="dv">3</span></span>
-<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>f</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="fu">expr</span>(<span class="fu">f</span>(<span class="at">x =</span> <span class="dv">1</span>, <span class="at">y =</span> <span class="dv">2</span>))</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>f<span class="sc">$</span>z <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>f</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>f(x = 1, y = 2, z = 3)</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>f[[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
-<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>f</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>f[[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>f</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>f(y = 2, z = 3)</code></pre>
 </div>
@@ -1229,15 +1293,15 @@ No matching items
 </div>
 </div>
 </div>
-<section id="glue-パッケージ" class="level3" data-number="3.1">
-<h3 data-number="3.1" class="anchored" data-anchor-id="glue-パッケージ"><span class="header-section-number">3.1</span> <code>glue</code> パッケージ</h3>
-<div class="sourceCode" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"glue"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="glue-パッケージ" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="glue-パッケージ"><span class="header-section-number">5.1</span> <code>glue</code> パッケージ</h3>
+<div class="sourceCode" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"glue"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p><code>glue</code> （<a href="https://cran.r-project.org/web/packages/glue/index.html">CRAN</a>, <a href="https://glue.tidyverse.org/">Docs</a>）パッケージは文字列リテラルを扱うパッケージである．</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glue)</span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>name <span class="ot">&lt;-</span> <span class="st">"  Hirofumi</span><span class="sc">\n</span><span class="st">  Shiba</span><span class="sc">\n</span><span class="st">"</span></span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>major <span class="ot">&lt;-</span> <span class="st">"Mathematics"</span></span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">'My name is {name}. I study {major}. Nice to meet you!'</span>)  <span class="co"># 名前空間の衝突を避けるために :: を使う</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glue)</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>name <span class="ot">&lt;-</span> <span class="st">"  Hirofumi</span><span class="sc">\n</span><span class="st">  Shiba</span><span class="sc">\n</span><span class="st">"</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>major <span class="ot">&lt;-</span> <span class="st">"Mathematics"</span></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">'My name is {name}. I study {major}. Nice to meet you!'</span>)  <span class="co"># 名前空間の衝突を避けるために :: を使う</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>My name is   Hirofumi
   Shiba
@@ -1245,7 +1309,7 @@ No matching items
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">" real {param};"</span>, <span class="at">param =</span> yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all, <span class="at">.collapse =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">" real {param};"</span>, <span class="at">param =</span> yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all, <span class="at">.collapse =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> real theta;
  real mu;
@@ -1254,39 +1318,39 @@ No matching items
 </div>
 <p>これを用いると，<code>adaStan()</code> は次のように可読性が高い形で書き直すことができる：</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>yuima_to_stan_glued <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima) {</span>
-<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># パラメータの定義部分を作成</span></span>
-<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>  parameters <span class="ot">&lt;-</span> glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">"real {param};"</span>, <span class="at">param =</span> yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all)</span>
-<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>  parameters <span class="ot">&lt;-</span> <span class="fu">paste</span>(parameters, <span class="at">collapse =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">  "</span>)</span>
-<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># drift と diffusion の式内の 'x' を 'x[n-1]' に置換</span></span>
-<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>  drift <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>drift)</span>
-<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>  diffusion <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]])</span>
-<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Stanコード全体を作成</span></span>
-<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>  template <span class="ot">&lt;-</span> </span>
-<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a><span class="st">'data {{</span></span>
-<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a><span class="st">  int N;</span></span>
-<span id="cb45-14"><a href="#cb45-14" aria-hidden="true" tabindex="-1"></a><span class="st">  array[N+1] real x;</span></span>
-<span id="cb45-15"><a href="#cb45-15" aria-hidden="true" tabindex="-1"></a><span class="st">  real T;</span></span>
-<span id="cb45-16"><a href="#cb45-16" aria-hidden="true" tabindex="-1"></a><span class="st">  real h;</span></span>
-<span id="cb45-17"><a href="#cb45-17" aria-hidden="true" tabindex="-1"></a><span class="st">}}</span></span>
-<span id="cb45-18"><a href="#cb45-18" aria-hidden="true" tabindex="-1"></a><span class="st">parameters {{</span></span>
-<span id="cb45-19"><a href="#cb45-19" aria-hidden="true" tabindex="-1"></a><span class="st">  {parameters}</span></span>
-<span id="cb45-20"><a href="#cb45-20" aria-hidden="true" tabindex="-1"></a><span class="st">}}</span></span>
-<span id="cb45-21"><a href="#cb45-21" aria-hidden="true" tabindex="-1"></a><span class="st">model {{</span></span>
-<span id="cb45-22"><a href="#cb45-22" aria-hidden="true" tabindex="-1"></a><span class="st">  x[1] ~ normal(0, 1);</span></span>
-<span id="cb45-23"><a href="#cb45-23" aria-hidden="true" tabindex="-1"></a><span class="st">  for(n in 2:(N+1)) {{</span></span>
-<span id="cb45-24"><a href="#cb45-24" aria-hidden="true" tabindex="-1"></a><span class="st">    x[n] ~ normal(x[n-1] + h * {drift}, sqrt(h) * {diffusion});</span></span>
-<span id="cb45-25"><a href="#cb45-25" aria-hidden="true" tabindex="-1"></a><span class="st">  }}</span></span>
-<span id="cb45-26"><a href="#cb45-26" aria-hidden="true" tabindex="-1"></a><span class="st">}}'</span></span>
-<span id="cb45-27"><a href="#cb45-27" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> glue<span class="sc">::</span><span class="fu">glue</span>(template, <span class="at">.trim =</span> <span class="cn">FALSE</span>)  <span class="co"># parameters が複数行に渡る場合でも分離して出力しない</span></span>
-<span id="cb45-28"><a href="#cb45-28" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb45-29"><a href="#cb45-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(excode)</span>
-<span id="cb45-30"><a href="#cb45-30" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>yuima_to_stan_glued <span class="ot">&lt;-</span> <span class="cf">function</span>(yuima) {</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># パラメータの定義部分を作成</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>  parameters <span class="ot">&lt;-</span> glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">"real {param};"</span>, <span class="at">param =</span> yuima<span class="sc">@</span>model<span class="sc">@</span>parameter<span class="sc">@</span>all)</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>  parameters <span class="ot">&lt;-</span> <span class="fu">paste</span>(parameters, <span class="at">collapse =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">  "</span>)</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># drift と diffusion の式内の 'x' を 'x[n-1]' に置換</span></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>  drift <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>drift)</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>  diffusion <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"x"</span>, <span class="st">"x[n-1]"</span>, yuima<span class="sc">@</span>model<span class="sc">@</span>diffusion[[<span class="dv">1</span>]])</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Stanコード全体を作成</span></span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>  template <span class="ot">&lt;-</span> </span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a><span class="st">'data {{</span></span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a><span class="st">  int N;</span></span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a><span class="st">  array[N+1] real x;</span></span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a><span class="st">  real T;</span></span>
+<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a><span class="st">  real h;</span></span>
+<span id="cb51-17"><a href="#cb51-17" aria-hidden="true" tabindex="-1"></a><span class="st">}}</span></span>
+<span id="cb51-18"><a href="#cb51-18" aria-hidden="true" tabindex="-1"></a><span class="st">parameters {{</span></span>
+<span id="cb51-19"><a href="#cb51-19" aria-hidden="true" tabindex="-1"></a><span class="st">  {parameters}</span></span>
+<span id="cb51-20"><a href="#cb51-20" aria-hidden="true" tabindex="-1"></a><span class="st">}}</span></span>
+<span id="cb51-21"><a href="#cb51-21" aria-hidden="true" tabindex="-1"></a><span class="st">model {{</span></span>
+<span id="cb51-22"><a href="#cb51-22" aria-hidden="true" tabindex="-1"></a><span class="st">  x[1] ~ normal(0, 1);</span></span>
+<span id="cb51-23"><a href="#cb51-23" aria-hidden="true" tabindex="-1"></a><span class="st">  for(n in 2:(N+1)) {{</span></span>
+<span id="cb51-24"><a href="#cb51-24" aria-hidden="true" tabindex="-1"></a><span class="st">    x[n] ~ normal(x[n-1] + h * {drift}, sqrt(h) * {diffusion});</span></span>
+<span id="cb51-25"><a href="#cb51-25" aria-hidden="true" tabindex="-1"></a><span class="st">  }}</span></span>
+<span id="cb51-26"><a href="#cb51-26" aria-hidden="true" tabindex="-1"></a><span class="st">}}'</span></span>
+<span id="cb51-27"><a href="#cb51-27" aria-hidden="true" tabindex="-1"></a>  excode <span class="ot">&lt;-</span> glue<span class="sc">::</span><span class="fu">glue</span>(template, <span class="at">.trim =</span> <span class="cn">FALSE</span>)  <span class="co"># parameters が複数行に渡る場合でも分離して出力しない</span></span>
+<span id="cb51-28"><a href="#cb51-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb51-29"><a href="#cb51-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(excode)</span>
+<span id="cb51-30"><a href="#cb51-30" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">yuima_to_stan_glued</span>(yuima)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">yuima_to_stan_glued</span>(yuima)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>data {
   int N;
@@ -1308,26 +1372,26 @@ model {
 </div>
 </div>
 </section>
-<section id="whisker-パッケージ" class="level3" data-number="3.2">
-<h3 data-number="3.2" class="anchored" data-anchor-id="whisker-パッケージ"><span class="header-section-number">3.2</span> <code>whisker</code> パッケージ</h3>
-<div class="sourceCode" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"whisker"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="whisker-パッケージ" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="whisker-パッケージ"><span class="header-section-number">5.2</span> <code>whisker</code> パッケージ</h3>
+<div class="sourceCode" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"whisker"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p><code>whisker</code> パッケージ（<a href="https://cran.r-project.org/web/packages/whisker/index.html">CRAN</a>, <a href="https://github.com/edwindj/whisker">GitHub</a>）は Web を中心に採用されているテンプレートシステム <a href="https://en.wikipedia.org/wiki/Mustache_(template_system)"><code>Mustache</code></a> に基づく機能 <code>whisker.render()</code> を提供している．</p>
-<div class="sourceCode" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">whisker.render</span>(template, <span class="at">data =</span> <span class="fu">parent.frame</span>(), <span class="at">partials =</span> <span class="fu">list</span>(),</span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="at">debug =</span> <span class="cn">FALSE</span>, <span class="at">strict =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">whisker.render</span>(template, <span class="at">data =</span> <span class="fu">parent.frame</span>(), <span class="at">partials =</span> <span class="fu">list</span>(),</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="at">debug =</span> <span class="cn">FALSE</span>, <span class="at">strict =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(whisker)</span>
-<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>template <span class="ot">&lt;-</span></span>
-<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="st">'Hello {{name}}</span></span>
-<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="st">You have just won ${{value}}!</span></span>
-<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a><span class="st">{{#in_ca}}</span></span>
-<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a><span class="st">Well, ${{taxed_value}}, after taxes.</span></span>
-<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a><span class="st">{{/in_ca}}'</span></span>
-<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">name =</span> <span class="st">"Hirofumi"</span></span>
-<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a>, <span class="at">value =</span> <span class="dv">10000</span></span>
-<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>, <span class="at">taxed_value =</span> <span class="dv">10000</span> <span class="sc">-</span> (<span class="dv">10000</span> <span class="sc">*</span> <span class="fl">0.4</span>)</span>
-<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>, <span class="at">in_ca =</span> <span class="cn">TRUE</span></span>
-<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a><span class="fu">whisker.render</span>(template, data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(whisker)</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>template <span class="ot">&lt;-</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="st">'Hello {{name}}</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="st">You have just won ${{value}}!</span></span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a><span class="st">{{#in_ca}}</span></span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a><span class="st">Well, ${{taxed_value}}, after taxes.</span></span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a><span class="st">{{/in_ca}}'</span></span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">name =</span> <span class="st">"Hirofumi"</span></span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>, <span class="at">value =</span> <span class="dv">10000</span></span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>, <span class="at">taxed_value =</span> <span class="dv">10000</span> <span class="sc">-</span> (<span class="dv">10000</span> <span class="sc">*</span> <span class="fl">0.4</span>)</span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>, <span class="at">in_ca =</span> <span class="cn">TRUE</span></span>
+<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a><span class="fu">whisker.render</span>(template, data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] "Hello Hirofumi\nYou have just won $10000!\nWell, $6000, after taxes.\n"</code></pre>
 </div>
@@ -1335,49 +1399,10 @@ model {
 <p><code>Mustache</code> の記法は <a href="https://mustache.github.io/mustache.5.html">Manual</a> を参照．</p>
 </section>
 </section>
-<section id="sec-final-form" class="level2" data-number="4">
-<h2 data-number="4" class="anchored" data-anchor-id="sec-final-form"><span class="header-section-number">4</span> 最終的なコード</h2>
-<p><a href="adaStan.R"><code>adaStan.R</code></a> を参照．</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"adaStan.R"</span>)</span>
-<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">setModel</span>(<span class="at">drift =</span> <span class="st">"theta*(mu-x)"</span>, <span class="at">diffusion =</span> <span class="st">"sigma"</span>, <span class="at">state.variable =</span> <span class="st">"x"</span>, <span class="at">solve.variable =</span> <span class="st">"x"</span>)</span>
-<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>sampling <span class="ot">&lt;-</span> <span class="fu">setSampling</span>(<span class="at">Initial =</span> <span class="dv">0</span>, <span class="at">Terminal =</span> <span class="dv">3</span>, <span class="at">n =</span> <span class="dv">1000</span>)</span>
-<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>yuima <span class="ot">&lt;-</span> <span class="fu">setYuima</span>(<span class="at">model =</span> model, <span class="at">sampling =</span> sampling)</span>
-<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>simulation <span class="ot">&lt;-</span> <span class="fu">simulate</span>(yuima, <span class="at">true.parameter =</span> <span class="fu">c</span>(<span class="at">theta =</span> <span class="dv">1</span>, <span class="at">mu =</span> <span class="dv">0</span>, <span class="at">sigma =</span> <span class="fl">0.5</span>), <span class="at">xinit =</span> <span class="fu">rnorm</span>(<span class="dv">1</span>))</span>
-<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">adaStan</span>(simulation, <span class="at">iter=</span><span class="dv">2000</span>, <span class="at">rstan=</span><span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span><span class="fu">summary</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 4 × 10
-  variable      mean    median     sd    mad       q5      q95  rhat ess_bulk
-  &lt;chr&gt;        &lt;dbl&gt;     &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;
-1 lp__     3138.     3138.     1.14   0.979  3136.    3140.     1.01    732. 
-2 theta       0.634     0.263  0.912  0.496    -0.233    2.58   1.05     62.6
-3 mu         -0.0317    0.0994 4.82   0.751    -4.88     4.92   1.09    653. 
-4 sigma       0.481     0.481  0.0106 0.0104    0.464    0.499  1.00    968. 
-# ℹ 1 more variable: ess_tail &lt;dbl&gt;</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_hist</span>(fit<span class="sc">$</span><span class="fu">draws</span>(<span class="st">"theta"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="adastan_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>面白い！事後分布は２峰性をもっており，2000 回繰り返すと事後平均はかろうじて正解に近づいている．</p>
-</section>
 
 
 
-<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="5"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">5</span> 終わりに</h2><div class="quarto-appendix-contents">
+<div id="quarto-appendix" class="default"><section id="終わりに" class="level2 appendix" data-number="6"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">6</span> 終わりに</h2><div class="quarto-appendix-contents">
 
 <ul>
 <li><a href="https://chatgpt.com/share/66ed138a-dbb0-8008-be8d-441c8be7b8a2">GPT o1 によるアイデア</a></li>
