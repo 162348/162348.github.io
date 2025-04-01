@@ -3,7 +3,7 @@ title: "SDE のベイズ推定入門"
 subtitle: "YUIMA と Stan を用いた確率過程のベイズ推定入門"
 author: "司馬博文"
 date: 5/12/2024
-date-modified: 1/13/2025
+date-modified: 3/28/2025
 categories: [Process, MCMC, R, Stan, YUIMA, Bayesian]
 bibliography: 
     - ../../../assets/2023.bib
@@ -12,7 +12,7 @@ bibliography:
 csl: ../../../assets/apalike.csl
 image: Files/adastan1.png
 abstract-title: 概要
-abstract: R パッケージ YUIMA を用いた SDE のベイズ推定に，Stan を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．
+abstract: R パッケージ YUIMA を用いた SDE のベイズ推定に，バックエンドとして Stan による HMC の実装を用いる方法を模索する．Stan は C++ を用いる独立した確率プログラミング言語で移植性は高いが，それ故 YUIMA からこれを用いる際に，専用のインターフェイスを考える必要が生じる．
 code-fold: false
 execute:
   cache: true
@@ -80,8 +80,6 @@ R の YUIMA パッケージに関する詳細は，次の記事も参照：
 
 ## 問題提起
 
-### はじめに
-
 確率過程の統計推測を行うための R パッケージ `yuima` では多次元の SDE
 $$
 dX_t=b_t^\theta(X_t)\,dt+\sigma_t^\phi(X_t)\,dW_t,\qquad X_0\in\R^d,
@@ -94,6 +92,34 @@ $$
 YUIMA におけるパラメータ $\theta,\varphi$ の推定には，`qmle()` による擬似最尤推定量を用いることだけでなく，[`adaBayes()`](https://github.com/yuimaproject/yuima/blob/main/R/adaBayes.R) を通じて，一般化ベイズによる事後平均推定を実行することも可能である．
 
 現状の `adaBayes()` 関数では，自前のランダムウォーク MH アルゴリズムや p-CN アルゴリズムを用いているが，HMC (Hamiltonian Monte Carlo) [@Duane+1987], [@Neal1996] も利用可能なように拡張することを考えたい．
+
+ここでは新たな関数 `adaStan()` を定義することを考える．
+
+## 最終的なコード {#sec-final-form}
+
+[`adaStan.R`](adaStan.R) を参照．
+
+```{r}
+#| output: false
+source("adaStan.R")
+
+model <- setModel(drift = "theta*(mu-x)", diffusion = "sigma", state.variable = "x", solve.variable = "x")
+sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
+yuima <- setYuima(model = model, sampling = sampling)
+simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5), xinit = rnorm(1))
+
+fit <- adaStan(simulation, iter=2000, rstan=FALSE)
+```
+
+```{r}
+fit$summary()
+mcmc_hist(fit$draws("theta"))
+```
+
+面白い！事後分布は２峰性をもっており，2000 回繰り返すと事後平均はかろうじて正解に近づいている．
+
+
+## 背景
 
 ### 確率的プログラミング言語 `Stan` との連携
 
@@ -549,29 +575,6 @@ whisker.render(template, data)
 ```
 
 `Mustache` の記法は [Manual](https://mustache.github.io/mustache.5.html) を参照．
-
-## 最終的なコード {#sec-final-form}
-
-[`adaStan.R`](adaStan.R) を参照．
-
-```{r}
-#| output: false
-source("adaStan.R")
-
-model <- setModel(drift = "theta*(mu-x)", diffusion = "sigma", state.variable = "x", solve.variable = "x")
-sampling <- setSampling(Initial = 0, Terminal = 3, n = 1000)
-yuima <- setYuima(model = model, sampling = sampling)
-simulation <- simulate(yuima, true.parameter = c(theta = 1, mu = 0, sigma = 0.5), xinit = rnorm(1))
-
-fit <- adaStan(simulation, iter=2000, rstan=FALSE)
-```
-
-```{r}
-fit$summary()
-mcmc_hist(fit$draws("theta"))
-```
-
-面白い！事後分布は２峰性をもっており，2000 回繰り返すと事後平均はかろうじて正解に近づいている．
 
 ## 終わりに {.appendix}
 
