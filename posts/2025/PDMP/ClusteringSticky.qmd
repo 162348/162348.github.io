@@ -1,0 +1,144 @@
+---
+title: "Generalizing Sticky PDMP"
+author: "司馬 博文"
+date: 5/20/2025
+date-modified: 5/22/2025
+# image: Logistic_WhiteBackground.svg
+categories: [PDMP]
+bibliography: 
+    - ../../../assets/2023.bib
+    - ../../../assets/2024.bib
+    - ../../../assets/2025.bib
+csl: ../../../assets/apalike.csl
+code-fold: false
+execute:
+    cache: false
+jupyter: julia-1.11        # (※お使いのJuliaバージョンに合わせてください)
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+```{julia}
+#| output: false
+using PlotlyJS
+
+# 格子生成
+us = collect(-1.0:0.05:1.0)
+vs = collect(-1.0:0.05:1.0)
+
+# 平面を Mesh3d でプロットする関数
+function plane_mesh(xs, ys, zs; col)
+    mesh3d(x=xs, y=ys, z=zs, opacity=0.5, color=col, showscale=false)
+end
+
+# 各平面の座標配列を作成
+x1 = hcat([[u,u,v] for u in us, v in vs]...)
+x2 = hcat([[v,u,u] for u in us, v in vs]...)
+x3 = hcat([[u,v,u] for u in us, v in vs]...)
+```
+
+```{julia}
+using PlotlyJS
+
+# パラメータ格子
+us = collect(-1.0:0.05:1.0)
+vs = collect(-1.0:0.05:1.0)
+m, n = length(us), length(vs)
+
+# 頂点リスト（flatten した順序で）
+x = Float64[]
+y = Float64[]
+z = Float64[]
+for u in us, v in vs
+    push!(x, u); push!(y, u); push!(z, v)   # plane x=y
+end
+
+# 三角形フェイスを作成
+i = Int[]
+j = Int[]
+k = Int[]
+for ii in 1:m-1
+    for jj in 1:n-1
+        p1 = (ii-1)*n + jj
+        p2 = ii*n       + jj
+        p3 = (ii-1)*n + jj+1
+        p4 = ii*n       + jj+1
+        # 2 つの三角形に分割
+        push!(i, p1-1); push!(j, p2-1); push!(k, p3-1)
+        push!(i, p2-1); push!(j, p4-1); push!(k, p3-1)
+    end
+end
+
+trace = mesh3d(
+    x=x, y=y, z=z,
+    i=i, j=j, k=k,                # ★自前の分割インデックス
+    opacity=0.5, color="red",
+    showscale=false
+)
+```
+
+```{julia}
+using PlotlyJS, PlotlyBase
+
+using Plots
+plotlyjs()
+
+# (1) プロットを作成
+plt = Plot(
+    [
+      trace,
+      plane_mesh(x2[1,:], x2[2,:], x2[3,:], col="green"),
+      plane_mesh(x3[1,:], x3[2,:], x3[3,:], col="blue"),
+    ],
+    Layout(
+      scene = attr(
+        xaxis_title="x", yaxis_title="y", zaxis_title="z"
+      )
+    )
+)
+
+io = IOBuffer()
+PlotlyBase.to_html(io, plt, full_html=false)
+HTML(read(io, String))  # Quartoはこの生HTMLをそのまま出力に埋め込みます
+```
+
+```julia
+using Plots
+plotlyjs()                 # プロットバックエンドにPlotlyJSを指定
+Plots.plot(plt)   # 3次元メッシュもOK
+```
+
+```{julia}
+using Plots
+
+# ① PlotlyJS バックエンドに切り替え
+plotlyjs()
+
+# ② パラメータ格子
+us = range(-1.0, 1.0, length=41)
+vs = range(-1.0, 1.0, length=41)
+
+# ③ 各平面を Z = f(X,Y) の形で定義
+#    （plane1: x = y  → X=us,Y=us, Z=v を関数化する）
+X = [u for u in us, v in vs]
+Y = [u for u in us, v in vs]
+Z1 = [v for u in us, v in vs]         # plane x=y
+Z2 = [u for u in us, v in vs]         # plane y=z を v→u, u→v と読み替え
+Z3 = [u for u in us, v in vs]         # plane z=x を同様に設定
+
+# ④ surface プロット
+p1 = Plots.surface(X, Y, Z1, opacity=0.5, showlegend=false)
+p2 = Plots.surface(X, Y, Z2, opacity=0.5, showlegend=false)
+p3 = Plots.surface(X, Y, Z3, opacity=0.5, showlegend=false)
+
+# ⑤ 軸ラベルなどのレイアウト設定
+plt = Plots.plot(
+  p1, p2, p3,
+  xlabel="x", ylabel="y", zlabel="z",
+  title="三つの面の重ね合わせ"
+)
+
+# 最後にオブジェクトを返すだけで、Quarto が自動的に埋め込みます
+plt
+
+```
