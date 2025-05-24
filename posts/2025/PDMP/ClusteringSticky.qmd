@@ -11,9 +11,10 @@ bibliography:
     - ../../../assets/2025.bib
 csl: ../../../assets/apalike.csl
 code-fold: false
+embed-resources: true
 execute:
     cache: false
-jupyter: julia-1.11        # (※お使いのJuliaバージョンに合わせてください)
+jupyter: julia-1.11
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -22,13 +23,18 @@ jupyter: julia-1.11        # (※お使いのJuliaバージョンに合わせて
 #| output: false
 using PlotlyJS
 
+using Plots
+
+# ① PlotlyJS バックエンドに切り替え
+plotlyjs()
+
 # 格子生成
 us = collect(-1.0:0.05:1.0)
 vs = collect(-1.0:0.05:1.0)
 
 # 平面を Mesh3d でプロットする関数
 function plane_mesh(xs, ys, zs; col)
-    mesh3d(x=xs, y=ys, z=zs, opacity=0.5, color=col, showscale=false)
+    PlotlyJS.mesh3d(x=xs, y=ys, z=zs, opacity=0.5, color=col, showscale=false)
 end
 
 # 各平面の座標配列を作成
@@ -69,7 +75,7 @@ for ii in 1:m-1
     end
 end
 
-trace = mesh3d(
+trace = PlotlyJS.mesh3d(
     x=x, y=y, z=z,
     i=i, j=j, k=k,                # ★自前の分割インデックス
     opacity=0.5, color="red",
@@ -84,7 +90,7 @@ using Plots
 plotlyjs()
 
 # (1) プロットを作成
-plt = Plot(
+plt = PlotlyJS.Plot(
     [
       trace,
       plane_mesh(x2[1,:], x2[2,:], x2[3,:], col="green"),
@@ -109,10 +115,10 @@ Plots.plot(plt)   # 3次元メッシュもOK
 ```
 
 ```{julia}
-using Plots
+plt
+```
 
-# ① PlotlyJS バックエンドに切り替え
-plotlyjs()
+```{julia}
 
 # ② パラメータ格子
 us = range(-1.0, 1.0, length=41)
@@ -141,4 +147,33 @@ plt = Plots.plot(
 # 最後にオブジェクトを返すだけで、Quarto が自動的に埋め込みます
 plt
 
+```
+
+```{julia}
+using Plots
+plotlyjs()
+
+# パラメータ格子
+us = range(-1.0,1.0,length=41)
+vs = range(-1.0,1.0,length=41)
+X = [u for u in us, v in vs]
+Y = [u for u in us, v in vs]
+
+# plane1: x=y → Z1 = v
+Z1 = [v for u in us, v in vs]
+# plane2: y=z → Z2 = u
+Z2 = [u for u in us, v in vs]
+# plane3: z=x → Z3 = u  （お好みで再マッピング）
+Z3 = [u for u in us, v in vs]
+
+# 最初の面
+plt = surface(X, Y, Z1, opacity=0.5, label="x = y",
+              xlabel="x", ylabel="y", zlabel="z",
+              title="三つの超平面を重ねたプロット")
+
+# ２番目・３番目を追加
+plot!(plt, surface(X, Y, Z2, opacity=0.5, label="y = z"))
+plot!(plt, surface(X, Y, Z3, opacity=0.5, label="z = x"))
+
+plt
 ```
