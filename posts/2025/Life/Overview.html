@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.31">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="司馬 博文">
+
+<title>MCMC と PDMP の概観 – Hirofumi Shiba</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<link href="../../../assets/Shiba2.png" rel="icon" type="image/png">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-a7f668540759429cccfaaad44fe13cdc.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-01ab353443a4159c59e498595a1df968.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "?",
+    "H"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&amp;display=swap" rel="stylesheet">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&amp;display=swap" rel="stylesheet">
+
+<style>
+  h1, .title, .description, .subtitle {
+    font-family: "Zen Kurenaido", sans-serif !important;
+  }
+</style>
+
+<!-- <style>
+  .menu-text {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+  .navbar-title {
+      font-family: "Gill Sans", sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+  }
+</style> -->
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../../assets/styles.css">
+<meta property="og:title" content="MCMC と PDMP の概観 – Hirofumi Shiba">
+<meta property="og:description" content="A website by a Bayesian Computation Researcher">
+<meta property="og:image" content="https://162348.github.io/posts/2025/Life/Images/MCtoPD.png">
+<meta property="og:site_name" content="Hirofumi Shiba">
+<meta property="og:image:height" content="559">
+<meta property="og:image:width" content="1471">
+<meta name="twitter:title" content="MCMC と PDMP の概観 – Hirofumi Shiba">
+<meta name="twitter:description" content="A website by a Bayesian Computation Researcher">
+<meta name="twitter:image" content="https://162348.github.io/posts/2025/Life/Images/MCtoPD.png">
+<meta name="twitter:creator" content="@ano2math5">
+<meta name="twitter:image-height" content="559">
+<meta name="twitter:image-width" content="1471">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">Hirofumi Shiba</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-notes" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Notes</span>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="nav-menu-notes">    
+        <li>
+    <a class="dropdown-item" href="../../../static/English.html">
+ <span class="dropdown-text">English Notes</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../blog.html">
+ <span class="dropdown-text">ノート (Japanese)</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Materials.html"> 
+<span class="menu-text">Materials</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Slides.html"> 
+<span class="menu-text">Slides</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/Software.html"> 
+<span class="menu-text">Software</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../static/about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+    <a href="https://github.com/162348/162348.github.io/" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">MCMC と PDMP の概観</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Life</div>
+                <div class="quarto-category">Survey</div>
+                <div class="quarto-category">PDMP</div>
+                <div class="quarto-category">MCMC</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬 博文 </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">5/31/2025</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">5/31/2025</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">目次</h2>
+   
+  <ul>
+  <li><a href="#mcmc" id="toc-mcmc" class="nav-link active" data-scroll-target="#mcmc"><span class="header-section-number">1</span> MCMC</a>
+  <ul class="collapse">
+  <li><a href="#mcmc-の確立" id="toc-mcmc-の確立" class="nav-link" data-scroll-target="#mcmc-の確立"><span class="header-section-number">1.1</span> MCMC の確立</a></li>
+  <li><a href="#汎用-mcmc-手法の発展" id="toc-汎用-mcmc-手法の発展" class="nav-link" data-scroll-target="#汎用-mcmc-手法の発展"><span class="header-section-number">1.2</span> 汎用 MCMC 手法の発展</a></li>
+  </ul></li>
+  <li><a href="#pdmp" id="toc-pdmp" class="nav-link" data-scroll-target="#pdmp"><span class="header-section-number">2</span> PDMP</a>
+  <ul class="collapse">
+  <li><a href="#hastings-の枠組みからの離陸" id="toc-hastings-の枠組みからの離陸" class="nav-link" data-scroll-target="#hastings-の枠組みからの離陸"><span class="header-section-number">2.1</span> Hastings の枠組みからの離陸</a></li>
+  <li><a href="#pdmp-の発展" id="toc-pdmp-の発展" class="nav-link" data-scroll-target="#pdmp-の発展"><span class="header-section-number">2.2</span> PDMP の発展</a></li>
+  </ul></li>
+  <li><a href="#文献紹介" id="toc-文献紹介" class="nav-link" data-scroll-target="#文献紹介"><span class="header-section-number">3</span> 文献紹介</a>
+  <ul class="collapse">
+  <li><a href="#pdmp-のレビュー" id="toc-pdmp-のレビュー" class="nav-link" data-scroll-target="#pdmp-のレビュー"><span class="header-section-number">3.1</span> PDMP のレビュー</a></li>
+  <li><a href="#fearnhead2018-pdmc-へのコメント" id="toc-fearnhead2018-pdmc-へのコメント" class="nav-link" data-scroll-target="#fearnhead2018-pdmc-へのコメント"><span class="header-section-number">3.2</span> <span class="citation" data-cites="Fearnhead+2018-PDMC">(Fearnhead et al., 2018)</span> へのコメント</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<p>本稿では，筆者の博士課程で専門に選んだ MCMC，特に PDMP を用いた Monte Carlo 法について，その歴史と重要文献を挙げながら概説する．</p>
+<section id="mcmc" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="mcmc"><span class="header-section-number">1</span> MCMC</h2>
+<section id="mcmc-の確立" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="mcmc-の確立"><span class="header-section-number">1.1</span> MCMC の確立</h3>
+<p>MCMC の手法自体は <span class="citation" data-cites="Metropolis+1953">(<a href="#ref-Metropolis+1953" role="doc-biblioref">Metropolis et al., 1953</a>)</span> が始まりであり，以降統計物理分野で発展を遂げていった．Gibbs サンプラーに対応する手法である熱浴法 <span class="citation" data-cites="Glauber1963">(<a href="#ref-Glauber1963" role="doc-biblioref">Glauber, 1963</a>)</span> もこの時点で既に現れる．<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>一般の確率分布からのサンプリングを可能にする手法である，というより抽象的な理解は <span class="citation" data-cites="Hastings1970">(<a href="#ref-Hastings1970" role="doc-biblioref">Hastings, 1970</a>)</span> で確立された．これが統計学の文脈における最初の MCMC の出現である．<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> 同時に，PDMP が出現するまで，全ての MCMC 手法は Hastings の提示した枠組みの中に収まるのである．</p>
+<p>その際に Markov 連鎖の概念の簡単さは大きく役に立ったものと思われる．Markov 連鎖を構成するには遷移行列と呼ばれる確率行列 <span class="math inline">\(P\)</span> を一つ構築すれば良い，そしてその必要条件は簡単な式（詳細釣り合い条件） <span class="math display">\[
+\pi P=\pi
+\]</span> で表せる．</p>
+<p>MCMC が真に統計分野で再発見されたのはコンピュータが普及したのちである．画像処理と空間統計の分野で MCMC が採用され活発に研究され，その中で <span class="citation" data-cites="Geman-Geman1984">(<a href="#ref-Geman-Geman1984" role="doc-biblioref">Geman and Geman, 1984</a>)</span> により Gibbs サンプラーの名前がついた．</p>
+<p>さらに空間統計以外の統計分野にも広く普及したのは，統計学の一流誌で複数の例を取り上げて紹介した <span class="citation" data-cites="Gelfand-Smith1990">(<a href="#ref-Gelfand-Smith1990" role="doc-biblioref">Gelfand and Smith, 1990</a>)</span> からだと言われる．</p>
+<p><span class="citation" data-cites="Gelfand-Smith1990">(<a href="#ref-Gelfand-Smith1990" role="doc-biblioref">Gelfand and Smith, 1990</a>)</span> 以降の MCMC の文献の数は大きく増える．中でも，応用分野での発展と手法的発展の２つに分けられる．モデリングを基調とする応用分野では，Gibbs サンプラーが今でも重要な位置を占めていると言える．</p>
+</section>
+<section id="汎用-mcmc-手法の発展" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="汎用-mcmc-手法の発展"><span class="header-section-number">1.2</span> 汎用 MCMC 手法の発展</h3>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<p>一方で，モデルに依らず，ブラックボックスで適用できる汎用手法の探索は，独自の発展を辿った．筆者の専門も専らこちらである．</p>
+<section id="langevin-dynamics-による-mcmc-とその理論解析" class="level4" data-number="1.2.1">
+<h4 data-number="1.2.1" class="anchored" data-anchor-id="langevin-dynamics-による-mcmc-とその理論解析"><span class="header-section-number">1.2.1</span> Langevin dynamics による MCMC とその理論解析</h4>
+<p>まず <span class="citation" data-cites="Grenander-Miller1994">(<a href="#ref-Grenander-Miller1994" role="doc-biblioref">Grenander and Miller, 1994</a>)</span> のコメントにおいて，<span class="citation" data-cites="Besag1994">(<a href="#ref-Besag1994" role="doc-biblioref">Besag, 1994</a>)</span> が，分布 <span class="math inline">\(\pi\)</span> に収束する Langevin dynamics <span class="math inline">\(\{X_t\}\subset\mathcal{L}(\Omega;\mathbb{R}^d)\)</span> <span id="eq-Langevin"><span class="math display">\[
+dX_t=\nabla(\log\pi(X_t))\,dt+\sqrt{2\beta^{-1}}\,dB_t,\qquad\beta&gt;0,
+\tag{1}\]</span></span> を提案分布に用いた Hastings 法を示唆し，これは現在でも統計・機械学習の双方で理論的に重要な位置を占めている．</p>
+<p>理論解析には主に２つのアプローチがある．１つはスケーリング解析であり，もう１つはスペクトル解析である．後者は筆者の専門ではないが，対数 Sobolev 不等式，等周不等式，対数凸分布，などがキーワードになる．</p>
+<p>前者では，空間の次元 <span class="math inline">\(d\to\infty\)</span> の極限において，<span class="math inline">\(\{X_t\}\)</span> の時間と空間についてのスケーリングであって，確定的な極限を持つスケールを探す．続いて，そのダイナミクスについて中心化し，Gauss 過程に収束するような中心極限定理のスケールを特定する．</p>
+<p>後者の中心極限定理のスケールにおける極限を調べ，その極限過程の平均自乗移動距離を比較することで，アルゴリズムの「速さ」を比較するというものである．これは，当該の過程からの出力を用いた Monte Carlo 推定量の漸近分散を比較する，という明確な意味を持つ．</p>
+<p>本アプローチは <span class="citation" data-cites="Roberts+1997">(<a href="#ref-Roberts+1997" role="doc-biblioref">Roberts et al., 1997</a>)</span> により創始され，<span class="citation" data-cites="Roberts-Rosenthal2001">(<a href="#ref-Roberts-Rosenthal2001" role="doc-biblioref">Roberts and Rosenthal, 2001</a>)</span> に Statistical Science 誌での解説記事がある．</p>
+</section>
+<section id="アルゴリズムとしての計算複雑性の解析" class="level4" data-number="1.2.2">
+<h4 data-number="1.2.2" class="anchored" data-anchor-id="アルゴリズムとしての計算複雑性の解析"><span class="header-section-number">1.2.2</span> アルゴリズムとしての計算複雑性の解析</h4>
+<p>以上，MCMC が定める確率過程に対する理論解析のアプローチを２つ紹介したが，アルゴリズムとしての解析や計算複雑性の議論はまた別である．上述の２つの過程に対する解析も，計算複雑性に対する含意が可能である．例えばスケーリング解析については <span class="citation" data-cites="Roberts-Rosenthal2016">(<a href="#ref-Roberts-Rosenthal2016" role="doc-biblioref">Roberts and Rosenthal, 2016</a>)</span> など．</p>
+<p>アルゴリズムに目を向けると，１つ厄介な点に気づく．そもそも Langevin 拡散過程 (<a href="#eq-Langevin" class="quarto-xref">1</a>) をシミュレートするには離散化が必要であり，その際の誤差によって，離散化して得る Markov 連鎖の平衡分布は元々の <span class="math inline">\(\pi\)</span> からズレてしまう．統計分野ではこのズレを補正するために Hastings の棄却法の枠組みが要請される．すると元々の Langevin 拡散 (<a href="#eq-Langevin" class="quarto-xref">1</a>) と結果として得る MCMC とは，収束特性が異なる場合がある <span class="citation" data-cites="Roberts-Rosenthal1998">(<a href="#ref-Roberts-Rosenthal1998" role="doc-biblioref">Roberts and Rosenthal, 1998</a>)</span>．</p>
+<p>補正なしのものを <strong>ULA</strong> (Unadjusted Langevin Algorithm)，ありのものを <strong>MALA</strong> (Metropolis-adjusted Langevin Algorithm) と呼ぶ．</p>
+<p>ULA と MALA では当然計算複雑性が違う．MALA では各棄却法のステップで尤度比の評価が必要になり，データ数に応じて計算量が増える．一方で ULA を Monte Carlo 法に用いると漸近的に消えないバイアスを持つ．そこで，ULA のような特性を持つ手法を低精度手法，MALA を高精度手法と呼び，前者から初めて，途中でこの２つを切り替えることで，良いところどりをすることができる．この議論は <span class="citation" data-cites="Altschuler-Chewi2023">(<a href="#ref-Altschuler-Chewi2023" role="doc-biblioref">Altschuler and Chewi, 2023</a>)</span> から始まり，機械学習の分野で盛んである．</p>
+</section>
+</section>
+</section>
+<section id="pdmp" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="pdmp"><span class="header-section-number">2</span> PDMP</h2>
+<section id="hastings-の枠組みからの離陸" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="hastings-の枠組みからの離陸"><span class="header-section-number">2.1</span> Hastings の枠組みからの離陸</h3>
+<p>以上の議論は全て，<span class="citation" data-cites="Hastings1970">(<a href="#ref-Hastings1970" role="doc-biblioref">Hastings, 1970</a>)</span> の枠組みの下での MCMC 手法であった．提案 <span class="math inline">\(Q\)</span> には大きな自由度があり，これを補正する形で所望の遷移核 <span class="math inline">\(P\)</span> を得る，という構成法である．</p>
+<p>離散時間の Markov 連鎖を生成することに拘らなければ，この枠組みから逸脱した Markov 過程を容易に作り出すことができる．</p>
+<p>その主なアイデアは，所与のダイナミクスに対して，ジャンプによって制御するというものである．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/MCtoPD.png" class="img-fluid figure-img"></p>
+<figcaption>モンテカルロ法の発展．筆者の <a href="../../../posts/2025/Posters/OH.html">ポスター</a> からの抜粋．</figcaption>
+</figure>
+</div>
+<p>PDMP は rejection-free MCMC などのキーワードの下で，当初は Event-Chain Monte Carlo の名前で，やはり統計物理分野で提案された <span class="citation" data-cites="Bernard+2009">(<a href="#ref-Bernard+2009" role="doc-biblioref">Bernard et al., 2009</a>)</span>．</p>
+</section>
+<section id="pdmp-の発展" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="pdmp-の発展"><span class="header-section-number">2.2</span> PDMP の発展</h3>
+<p>レビュー的な文献には <span class="citation" data-cites="Fearnhead+2018-PDMC">(<a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> と <span class="citation" data-cites="Vanetti2019">(<a href="#ref-Vanetti2019" role="doc-biblioref">P. Vanetti, 2019</a>)</span> があるが，いずれも一昔前のものであり，「適用できるモデルが限られる手法である」というような言説は現在では違うと言って良い．</p>
+<p>ここ５年の一大課題の１つには，PDMP の適用範囲の拡大，すなわち Poisson 剪定の自動化があったが，これは現在では複数の解決法を得ている．</p>
+<ol type="1">
+<li>自動微分の利用による上界の自動構成 <span class="citation" data-cites="Corbella+2022">(<a href="#ref-Corbella+2022" role="doc-biblioref">Corbella et al., 2022</a>)</span>, <span class="citation" data-cites="Andral-Kamatani2024">(<a href="#ref-Andral-Kamatani2024" role="doc-biblioref">Andral and Kamatani, 2024</a>)</span></li>
+<li>HMC 様の splitting scheme による近似スキームと，MH の方法による修正 <span class="citation" data-cites="Bertazzi+2023">(<a href="#ref-Bertazzi+2023" role="doc-biblioref">Bertazzi et al., 2023</a>)</span>, <span class="citation" data-cites="Chevallier+2025">(<a href="#ref-Chevallier+2025" role="doc-biblioref">Chevallier et al., 2025</a>)</span></li>
+</ol>
+</section>
+</section>
+<section id="文献紹介" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="文献紹介"><span class="header-section-number">3</span> 文献紹介</h2>
+<section id="pdmp-のレビュー" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="pdmp-のレビュー"><span class="header-section-number">3.1</span> PDMP のレビュー</h3>
+<p>PDMP ブームの早い段階から Statistical Science 誌に掲載された <span class="citation" data-cites="Fearnhead+2018-PDMC">(<a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> は第３節までの約 10 ページで，簡潔に PDMP の数学と性質，応用がまとまっている．特に 3.4 節にある数値実験では，２峰性を持つ事後分布に対して，<span class="math inline">\(d=128\)</span> にて最適にチューニングした MALA の性能を BPS が大きく越す様子が示されている．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Images/Fearnhead+2018.png" class="img-fluid figure-img"></p>
+<figcaption><span class="citation" data-cites="Fearnhead+2018-PDMC">(<a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018, p. 395</a>)</span></figcaption>
+</figure>
+</div>
+<p><span class="citation" data-cites="Vanetti2019">(Chapter 2 <a href="#ref-Vanetti2019" role="doc-biblioref">P. Vanetti, 2019</a>)</span> は，第１章で MCMC の基礎概念も概観していることもあり，約 35 ページでより詳しく扱っている．MCMC も同時に知りたい場合は勧めたいところだが，初学者が MCMC の多様な概念（Slice sampler や lifting など）をこれだけで理解できるとは少し思えない．</p>
+<p>特に 2.1 節で PDMP を導入した後，2.2 節は生成作用素の扱いから始まっており，数理から入りたい場合には特に向いている．PDMP が特定の分布を不変にするための条件を証明している．一方で <span class="citation" data-cites="Fearnhead+2018-PDMC">(Section 2 <a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> では数式は理解を促進するために使われており，証明はない．初読の際にお勧めできる．</p>
+</section>
+<section id="fearnhead2018-pdmc-へのコメント" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="fearnhead2018-pdmc-へのコメント"><span class="header-section-number">3.2</span> <span class="citation" data-cites="Fearnhead+2018-PDMC">(<a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> へのコメント</h3>
+<p>ということで PDMP について最初に読む文献としては <span class="citation" data-cites="Fearnhead+2018-PDMC">(<a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> を勧めるが，2016 年に初稿が書き上がった 10 年弱前の文献であることもあり，ここでいくらかコメントをする．</p>
+<p>PDMP を連続時間 MCMC として捉え，SMC の連続時間バージョンと並列して説明している点は大変喜ばしいものであるが，現在の筆者はこの２つを全く分離して理解しており，SMC の方についてはコメントできない．</p>
+<p>PDP (Piecewise Deterministic Process) という用語は，このクラスの過程を最初に定義した <span class="citation" data-cites="Davis1984">(<a href="#ref-Davis1984" role="doc-biblioref">Davis, 1984</a>)</span> に従ったものであると思われるが，現在は（少なくともベイズ統計では）PDMP という略語が主流になっていると言える．<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<section id="pdmp-のシミュレーションについて" class="level4" data-number="3.2.1">
+<h4 data-number="3.2.1" class="anchored" data-anchor-id="pdmp-のシミュレーションについて"><span class="header-section-number">3.2.1</span> PDMP のシミュレーションについて</h4>
+<p><span class="citation" data-cites="Fearnhead+2018-PDMC">(Section 2.1 Simulating a PDP <a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> は PDMP アルゴリズムを理解する上で最も重要な節である．PDMP のシミュレーションでは非一様なレート <span class="math inline">\(\Lambda_Z(s)\)</span> を持つ Poisson 過程の到着時刻のシミュレーションがボトルネックになる．そのためサラッと</p>
+<blockquote class="blockquote">
+<p>Below we will assume that our PDP has been chosen so that <span class="math inline">\(\Psi(·,·)\)</span> is known analytically and that the proposal distribution at events, <span class="math inline">\(q(· | ·)\)</span>, can be easily simulated from.</p>
+</blockquote>
+<p>と書かれているように，決定論的なフローは Hamiltonian flow などの数値積分が必要なものは，ほとんど考えられていない．数少ない例外は Hamiltonian flow を用いる <span class="citation" data-cites="Vanetti+2018">(<a href="#ref-Vanetti+2018" role="doc-biblioref">Paul Vanetti et al., 2018</a>)</span> と楕円軌道を用いる <span class="citation" data-cites="Bierkens+2020">(<a href="#ref-Bierkens+2020" role="doc-biblioref">Bierkens et al., 2020</a>)</span> である．「より複雑なフローを採用し，数値計算のコストを払うことは，より効率的な PDMP をもたらすか？」というようなリサーチクエスチョンはまだ決着していないと思われる．</p>
+<p><span class="citation" data-cites="Fearnhead+2018-PDMC">(Section 2.1 Simulating a PDP <a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> では Poisson thinning だけが紹介されている．この方向の研究としては，現在は自動微分を用いて上界を自動的に構成する方法が確立されている <span class="citation" data-cites="Corbella+2022">(<a href="#ref-Corbella+2022" role="doc-biblioref">Corbella et al., 2022</a>)</span>, <span class="citation" data-cites="Andral-Kamatani2024">(<a href="#ref-Andral-Kamatani2024" role="doc-biblioref">Andral and Kamatani, 2024</a>)</span>．</p>
+<p>以下他に２つの方向性を紹介するが，これらは Poisson thinning と違って誤差が入ることに注意する．（これを補正する Metropolis-Hastings 法またはその拡張も考えられている <span class="citation" data-cites="Vanetti+2018">(<a href="#ref-Vanetti+2018" role="doc-biblioref">Paul Vanetti et al., 2018</a>)</span>, <span class="citation" data-cites="Bertazzi+2023">(<a href="#ref-Bertazzi+2023" role="doc-biblioref">Bertazzi et al., 2023</a>)</span>, <span class="citation" data-cites="Chevallier+2025">(<a href="#ref-Chevallier+2025" role="doc-biblioref">Chevallier et al., 2025</a>)</span>）．</p>
+<p>数値計算で直接 <span class="math inline">\(\Lambda_Z(s)\)</span> の逆関数を計算し，到着時刻を近似する方法も <span class="citation" data-cites="Pagani+2023">(<a href="#ref-Pagani+2023" role="doc-biblioref">Pagani et al., 2024</a>)</span> で考察されている．</p>
+<p>他にも HMC では leapfrog 法として標準的になっている splitting scheme を用いることで近似計算をする方法 <span class="citation" data-cites="Bertazzi+2023">(<a href="#ref-Bertazzi+2023" role="doc-biblioref">Bertazzi et al., 2023</a>)</span> がある．この方法はコードを極めて簡単にする．</p>
+</section>
+<section id="pdmp-の数理について" class="level4" data-number="3.2.2">
+<h4 data-number="3.2.2" class="anchored" data-anchor-id="pdmp-の数理について"><span class="header-section-number">3.2.2</span> PDMP の数理について</h4>
+<p><span class="citation" data-cites="Fearnhead+2018-PDMC">(Section 2.2 Analyzing a PDP <a href="#ref-Fearnhead+2018-PDMC" role="doc-biblioref">Fearnhead et al., 2018</a>)</span> では PDMP の数理的な取り扱いが紹介されている．この章は飛ばしても何の問題もない．しかし，生成作用素などのキーとなる概念に関して，直感的で分かりやすい解説だと思う．</p>
+<p>PDMP は Markov 過程であり，基本的には生成作用素 <span class="math inline">\(L\)</span> の言葉で理解される．PDMP が特定の分布を平衡分布に持つことの証明も，この生成作用素が特定の性質を満たすことを示すことによって行われる．</p>
+<p>しかしその証明はとんでもなく難しい．そもそも <span class="citation" data-cites="Davis1984">(<a href="#ref-Davis1984" role="doc-biblioref">Davis, 1984</a>)</span> が生成作用素の形を導いているのはほとんど奇跡である．<span class="citation" data-cites="Davis1984">(<a href="#ref-Davis1984" role="doc-biblioref">Davis, 1984</a>)</span> では Appendix でマルチンゲール点過程の理論を展開しており，その証明は極めてオリジナルで圧巻としか言いようがない．</p>
+<p>さらに <span class="math inline">\(L\)</span> のコアとして，コンパクトな関数からなるクラスが取れることを示すことがキーとなるステップである．具体的な PDMP の生成作用素 <span class="math inline">\(L\)</span> のコアの特定は極めて困難である．この方向に関する既存文献は <span class="citation" data-cites="Durmus+2021">(<a href="#ref-Durmus+2021" role="doc-biblioref">Durmus et al., 2021</a>)</span> と <span class="citation" data-cites="Holderrieth2021">(<a href="#ref-Holderrieth2021" role="doc-biblioref">Holderrieth, 2021</a>)</span> の２つがあり，後者の方は極めて短いペーパーであり，証明の見通しも良い．<span class="citation" data-cites="Holderrieth2021">(<a href="#ref-Holderrieth2021" role="doc-biblioref">Holderrieth, 2021</a>)</span> の議論を引用しようと思うかもしれないが，残念ながらその補題 5.1 の証明は間違っている．我々には <span class="citation" data-cites="Durmus+2021">(<a href="#ref-Durmus+2021" role="doc-biblioref">Durmus et al., 2021</a>)</span> の膨大な理論が必要なのである．</p>
+
+
+
+</section>
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Altschuler-Chewi2023" class="csl-entry" role="listitem">
+Altschuler, J. M., and Chewi, S. (2023). <a href="https://arxiv.org/abs/2302.10249">Faster high-accuracy log-concave sampling via algorithmic warm starts</a>.
+</div>
+<div id="ref-Andral-Kamatani2024" class="csl-entry" role="listitem">
+Andral, C., and Kamatani, K. (2024). <a href="https://arxiv.org/abs/2408.03682">Automated techniques for efficient sampling of piecewise-deterministic markov processes</a>.
+</div>
+<div id="ref-Barker1965" class="csl-entry" role="listitem">
+Barker, A. A. (1965). <a href="https://doi.org/10.1071/PH650119">Monte carlo calculations of the radial distribution functions for a proton-electron plasma</a>. <em>Australian Journal of Physics</em>, <em>18</em>(2), 119–134.
+</div>
+<div id="ref-Bernard+2009" class="csl-entry" role="listitem">
+Bernard, E. P., Krauth, W., and Wilson, D. B. (2009). <a href="https://doi.org/10.1103/PhysRevE.80.056704">Event-chain monte carlo algorithms for hard-sphere systems</a>. <em>Phys. Rev. E</em>, <em>80</em>, 056704.
+</div>
+<div id="ref-Bertazzi+2023" class="csl-entry" role="listitem">
+Bertazzi, A., Dobson, P., and Monmarché, P. (2023). <a href="https://arxiv.org/abs/2301.02537">Piecewise deterministic sampling with splitting schemes</a>.
+</div>
+<div id="ref-Besag1994" class="csl-entry" role="listitem">
+Besag, J. E. (1994). <a href="https://www.jstor.org/stable/2346184"><span class="nocase">Comments on <span>“Representations of Knowledge in Complex Systems”</span> by U. Grenander and M. I. Miller</span></a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>56</em>(4), 591–592.
+</div>
+<div id="ref-Bierkens+2020" class="csl-entry" role="listitem">
+Bierkens, J., Grazzi, S., Kamatani, K., and Roberts, G. O. (2020). <a href="https://proceedings.mlr.press/v119/bierkens20a.html">The boomerang sampler</a>. <em>Proceedings of the 37th International Conference on Machine Learning</em>, <em>119</em>, 908–918.
+</div>
+<div id="ref-Chevallier+2025" class="csl-entry" role="listitem">
+Chevallier, A., Power, S., and Sutton, M. (2025). <a href="https://arxiv.org/abs/2503.11479">Towards practical PDMP sampling: Metropolis adjustments, locally adaptive step-sizes, and NUTS-based time lengths</a>.
+</div>
+<div id="ref-Corbella+2022" class="csl-entry" role="listitem">
+Corbella, A., Spencer, S. E. F., and Roberts, G. O. (2022). <a href="https://doi.org/10.1007/s11222-022-10142-x"><span class="nocase">Automatic Zig-Zag Sampling in Practice</span></a>. <em>Statistics and Computing</em>, <em>32</em>(6), 107.
+</div>
+<div id="ref-Davis1984" class="csl-entry" role="listitem">
+Davis, M. H. A. (1984). <a href="https://www.jstor.org/stable/2345677">Piecewise-deterministic markov processes: A general class of non-diffusion stochastic models</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>46</em>(3), 353–388.
+</div>
+<div id="ref-Durmus+2021" class="csl-entry" role="listitem">
+Durmus, A., Guillin, A., and Monmarché, P. (2021). <a href="https://doi.org/10.1214/20-AIHP1125"><span class="nocase">Piecewise deterministic Markov processes and their invariant measures</span></a>. <em>Annales de l’Institut Henri Poincaré, Probabilités Et Statistiques</em>, <em>57</em>(3), 1442–1475.
+</div>
+<div id="ref-Fearnhead+2018-PDMC" class="csl-entry" role="listitem">
+Fearnhead, P., Bierkens, J., Pollock, M., and Roberts, G. O. (2018). <a href="https://www.jstor.org/stable/26771007">Piecewise deterministic markov processes for continuous-time monte carlo</a>. <em>Statistical Science</em>, <em>33</em>(3), 386–412.
+</div>
+<div id="ref-Gelfand-Smith1990" class="csl-entry" role="listitem">
+Gelfand, A. E., and Smith, A. F. M. (1990). <a href="https://doi.org/10.2307/2289776">Sampling-based approaches to calculating marginal densities</a>. <em>Journal of the American Statistical Association</em>, <em>85</em>(410), 398–409.
+</div>
+<div id="ref-Geman-Geman1984" class="csl-entry" role="listitem">
+Geman, S., and Geman, D. (1984). <a href="https://doi.org/10.1109/TPAMI.1984.4767596"><span class="nocase">Stochastic Relaxation, Gibbs Distributions, and the Bayesian Restoration of Images</span></a>. <em>IEEE Transactions on Pattern Analysis and Machine Intelligence</em>, <em>PAMI-6</em>(6), 721–741.
+</div>
+<div id="ref-Glauber1963" class="csl-entry" role="listitem">
+Glauber, R. J. (1963). <a href="https://doi.org/10.1063/1.1703954"><span class="nocase">Time-Dependent Statistics of the Ising Model</span></a>. <em>Journal of Mathematical Physics</em>, <em>4</em>(2), 294–307.
+</div>
+<div id="ref-Grenander-Miller1994" class="csl-entry" role="listitem">
+Grenander, U., and Miller, M. I. (1994). <a href="http://www.jstor.org/stable/2346184">Representations of knowledge in complex systems</a>. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, <em>56</em>(4), 549–603.
+</div>
+<div id="ref-Hastings1970" class="csl-entry" role="listitem">
+Hastings, W. K. (1970). <a href="https://www.jstor.org/stable/2334940"><span class="nocase">Monte Carlo Sampling Methods Using Markov Chains and Their Applications</span></a>. <em>Biometrika</em>, <em>57</em>(1), 97–109.
+</div>
+<div id="ref-Holderrieth2021" class="csl-entry" role="listitem">
+Holderrieth, P. (2021). <a href="https://doi.org/10.1214/21-ECP430"><span class="nocase">Cores for piecewise-deterministic Markov processes used in Markov chain Monte Carlo</span></a>. <em>Electronic Communications in Probability</em>, <em>26</em>(none), 1–12.
+</div>
+<div id="ref-Metropolis+1953" class="csl-entry" role="listitem">
+Metropolis, N., Rosenbluth, A. W., Rosenbluth, M. N., Teller, A. H., and Teller, E. (1953). <a href="https://doi.org/10.1063/1.1699114">Equation of state calculations by fast computing machines</a>. <em>The Journal of Chemical Physics</em>, <em>21</em>(6), 1087–1092.
+</div>
+<div id="ref-Pagani+2023" class="csl-entry" role="listitem">
+Pagani, F., Chevallier, A., Power, S., House, T., and Cotter, S. (2024). <a href="https://doi.org/10.1007/s11222-023-10363-8">NuZZ: Numerical zig-zag for general models</a>. <em>Statistics and Computing</em>, <em>34</em>(1), 61.
+</div>
+<div id="ref-Peskun1973" class="csl-entry" role="listitem">
+Peskun, P. H. (1973). <a href="https://doi.org/10.1093/biomet/60.3.607">Optimum monte-carlo sampling using markov chains</a>. <em>Biometrika</em>, <em>60</em>(3), 607–612.
+</div>
+<div id="ref-Roberts+1997" class="csl-entry" role="listitem">
+Roberts, G. O., Gelman, A., and Gilks, W. R. (1997). <a href="http://www.jstor.org/stable/2245134"><span class="nocase">Weak Convergence and Optimal Scaling of Random Walk Metropolis Algorithms</span></a>. <em>The Annals of Applied Probability</em>, <em>7</em>(1), 110–120.
+</div>
+<div id="ref-Roberts-Rosenthal1998" class="csl-entry" role="listitem">
+Roberts, G. O., and Rosenthal, J. S. (1998). <a href="http://www.jstor.org/stable/2985986">Optimal scaling of discrete approximations to langevin diffusions</a>. <em>Journal of the Royal Statistical Society. Series B (Statistical Methodology)</em>, <em>60</em>(1), 255–268.
+</div>
+<div id="ref-Roberts-Rosenthal2001" class="csl-entry" role="listitem">
+Roberts, G. O., and Rosenthal, J. S. (2001). <a href="http://www.jstor.org/stable/3182776"><span class="nocase">Optimal Scaling for Various Metropolis-Hastings Algorithms</span></a>. <em>Statistical Science</em>, <em>16</em>(4), 351–367.
+</div>
+<div id="ref-Roberts-Rosenthal2016" class="csl-entry" role="listitem">
+Roberts, G. O., and Rosenthal, J. S. (2016). <a href="http://www.jstor.org/stable/43860930"><span class="nocase">Complexity Bounds for Markov Chain Monte Carlo Algorithms via Diffusion Limits</span></a>. <em>Journal of Applied Probability</em>, <em>53</em>(2), 410–420.
+</div>
+<div id="ref-Vanetti2019" class="csl-entry" role="listitem">
+Vanetti, P. (2019). <em>Piecewise-deterministic markov chain monte carlo</em> (PhD thesis). University of Oxford.
+</div>
+<div id="ref-Vanetti+2018" class="csl-entry" role="listitem">
+Vanetti, Paul, Bouchard-Côté, A., Deligiannidis, G., and Doucet, A. (2018). <a href="https://arxiv.org/abs/1707.05296">Piecewise-deterministic markov chain monte carlo</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>他に重要な文献には，Metropolis 法の変種である <span class="citation" data-cites="Barker1965">(<a href="#ref-Barker1965" role="doc-biblioref">Barker, 1965</a>)</span> の提案核が挙げられる．<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>次に <span class="citation" data-cites="Peskun1973">(<a href="#ref-Peskun1973" role="doc-biblioref">Peskun, 1973</a>)</span> の理論研究が続く．<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>OR 分野では一部 PDP を現在に使う文献もあるかもしれない．<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/162348\.github\.io\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+<script>
+  function loadGiscus() {
+    // Function to get the theme based on body class
+    const getTheme = () => {
+      let baseTheme = document.getElementById('giscus-base-theme').value;
+      let altTheme = document.getElementById('giscus-alt-theme').value;
+      return document.body.classList.contains('quarto-dark') ? altTheme : baseTheme;
+    };
+    const script = document.createElement("script");
+    script.src = "https://giscus.app/client.js";
+    script.async = true;
+    script.dataset.repo = "162348/162348.github.io";
+    script.dataset.repoId = "R_kgDOKlfKYQ";
+    script.dataset.category = "Announcements";
+    script.dataset.categoryId = "DIC_kwDOKlfKYc4CgDmb";
+    script.dataset.mapping = "pathname";
+    script.dataset.reactionsEnabled = "1";
+    script.dataset.emitMetadata = "0";
+    script.dataset.inputPosition = "top";
+    script.dataset.theme = getTheme();
+    script.dataset.lang = "en";
+    script.crossOrigin = "anonymous";
+    // Append the script to the desired div instead of at the end of the body
+    document.getElementById("quarto-content").appendChild(script);
+  }
+  loadGiscus();
+</script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item">
+    <a class="nav-link" href="https://162348.github.io/">
+<p>Hirofumi Shiba</p>
+</a>
+  </li>  
+</ul>
+    </div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/162348/162348.github.io/">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/ano2math5">
+      <i class="bi bi-twitter" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="mailto:shiba.hirofumi@ism.ac.jp">
+      <i class="bi bi-envelope" role="img">
+</i> 
+    </a>
+  </li>  
+    <li class="nav-item compact">
+    <a class="nav-link" href="../../../blog.xml">
+      <i class="bi bi-rss" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
