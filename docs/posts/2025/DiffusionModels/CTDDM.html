@@ -6,10 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Hirofumi Shiba">
-<meta name="description" content="Slides are here．">
+<meta name="author" content="司馬 博文">
 
-<title>Hirofumi Shiba - Understanding Discrete Denoising Diffusion Models</title>
+<title>Hirofumi Shiba - 拡散モデルの離散空間・連続時間での設計</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,7 +21,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -33,6 +51,8 @@ ul.task-list li input[type="checkbox"] {
 <script src="../../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../../">
 <link href="../../../assets/Shiba2.png" rel="icon" type="image/png">
+<script src="../../../site_libs/quarto-listing/list.min.js"></script>
+<script src="../../../site_libs/quarto-listing/quarto-listing.js"></script>
 <script src="../../../site_libs/quarto-html/quarto.js"></script>
 <script src="../../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
@@ -67,6 +87,35 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
+<script>
+
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    const listingTargetEl = window.document.querySelector('#listing-diffusion-listing .list');
+    if (!listingTargetEl) {
+      // No listing discovered, do not attach.
+      return; 
+    }
+
+    const options = {
+      valueNames: ['listing-title','listing-image','listing-date','listing-subtitle',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      
+      searchColumns: ["listing-title","listing-author","listing-date","listing-image","listing-description"],
+    };
+
+    window['quarto-listings'] = window['quarto-listings'] || {};
+    window['quarto-listings']['listing-diffusion-listing'] = new List('listing-diffusion-listing', options);
+
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  });
+
+  window.addEventListener('hashchange',() => {
+    if (window['quarto-listing-loaded']) {
+      window['quarto-listing-loaded']();
+    }
+  })
+  </script>
 <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-36GX2G6GLL"></script>
 
 <script type="text/javascript">
@@ -103,15 +152,42 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
   }
 </style> -->
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../../assets/styles.css">
-<meta property="og:title" content="Hirofumi Shiba - Understanding Discrete Denoising Diffusion Models">
-<meta property="og:description" content="Slides are here．">
-<meta property="og:image" content="https://162348.github.io/posts/2025/Slides/assets/Shiba2.png">
+<meta property="og:title" content="Hirofumi Shiba - 拡散モデルの離散空間・連続時間での設計">
+<meta property="og:image" content="https://162348.github.io/posts/2025/DiffusionModels/assets/Shiba2.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
-<meta name="twitter:title" content="Hirofumi Shiba - Understanding Discrete Denoising Diffusion Models">
-<meta name="twitter:description" content="Slides are here．">
-<meta name="twitter:image" content="https://162348.github.io/posts/2025/Slides/assets/Shiba2.png">
+<meta name="twitter:title" content="Hirofumi Shiba - 拡散モデルの離散空間・連続時間での設計">
+<meta name="twitter:image" content="https://162348.github.io/posts/2025/DiffusionModels/assets/Shiba2.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
 </head>
@@ -176,43 +252,38 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Understanding Discrete Denoising Diffusion Models</h1>
-            <p class="subtitle lead">A Survey and a Convergence Analysis</p>
-                  <div>
-        <div class="description">
-          <p>Slides are <a href="DDD_Slides.html"><u>here</u></a>．</p>
-        </div>
-      </div>
-                          <div class="quarto-categories">
-                <div class="quarto-category">Slide</div>
+      <h1 class="title">拡散モデルの離散空間・連続時間での設計</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">Deep</div>
+                <div class="quarto-category">Sampling</div>
+                <div class="quarto-category">Nature</div>
               </div>
                   </div>
   </div>
     
-  <div class="quarto-title-meta-author">
-    <div class="quarto-title-meta-heading">Author</div>
-    <div class="quarto-title-meta-heading">Affiliation</div>
-    
-      <div class="quarto-title-meta-contents">
-      <p class="author">Hirofumi Shiba </p>
-    </div>
-    <div class="quarto-title-meta-contents">
-          <p class="affiliation">
-              Institute of Statistical Mathematics
-            </p>
-        </div>
-    </div>
-
+  
   <div class="quarto-title-meta">
 
-        
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>司馬 博文 </p>
+            </div>
+    </div>
+      
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">7/15/2025</p>
+        <p class="date">6/26/2025</p>
       </div>
     </div>
     
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">6/26/2025</p>
+      </div>
+    </div>
       
     </div>
     
@@ -225,9 +296,17 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
     <h2 id="toc-title">目次</h2>
    
   <ul>
-  <li><a href="#discrete-diffusion-models" id="toc-discrete-diffusion-models" class="nav-link active" data-scroll-target="#discrete-diffusion-models"><span class="header-section-number">1</span> Discrete Diffusion Models</a></li>
+  <li><a href="#denoising-markov-model-再論" id="toc-denoising-markov-model-再論" class="nav-link active" data-scroll-target="#denoising-markov-model-再論"><span class="header-section-number">1</span> Denoising Markov Model 再論</a>
+  <ul class="collapse">
+  <li><a href="#はじめに離散状態空間" id="toc-はじめに離散状態空間" class="nav-link" data-scroll-target="#はじめに離散状態空間"><span class="header-section-number">1.1</span> はじめに：離散状態空間</a></li>
+  <li><a href="#離散拡散モデルを連続時間で考えたい理由" id="toc-離散拡散モデルを連続時間で考えたい理由" class="nav-link" data-scroll-target="#離散拡散モデルを連続時間で考えたい理由"><span class="header-section-number">1.2</span> 離散拡散モデルを連続時間で考えたい理由</a></li>
+  </ul></li>
+  <li><a href="#誤差解析" id="toc-誤差解析" class="nav-link" data-scroll-target="#誤差解析"><span class="header-section-number">2</span> 誤差解析</a>
+  <ul class="collapse">
+  <li><a href="#はじめに" id="toc-はじめに" class="nav-link" data-scroll-target="#はじめに"><span class="header-section-number">2.1</span> はじめに</a></li>
+  </ul></li>
   </ul>
-<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="DDD_Slides.html"><i class="bi bi-file-slides"></i>RevealJS</a></li></ul></div></nav>
+</nav>
     </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
@@ -236,13 +315,120 @@ gtag('config', 'G-36GX2G6GLL', { 'anonymize_ip': true});
 
 
 
-<section id="discrete-diffusion-models" class="level2" data-number="1">
-<h2 data-number="1" class="anchored" data-anchor-id="discrete-diffusion-models"><span class="header-section-number">1</span> Discrete Diffusion Models</h2>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<div id="listing-diffusion-listing" class="quarto-listing quarto-listing-container-grid">
+<div class="list grid quarto-listing-cols-3">
+<div class="g-col-1" data-index="0" data-categories="Deep,Sampling,Nature" data-listing-date-sort="1723132800000" data-listing-file-modified-sort="1751115043856" data-listing-date-modified-sort="1751040000000" data-listing-reading-time-sort="3" data-listing-word-count-sort="490">
+<a href="../../../posts/2025/DiffusionModels/DiscreteDiffusion.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/best.gif" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+離散空間上の拡散確率モデル
+</h5>
+<div class="card-subtitle listing-subtitle">
+位相構造を取り入れた次世代の構造生成へ
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-09
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="1" data-categories="Deep,Sampling,Python" data-listing-date-sort="1722528000000" data-listing-file-modified-sort="1736841998219" data-listing-date-modified-sort="1722787200000" data-listing-reading-time-sort="15" data-listing-word-count-sort="2810">
+<a href="../../../posts/2024/Samplers/DDPM.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top"><img src="../../2024/Samplers/DDPM_files/figure-html/fig-encoding-output-1.png" style="height: 150px;"  class="thumbnail-image card-img"/></p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散模型の実装
+</h5>
+<div class="card-subtitle listing-subtitle">
+<code>PyTorch</code>によるハンズオン
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-08-02
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+<div class="g-col-1" data-index="2" data-categories="Deep,Process,Sampling" data-listing-date-sort="1707840000000" data-listing-file-modified-sort="1747048328831" data-listing-date-modified-sort="1724342400000" data-listing-reading-time-sort="5" data-listing-word-count-sort="826">
+<a href="../../../posts/2024/Samplers/Diffusion.html" class="quarto-grid-link">
+<div class="quarto-grid-item card h-100 card-left">
+<p class="card-img-top">
+<img src="../../../posts/2024/Samplers/Files/DDPM_outputs.png" class="thumbnail-image card-img" style="height: 150px;">
+</p>
+<div class="card-body post-contents">
+<h5 class="no-anchor card-title listing-title">
+拡散模型
+</h5>
+<div class="card-subtitle listing-subtitle">
+深層生成モデル６
+</div>
+<div class="card-attribution card-text-small end">
+<div class="listing-date">
+2024-02-14
+</div>
+</div>
+</div>
+</div>
+</a>
+</div>
+</div>
+<div class="listing-no-matching d-none">
+No matching items
+</div>
+</div>
+<section id="denoising-markov-model-再論" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="denoising-markov-model-再論"><span class="header-section-number">1</span> Denoising Markov Model 再論</h2>
+<section id="はじめに離散状態空間" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="はじめに離散状態空間"><span class="header-section-number">1.1</span> はじめに：離散状態空間</h3>
+<p>拡散モデルのアイデアをどこまで一般化できるか？何が最も肝心な骨組みで，何が交換可能であるかを再論したい．</p>
+<p>例えば，画像・言語をはじめとして，離散データのモデリングを考える際に，連続緩和するのではなく離散なまま扱いたいとしよう．</p>
+<p>このような場合でも全く問題なく，一般化スコアマッチングにより従来通りの議論により，訓練目標が得られることが <span class="citation" data-cites="Benton+2024Denoising">(<a href="#ref-Benton+2024Denoising" role="doc-biblioref">Benton, Shi, et al., 2024</a>)</span> で示されている．</p>
+</section>
+<section id="離散拡散モデルを連続時間で考えたい理由" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="離散拡散モデルを連続時間で考えたい理由"><span class="header-section-number">1.2</span> 離散拡散モデルを連続時間で考えたい理由</h3>
+</section>
+</section>
+<section id="誤差解析" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="誤差解析"><span class="header-section-number">2</span> 誤差解析</h2>
+<section id="はじめに" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">2.1</span> はじめに</h3>
+<p><span class="math inline">\(p\)</span> を前向き過程の遷移密度，<span class="math inline">\(q\)</span> を逆向き過程の遷移密度としたとき， <span class="math display">\[
+\operatorname{KL}(p_\delta,q_t)
+\]</span> という量を評価することを考える．</p>
+<p>連続状態空間上の，普通の意味での拡散モデルに対しては <span class="citation" data-cites="Benton+2024">(<a href="#ref-Benton+2024" role="doc-biblioref">Benton, Bortoli, et al., 2024</a>)</span> が，離散状態空間上では <span class="citation" data-cites="Ren+2025">(<a href="#ref-Ren+2025" role="doc-biblioref">Ren et al., 2025</a>)</span> がこれを行っている．</p>
+
+
 
 
 </section>
+</section>
 
-</main> <!-- /main -->
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Benton+2024" class="csl-entry" role="listitem">
+Benton, J., Bortoli, V. D., Doucet, A., and Deligiannidis, G. (2024). <a href="https://arxiv.org/abs/2308.03686">Nearly <span class="math inline">\(d\)</span>-linear convergence bounds for diffusion models via stochastic localization</a>.
+</div>
+<div id="ref-Benton+2024Denoising" class="csl-entry" role="listitem">
+Benton, J., Shi, Y., De Bortoli, V., Deligiannidis, G., and Doucet, A. (2024). <a href="https://doi.org/10.1093/jrsssb/qkae005"><span class="nocase">From denoising diffusions to denoising Markov models</span></a>. <em>Journal of the Royal Statistical Society Series B: Statistical Methodology</em>, <em>86</em>(2), 286–301.
+</div>
+<div id="ref-Ren+2025" class="csl-entry" role="listitem">
+Ren, Y., Chen, H., Rotskoff, G. M., and Ying, L. (2025). <a href="https://openreview.net/forum?id=6awxwQEI82">How discrete and continuous diffusion meet: Comprehensive analysis of discrete diffusion models via a stochastic integral framework</a>. In <em>The thirteenth international conference on learning representations</em>.
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
