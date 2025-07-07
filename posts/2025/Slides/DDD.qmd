@@ -103,7 +103,7 @@ This talk is about an [optimization-based Methods]{.color-blue}
 ::: {.callout-tip title="Key Property of the Langevin Diffusion" icon="false"}
 
 $$
-dX_t=-\nabla\log p(X_t)\,dt+\sqrt{2}\,dB_t
+dX_t=-\nabla\log p(X_t)\,dt+\sqrt{2\beta^{-1}}\,dB_t
 $$
 
 converges to $p(\textcolor{#E95420}{z})$ as $t\to\infty$.
@@ -156,7 +156,7 @@ $$
 $$
 is searched in a **variational** formulation via KL divergence:
 $$
-p(\textcolor{#E95420}{z}|\boldsymbol{x})=\argmin_{q\in\mathcal{P}(\mathcal{Z})}\operatorname{KL}\bigg(q(\textcolor{#E95420}{z}),p(\textcolor{#E95420}{z}|\boldsymbol{x})\bigg).
+p(\textcolor{#E95420}{z}|\boldsymbol{x})=\argmin_{q\in\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}})}\operatorname{KL}\bigg(q(\textcolor{#E95420}{z}),p(\textcolor{#E95420}{z}|\boldsymbol{x})\bigg).
 $$
 
 ::: {.callout-tip title="Scalable Solution to [VI]{.color-blue}" icon="false"}
@@ -196,7 +196,7 @@ still lends itself to stochastic optimization.
 
 Once $\textcolor{#2780e3}{\theta^*}$ is learned, we are able to sample from
 $$
-p_{\textcolor{#2780e3}{\theta^*}}(\textcolor{#2780e3}{x})=\int_{\mathcal{Z}}p_{\textcolor{#2780e3}{\theta^*}  }(\textcolor{#2780e3}{x}|\textcolor{#E95420}{z})p_{\textcolor{#2780e3}{\theta^*}  }(\textcolor{#E95420}{z})\,d\textcolor{#E95420}{z}
+p_{\textcolor{#2780e3}{\theta^*}}(\textcolor{#2780e3}{x})=\int_{\textcolor{#E95420}{\mathcal{Z}}}p_{\textcolor{#2780e3}{\theta^*}  }(\textcolor{#2780e3}{x}|\textcolor{#E95420}{z})p_{\textcolor{#2780e3}{\theta^*}  }(\textcolor{#E95420}{z})\,d\textcolor{#E95420}{z}
 $$
 
 ::: aside
@@ -209,7 +209,7 @@ Concentrating on learning $p_{\textcolor{#2780e3}{\theta}}$, we fix
 $$
 q_{\textcolor{#E95420}{\phi}}(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=q(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=q^{t_1}(\textcolor{#E95420}{z_1}|\textcolor{#2780e3}{x})\prod_{i=1}^T q^{t_{i+1}-t_i}(\textcolor{#E95420}{z_{i+1}}|\textcolor{#E95420}{z_{i}}),
 $$
-as a path measure on $\mathcal{Z}=(\R^d)^{T+1}$ of the Langevin diffusion.
+as a path measure on $\textcolor{#E95420}{\mathcal{Z}}=(\R^d)^{T+1}$ of the Langevin diffusion.
 
 ![](DDD/OU_simulation_wider.gif)
 
@@ -243,7 +243,7 @@ It is because [DDM]{.color-blue} learns how to denoise a noisy data. [DDM]{.colo
 
 ![A very famous figure from [@Kreis+2022]](ISM/DD.png)
 
-### Score-based Diffusion Models
+### Score-based [DDM]{.color-blue}
 
 ::: {.callout-tip title="Proposition about the Langevin Diffusion [@Anderson1982]" icon="false"}
 
@@ -267,20 +267,55 @@ $$
 This is proposed by [@Song+2021ICLR]. $\mathcal{L}(\textcolor{#2780e3}{\theta})$ is called the *denoising score matching* loss.
 :::
 
-### Flow Matching
+### ODE Sampling of [DDM]{.color-blue} {margin-bottom="0px"}
 
-The solution to the following ODE
 $$
-\frac{d\textcolor{#2780e3}{X}_t}{dt}=U_t(\textcolor{#2780e3}{X_t})-\frac{1}{2}\nabla\log p_{\textcolor{#2780e3}{\theta}}^t(\textcolor{#2780e3}{X_t})
+\text{ODE:}\qquad\frac{d\textcolor{#2780e3}{X}_t}{dt}=-U_t(\textcolor{#2780e3}{X_t})+\frac{1}{2}\nabla\log p_{\textcolor{#2780e3}{\theta}}^t(\textcolor{#2780e3}{X_t})=:u_t(\textcolor{#2780e3}{X_t})
 $$ {#eq-probability-flow-ODE}
-has the same 1d marginal distributions as the reverse-time Langevin diffusion
+has the same 1d marginal distributions as
 $$
-d\textcolor{#2780e3}{X_t}=\bigg(-U_{T-t}(\textcolor{#2780e3}{X_t})+\nabla\log p_{\textcolor{#2780e3}{\theta}}^{T-t}(\textcolor{#2780e3}{X_t})\bigg)\,dt+dB'_t.
+\text{Reversed Langevin:}\quad d\textcolor{#2780e3}{X_t}=\bigg(-U_{t}(\textcolor{#2780e3}{X_t})+\nabla\log p_{\textcolor{#2780e3}{\theta}}^{t}(\textcolor{#2780e3}{X_t})\bigg)\,dt+dB_t.
 $$
-Equation ([-@eq-probability-flow-ODE]) provides a faster way to sample from $\{\textcolor{#2780e3}{X_t}\}_{t=0}^T$.
+
+
+:::: {.columns style="display: flex; margin-top: -30px;"}
+::: {.column width="50%"}
+![](../../2024/Bridges/Files/sde_animation.gif)
+:::
+
+::: {.column width="50%"}
+![](../../2024/Bridges/Files/ode_animation.gif)
+:::
+::::
+
+### 1.9 ODE Sampling of [DDM]{.color-blue} {.unnumbered}
+
+To [generate]{.color-blue} a new sample after learning the path measure $p_{\textcolor{#2780e3}{\theta}}$,
+
+we avoid tracing it exactly, by ...
+
+|  | SDE sampling | ODE sampling |
+|:-----:|:-----:|:-----:|
+| Loss | Score matching | Flow matching |
+| Speed | Slow | [Fast]{.color-unite} |
+| Quality | [High]{.color-unite} | Low |
+
+: {.hover .responsive-sm tbl-colwidths="[20,40,40]"}
+
+We need a **theory** to explain these behaviours.
+
+::: {.callout-tip appearance="simple" icon="false" title="E.g."}
+
+SDE approach is more robust to the estimation error in the score
+
+:::
 
 ::: aside
-Alternatively, we can directly try to learn the RHS of ([-@eq-probability-flow-ODE]). This approach is called *flow matching*.
+[@Karras+2022] uses Heun's 2nd order correction method to discretize the ODE.
+
+The ODE parametrization by [@JiamingSong+2021] is favorable from its stable curvature.
+
+Discretizing the SDE by adding extra noise results in higher quality in `imagenet` dataset.
 :::
 
 ### Summary {.unnumbered}
@@ -299,13 +334,161 @@ Was "fixing $q_{\textcolor{#E95420}{\phi}}$ to be a Langevin diffusion" really a
 
 :::
 
-## Discrete Diffusion Models
+::: {.callout-note title="More Concentration on Learning to Generate" icon="false"}
 
-Discrete state space $\mathcal{Z}$ (e.g. images, texts) offers ...
+Isn't there a more suitable training objective than score?
+
+:::
+
+## In Search of Better Path
+
+:::: {.columns style="text-align: center;"}
+::: {.column width="33%"}
+![Discrete Time Markov Chain](../../2024/Slides/PDMPs/RWMH.gif)
+:::
+
+::: {.column width="33%"}
+![[Diffusion Process]{.color-blue}](../../2024/Slides/PDMPs/Langevin.gif)
+:::
+
+::: {.column width="33%"}
+![[Piecewise Deterministic]{.color-unite}](../../2024/Slides/PDMPs/ZigZag_SlantedGauss2D_longer.gif)
+:::
+
+::::
+
+### Flow-based [DDM]{.color-blue}: A Flexible Framework
+
+Instead of the path $\{p_{\textcolor{#2780e3}{\theta}}^t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}})$, we concentrate on the vector field $u$ satisfying
+$$
+\partial_tp^t_{\textcolor{#2780e3}{\theta}}+\operatorname{div}(p^t_{\textcolor{#2780e3}{\theta}}u^t_{\textcolor{#2780e3}{\theta}})=0.
+$$
+We learn $u$ by a NN $(t,x)\mapsto v_{\textcolor{#2780e3}{\theta}}^t(x)$ with the loss
+$$
+\text{Flow Matching Loss:}\qquad\mathcal{L}_{\text{FM}}(\textcolor{#2780e3}{\theta})=\int_0^T\operatorname{E}\bigg[\bigg|v_{\textcolor{#2780e3}{\theta}}^t(X)-u^t(X)\bigg|^2\bigg]\,dt.
+$$
+To generate a new sample, we let $X_0\sim p^0_{\textcolor{#2780e3}{\theta^*}}$ flow along $v_{\textcolor{#2780e3}{\theta^*}}^t$.
+
+::: aside
+Usually, FM is understood as a scalable alternative to train CNFs [@Chen+2018].
+Being an alternative to score matching by learning directly the RHS of ([-@eq-probability-flow-ODE]), this approach is called *flow matching*, independently proposed by [@Liu+2023-Flow], [@Albergo-Vanden-Eijnden2023], [@Lipman+2023].
+:::
+
+### 2.1 Flow-based [DDM]{.color-blue}: A Flexible Framework {.unnumbered}
+
+:::: {.columns}
+::: {.column width="50%"}
+::: {.callout-tip title="Diffusion Path" icon="false"}
+
+$$
+p_{\textcolor{#2780e3}{\theta}}^t(-|\textcolor{#2780e3}{x})=\operatorname{N}\bigg(\alpha_{1-t}\textcolor{#2780e3}{x},(1-\alpha_{1-t}^2)I_d\bigg)
+$$
+corresponds to
+$$
+u_t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=\frac{\alpha_{1-t}}{1-\alpha_{1-t}^2}(\alpha_{1-t}\textcolor{#E95420}{z}-\textcolor{#2780e3}{x})
+$$
+
+![](DDD/Lipman/2d_traj_diff.png){style="margin-top: -30px;" width="70%" fig-align="center"}
+
+:::
+:::
+
+::: {.column width="50%"}
+::: {.callout-tip title="Optimal Transport Path" icon="false"}
+
+$$
+p_{\textcolor{#2780e3}{\theta}}^t(-|\textcolor{#2780e3}{x})=\operatorname{N}\bigg(t\textcolor{#2780e3}{x},(1-t)I_d\bigg)
+$$
+corresponds to
+$$
+u_t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=\frac{\textcolor{#2780e3}{x}-\textcolor{#E95420}{z}}{1-t}
+$$
+
+![](DDD/Lipman/2d_traj_ot.png){style="margin-top: -30px;" width="70%" fig-align="center"}
+
+
+:::
+:::
+::::
+
+OT paths result in straight trajectries with constant speed, which is more suitable for stable generation.
+
+### Discrete Diffusion Models
+
+Discrete state space $\textcolor{#E95420}{\mathcal{Z}}$ (e.g. images, texts) offers ...
 
 * a diverse choice of inference processes $q_{\textcolor{#E95420}{\phi}}$
+* the ability to put different weights on different states
 
-## References {.unnumbered .unlisted}
+### Masked Diffusion
+
+Consider path measures $\{p_t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}}\sqcup\{m\})$ that satisfy
+$$
+\text{1d marginal condition:}\qquad p_t(-|\textcolor{#2780e3}{x})=\alpha_t\delta_{\textcolor{#2780e3}{x}}(-)+(1-\alpha_t)\delta_m(-),
+$$
+$$
+\therefore\qquad\delta_m(-)\xleftarrow{t\to0}p_t(-)=\int_{\textcolor{#2780e3}{\mathcal{X}}}p_t(-|\textcolor{#2780e3}{x})p^{\textcolor{#2780e3}{\text{data}}}(\textcolor{#2780e3}{x})\,d\textcolor{#2780e3}{x}\xrightarrow{t\to T}p^{\textcolor{#2780e3}{\text{data}}}(-).
+$$
+One reverse process that trace $\{p_t\}_{t=0}^T$ is the Markov process with the rate
+$$
+R_t(z_t,\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\delta_m(z_t)p_{t}(\textcolor{#2780e3}{x}|z_t).
+$$
+
+### Summary {.unnumbered}
+
+* Straight path
+  * Langevin path $p_{\textcolor{#2780e3}{\theta}}$ requires a forward simulation during training
+
+## References {.unnumbered .unlisted visibility="uncounted"}
 
 ::: {#refs}
 :::
+
+## Appendix {.appendix .unlisted .unnumbered visibility="uncounted"}
+
+### Algorithmic Stability {.appendix .unlisted .unnumbered visibility="uncounted"}
+
+::: {.callout-tip icon="false" title="The Score of [DDM]{.color-blue} [@Song+2021ICLR]"}
+
+::: {layout="[25,25,25,25]" layout-valign="top"}
+
+![](DDD/Lipman/2d_vf_score_dif_0.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_score_dif_1.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_score_dif_2.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_score_dif_3.png){style="margin: 0px;"}
+
+:::
+
+:::
+
+::: {.callout-tip icon="false" title="The Vector Field of [FM]{.color-blue} [@Lipman+2023]"}
+
+::: {layout="[25,25,25,25]" layout-valign="top"}
+
+![](DDD/Lipman/2d_vf_flow_match_ot_0.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_flow_match_ot_1.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_flow_match_ot_2.png){style="margin: 0px;"}
+
+![](DDD/Lipman/2d_vf_flow_match_ot_3.png){style="margin: 0px;"}
+
+:::
+
+:::
+
+One hidden theme was algorithmic stability, which plays a crucial role in the successful methods.
+
+### Other Training Objectives {.appendix .unlisted .unnumbered visibility="uncounted"}
+
+Instead of the vector field $u$, we can learn its potential
+$$
+v_\theta^t=\nabla s_\theta^t.
+$$
+through the **Action Matching** loss [@Neklyudov+2023]
+$$
+\mathcal{L}_{\text{AM}}(\theta)=\operatorname{E}[s^0_\theta(X_0)-s^1_\theta(X_1)]+\int^1_0\operatorname{E}\bigg[\frac{1}{2}|\nabla s^t_\theta(X)|^2+\partial_ts^t_\theta(X)\bigg]\,dt
+$$
