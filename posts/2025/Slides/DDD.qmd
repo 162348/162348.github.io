@@ -57,15 +57,15 @@ slide:
   time: 13:00-13:30
 ---
 
-## (Mathematical) Introduction
+## Mathematical Introduction
 
-* [Generative Modeling]{.color-blue} ≒ [Bayesian Modeling]{.color-unite}
-* There are two main approaches:
+* Problem Setting: [Generative Modeling]{.color-blue} ≒ [Bayesian Modeling]{.color-unite}
+* Two main approaches:
   * [Sampling-based Methods]{.color-unite}: Monte Carlo methods, etc.
   * [Optimization-based Methods]{.color-blue}: **Diffusion Models**, etc.
-* Core ideas of the **Diffusion Models**:
-  * Discard [inference]{.color-unite}
-  * Concentrate on learning to [generate]{.color-blue}
+* **Diffusion Models** succeed by
+  1. Discarding [inference]{.color-unite}
+  2. Concentrating on learning to [generate]{.color-blue}
 
 ### Problem: [Bayesian]{.color-red} / [Generative]{.color-blue} Modeling
 
@@ -73,7 +73,7 @@ slide:
 
 ### Two Popular Solutions
 
-To get samples from the posterior:
+**Problem**: compute the posterior distribution:
 $$
 p(\textcolor{#E95420}{z}|\{x_i\}_{i=1}^n)\propto p(\textcolor{#E95420}{z})\prod_{i=1}^n p(x_i|\textcolor{#E95420}{z})=\text{prior}\times\prod_{i=1}^n\text{model likelihood of }x_i
 $$
@@ -82,8 +82,8 @@ $$
 |:-----:|:-----:|:-----:|
 | Purpose | Get a sample | Get an approximation |
 | Scalable? | No (Yet) | [Yes]{.color-blue} |
-| Unbiased? | [Yes]{.color-unite} | No ||
-| E.g. | Monte Carlo | Diffusion Models |
+| Exact? | [Yes]{.color-unite} | No ||
+| E.g. | Monte Carlo | **Diffusion Models** |
 | Mainly used | in [Bayesian statistics]{.color-unite} | in [Machine Learning]{.color-blue} |
 
 : {.hover .responsive-sm tbl-colwidths="[30,35,35]"}
@@ -100,27 +100,23 @@ This talk is about an [optimization-based Methods]{.color-blue}
 :::
 
 ::: {.column width="60%"}
-::: {.callout-tip title="Key Property of the Langevin Diffusion" icon="false"}
+::: {.callout-tip title="Property of Langevin Diffusion" icon="false"}
 
 $$
-dX_t=-\nabla\log p(X_t)\,dt+\sqrt{2\beta^{-1}}\,dB_t
+d\textcolor{#2780e3}{X_t}=-\nabla\log p(\textcolor{#2780e3}{X_t}|\{x_i\}_{i=1}^n)\,dt+dB_t
 $$
 
-converges to $p(\textcolor{#E95420}{z})$ as $t\to\infty$.
+converges to $p(\textcolor{#E95420}{z}|\{x_i\}_{i=1}^n)$ as $t\to\infty$.
 
 :::
 
-This is applicable to
-$$
-p(\textcolor{#E95420}{z}|\{x_i\}_{i=1}^n)\propto p(\textcolor{#E95420}{z})\prod_{i=1}^n p(x_i|\textcolor{#E95420}{z})
-$$
-because ...
+This approach is feasible because ...
 
 $$
-\nabla\log p(\textcolor{#E95420}{z})\quad(\text{score function})
+\text{score function}\quad\nabla\log p(\textcolor{#E95420}{z}|\{x_i\}_{i=1}^n)
 $$
 
-is the only quantity that matters.
+is evaluatable.
 
 :::
 ::::
@@ -135,7 +131,7 @@ is the only quantity that matters.
 
 ::: {.column width="60%"}
 
-* Better convergence [@Diaconis2013], [@Andrieu-Livingstone2021]
+* Better convergence<br>[@Andrieu-Livingstone2021]
 * Better scalability<br>[@Bierkens+2019]
 * Numerical stability<br>[@Chevallier+2025]
 
@@ -154,7 +150,7 @@ Available in our package `PDMPFlux.jl`
 $$
 \text{Posterior distribution:}\qquad p(\textcolor{#E95420}{z}|\boldsymbol{x})\propto p(\textcolor{#E95420}{z})\prod_{i=1}^n p(x_i|\textcolor{#E95420}{z})
 $$
-is searched in a **variational** formulation via KL divergence:
+is searched in a [variational]{.color-blue} formulation via KL divergence:
 $$
 p(\textcolor{#E95420}{z}|\boldsymbol{x})=\argmin_{q\in\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}})}\operatorname{KL}\bigg(q(\textcolor{#E95420}{z}),p(\textcolor{#E95420}{z}|\boldsymbol{x})\bigg).
 $$
@@ -243,38 +239,71 @@ It is because [DDM]{.color-blue} learns how to denoise a noisy data. [DDM]{.colo
 
 ![A very famous figure from [@Kreis+2022]](ISM/DD.png)
 
+### Summary {.unnumbered}
+
+* Problem Setting: [Generative Modeling]{.color-blue} ≒ [Bayesian Modeling]{.color-unite}
+* Two main approaches:
+  * [Sampling-based Methods]{.color-unite}: [MCMC]{.color-unite}, [PDMC]{.color-unite}, etc.
+  * [Optimization-based Methods]{.color-blue}: [VI]{.color-blue}, [VAE]{.color-blue}, [DDM]{.color-blue}, etc.
+* [DDM]{.color-blue} succeeds by
+  * Discarding modeling [inference]{.color-unite} process $q_{\textcolor{#E95420}{\phi}}$
+  * Concentrating on learning to [generate]{.color-blue} from $p_{\textcolor{#2780e3}{\theta}}$
+
+::: {.callout-note title="Development 1: More Concentration on Learning to Generate" icon="false"}
+
+Isn't there a more suitable training objective than score?
+
+:::
+
+::: {.callout-important title="Development 2: Overlooked Design Choice" icon="false"}
+
+Was "fixing $q_{\textcolor{#E95420}{\phi}}$ to be a Langevin diffusion" really a good idea?
+
+:::
+
+## Developments in Continuous Diffusion Models
+
+| Data Space $\textcolor{#2780e3}{\mathcal{X}}$ | Continuous | Discrete |
+|:-----:|:-----:|:-----:|
+| Trigger | [@Ho+2020] | [@Austin+2021] |
+| [Continuous-time]{.small-letter} | [@Song+2021ICLR] | [[@Campbell+2022]]{.small-letter} |
+| Score-based | [@Song+2021ICLR] | [@Sun+2023] |
+| Flow-based | [@Lipman+2023] | [@Gat+2024] |
+
+: Historical Development {.hover .responsive-sm tbl-colwidths="[30,35,35]"}
+
 ### Score-based [DDM]{.color-blue}
 
-::: {.callout-tip title="Proposition about the Langevin Diffusion [@Anderson1982]" icon="false"}
+::: {.callout-tip title="Theorem from [@Anderson1982]" icon="false"}
 
-The following two processes have the *same* distribution, but in the opposite direction:
+$(\textcolor{#E95420}{Z}_t)_{t=0}^T$ and $(\textcolor{#2780e3}{X}_{T-t})_{t=0}^T$ have the *same* path measure:
 
 $$
-\text{Langevin diffusion:}\qquad\qquad d\textcolor{#E95420}{Z}_t=U_t(\textcolor{#E95420}{Z_t})\,dt+dB_t
+\text{\textcolor{#E95420}{Langevin diffusion}:}\qquad\qquad d\textcolor{#E95420}{Z}_t=b_t(\textcolor{#E95420}{Z}_t)\,dt+dB_t
 $$
 $$
-\text{Denoising diffusion:}\quad d\textcolor{#2780e3}{X}_t=\bigg(-U_{T-t}(\textcolor{#2780e3}{X_t})+\underbrace{\nabla\log p_{\textcolor{#2780e3}{\theta}}^{T-t}(\textcolor{#2780e3}{X_t})}_{\text{score function}}\bigg)\,dt+dB'_t
+\text{\textcolor{#2780e3}{Denoising diffusion}:}\quad d\textcolor{#2780e3}{X}_t=\bigg(-b_{T-t}(\textcolor{#2780e3}{X}_t)+\underbrace{\nabla\log q^{T-t}(\textcolor{#2780e3}{X}_t)}_{\text{score function}}\bigg)\,dt+dB'_t
 $$
 
 :::
 
-To learn the path measure $p_{\textcolor{#2780e3}{\theta}}$ is to learn the score $s_{\textcolor{#2780e3}{\theta}}$ by the loss
+Learning $(\textcolor{#2780e3}{X}_{t})$ is equivalent to learning the score $s_{\textcolor{#2780e3}{\theta}}$ by the loss
 $$
-\mathcal{L}(\textcolor{#2780e3}{\theta})=\int^T_0\operatorname{E}\bigg[\bigg|\nabla\log p_{\textcolor{#2780e3}{\theta}}^t(\textcolor{#E95420}{Z_t}|\textcolor{#2780e3}{x})-s_{\textcolor{#2780e3}{\theta}}(\textcolor{#E95420}{Z_t},t)\bigg|^2\bigg]\,dt.
+\mathcal{L}(\textcolor{#2780e3}{\theta})=\int^T_0\operatorname{E}\bigg[\bigg|\nabla\log q^t(\textcolor{#E95420}{Z_t}|\textcolor{#2780e3}{x})-s_{\textcolor{#2780e3}{\theta}}(\textcolor{#E95420}{Z_t},t)\bigg|^2\bigg]\,dt.
 $$
 
 ::: aside
 This is proposed by [@Song+2021ICLR]. $\mathcal{L}(\textcolor{#2780e3}{\theta})$ is called the *denoising score matching* loss.
 :::
 
-### ODE Sampling of [DDM]{.color-blue} {margin-bottom="0px"}
+### ODE Sampling of Score-based [DDM]{.color-blue} {margin-bottom="0px"}
 
 $$
-\text{ODE:}\qquad\frac{d\textcolor{#2780e3}{X}_t}{dt}=-U_t(\textcolor{#2780e3}{X_t})+\frac{1}{2}\nabla\log p_{\textcolor{#2780e3}{\theta}}^t(\textcolor{#2780e3}{X_t})=:u_t(\textcolor{#2780e3}{X_t})
+\text{ODE:}\qquad\frac{d\textcolor{#2780e3}{X}_t}{dt}=-b_t(\textcolor{#2780e3}{X_t})+\frac{1}{2}s_{\textcolor{#2780e3}{\theta}}^t(\textcolor{#2780e3}{X_t})=:v^t_\theta(\textcolor{#2780e3}{X_t})
 $$ {#eq-probability-flow-ODE}
 has the same 1d marginal distributions as
 $$
-\text{Reversed Langevin:}\quad d\textcolor{#2780e3}{X_t}=\bigg(-U_{t}(\textcolor{#2780e3}{X_t})+\nabla\log p_{\textcolor{#2780e3}{\theta}}^{t}(\textcolor{#2780e3}{X_t})\bigg)\,dt+dB_t.
+\text{\textcolor{#2780e3}{Denoising diffusion} SDE:}\quad d\textcolor{#2780e3}{X_t}=\bigg(-b_{t}(\textcolor{#2780e3}{X_t})+s_{\textcolor{#2780e3}{\theta}}^{t}(\textcolor{#2780e3}{X_t})\bigg)\,dt+dB_t.
 $$
 
 
@@ -288,27 +317,18 @@ $$
 :::
 ::::
 
-### 1.9 ODE Sampling of [DDM]{.color-blue} {.unnumbered}
-
-To [generate]{.color-blue} a new sample after learning the path measure $p_{\textcolor{#2780e3}{\theta}}$,
-
-we avoid tracing it exactly, by ...
+### New Loss Enables New Sampling
 
 |  | SDE sampling | ODE sampling |
 |:-----:|:-----:|:-----:|
-| Loss | Score matching | Flow matching |
+| Forward Path | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ |
+| Backward Path | $(p^t_{\textcolor{#2780e3}{\theta}}(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ | (?) |
 | Speed | Slow | [Fast]{.color-unite} |
 | Quality | [High]{.color-unite} | Low |
 
-: {.hover .responsive-sm tbl-colwidths="[20,40,40]"}
+: {.hover .responsive-sm tbl-colwidths="[30,35,35]"}
 
-We need a **theory** to explain these behaviours.
-
-::: {.callout-tip appearance="simple" icon="false" title="E.g."}
-
-SDE approach is more robust to the estimation error in the score
-
-:::
+[→ Can we improve the forward path, to match the ODE sampling?]{.center}
 
 ::: aside
 [@Karras+2022] uses Heun's 2nd order correction method to discretize the ODE.
@@ -316,31 +336,11 @@ SDE approach is more robust to the estimation error in the score
 The ODE parametrization by [@JiamingSong+2021] is favorable from its stable curvature.
 
 Discretizing the SDE by adding extra noise results in higher quality in `imagenet` dataset.
+
+The SDE approach seems to be more robust to the estimation error in the score [@Cao+2023].
 :::
 
-### Summary {.unnumbered}
-
-* [Generative Modeling]{.color-blue} ≒ [Bayesian Modeling]{.color-unite}
-* There are two main approaches:
-  * [Sampling-based Methods]{.color-unite}: [MCMC]{.color-unite}, [PDMC]{.color-unite}, etc.
-  * [Optimization-based Methods]{.color-blue}: [VI]{.color-blue}, [VAE]{.color-blue}, [DDM]{.color-blue}, etc.
-* Core ideas of the [DDM]{.color-blue}:
-  * Discard modeling [inference]{.color-unite} process $q_{\textcolor{#E95420}{\phi}}$
-  * Concentrate on learning to [generate]{.color-blue} from $p_{\textcolor{#2780e3}{\theta}}$
-
-::: {.callout-important title="Overlooked Design Choice" icon="false"}
-
-Was "fixing $q_{\textcolor{#E95420}{\phi}}$ to be a Langevin diffusion" really a good idea?
-
-:::
-
-::: {.callout-note title="More Concentration on Learning to Generate" icon="false"}
-
-Isn't there a more suitable training objective than score?
-
-:::
-
-## In Search of Better Path
+### In Search of Better Path
 
 :::: {.columns style="text-align: center;"}
 ::: {.column width="33%"}
@@ -374,7 +374,7 @@ Usually, FM is understood as a scalable alternative to train CNFs [@Chen+2018].
 Being an alternative to score matching by learning directly the RHS of ([-@eq-probability-flow-ODE]), this approach is called *flow matching*, independently proposed by [@Liu+2023-Flow], [@Albergo-Vanden-Eijnden2023], [@Lipman+2023].
 :::
 
-### 2.1 Flow-based [DDM]{.color-blue}: A Flexible Framework {.unnumbered}
+### 2.4 Flow-based [DDM]{.color-blue}: A Flexible Framework {.unnumbered}
 
 :::: {.columns}
 ::: {.column width="50%"}
@@ -413,6 +413,8 @@ $$
 
 OT paths result in straight trajectries with constant speed, which is more suitable for stable generation.
 
+## Discrete Diffusion Models
+
 ### Discrete Diffusion Models
 
 :::: {.columns layout-align="center"}
@@ -430,7 +432,7 @@ Discrete state space $\textcolor{#E95420}{\mathcal{Z}}$ (e.g. images, texts) off
 
 | $\textcolor{#E95420}{\mathcal{Z}}$ | Continuous | Discrete |
 |:-----:|:-----:|:-----:|
-| Origin | [[@Sohl-Dickstein+2015]]{.small-letter} | [@Austin+2021] |
+| Trigger | [@Ho+2020] | [@Austin+2021] |
 | [Continuous-time]{.small-letter} | [@Song+2021ICLR] | [@Campbell+2022] |
 | Score-based | [@Song+2021ICLR] | [@Sun+2023] |
 | Flow-based | [@Lipman+2023] | [@Gat+2024] |
