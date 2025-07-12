@@ -1,15 +1,14 @@
 ---
 title: "Understanding Discrete Denoising Diffusion Models"
-# subtitle: "A Survey and a Convergence Analysis"
+subtitle: "A Survey and a Convergence Analysis"
 # title-slide-attributes: 
-#   data-background-image: ../Posters/Images/footer_minty.svg
-#   data-background-position: unset
-#   data-background-size: contain
-#   data-background-interactive: true
+#   data-background-image: DDD/best.jpg
+  # data-background-opacity: 50%
 author:
   - name: "Hirofumi Shiba"
     affiliations: 
       - name: "Institute of Statistical Mathematics, Tokyo, Japan"
+        country: "Japan"
 date: "7/15/2025"
 categories: [Slide]
 image: ../../2024/Samplers/Files/best.gif
@@ -32,8 +31,7 @@ format:
     controls-layout: bottom-right
     self-contained-math: true
     shift-heading-level-by: -1
-    toc: true
-    toc-title: Contents
+    toc: false
     number-sections: true
     theme: serif
     show-slide-number: all
@@ -41,6 +39,13 @@ format:
     tbl-cap-location: bottom
     margin: 0.05
     comments: false
+include-in-header: 
+            - text: |
+                <style>
+                .title, .subtitle, .quarto-title-author-name, .quarto-title-affiliation, .date {
+                  font-family: "Gill Sans", sans-serif !important;
+                }
+                </style>
 description: |
   Slides are [[here]{.underline}](DDD_Slides.html)．
 comment: false
@@ -57,6 +62,14 @@ slide:
   place: Universität Ulm
   time: 17:30-18:00
 ---
+
+## Today's Contents {.unnumbered .unlisted visibility="uncounted"}
+
+* 1 Mathematical Introduction (-2020)
+* 2 Developments in Continuous Diffusion Models (2021-2023)
+* 3 Discrete Diffusion Models (2024-)
+
+![D3PM (Discrete Denoising Diffusion Probabilistic Model) example from [@Simo2024]](../../2024/Samplers/Files/best.gif){fig-align="center"}
 
 ## Mathematical Introduction
 
@@ -206,7 +219,7 @@ Concentrating on learning $p_{\textcolor{#2780e3}{\theta}}$, we fix
 $$
 q_{\textcolor{#E95420}{\phi}}(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=q(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x})=q^{t_1}(\textcolor{#E95420}{z_1}|\textcolor{#2780e3}{x})\prod_{i=1}^T q^{t_{i+1}-t_i}(\textcolor{#E95420}{z_{i+1}}|\textcolor{#E95420}{z_{i}}),
 $$
-as a path measure on $\textcolor{#E95420}{\mathcal{Z}}=(\R^d)^{T+1}$ of the Langevin diffusion.
+as a path measure of a Langevin diffusion on $\textcolor{#E95420}{\mathcal{Z}}=(\R^d)^{T+1}$.
 
 ![](DDD/OU_simulation_wider.gif)
 
@@ -273,7 +286,11 @@ Was "fixing $q_{\textcolor{#E95420}{\phi}}$ to be a Langevin diffusion" really a
 
 : Historical Development {.hover .responsive-sm tbl-colwidths="[30,35,35]"}
 
-### Score-based [DDM]{.color-blue}
+### Limit in $T\to\infty$ leads to SDE formulation
+
+![](DDD/DDM-VAE.png){fig-align="center"}
+
+### Score-based [DDM]{.color-blue} in SDE formulation
 
 ::: {.callout-tip title="Theorem from [@Anderson1982]" icon="false"}
 
@@ -322,15 +339,17 @@ $$
 
 |  | SDE sampling | ODE sampling |
 |:-----:|:-----:|:-----:|
-| Forward Path | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ |
-| Backward Path | $(p^t_{\textcolor{#2780e3}{\theta}}(\textcolor{#2780e3}{x}|\textcolor{#E95420}{z}))_{t=0}^T$ | (?) |
+| [Forward]{.color-unite} Path | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ | $(q^t(\textcolor{#E95420}{z}|\textcolor{#2780e3}{x}))_{t=0}^T$ |
+| [Backward]{.color-blue} Path | $(p^t_{\textcolor{#2780e3}{\theta}}(\textcolor{#2780e3}{x}|\textcolor{#E95420}{z}))_{t=0}^T$ | (?) |
 | Speed | Slow | [Fast]{.color-unite} |
 | Quality | [High]{.color-unite} | Low |
 
 : {.hover .responsive-sm tbl-colwidths="[30,35,35]"}
 
+Problem: "ODE Solver applied to SDE path" doesn't make sense.
+
 ::: {.r-fit-text}
-If the forward path weren't a SDE ...
+→ Explore other possibilities in the [forward]{.color-unite} path
 :::
 
 ::: aside
@@ -343,7 +362,7 @@ Discretizing the SDE by adding extra noise results in higher quality in `imagene
 The SDE approach seems to be more robust to the estimation error in the score [@Cao+2023].
 :::
 
-### In Search of Better Path
+### In Search of Better [Forward Path]{.color-unite}
 
 :::: {.columns style="text-align: center;"}
 ::: {.column width="33%"}
@@ -362,22 +381,22 @@ The SDE approach seems to be more robust to the estimation error in the score [@
 
 ### Flow-based [DDM]{.color-blue}: A Flexible Framework
 
-Instead of the path $\{p_{\textcolor{#2780e3}{\theta}}^t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}})$, we concentrate on the vector field $u$ satisfying
+Instead of score $\nabla\log q^t(\textcolor{#E95420}{z})$, we learn the vector field $u$ satisfying
 $$
-\partial_tp^t_{\textcolor{#2780e3}{\theta}}+\operatorname{div}(p^t_{\textcolor{#2780e3}{\theta}}u^t_{\textcolor{#2780e3}{\theta}})=0.
+(\text{continuity equation})\quad\partial_tp^t+\operatorname{div}(p^tu^t)=0.
 $$
 We learn $u$ by a NN $(t,x)\mapsto v_{\textcolor{#2780e3}{\theta}}^t(x)$ with the loss
 $$
 \text{Flow Matching Loss:}\qquad\mathcal{L}_{\text{FM}}(\textcolor{#2780e3}{\theta})=\int_0^T\operatorname{E}\bigg[\bigg|v_{\textcolor{#2780e3}{\theta}}^t(X)-u^t(X)\bigg|^2\bigg]\,dt.
 $$
-To generate a new sample, we let $X_0\sim p^0_{\textcolor{#2780e3}{\theta^*}}$ flow along $v_{\textcolor{#2780e3}{\theta^*}}^t$.
+To generate a new sample, we let $X_0\sim p^0$ flow along $v_{\textcolor{#2780e3}{\theta^*}}^t$.
 
 ::: aside
 Usually, FM is understood as a scalable alternative to train CNFs [@Chen+2018].
 Being an alternative to score matching by learning directly the RHS of ([-@eq-probability-flow-ODE]), this approach is called *flow matching*, independently proposed by [@Liu+2023-Flow], [@Albergo-Vanden-Eijnden2023], [@Lipman+2023].
 :::
 
-### 2.4 Flow-based [DDM]{.color-blue}: A Flexible Framework {.unnumbered}
+### [New [Forward]{.color-unite} Paths and Corresponding [Backward]{.color-blue} ODEs]{.small-letter}
 
 :::: {.columns}
 ::: {.column width="50%"}
@@ -416,50 +435,61 @@ $$
 
 OT paths result in straight trajectries with constant speed, which is more suitable for stable generation.
 
-## Discrete Diffusion Models
+Figures are from [@Lipman+2023].
 
-### Discrete Diffusion Models
+### Summary: Towards Straighter Paths {.unnumbered}
 
-:::: {.columns layout-align="center"}
-::: {.column width="80%"}
-Discrete state space $\textcolor{#E95420}{\mathcal{Z}}$ (e.g. images, texts) offers ...
+* SDE formulation enables faster ODE sampling
+* ODE sampling is possible to other choices of $q_{\textcolor{#E95420}{\phi}}$
+  * Langevin path [← the Diffusion Model]{.color-minty}
+  * Optimal Transport path
+  * [more in discrete settings!]{.color-unite}
 
-* direct modeling without discretization
-* a diverse choice of inference processes $q_{\textcolor{#E95420}{\phi}}$
-* ununiform weights on different states
+:::: {.columns style="text-align: center;"}
+::: {.column width="33%"}
+![](DDD/DiffPath.gif)
 :::
-::: {.column width="20%"}
-![](../../2024/Samplers/Files/best.gif){fig-align="center" width="100%"}
+
+::: {.column width="33%"}
+![](DDD/Lipman/2d_traj_diff.png)
 :::
+
+::: {.column width="33%"}
+![](DDD/Lipman/2d_traj_ot.png)
+:::
+
 ::::
 
-| $\textcolor{#E95420}{\mathcal{Z}}$ | Continuous | Discrete |
-|:-----:|:-----:|:-----:|
-| Trigger | [@Ho+2020] | [@Austin+2021] |
-| [Continuous-time]{.small-letter} | [@Song+2021ICLR] | [@Campbell+2022] |
-| Score-based | [@Song+2021ICLR] | [@Sun+2023] |
-| Flow-based | [@Lipman+2023] | [@Gat+2024] |
+## Discrete Diffusion Models
 
-: Historical Development {.hover .responsive-sm tbl-colwidths="[25,40,40]"}
+![Block Diffusion proposed in [@Arriola+2025]](DDD/BlockDiffusion.gif)
 
-### Masked Diffusion
+### Masking Processes
 
-Consider path measures $\{p_t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}}\sqcup\{m\})$ that satisfy
+Consider path measures $\{q_t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}}\sqcup\{\texttt{mask}\})$ that satisfy
 $$
-\text{1d marginal condition:}\qquad p_t(-|\textcolor{#2780e3}{x})=\alpha_t\delta_{\textcolor{#2780e3}{x}}(-)+(1-\alpha_t)\delta_m(-),
+\text{linear interpolation:}\qquad q_t(-|\textcolor{#2780e3}{x})=(1-\alpha_t)\delta_{\textcolor{#2780e3}{x}}(-)+\alpha_t\delta_{\texttt{mask}}(-),
 $$
+<!-- $$
+\therefore\qquad p^{\textcolor{#2780e3}{\text{data}}}(-)\xleftarrow{t\to0}q_t(-)=\int_{\textcolor{#2780e3}{\mathcal{X}}}q_t(-|\textcolor{#2780e3}{x})p^{\textcolor{#2780e3}{\text{data}}}(\textcolor{#2780e3}{x})\,d\textcolor{#2780e3}{x}\xrightarrow{t\to T}\delta_{\texttt{mask}}(-).
+$$ -->
+A backward sampling process is given by
 $$
-\therefore\qquad\delta_m(-)\xleftarrow{t\to0}p_t(-)=\int_{\textcolor{#2780e3}{\mathcal{X}}}p_t(-|\textcolor{#2780e3}{x})p^{\textcolor{#2780e3}{\text{data}}}(\textcolor{#2780e3}{x})\,d\textcolor{#2780e3}{x}\xrightarrow{t\to T}p^{\textcolor{#2780e3}{\text{data}}}(-).
+\text{rate function:}\qquad R_t(\mathtt{mask},\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{p^t(\textcolor{#2780e3}{x}|\mathtt{mask}).}_{\text{learn this part using NN}}
 $$
-One reverse process that trace $\{p_t\}_{t=0}^T$ is the Markov process with the rate
+<!-- $$
+\text{transition matrix:}\qquad P_t(\mathtt{mask},\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{q_{t}(\textcolor{#2780e3}{x}|\mathtt{mask}).}_{\text{learn this part using NN}}
+$$ -->
+The predictor $p^t(\textcolor{#2780e3}{x}|\mathtt{mask})$ is learned by the loss
 $$
-R_t(m,\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{p_{t}(\textcolor{#2780e3}{x}|m).}_{\text{learn this part using NN}}
+\mathcal{L}(\textcolor{#2780e3}{\theta})=\int^T_0\frac{\dot{\alpha}_t}{1-\alpha_t}\operatorname{E}\bigg[\operatorname{KL}\bigg(p^{\text{\textcolor{#2780e3}{data}}},p^t_{\textcolor{#2780e3}{\theta}}(\textcolor{#2780e3}{X_t}|\texttt{mask})\bigg)\bigg]\,dt.
 $$
 
-### Summary {.unnumbered}
+::: aside
+This approach culminates in [@Shi+2024], [@Liu+2025].
+:::
 
-* Straight path
-  * Langevin path $p_{\textcolor{#2780e3}{\theta}}$ requires a forward simulation during training
+### Convergence of Masking Processes
 
 ## References {.unnumbered .unlisted visibility="uncounted"}
 
@@ -513,4 +543,4 @@ $$
 through the **Action Matching** loss [@Neklyudov+2023]
 $$
 \mathcal{L}_{\text{AM}}(\theta)=\operatorname{E}[s^0_\theta(X_0)-s^1_\theta(X_1)]+\int^1_0\operatorname{E}\bigg[\frac{1}{2}|\nabla s^t_\theta(X)|^2+\partial_ts^t_\theta(X)\bigg]\,dt
-$$## Discrete Diffusion Models
+$$
