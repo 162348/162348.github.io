@@ -1,6 +1,6 @@
 ---
 title: "Understanding Discrete Denoising Diffusion Models"
-subtitle: "A Survey and a Convergence Analysis"
+subtitle: "A Survey and a Gap in the Theory"
 # title-slide-attributes: 
 #   data-background-image: DDD/best.jpg
   # data-background-opacity: 50%
@@ -396,7 +396,7 @@ Usually, FM is understood as a scalable alternative to train CNFs [@Chen+2018].
 Being an alternative to score matching by learning directly the RHS of ([-@eq-probability-flow-ODE]), this approach is called *flow matching*, independently proposed by [@Liu+2023-Flow], [@Albergo-Vanden-Eijnden2023], [@Lipman+2023].
 :::
 
-### [New [Forward]{.color-unite} Paths and Corresponding [Backward]{.color-blue} ODEs]{.small-letter}
+### From Path to Flow
 
 :::: {.columns}
 ::: {.column width="50%"}
@@ -440,22 +440,23 @@ Figures are from [@Lipman+2023].
 ### Summary: Towards Straighter Paths {.unnumbered}
 
 * SDE formulation enables faster ODE sampling
-* ODE sampling is possible to other choices of $q_{\textcolor{#E95420}{\phi}}$
+* ODE sampling is possible to other choices of $q_{\textcolor{#E95420}{\phi}}$<br>
+  $\because\quad$ Only 1d marginals matter (= Flow-based Modeling)
   * Langevin path [← the Diffusion Model]{.color-minty}
   * Optimal Transport path
   * [more in discrete settings!]{.color-unite}
 
 :::: {.columns style="text-align: center;"}
 ::: {.column width="33%"}
-![](DDD/DiffPath.gif)
+![Langevin Path](DDD/DiffPath.gif)
 :::
 
 ::: {.column width="33%"}
-![](DDD/Lipman/2d_traj_diff.png)
+![ODE Path w.r.t. Langevin Forward](DDD/Lipman/2d_traj_diff.png)
 :::
 
 ::: {.column width="33%"}
-![](DDD/Lipman/2d_traj_ot.png)
+![OT Path](DDD/Lipman/2d_traj_ot.png)
 :::
 
 ::::
@@ -466,7 +467,28 @@ Figures are from [@Lipman+2023].
 
 ### Masking Processes
 
-Consider path measures $\{q_t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}}\sqcup\{\texttt{mask}\})$ that satisfy
+![](DDD/Masking.png)
+
+with some rate $R_t(\texttt{mask}|x)>0$ of masking $x\ne\texttt{mask}$.
+
+The reverse process is characterized by the rate
+$$
+\textstyle\hat{R}_t(x|y)=R_t(y|x)\underbrace{\frac{q^t(x)}{q^t(y)}.}_{\text{learn this part using NN}}
+$$
+
+| [Forward]{.color-unite} process | Uniform | Masking |
+|:-----:|:-----:|:-----:|
+| Number of steps needed in [backward]{.color-blue} process | $\tilde{O}(d^2/\epsilon)$ | $\tilde{O}(d/\epsilon)$ |
+
+: Comparison of [forward]{.color-unite} designs [@Liang+2025] {.hover .responsive-sm tbl-colwidths="[40,30,30]"}
+
+::: aside
+This continuous-time approach starts with [@Campbell+2022], followed by [@Sun+2023] and culminates in [@Lou+2024].
+:::
+
+### Discrete Flow Matching
+
+Targets a forward process $\{q_t\}_{t=0}^T\subset\mathcal{P}(\textcolor{#E95420}{\mathcal{Z}}\sqcup\{\texttt{mask}\})$ that satisfies
 $$
 \text{linear interpolation:}\qquad q_t(-|\textcolor{#2780e3}{x})=(1-\alpha_t)\delta_{\textcolor{#2780e3}{x}}(-)+\alpha_t\delta_{\texttt{mask}}(-),
 $$
@@ -475,7 +497,7 @@ $$
 $$ -->
 A backward sampling process is given by
 $$
-\text{rate function:}\qquad R_t(\mathtt{mask},\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{p^t(\textcolor{#2780e3}{x}|\mathtt{mask}).}_{\text{learn this part using NN}}
+\text{rate function:}\qquad R_t(\textcolor{#2780e3}{x}|\mathtt{mask})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{p^t(\textcolor{#2780e3}{x}|\mathtt{mask}).}_{\text{learn this part using NN}}
 $$
 <!-- $$
 \text{transition matrix:}\qquad P_t(\mathtt{mask},\textcolor{#2780e3}{x})=\frac{\dot{\alpha}_t}{1-\alpha_t}\underbrace{q_{t}(\textcolor{#2780e3}{x}|\mathtt{mask}).}_{\text{learn this part using NN}}
@@ -485,11 +507,11 @@ $$
 \mathcal{L}(\textcolor{#2780e3}{\theta})=\int^T_0\frac{\dot{\alpha}_t}{1-\alpha_t}\operatorname{E}\bigg[\operatorname{KL}\bigg(p^{\text{\textcolor{#2780e3}{data}}},p^t_{\textcolor{#2780e3}{\theta}}(\textcolor{#2780e3}{X_t}|\texttt{mask})\bigg)\bigg]\,dt.
 $$
 
+Theory lacks in this setting.
+
 ::: aside
 This approach culminates in [@Shi+2024], [@Liu+2025].
 :::
-
-### Convergence of Masking Processes
 
 ## References {.unnumbered .unlisted visibility="uncounted"}
 
