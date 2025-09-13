@@ -1,18 +1,19 @@
 ---
-title: "拡散モデルの離散空間・連続時間での設計"
-# subtitle: "位相構造を取り入れた次世代の構造生成へ"
-author: "司馬 博文"
-date: 6/26/2025
-date-modified: 7/16/2025
+title: "Masked Diffusion Models"
+subtitle: "A New Light to Discrete Data Modeling"
+author: "Hirofumi Shiba"
+date: 9/13/2025
 # image: ../../2024/Samplers/Files/best.gif
-categories: [Deep, Sampling]
+categories: [Denoising Model]
 bibliography: 
     - ../../../assets/2023.bib
     - ../../../assets/2024.bib
     - ../../../assets/2025.bib
 csl: ../../../assets/apalike.csl
-# abstract-title: 概要
-# abstract: 
+abstract: |
+  Masked diffusion models are based upon absorbing / masking noising process and its reverse denoising process.
+  To develop our understanding, we give a toy example, without training a neural network, to showcase how absorbing process behaves.
+  We identify core questions which should be investigated to expand our understanding.
 listing: 
     -   id: diffusion-listing
         type: grid
@@ -23,33 +24,265 @@ listing:
             - "../../2024/Samplers/Diffusion.qmd"
         date-format: iso
         fields: [title,image,date,subtitle]
+format:
+  html:
+    code-fold: false
+execute:
+  cache: false
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
+## Introduction
+
+The absorbing process, a.k.a. masking diffusion, has a unique characteristic as a forward process in a discrete denoising diffusion model.
+
+The unique characteristic might be called time-agnosticy.
+
+Many works agree in employing the following training objective to train a neural network $p_\theta$:
+$$
+\cL(\theta):=\int^1_0\frac{\dot{\alpha}_t}{1-\alpha_t}\E\Square{\sum_{i=1}^d\log p_\theta(X_0^i|X_t)}\,dt.
+$$ {#eq-L}
+
+If we promise the sum is only taken over the masked indices $X_t^i=\texttt{mask}$, the expectation is exactly a cross-entropy loss. Therefore, the loss ([-@eq-L]) can be understood as a weighted cross-entropy loss.
+
+Discrete Flow Matching [@Campbell+2024], [@Gat+2024] and simplified Masked diffusion [@Shi+2024], [@Ou+2025], [@Zheng+2025] are different frameworks with different ranges, but both lead to the same training objective ([-@eq-L]), when applied to the forward masking process.
+
+The hyper-parameter $\alpha_t$ is refered as a *noising schedule*, which decides the convergence speed of the forward process. As a function of $t\mapsto\alpha_t$, different choices for $\al_t$ seem to make little impact on the total performance of the model.
+
+However, if we allow $\al_t$ to depend on the state as in [@Shi+2024 Section 6], I believe the masked diffusion model will start to show its real potential over currently dominant autoregressive framework.
+
+The problem arises when one tries to learn $\al_t$ at the same time, for example, by including a term into the loss ([-@eq-L]). This will lead to amplified variance of the gradient estimate and unstable training, as reported in [@Shi+2024] and [@Arriola+2025].
+
+## Demo
+
+We carry out unconditional generation from a toy data distribution $\pi_{\text{data}}$ on $5=\{0,1,2,3,4\}$, by running the exact reverse kernel of the absorbing (masked) forward process. Therefore, no neural network training is involved.
+
+### Setup
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(42)
+```
+
+```{python}
+p_data = np.array([0.40, 0.30, 0.18, 0.10, 0.02], dtype=float)
+```
+
+We will represent the MASK as $-1$. The state space is then $E:=5 \cup \{-1\}$.
+
+```{python}
+MASK = -1
+```
+
+An important design choice in the forward process is the noising schedule $\alpha_t$, which can be interpreted as *survival probability* and satisfy the following relatioship with the jump intensity $\beta_t$:
+$$
+\alpha_t=\exp\paren{-\int^t_0\beta_s\,ds},\qquad t\in[0,1].
+$$
+
+Let us keep it simple and set $\alpha_t=t$. To achive this, we need to set
+$$
+\beta_t=\frac{1}{1-t},\qquad t\in[0,1),
+$$
+which is clearly diverging as $t\to1$. This is to ensure the process to converge in finite time.
+
+```{python}
+T = 10  # number of steps
+alpha = np.linspace(1.00, 0.00, T+1)
+```
+
+### Backward Transition Kernel
+
+In this setting, the backward transition kernel $p(x_{t-1} | x_t)$ satisfies
+$$
+\P[X_{t-1}=-1|X_t=-1]=\frac{1 - \alpha_{t-1}}{1 - \alpha_t}.
+$$
+In the other cases, the $x_{t-1}$ should be determined according to $\pi_{\text{data}}$, which is unavailable in a real setting of course.
+
+```{python}
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])  # length T
+```
+
+```{python}
+def reverse_sample_unconditional(num_samples: int):
+    """
+    Start from x_T = MASK for all samples, apply the exact reverse transitions down to t=0.
+    Returns x_0 samples in 5 = {0,1,...,4}.
+    """
+    x_t = np.full(num_samples, MASK, dtype=int)
+    hist = np.empty((T+1, num_samples), dtype=int)
+    hist[0] = x_t.copy()
+    for t in range(T, 0, -1):
+        idx_mask = np.where(x_t == MASK)[0]  # masked indices
+        if idx_mask.size > 0:
+            u = rng.random(idx_mask.size)
+            unmask_now = idx_mask[u < p_unmask[t-1]]  # indices that are going to be unmasked
+            if unmask_now.size > 0:
+                cats = rng.choice(5, size=unmask_now.size, p=p_data)
+                x_t[unmask_now] = cats
+        hist[T-t+1] = x_t.copy()
+
+    # At t=0, all remaining MASKs (if any) must have already unmasked earlier with probability 1,
+    # but numerically we ensure no MASK remains:
+    assert np.all(x_t != MASK), "Some samples remained MASK at t=0, which should not happen."
+    return x_t, hist
+```
+
+#### A Note on Alternative Sampling Strategies
+
+Note that we need not to obey this exact backward transition kernel to sample from the data distribution.
+
+For example, remasking [@Zhao+2024], [@Gat+2024], [@Wang+2025], a form of predictor-corrector sampling, can be incorporated to improve sample quality, mitigating numerical errors.
+
+Recently, sampling time path planning [@Peng+2025], [@Kim+2025], [@Rout+2025] has been proposed to improve sample quality and model log-likelihood.
+
+### Honest Sampling
+
+```{python}
+N = 100_000  # size of sample to get
+x0_samples, hist = reverse_sample_unconditional(N)
+```
+
+We first make sure our implementation is correct by checking the empirical distribution of the samples agrees with the true distribution.
+
+```{python}
+#| code-fold: true
+counts = np.bincount(x0_samples, minlength=5).astype(float)
+p_emp = counts / counts.sum()
+
+print("Toy data marginal p_data:", p_data.round(4))
+print("Empirical p after reverse sampling:", p_emp.round(4))
+
+# ---------- Bar chart: p_data vs empirical ----------
+xs = np.arange(5)
+width = 0.4
+plt.figure(figsize=(6,3))
+plt.bar(xs - width/2, p_data, width=width, label="true p_data")
+plt.bar(xs + width/2, p_emp, width=width, label="empirical (reverse)")
+plt.title("Reverse samples match the data marginal")
+plt.xlabel("category id")
+plt.ylabel("probability")
+plt.legend()
+plt.tight_layout()
+plt.show()
+```
+
+Making sure everything is working, we plot 1000 sample paths from the reverse process.
+
+```{python}
+#| code-fold: true
+n_samples_to_plot = min(1000, hist.shape[1])
+plt.figure()
+
+for i in range(n_samples_to_plot):
+    plt.plot(range(hist.shape[0]), hist[:, i], alpha=0.5, linewidth=0.8)
+
+plt.xlabel('Time step')
+plt.ylabel('State')
+plt.title(f'Sample trajectories (first {n_samples_to_plot} samples)')
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+We see a relatively equal number of jumps per step:
+
+```{python}
+jump_counts = np.zeros(T)
+for i in range(10):
+    jump_counts[i] = sum(hist[i] != hist[i+1])
+print(jump_counts)
+```
+
+This is because we set $\alpha_t=1-t$ to be linear.
+
+```{python}
+#| code-fold: true
+# ---------- Plot schedule α_t (survival probability) ----------
+plt.figure(figsize=(5,3))
+plt.plot(range(T+1), alpha, marker="o")
+plt.title(r"Survival probability $\alpha_t$")
+plt.xlabel("t")
+plt.ylabel(r"$\alpha_t$")
+plt.tight_layout()
+plt.show()
+```
+
+### Choice of $\alpha_t$
+
+$\alpha_t$ controls the convergence rate of the forward process.
+
+We change $\al_t$ to see the impact on the sampling accuracy.
+
+
+
+
+
+
+This is certainly not what we want. We spend most of the computational time (up to 7th step) in simulating the phantom jumps which just do not happen.
+
+The same concern was raised by [@Chao+2025]. Before investigating their remedy, let us set out on a journey to understand more of the process.
+
+```{python}
+l1 = np.abs(p_emp - p_data).sum()
+kl = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum()
+```
+
+```{python}
+#| echo: false
+T = 10  # number of steps
+beta_sched_inhomogeneous = np.linspace(0.05, 0.25, T)
+one_step_transition_prob = 1 - np.exp(-beta_sched_inhomogeneous)
+alpha = np.empty(T + 1)  # survival prob α_t = ∏_{s=1}^t (1-β_s), α_0 = 1
+alpha[0] = 1.0
+for t in range(1, T + 1):
+    alpha[t] = alpha[t - 1] * one_step_transition_prob[t - 1]
+
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])  # length T
+
+plt.figure()
+
+# plt.plot(beta_sched, alpha=0.5, linewidth=0.8)
+plt.plot(beta_sched_inhomogeneous, alpha=0.5, linewidth=0.8)
+
+plt.xlabel('Time step')
+plt.ylabel('State')
+plt.title(f'Sample trajectories (first {n_samples_to_plot} samples)')
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+```{python}
+sub_N = 1000  # size of sample to get
+x0_inhomogeneous, hist_inhomogeneous = reverse_sample_unconditional(N)
+```
+
+### Corrector Sampling
+
+## Future Works
+
+### A Reinforcenment Learning Take
+
+The inference step and the sampling step should be decoupled, at least conceptually.
+
+To tune the forward process noising schedule $\alpha_t(x)$, a reinforcement learning framework will be employed, I believe in the near future.
+
+This is a variant of meta-learning and, in this way, the unmasking network $p_\theta$ will be able to efficiently learn the correct dependence structure in the data domain.
+
+For example, in language modeling, there is a natural sequential structure, which is partly why autoregressive modeling has been dominant in this domain. However, by learning $\alpha_t$ in masking process, a much more efficent factorization over texts can be aquired in a data-driven way.
+
+I even think this $\alpha_t$ can play an important role just as a word embedding does currently.
+
+In the sampling step, a sampling time path planning will greatly enhance sample quality, just as Monte Carlo tree search does in reinforcement learning.
+
+As a conclusion, the flexible framework of masked diffusion models will enable a marriage with reinforcement learning and meta learning, which will be a way to overcome the autoregressive modeling framework, because the latter imposes unnecessary sequential inductive bias into the model.
+
+### A Scaling Analysis
+
+### Another Scaling Analysis
+
+## 関連記事 {.appendix}
+
 ::: {#diffusion-listing}
 :::
-
-## Denoising Markov Model 再論
-
-### はじめに：離散状態空間
-
-拡散モデルのアイデアをどこまで一般化できるか？何が最も肝心な骨組みで，何が交換可能であるかを再論したい．
-
-例えば，画像・言語をはじめとして，離散データのモデリングを考える際に，連続緩和するのではなく離散なまま扱いたいとしよう．
-
-このような場合でも全く問題なく，一般化スコアマッチングにより従来通りの議論により，訓練目標が得られることが [@Benton+2024Denoising] で示されている．
-
-### 離散拡散モデルを連続時間で考えたい理由
-
-## 誤差解析
-
-### はじめに
-
-$p$ を前向き過程の遷移密度，$q$ を逆向き過程の遷移密度としたとき，
-$$
-\KL(p_\delta,q_t)
-$$
-という量を評価することを考える．
-
-連続状態空間上の，普通の意味での拡散モデルに対しては [@Benton+2024] が，離散状態空間上では [@Ren+2025] がこれを行っている．
