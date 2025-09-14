@@ -27,34 +27,80 @@ listing:
 format:
   html:
     code-fold: false
+    code-tools: true
+    code-summary: Code (tap me)
 execute:
-  cache: true
+  cache: false
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
 
 ## Introduction
 
-The absorbing process, a.k.a. masking diffusion, has a unique characteristic as a forward process in a discrete denoising diffusion model.
+The absorbing process, a.k.a. masking diffusion, has a unique characteristic as a forward process in a discrete denoising diffusion model; it offers a time-agnostic *learning to unmask* training framework.
 
-The unique characteristic might be called time-agnosticy.
-
-Many works agree in employing the following training objective to train a neural network $p_\theta$:
+When the state space is $E^d$ where $E=\{0,\cdots,K-1\}$ is finite, current practice is to learn a neural network $p_\theta$ based on a loss given by
 $$
-\cL(\theta):=\int^1_0\frac{\dot{\alpha}_t}{1-\alpha_t}\E\Square{\sum_{i=1}^d\log p_\theta(X_0^i|X_t)}\,dt.
+\cL(\theta):=\int^1_0\frac{\dot{\alpha}_t}{1-\alpha_t}\E\Square{\sum_{i=1}^d\log p_\theta(X_0^i|X_t)}\,dt,
 $$ {#eq-L}
+where $\alpha_t$ is a *noising schedule*, determining the convergence speed of the forward process.^[Discrete Flow Matching [@Campbell+2024], [@Gat+2024], [@Shaul+2025] and simplified Masked diffusion [@Shi+2024], [@Ou+2025], [@Zheng+2025] are different frameworks with different ranges, but both lead to the same training objective ([-@eq-L]), when applied to the forward masking process.]
 
-If we promise the sum is only taken over the masked indices $X_t^i=\texttt{mask}$, the expectation is exactly a cross-entropy loss. Therefore, the loss ([-@eq-L]) can be understood as a weighted cross-entropy loss.
+The expectation in ([-@eq-L]) is exactly a cross-entropy loss. Therefore, the loss ([-@eq-L]) can be understood as a weighted cross-entropy loss, weighted by the noising schedule $\alpha_t$.
 
-Discrete Flow Matching [@Campbell+2024], [@Gat+2024] and simplified Masked diffusion [@Shi+2024], [@Ou+2025], [@Zheng+2025] are different frameworks with different ranges, but both lead to the same training objective ([-@eq-L]), when applied to the forward masking process.
+Note that $p_\theta$ predicts the true state $x_0$, based on the current state $x_t$, some components of which might be masked, hence we called this framework *learning to unmask*. Note also that $p_\theta$ doesn't take $t$ as an argument, which we call the *time-agnostic* property following [@Zheng+2025].
 
-The hyper-parameter $\alpha_t$ is refered as a *noising schedule*, which decides the convergence speed of the forward process. As a function of $t\mapsto\alpha_t$, different choices for $\al_t$ seem to make little impact on the total performance of the model.
+This 'learning to unmask' task might be a very hard task when $t$ is near $1$, since most of the $x_t^i$'s are still masked then. 
+
+For instance, if we choose a linear schedule
+$$
+\al_t=1-t\qquad(t\in[0,1])
+$$
+the scaler $\frac{\dot{\al}_t}{1-\al_t}=-t^{-1}$ before the expectation puts less weight on large $t\approx1$, while puts much more weight on small $t\approx0$, where most of the $x_t^i$'s should be already unmasked.
+
+Hence, selecting the schedule $\al_t$ to make learning easier can be very effective, for example by reducing the variance of gradient estimator in a SGD algorithm. Actually, this is a part of the technique how [@Arriola+2025] achieved their remarkable result.
+
+This is why the loss ([-@eq-L]) is considered as a potential competitor against the current dominant autoregressive models. In fact, one work [@Chao+2025], still under review, claimed their masked diffusion model surpassed the autoregressive model on the task of language modeling, achieving an evaluation perplexity of 15.36 on the OpenWebText dataset.^[In the context of language modeling, the perplexity is defined as $2^{l}$ where $l$ is the average log-likelihood of the test set.]
+
+We briefly discuss their trick and related promising techniques to improve the model, before programming a demo in @sec-Demo to deepen our understanding in absorbing forward process.
+
+### A Gibbs Sampler Take
+
+One problem about the loss ([-@eq-L]) is that $p_\theta$ predicts the unmasked complete sequence in a product form:
+$$
+p_\theta(x_0|x_t)=\prod_{i=1}^d p_\theta(x_0^i|x_t).
+$$
+
+This should cause no problem when unmasking one component at a time, since it will be a form of ancestral sampling based on disintegration property.
+
+However, when unmasking two or more components at once, for example when the number of steps is less than $d$, the product form assumption simply introduces a bias, as the data distribution is by no means of product form on $E^d$.
+
+Here, to recover correctness asymptotically, analogy with Gibbs sampling becomes very important.
+
+For example, predictor-corrector technique can be readily employed to mitigate this bias, as discussed in [@Lezama+2023], [@Zhao+2024], [@Zhao+2024Unified], [@Gat+2024], [@Wang+2025].
+
+### Intermediate States
+
+As we mentioned earlier, unmasking can be a very hard task, as closely investigated in [@Kim+2025 Section 3].
+
+To alleviate this problem, [@Chao+2025] introduced intermediate states by re-encoding the token in a base-$2$ encoding, such as
+$$
+5\mapsto 101.
+$$
+The right-hand side needs three steps to be completely unmasked, while the left-hand side only needs one jump.
+
+Therefore, unmasking can be easier to learn, compared to the original token encoding.
+
+However, this is not the only advantage of intermediate states. [@Chao+2025] were able to construct a full predictor $p_\theta$ without the product form assumption on each token. This approach might act as a block Gibbs sampler and make the convergence faster.
+
+### State-Dependent Rate
+
+As a function of $t\mapsto\alpha_t$, different choices for $\al_t$ seem to make little impact on the total performance of the model, as we observe in our toy example in @sec-exp.
 
 However, if we allow $\al_t$ to depend on the state as in [@Shi+2024 Section 6], I believe the masked diffusion model will start to show its real potential over currently dominant autoregressive framework.
 
 The problem arises when one tries to learn $\al_t$ at the same time, for example, by including a term into the loss ([-@eq-L]). This will lead to amplified variance of the gradient estimate and unstable training, as reported in [@Shi+2024] and [@Arriola+2025].
 
-## Demo
+## Demo {#sec-Demo}
 
 We carry out unconditional generation from a toy data distribution $\pi_{\text{data}}$ on $5=\{0,1,2,3,4\}$, by running the exact reverse kernel of the absorbing (masked) forward process. Therefore, no neural network training is involved.
 
@@ -93,20 +139,20 @@ T = 10  # number of steps
 alpha = np.linspace(1.00, 0.00, T+1)
 ```
 
-### Backward Transition Kernel
+### The Backward Transition Kernel
 
 In this setting, the backward transition kernel $p(x_{t-1} | x_t)$ satisfies
 $$
 \P[X_{t-1}=-1|X_t=-1]=\frac{1 - \alpha_{t-1}}{1 - \alpha_t}.
 $$
-In the other cases, the $x_{t-1}$ should be determined according to $\pi_{\text{data}}$, which is unavailable in a real setting of course.
+In the other cases, the unmasked values $x_{t-1}$ should be determined according to $\pi_{\text{data}}$, which is unavailable in a real setting, of course.
 
 ```{python}
 p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])  # length T
 ```
 
 ```{python}
-def reverse_sample_unconditional(num_samples: int):
+def reverse_sample(num_samples: int, p_unmask: np.ndarray):
     """
     Start from x_T = MASK for all samples, apply the exact reverse transitions down to t=0.
     Returns x_0 samples in 5 = {0,1,...,4}.
@@ -134,15 +180,15 @@ def reverse_sample_unconditional(num_samples: int):
 
 Note that we need not to obey this exact backward transition kernel to sample from the data distribution.
 
-For example, remasking [@Zhao+2024], [@Gat+2024], [@Wang+2025], a form of predictor-corrector sampling, can be incorporated to improve sample quality, mitigating numerical errors.
+For example, remasking [@Lezama+2023], [@Zhao+2024], [@Gat+2024], [@Wang+2025], a form of predictor-corrector sampling, can be incorporated to improve sample quality, mitigating numerical errors.
 
-Recently, sampling time path planning [@Peng+2025], [@Kim+2025], [@Rout+2025] has been proposed to improve sample quality and model log-likelihood.
+Recently, sampling time path planning [@Peng+2025], [@Liu+2025], [@Kim+2025], [@Rout+2025] has been proposed to improve sample quality and model log-likelihood.
 
 ### Honest Sampling
 
 ```{python}
 N = 100_000  # size of sample to get
-x0_samples, hist = reverse_sample_unconditional(N)
+x0_samples, hist = reverse_sample(N, p_unmask)
 ```
 
 We first make sure our implementation is correct by checking the empirical distribution of the samples agrees with the true distribution.
@@ -209,7 +255,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-### Choice of $\alpha_t$
+### Choice of $\alpha_t$ {#sec-exp}
 
 $\alpha_t$ controls the convergence rate of the forward process.
 
@@ -219,11 +265,11 @@ Let us change $\al_t$ to be an exponential schedule:
 
 ```{python}
 #| code-fold: true
-alpha = np.exp(np.linspace(0.00, -10.00, T+1))
-p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+alpha_exp = np.exp(np.linspace(0.00, -10.00, T+1))
+p_unmask_exp = (alpha_exp[:-1] - alpha_exp[1:]) / (1.0 - alpha_exp[1:])
 
 plt.figure(figsize=(5,3))
-plt.plot(range(T+1), alpha, marker="o")
+plt.plot(range(T+1), alpha_exp, marker="o")
 plt.title(r"Survival probability $\alpha_t$")
 plt.xlabel("t")
 plt.ylabel(r"$\alpha_t$")
@@ -232,11 +278,11 @@ plt.show()
 ```
 
 ```{python}
-x0_exp, hist_exp = reverse_sample_unconditional(N)
+x0_exp, hist_exp = reverse_sample(N, p_unmask_exp)
 ```
 
 ```{python}
-#| echo: false
+#| code-fold: true
 n_samples_to_plot = min(1000, hist_exp.shape[1])
 plt.figure()
 
@@ -250,29 +296,684 @@ plt.grid(True, alpha=0.3)
 plt.show()
 ```
 
-
 We see many jumps happen in the very last steps. This is certainly not what we want.
 
 We spend almost half of the computational time (up to 6th step) in simulating the phantom jumps which just do not happen. The same concern was raised by [@Chao+2025].
 
-However, somehow accuracy seems to be improved.
+However, the accuracy is same, as the exact kernel is used to simulate, if the computational cost might be different.
 
 ```{python}
-l1 = np.abs(p_emp - p_data).sum()
-kl = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum()
-print("Linear Schedule: L1 distance:", round(l1, 6), "   KL(p_emp || p_data):", round(kl, 6))
+#| code-fold: true
+def calc_l1_kl(x0_samples, split = 10):
+    chunks = np.array_split(x0_samples, split)
+    counts = np.array([np.bincount(chunk, minlength=5).astype(float) for chunk in chunks])
 
-counts_exp = np.bincount(x0_exp, minlength=5).astype(float)
-p_emp_exp = counts_exp / counts_exp.sum()
+    p_emp = counts / counts.sum(axis=1)[0]
+    l1 = np.abs(p_emp - p_data).sum(axis=1).mean()
+    l1_var = np.abs(p_emp - p_data).sum(axis=1).var()
+    kl = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum(axis=1).mean()
+    kl_var = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum(axis=1).var()
+    return l1, l1_var, kl, kl_var
 
-l1_exp = np.abs(p_emp_exp - p_data).sum()
-kl_exp = (np.where(p_emp_exp > 0, p_emp_exp * np.log(p_emp_exp / p_data), 0)).sum()
-print("Exponential Schedule: L1 distance:", round(l1_exp, 6), "   KL(p_emp || p_data):", round(kl_exp, 6))
+l1, l1_var, kl, kl_var = calc_l1_kl(x0_samples)
+print("Linear Schedule: L1 distance:", round(l1, 6), " ± ", round(l1_var, 6), "   KL(p_emp || p_data):", round(kl, 6), " ± ", round(kl_var, 6))
+
+l1_exp, l1_exp_var, kl_exp, kl_exp_var = calc_l1_kl(x0_exp)
+print("Exponential Schedule: L1 distance:", round(l1_exp, 6), " ± ", round(l1_exp_var, 6), "   KL(p_emp || p_data):", round(kl_exp, 6), " ± ", round(kl_exp_var, 6))
 ```
+
+## 2D Example
+
+### Setup
+
+We consider a highly correlated distribution, whose support is degenerated on the diagonal element on $5^2$.
+
+```{python}
+#| code-fold: true
+K = 5
+MASK = -1
+
+# Base marginal for a single site
+p_single = np.array([0.40, 0.30, 0.18, 0.10, 0.02], dtype=float)
+p_single /= p_single.sum()
+
+# Build correlated joint with same-parity constraint
+W = np.zeros((K, K), dtype=float)
+for i in range(K):
+    for j in range(K):
+        if (i % 2) == (j % 2):
+            W[i, j] = p_single[i] * p_single[j]
+pi_joint = W / W.sum()
+pi_x = pi_joint.sum(axis=1)
+pi_y = pi_joint.sum(axis=0)
+
+# Conditionals
+cond_x_given_y = np.zeros((K, K), dtype=float)  # [j, i]
+cond_y_given_x = np.zeros((K, K), dtype=float)  # [i, j]
+for j in range(K):
+    col = pi_joint[:, j]; s = col.sum()
+    if s > 0:
+        cond_x_given_y[j, :] = col / s
+for i in range(K):
+    row = pi_joint[i, :]; s = row.sum()
+    if s > 0:
+        cond_y_given_x[i, :] = row / s
+
+fig = plt.figure(figsize=(8, 3.4))
+
+# Heatmap
+ax1 = plt.subplot(1, 2, 1)
+im = ax1.imshow(pi_joint, cmap='viridis', aspect='equal')
+ax1.set_xlabel('Y')
+ax1.set_ylabel('X')
+ax1.set_title('Joint Probability Distribution (Heatmap)')
+ax1.set_xticks(range(K))
+ax1.set_yticks(range(K))
+
+# Value annotation
+for i in range(K):
+    for j in range(K):
+        ax1.text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+
+plt.colorbar(im, ax=ax1)
+
+# 3D bar plot
+ax2 = plt.subplot(1, 2, 2, projection='3d')
+x = np.arange(K)
+y = np.arange(K)
+X, Y = np.meshgrid(x, y)
+Z = pi_joint
+
+ax2.bar3d(X.ravel(), Y.ravel(), np.zeros_like(Z.ravel()), 
+         0.8, 0.8, Z.ravel(), alpha=0.8, cmap='viridis')
+
+ax2.set_xlabel('Y')
+ax2.set_ylabel('X')
+ax2.set_zlabel('Probability')
+ax2.set_title('Joint Probability Distribution (3D)')
+ax2.set_xticks(x)
+ax2.set_yticks(y)
+
+plt.tight_layout()
+plt.show()
+```
+
+### The Backward Transition Kernel {#sec-exact-kernel-2d}
+
+We will first consider, again, linear schedule:
+
+```{python}
+T = 10
+alpha = np.linspace(1.0, 0.0, T + 1)
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+p_unmask = np.clip(p_unmask, 0.0, 1.0)
+```
+
+```{python}
+#| code-fold: true
+plt.figure(figsize=(5, 3))
+plt.plot(range(T+1), alpha, marker="o")
+plt.title(r"Survival probability $\alpha_t$")
+plt.xlabel("t")
+plt.ylabel(r"$\alpha_t$")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: Code (definition of reverse_sample_pairs)
+
+def reverse_sample_pairs(num_samples: int, p_unmask: np.ndarray, T: int):
+    x1 = np.full(num_samples, MASK, dtype=int)
+    x2 = np.full(num_samples, MASK, dtype=int)
+    hist1 = np.empty((T + 1, num_samples), dtype=int); hist1[0] = x1
+    hist2 = np.empty((T + 1, num_samples), dtype=int); hist2[0] = x2
+
+    for t in range(T, 0, -1):
+        p = p_unmask[t-1]
+
+        # both masked
+        both = (x1 == MASK) & (x2 == MASK)
+        idx = np.where(both)[0]
+        if idx.size > 0:
+            um1 = rng.random(idx.size) < p
+            um2 = rng.random(idx.size) < p
+
+            idx_both = idx[um1 & um2]
+            if idx_both.size > 0:
+                flat = pi_joint.ravel()
+                choices = rng.choice(K*K, size=idx_both.size, p=flat)
+                xs = choices // K; ys = choices % K
+                x1[idx_both] = xs; x2[idx_both] = ys
+
+            idx_only1 = idx[um1 & (~um2)]
+            if idx_only1.size > 0:
+                x1[idx_only1] = rng.choice(K, size=idx_only1.size, p=pi_x)
+
+            idx_only2 = idx[(~um1) & um2]
+            if idx_only2.size > 0:
+                x2[idx_only2] = rng.choice(K, size=idx_only2.size, p=pi_y)
+
+        # x1 masked, x2 revealed
+        idx_b1 = np.where((x1 == MASK) & (x2 != MASK))[0]
+        if idx_b1.size > 0:
+            will = rng.random(idx_b1.size) < p
+            idx_now = idx_b1[will]
+            if idx_now.size > 0:
+                y_vals = x2[idx_now]
+                for val in np.unique(y_vals):
+                    m = (y_vals == val); n = m.sum()
+                    x1[idx_now[m]] = rng.choice(K, size=n, p=cond_x_given_y[val, :])
+
+        # x2 masked, x1 revealed
+        idx_b2 = np.where((x2 == MASK) & (x1 != MASK))[0]
+        if idx_b2.size > 0:
+            will = rng.random(idx_b2.size) < p
+            idx_now = idx_b2[will]
+            if idx_now.size > 0:
+                x_vals = x1[idx_now]
+                for val in np.unique(x_vals):
+                    m = (x_vals == val); n = m.sum()
+                    x2[idx_now[m]] = rng.choice(K, size=n, p=cond_y_given_x[val, :])
+
+        hist1[T - t + 1] = x1; hist2[T - t + 1] = x2
+
+    assert np.all(x1 != MASK) and np.all(x2 != MASK)
+    return np.stack([x1, x2], axis=1), hist1, hist2
+```
+
+### Honest Sampling
+
+```{python}
+#| code-fold: true
+# Run
+N = 100_000
+pairs, h1, h2 = reverse_sample_pairs(N, p_unmask, T)
+
+# Empirical joint
+counts = np.zeros((K, K), dtype=float)
+for a, b in pairs:
+    counts[a, b] += 1.0
+pi_emp = counts / counts.sum()
+
+fig, ax = plt.subplots(1, 2, figsize=(8, 3.4))
+im0 = ax[0].imshow(pi_joint, origin="lower", aspect="equal")
+ax[0].set_title("True joint π_data")
+ax[0].set_xlabel("x2"); ax[0].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[0].text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
+
+im1 = ax[1].imshow(pi_emp, origin="lower", aspect="equal")
+ax[1].set_title("Empirical joint (reverse)")
+ax[1].set_xlabel("x2"); ax[1].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[1].text(j, i, f'{pi_emp[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+
+```{python}
+#| code-fold: true
+def l1_kl(pairs, split=10):
+    chunks = np.array_split(pairs, split)
+    l1, kl = [], []
+    for chunk in chunks:
+        counts = np.zeros((K, K), dtype=float)
+        for a, b in chunk:
+            counts[a, b] += 1.0
+        pi_emp = counts / counts.sum()
+        
+        eps = 1e-12
+        l1.append(np.abs(pi_emp - pi_joint).sum())
+        nz = (pi_emp > 0) & (pi_joint > 0)
+        kl.append((pi_emp[nz] * np.log((pi_emp[nz] + eps) / pi_joint[nz])).sum())
+    return l1, kl
+
+l1, kl = l1_kl(pairs)
+
+print("L1 distance:", round(np.mean(l1), 6), " ± ", round(np.var(l1), 6), "   KL(emp || true):", f"{np.mean(kl):.6e} ± {np.var(kl):.6e}")
+```
+
+This is a gradual unmasking time schedule.
+
+```{python}
+#| code-fold: true
+new_unmasks_per_step = []
+for t in range(T):
+    changed1 = (h1[t] == MASK) & (h1[t+1] != MASK)
+    changed2 = (h2[t] == MASK) & (h2[t+1] != MASK)
+    new_unmasks_per_step.append(changed1.sum() + changed2.sum())
+
+plt.figure(figsize=(6, 3))
+plt.plot(range(1, T+1), new_unmasks_per_step, marker="o")
+plt.title("Newly unmasked coordinates per step")
+plt.xlabel("reverse step (t→t-1)")
+plt.ylabel("#coords")
+plt.tight_layout()
+plt.show()
+```
+
+#### Larger Step Size
+
+What if we employ a large step size?
+
+Actually, the result doesn't change. Moreover, the accuracy is higher, since it is equivalent to direct sampling from $\pi_{\text{data}}$.
+
+```{python}
+T = 1  # Number of steps
+alpha = np.linspace(1.0, 0.0, T + 1)
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+p_unmask = np.clip(p_unmask, 0.0, 1.0)
+```
+
+```{python}
+#| code-fold: true
+# Run
+N = 100_000
+pairs, h1, h2 = reverse_sample_pairs(N, p_unmask, T)
+
+# Empirical joint
+counts = np.zeros((K, K), dtype=float)
+for a, b in pairs:
+    counts[a, b] += 1.0
+pi_emp = counts / counts.sum()
+
+fig, ax = plt.subplots(1, 2, figsize=(8, 3.4))
+im0 = ax[0].imshow(pi_joint, origin="lower", aspect="equal")
+ax[0].set_title("True joint π_data")
+ax[0].set_xlabel("x2"); ax[0].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[0].text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
+
+im1 = ax[1].imshow(pi_emp, origin="lower", aspect="equal")
+ax[1].set_title("Empirical joint (reverse)")
+ax[1].set_xlabel("x2"); ax[1].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[1].text(j, i, f'{pi_emp[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+
+```{python}
+#| code-fold: true
+l1, kl = l1_kl(pairs)
+
+print("L1 distance:", round(np.mean(l1), 6), " ± ", round(np.var(l1), 6), "   KL(emp || true):", f"{np.mean(kl):.6e} ± {np.var(kl):.6e}")
+```
+
+### Coordinate-wise Sampling
+
+The joint distribution is unavailable, even if the learning based on the loss ([-@eq-L]) has been done perfectly, because of the product form assumption on the neural network predictor $p_\theta$.^[Of course, the exact sampling would have been available, for exmple, if we learned the backward intensity as [@Campbell+2022]. However, these methods have been marginalized due to suboptimal performance.]
+
+We mock this situation by replacing the joint distribution in the exact kernel in @sec-exact-kernel-2d with a product of its marginals.
+
+```{python}
+#| code-fold: true
+#| code-summary: Code (definition of reverse_sample_incorrect)
+
+def reverse_sample_incorrect(num_samples: int, p_unmask: np.ndarray, T: int):
+    x1 = np.full(num_samples, MASK, dtype=int)
+    x2 = np.full(num_samples, MASK, dtype=int)
+    hist1 = np.empty((T + 1, num_samples), dtype=int); hist1[0] = x1
+    hist2 = np.empty((T + 1, num_samples), dtype=int); hist2[0] = x2
+
+    for t in range(T, 0, -1):
+        p = p_unmask[t-1]
+
+        # both masked
+        both = (x1 == MASK) & (x2 == MASK)
+        idx = np.where(both)[0]
+        if idx.size > 0:
+            um1 = rng.random(idx.size) < p
+            um2 = rng.random(idx.size) < p
+
+            idx_both = idx[um1 & um2]
+            if idx_both.size > 0:
+                flat = np.outer(pi_x, pi_y).ravel()
+                choices = rng.choice(K*K, size=idx_both.size, p=flat)
+                xs = choices // K; ys = choices % K
+                x1[idx_both] = xs; x2[idx_both] = ys
+
+            idx_only1 = idx[um1 & (~um2)]
+            if idx_only1.size > 0:
+                x1[idx_only1] = rng.choice(K, size=idx_only1.size, p=pi_x)
+
+            idx_only2 = idx[(~um1) & um2]
+            if idx_only2.size > 0:
+                x2[idx_only2] = rng.choice(K, size=idx_only2.size, p=pi_y)
+
+        # x1 masked, x2 revealed
+        idx_b1 = np.where((x1 == MASK) & (x2 != MASK))[0]
+        if idx_b1.size > 0:
+            will = rng.random(idx_b1.size) < p
+            idx_now = idx_b1[will]
+            if idx_now.size > 0:
+                y_vals = x2[idx_now]
+                for val in np.unique(y_vals):
+                    m = (y_vals == val); n = m.sum()
+                    x1[idx_now[m]] = rng.choice(K, size=n, p=cond_x_given_y[val, :])
+
+        # x2 masked, x1 revealed
+        idx_b2 = np.where((x2 == MASK) & (x1 != MASK))[0]
+        if idx_b2.size > 0:
+            will = rng.random(idx_b2.size) < p
+            idx_now = idx_b2[will]
+            if idx_now.size > 0:
+                x_vals = x1[idx_now]
+                for val in np.unique(x_vals):
+                    m = (x_vals == val); n = m.sum()
+                    x2[idx_now[m]] = rng.choice(K, size=n, p=cond_y_given_x[val, :])
+
+        hist1[T - t + 1] = x1; hist2[T - t + 1] = x2
+
+    assert np.all(x1 != MASK) and np.all(x2 != MASK)
+    return np.stack([x1, x2], axis=1), hist1, hist2
+```
+
+```{python}
+#| code-fold: true
+T = 10  # Number of steps
+alpha = np.linspace(1.0, 0.0, T + 1)
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+p_unmask = np.clip(p_unmask, 0.0, 1.0)
+
+pairs, h1, h2 = reverse_sample_incorrect(N, p_unmask, T)
+
+# Empirical joint
+counts = np.zeros((K, K), dtype=float)
+for a, b in pairs:
+    counts[a, b] += 1.0
+pi_emp = counts / counts.sum()
+
+fig, ax = plt.subplots(1, 2, figsize=(8, 3.4))
+im0 = ax[0].imshow(pi_joint, origin="lower", aspect="equal")
+ax[0].set_title("True joint π_data")
+ax[0].set_xlabel("x2"); ax[0].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[0].text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
+
+im1 = ax[1].imshow(pi_emp, origin="lower", aspect="equal")
+ax[1].set_title("Empirical joint (reverse)")
+ax[1].set_xlabel("x2"); ax[1].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[1].text(j, i, f'{pi_emp[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| code-fold: true
+l1, kl = l1_kl(pairs)
+
+print("L1 distance:", round(np.mean(l1), 6), " ± ", round(np.var(l1), 6), "   KL(emp || true):", f"{np.mean(kl):.6e} ± {np.var(kl):.6e}")
+```
+
+There is a small deviation from the exact kernel, where $\ell^1$ distance is $0.024\pm0.00005$.
+
+We can easily see, in the empirical distribution, some cells are assinged with positive mass, although there is $0$ probability for them to be sampled.
+
+This effect becomes smaller when the number of steps `T` is large. For example, setting `T=1000` gives us with almost same accuracy as the exact kernel.
+
+#### Larger Step Size
+
+The situation gets worse when the step size is large.
+
+```{python}
+#| code-fold: true
+T = 1  # Number of steps
+alpha = np.linspace(1.0, 0.0, T + 1)
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+p_unmask = np.clip(p_unmask, 0.0, 1.0)
+
+pairs, h1, h2 = reverse_sample_incorrect(N, p_unmask, T)
+
+# Empirical joint
+counts = np.zeros((K, K), dtype=float)
+for a, b in pairs:
+    counts[a, b] += 1.0
+pi_emp = counts / counts.sum()
+
+fig, ax = plt.subplots(1, 2, figsize=(8, 3.4))
+im0 = ax[0].imshow(pi_joint, origin="lower", aspect="equal")
+ax[0].set_title("True joint π_data")
+ax[0].set_xlabel("x2"); ax[0].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[0].text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
+
+im1 = ax[1].imshow(pi_emp, origin="lower", aspect="equal")
+ax[1].set_title("Empirical joint (reverse)")
+ax[1].set_xlabel("x2"); ax[1].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[1].text(j, i, f'{pi_emp[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| code-fold: true
+l1, kl = l1_kl(pairs)
+
+print("L1 distance:", round(np.mean(l1), 6), " ± ", round(np.var(l1), 6), "   KL(emp || true):", f"{np.mean(kl):.6e} ± {np.var(kl):.6e}")
+```
+
+The error is now significant, because the incorrect product kernel is used every time, as we set $T=1$ meaning unmasking in just one step!
 
 ### Corrector Sampling
 
+One remedy is to utilise Gibbs sampling ideas to correct the bias, at the expense of computational cost.
+
+To do this, we must identify a Markov kernel that keeps the marginal distribution of $X_t$ invariant for every timestep $t\in[0,1]$.
+
+In our case, we simply add a remasking step, only to those pairs $(x_t^1,x_t^2)$'s which are completely unmasked. As they have some probability of being unmasked simultaneously, re-masking only one of them, this time $x_t^1$, will allow us a second chance to correctly arrive at a correct pair $(x_t^{1,\text{corrected}},x_t^2)$.
+
+```{python}
+#| code-fold: true
+#| code-summary: Code (definition of reverse_sample_correct)
+
+def reverse_sample_corrector(num_samples: int, p_unmask: np.ndarray, T: int):
+    x1 = np.full(num_samples, MASK, dtype=int)
+    x2 = np.full(num_samples, MASK, dtype=int)
+    hist1 = np.empty((T + 1, num_samples), dtype=int); hist1[0] = x1
+    hist2 = np.empty((T + 1, num_samples), dtype=int); hist2[0] = x2
+
+    for t in range(T, 0, -1):
+        p = p_unmask[t-1]
+
+        # both masked
+        both = (x1 == MASK) & (x2 == MASK)
+        idx = np.where(both)[0]
+        if idx.size > 0:
+            um1 = rng.random(idx.size) < p
+            um2 = rng.random(idx.size) < p
+
+            idx_both = idx[um1 & um2]
+            if idx_both.size > 0:
+                flat = np.outer(pi_x, pi_y).ravel()
+                choices = rng.choice(K*K, size=idx_both.size, p=flat)
+                xs = choices // K; ys = choices % K
+                x1[idx_both] = xs; x2[idx_both] = ys
+
+            idx_only1 = idx[um1 & (~um2)]
+            if idx_only1.size > 0:
+                x1[idx_only1] = rng.choice(K, size=idx_only1.size, p=pi_x)
+
+            idx_only2 = idx[(~um1) & um2]
+            if idx_only2.size > 0:
+                x2[idx_only2] = rng.choice(K, size=idx_only2.size, p=pi_y)
+
+        # x1 masked, x2 revealed
+        idx_b1 = np.where((x1 == MASK) & (x2 != MASK))[0]
+        if idx_b1.size > 0:
+            will = rng.random(idx_b1.size) < p
+            idx_now = idx_b1[will]
+            if idx_now.size > 0:
+                y_vals = x2[idx_now]
+                for val in np.unique(y_vals):
+                    m = (y_vals == val); n = m.sum()
+                    x1[idx_now[m]] = rng.choice(K, size=n, p=cond_x_given_y[val, :])
+
+        # x2 masked, x1 revealed
+        idx_b2 = np.where((x2 == MASK) & (x1 != MASK))[0]
+        if idx_b2.size > 0:
+            will = rng.random(idx_b2.size) < p
+            idx_now = idx_b2[will]
+            if idx_now.size > 0:
+                x_vals = x1[idx_now]
+                for val in np.unique(x_vals):
+                    m = (x_vals == val); n = m.sum()
+                    x2[idx_now[m]] = rng.choice(K, size=n, p=cond_y_given_x[val, :])
+
+        # corrector step
+        q = 1.0 - p  # masking probability
+        both = (x1 != MASK) & (x2 != MASK)
+        idx = np.where(both)[0]
+        if idx.size > 0:
+            will = rng.random(idx.size) < q
+            idx_now = idx[will]
+            if idx_now.size > 0:
+                x1[idx_now] = MASK
+        # predictor step
+
+        # both masked
+        both = (x1 == MASK) & (x2 == MASK)
+        idx = np.where(both)[0]
+        if idx.size > 0:
+            um1 = rng.random(idx.size) < p
+            um2 = rng.random(idx.size) < p
+
+            idx_both = idx[um1 & um2]
+            if idx_both.size > 0:
+                flat = np.outer(pi_x, pi_y).ravel()
+                choices = rng.choice(K*K, size=idx_both.size, p=flat)
+                xs = choices // K; ys = choices % K
+                x1[idx_both] = xs; x2[idx_both] = ys
+
+            idx_only1 = idx[um1 & (~um2)]
+            if idx_only1.size > 0:
+                x1[idx_only1] = rng.choice(K, size=idx_only1.size, p=pi_x)
+
+            idx_only2 = idx[(~um1) & um2]
+            if idx_only2.size > 0:
+                x2[idx_only2] = rng.choice(K, size=idx_only2.size, p=pi_y)
+
+        # x1 masked, x2 revealed
+        idx_b1 = np.where((x1 == MASK) & (x2 != MASK))[0]
+        if idx_b1.size > 0:
+            will = rng.random(idx_b1.size) < p
+            idx_now = idx_b1[will]
+            if idx_now.size > 0:
+                y_vals = x2[idx_now]
+                for val in np.unique(y_vals):
+                    m = (y_vals == val); n = m.sum()
+                    x1[idx_now[m]] = rng.choice(K, size=n, p=cond_x_given_y[val, :])
+
+        # x2 masked, x1 revealed
+        idx_b2 = np.where((x2 == MASK) & (x1 != MASK))[0]
+        if idx_b2.size > 0:
+            will = rng.random(idx_b2.size) < p
+            idx_now = idx_b2[will]
+            if idx_now.size > 0:
+                x_vals = x1[idx_now]
+                for val in np.unique(x_vals):
+                    m = (x_vals == val); n = m.sum()
+                    x2[idx_now[m]] = rng.choice(K, size=n, p=cond_y_given_x[val, :])
+
+        hist1[T - t + 1] = x1; hist2[T - t + 1] = x2
+
+    assert np.all(x1 != MASK) and np.all(x2 != MASK)
+    return np.stack([x1, x2], axis=1), hist1, hist2
+```
+
+```{python}
+#| code-fold: true
+T = 10  # Number of steps
+alpha = np.linspace(1.0, 0.0, T + 1)
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+p_unmask = np.clip(p_unmask, 0.0, 1.0)
+
+pairs, h1, h2 = reverse_sample_corrector(N, p_unmask, T)
+
+# Empirical joint
+counts = np.zeros((K, K), dtype=float)
+for a, b in pairs:
+    counts[a, b] += 1.0
+pi_emp = counts / counts.sum()
+
+fig, ax = plt.subplots(1, 2, figsize=(8, 3.4))
+im0 = ax[0].imshow(pi_joint, origin="lower", aspect="equal")
+ax[0].set_title("True joint π_data")
+ax[0].set_xlabel("x2"); ax[0].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[0].text(j, i, f'{pi_joint[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im0, ax=ax[0], fraction=0.046, pad=0.04)
+
+im1 = ax[1].imshow(pi_emp, origin="lower", aspect="equal")
+ax[1].set_title("Empirical joint (reverse)")
+ax[1].set_xlabel("x2"); ax[1].set_ylabel("x1")
+for i in range(K):
+    for j in range(K):
+        ax[1].text(j, i, f'{pi_emp[i, j]:.3f}', 
+                ha='center', va='center', color='white', fontsize=8)
+fig.colorbar(im1, ax=ax[1], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| code-fold: true
+l1, kl = l1_kl(pairs, 10)
+
+print("L1 distance:", round(np.mean(l1), 6), " ± ", round(np.var(l1), 6), "   KL(emp || true):", f"{np.mean(kl):.6e} ± {np.var(kl):.6e}")
+```
+
+We see a small improvement from the $\ell^1$ distance of $0.0241$.
+
+This is the idea behind the predictor-corrector technique proposed, for example, in [@Gat+2024], [@Zhao+2024], [@Zhao+2024Unified].
+
+We only included one corrector step per reverse step, although more correction will lead to more accurate results.
+
+This can be regarded as a form of inference time compute scaling [@Wang+2025], although it is a fairly bad idea to wait for the predictor-corrector steps to converge.
+
+
+
 ## Future Works
+
+Since the absorbing process is favoured only because of its time-agnostic property, its ability should be explained separately with the properties of the process.
 
 ### A Reinforcenment Learning Take
 
@@ -291,6 +992,10 @@ In the sampling step, a sampling time path planning will greatly enhance sample 
 As a conclusion, the flexible framework of masked diffusion models will enable a marriage with reinforcement learning and meta learning, which will be a way to overcome the autoregressive modeling framework, because the latter imposes unnecessary sequential inductive bias into the model.
 
 ### A Scaling Analysis
+
+There are two papers, namely [@Santos+2023] and [@Winkler+2024], which carry out a scaling analysis as $K\to\infty$, in order to bridge the gap between discrete and continuous state spaces.
+
+
 
 ### Another Scaling Analysis
 
