@@ -28,7 +28,7 @@ format:
   html:
     code-fold: false
 execute:
-  cache: false
+  cache: true
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -213,38 +213,35 @@ plt.show()
 
 $\alpha_t$ controls the convergence rate of the forward process.
 
-We change $\al_t$ to see the impact on the sampling accuracy.
+We change $\al_t$ to see the impact on the sampling accuracy. (There should be no influence as long as the exact backward kernel is used.)
 
-
-
-
-
-
-This is certainly not what we want. We spend most of the computational time (up to 7th step) in simulating the phantom jumps which just do not happen.
-
-The same concern was raised by [@Chao+2025]. Before investigating their remedy, let us set out on a journey to understand more of the process.
+Let us change $\al_t$ to be an exponential schedule:
 
 ```{python}
-l1 = np.abs(p_emp - p_data).sum()
-kl = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum()
+#| code-fold: true
+alpha = np.exp(np.linspace(0.00, -10.00, T+1))
+p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])
+
+plt.figure(figsize=(5,3))
+plt.plot(range(T+1), alpha, marker="o")
+plt.title(r"Survival probability $\alpha_t$")
+plt.xlabel("t")
+plt.ylabel(r"$\alpha_t$")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+x0_exp, hist_exp = reverse_sample_unconditional(N)
 ```
 
 ```{python}
 #| echo: false
-T = 10  # number of steps
-beta_sched_inhomogeneous = np.linspace(0.05, 0.25, T)
-one_step_transition_prob = 1 - np.exp(-beta_sched_inhomogeneous)
-alpha = np.empty(T + 1)  # survival prob α_t = ∏_{s=1}^t (1-β_s), α_0 = 1
-alpha[0] = 1.0
-for t in range(1, T + 1):
-    alpha[t] = alpha[t - 1] * one_step_transition_prob[t - 1]
-
-p_unmask = (alpha[:-1] - alpha[1:]) / (1.0 - alpha[1:])  # length T
-
+n_samples_to_plot = min(1000, hist_exp.shape[1])
 plt.figure()
 
-# plt.plot(beta_sched, alpha=0.5, linewidth=0.8)
-plt.plot(beta_sched_inhomogeneous, alpha=0.5, linewidth=0.8)
+for i in range(n_samples_to_plot):
+    plt.plot(range(hist_exp.shape[0]), hist_exp[:, i], alpha=0.5, linewidth=0.8)
 
 plt.xlabel('Time step')
 plt.ylabel('State')
@@ -253,9 +250,24 @@ plt.grid(True, alpha=0.3)
 plt.show()
 ```
 
+
+We see many jumps happen in the very last steps. This is certainly not what we want.
+
+We spend almost half of the computational time (up to 6th step) in simulating the phantom jumps which just do not happen. The same concern was raised by [@Chao+2025].
+
+However, somehow accuracy seems to be improved.
+
 ```{python}
-sub_N = 1000  # size of sample to get
-x0_inhomogeneous, hist_inhomogeneous = reverse_sample_unconditional(N)
+l1 = np.abs(p_emp - p_data).sum()
+kl = (np.where(p_emp > 0, p_emp * np.log(p_emp / p_data), 0)).sum()
+print("Linear Schedule: L1 distance:", round(l1, 6), "   KL(p_emp || p_data):", round(kl, 6))
+
+counts_exp = np.bincount(x0_exp, minlength=5).astype(float)
+p_emp_exp = counts_exp / counts_exp.sum()
+
+l1_exp = np.abs(p_emp_exp - p_data).sum()
+kl_exp = (np.where(p_emp_exp > 0, p_emp_exp * np.log(p_emp_exp / p_data), 0)).sum()
+print("Exponential Schedule: L1 distance:", round(l1_exp, 6), "   KL(p_emp || p_data):", round(kl_exp, 6))
 ```
 
 ### Corrector Sampling
