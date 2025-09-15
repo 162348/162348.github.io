@@ -33,43 +33,54 @@
 </div>
 <section id="introduction" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="introduction"><span class="header-section-number">1</span> Introduction</h2>
-<p>The absorbing process, a.k.a. masking diffusion, has a unique characteristic as a forward process in a discrete denoising diffusion model; it offers a time-agnostic <em>learning to unmask</em> training framework.</p>
-<p>When the state space is <img src="https://latex.codecogs.com/png.latex?E%5Ed"> where <img src="https://latex.codecogs.com/png.latex?E=%5C%7B0,%5Ccdots,K-1%5C%7D"> is finite, current practice is to learn a neural network <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> based on a loss given by <span id="eq-L"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D(%5Ctheta):=%5Cint%5E1_0%5Cfrac%7B%5Cdot%7B%5Calpha%7D_t%7D%7B1-%5Calpha_t%7D%5Coperatorname%7BE%7D%5Cleft%5B%5Csum_%7Bi=1%7D%5Ed%5Clog%20p_%5Ctheta(X_0%5Ei%7CX_t)%5Cright%5D%5C,dt,%0A%5Ctag%7B1%7D"></span> where <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> is a <em>noising schedule</em>, determining the convergence speed of the forward process.<sup>1</sup></p>
+<section id="a-time-agnostic-learning-framework" class="level3" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="a-time-agnostic-learning-framework"><span class="header-section-number">1.1</span> A Time-Agnostic Learning Framework</h3>
+<p>The absorbing process, a.k.a. masked diffusion, has a unique characteristic as a forward process in a discrete denoising diffusion model; it offers a time-agnostic <em>learning to unmask</em> training framework.</p>
+<p>When the state space is <img src="https://latex.codecogs.com/png.latex?E%5Ed"> where <img src="https://latex.codecogs.com/png.latex?E=%5C%7B0,%5Ccdots,K-1%5C%7D"> is finite, a current practice is to learn a neural network <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> based on a loss given by <span id="eq-L"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D(%5Ctheta):=%5Cint%5E1_0%5Cfrac%7B%5Cdot%7B%5Calpha%7D_t%7D%7B1-%5Calpha_t%7D%5Coperatorname%7BE%7D%5Cleft%5B%5Csum_%7Bi=1%7D%5Ed%5Clog%20p_%5Ctheta(X_0%5Ei%7CX_t)%5Cright%5D%5C,dt,%0A%5Ctag%7B1%7D"></span> where <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> is a <em>noising schedule</em>, determining the convergence speed of the forward process.<sup>1</sup></p>
 <p>The expectation in (1) is exactly a cross-entropy loss. Therefore, the loss (1) can be understood as a weighted cross-entropy loss, weighted by the noising schedule <img src="https://latex.codecogs.com/png.latex?%5Calpha_t">.</p>
-<p>Note that <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> predicts the true state <img src="https://latex.codecogs.com/png.latex?x_0">, based on the current state <img src="https://latex.codecogs.com/png.latex?x_t">, some components of which might be masked, hence we called this framework <em>learning to unmask</em>. Note also that <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> doesn’t take <img src="https://latex.codecogs.com/png.latex?t"> as an argument, which we call the <em>time-agnostic</em> property following <span class="citation" data-cites="Zheng+2025">(Zheng et al., 2025)</span>.</p>
-<p>This ‘learning to unmask’ task might be a very hard task when <img src="https://latex.codecogs.com/png.latex?t"> is near <img src="https://latex.codecogs.com/png.latex?1">, since most of the <img src="https://latex.codecogs.com/png.latex?x_t%5Ei">’s are still masked then.</p>
-<p>For instance, if we choose a linear schedule <img src="https://latex.codecogs.com/png.latex?%0A%5Calpha_t=1-t%5Cqquad(t%5Cin%5B0,1%5D)%0A"> the scaler <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B%5Cdot%7B%5Calpha%7D_t%7D%7B1-%5Calpha_t%7D=-t%5E%7B-1%7D"> before the expectation puts less weight on large <img src="https://latex.codecogs.com/png.latex?t%5Capprox1">, while puts much more weight on small <img src="https://latex.codecogs.com/png.latex?t%5Capprox0">, where most of the <img src="https://latex.codecogs.com/png.latex?x_t%5Ei">’s should be already unmasked.</p>
-<p>Hence, selecting the schedule <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> to make learning easier can be very effective, for example by reducing the variance of gradient estimator in a SGD algorithm. Actually, this is a part of the technique how <span class="citation" data-cites="Arriola+2025">(Arriola et al., 2025)</span> achieved their remarkable result.</p>
-<p>This is why the loss (1) is considered as a potential competitor against the current dominant autoregressive models. In fact, one work <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span>, still under review, claimed their masked diffusion model surpassed the autoregressive model on the task of language modeling, achieving an evaluation perplexity of 15.36 on the OpenWebText dataset.<sup>2</sup></p>
-<p>We briefly discuss their trick and related promising techniques to improve the model, before programming a demo in Section&nbsp;2 to deepen our understanding in absorbing forward process.</p>
-<section id="a-gibbs-sampler-take" class="level3" data-number="1.1">
-<h3 data-number="1.1" class="anchored" data-anchor-id="a-gibbs-sampler-take"><span class="header-section-number">1.1</span> A Gibbs Sampler Take</h3>
+<p>Note that <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> predicts the true state <img src="https://latex.codecogs.com/png.latex?x_0">, based on the current state <img src="https://latex.codecogs.com/png.latex?x_t">, some components of which might be masked. Hence we called this framework <em>learning to unmask</em>.</p>
+<p>Note also that <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> doesn’t take <img src="https://latex.codecogs.com/png.latex?t"> as an argument <span class="citation" data-cites="Shi+2024">(Shi et al., 2024)</span>, <span class="citation" data-cites="Ou+2025">(Ou et al., 2025)</span>, which we call the <em>time-agnostic</em> property, following <span class="citation" data-cites="Zheng+2025">(Zheng et al., 2025)</span>.</p>
+</section>
+<section id="choice-of-alpha_t" class="level3" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="choice-of-alpha_t"><span class="header-section-number">1.2</span> Choice of <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"></h3>
+<p>This ‘learning to unmask’ task might be very hard when <img src="https://latex.codecogs.com/png.latex?t"> is near <img src="https://latex.codecogs.com/png.latex?1">, since most of the <img src="https://latex.codecogs.com/png.latex?x_t%5Ei">’s are still masked.</p>
+<p>For instance, if we choose a linear schedule <img src="https://latex.codecogs.com/png.latex?%0A%5Calpha_t=1-t%5Cqquad(t%5Cin%5B0,1%5D)%0A"> the scaler <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B%5Cdot%7B%5Calpha%7D_t%7D%7B1-%5Calpha_t%7D=-t%5E%7B-1%7D"> before the expectation in (1) puts less weight on large <img src="https://latex.codecogs.com/png.latex?t%5Capprox1">, while puts much more weight on small <img src="https://latex.codecogs.com/png.latex?t%5Capprox0">, where most of the <img src="https://latex.codecogs.com/png.latex?x_t%5Ei">’s should be already unmasked.</p>
+<p>Hence, selecting the schedule <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> to make learning easier can be very effective, for example by reducing the variance of gradient estimator in a SGD algorithm. Actually, this is a part of the technique how <span class="citation" data-cites="Arriola+2025">(Arriola et al., 2025)</span> achieved their remarkable empirical results.</p>
+<p>This flexibility of <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> is why the loss (1) is considered as a potential competitor against the current dominant autoregressive models. In fact, one work <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span>, still under review, claimed their masked diffusion model surpassed the autoregressive model on the task of language modeling, achieving an evaluation perplexity of 15.36 on the OpenWebText dataset.<sup>2</sup></p>
+<p>We briefly discuss their trick and related promising techniques to improve the model, before programming toy examples in Section&nbsp;2 and Section&nbsp;3 to deepen our understanding in absorbing forward process.</p>
+</section>
+<section id="sec-Gibbs-sampler-take" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-Gibbs-sampler-take"><span class="header-section-number">1.3</span> A Gibbs Sampler Take</h3>
 <p>One problem about the loss (1) is that <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> predicts the unmasked complete sequence in a product form: <img src="https://latex.codecogs.com/png.latex?%0Ap_%5Ctheta(x_0%7Cx_t)=%5Cprod_%7Bi=1%7D%5Ed%20p_%5Ctheta(x_0%5Ei%7Cx_t).%0A"></p>
-<p>This should cause no problem when unmasking one component at a time, since it will be a form of ancestral sampling based on disintegration property.</p>
-<p>However, when unmasking two or more components at once, for example when the number of steps is less than <img src="https://latex.codecogs.com/png.latex?d">, the product form assumption simply introduces a bias, as the data distribution is by no means of product form on <img src="https://latex.codecogs.com/png.latex?E%5Ed">.</p>
+<p>This should cause no problem when we unmask one component at a time, since it will be a form of ancestral sampling based on disintegration property.</p>
+<p>However, when unmasking two or more components simultaneously, for example when the number of steps is less than <img src="https://latex.codecogs.com/png.latex?d">, the product form assumption will simply introduce a bias, as the data distribution is by no means of product form on <img src="https://latex.codecogs.com/png.latex?E%5Ed">.</p>
 <p>Here, to recover correctness asymptotically, analogy with Gibbs sampling becomes very important.</p>
 <p>For example, predictor-corrector technique can be readily employed to mitigate this bias, as discussed in <span class="citation" data-cites="Lezama+2023">(Lezama et al., 2023)</span>, <span class="citation" data-cites="Zhao+2024">(S. Zhao et al., 2024)</span>, <span class="citation" data-cites="Zhao+2024Unified">(L. Zhao et al., 2024)</span>, <span class="citation" data-cites="Gat+2024">(Gat et al., 2024)</span>, <span class="citation" data-cites="Wang+2025">(Wang et al., 2025)</span>.</p>
+<p>We demonstrate this strategy in Section&nbsp;3.5.</p>
 </section>
-<section id="intermediate-states" class="level3" data-number="1.2">
-<h3 data-number="1.2" class="anchored" data-anchor-id="intermediate-states"><span class="header-section-number">1.2</span> Intermediate States</h3>
+<section id="sec-Intermediate-States" class="level3" data-number="1.4">
+<h3 data-number="1.4" class="anchored" data-anchor-id="sec-Intermediate-States"><span class="header-section-number">1.4</span> Intermediate States</h3>
 <p>As we mentioned earlier, unmasking can be a very hard task, as closely investigated in <span class="citation" data-cites="Kim+2025">(Kim et al., 2025, sec. 3)</span>.</p>
 <p>To alleviate this problem, <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span> introduced intermediate states by re-encoding the token in a base-<img src="https://latex.codecogs.com/png.latex?2"> encoding, such as <img src="https://latex.codecogs.com/png.latex?%0A5%5Cmapsto%20101.%0A"> The right-hand side needs three steps to be completely unmasked, while the left-hand side only needs one jump.</p>
 <p>Therefore, unmasking can be easier to learn, compared to the original token encoding.</p>
-<p>However, this is not the only advantage of intermediate states. <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span> were able to construct a full predictor <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> without the product form assumption on each token. This approach might act as a block Gibbs sampler and make the convergence faster.</p>
+<p>However, this is not the only advantage of intermediate states. <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span> were able to construct a full predictor <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta"> without the product form assumption on each token.</p>
+<p>This approach might act as a block Gibbs sampler and make the convergence faster, as we will discuss later in Section&nbsp;3.6.</p>
 </section>
-<section id="state-dependent-rate" class="level3" data-number="1.3">
-<h3 data-number="1.3" class="anchored" data-anchor-id="state-dependent-rate"><span class="header-section-number">1.3</span> State-Dependent Rate</h3>
+<section id="state-dependent-rate" class="level3" data-number="1.5">
+<h3 data-number="1.5" class="anchored" data-anchor-id="state-dependent-rate"><span class="header-section-number">1.5</span> State-Dependent Rate</h3>
 <p>As a function of <img src="https://latex.codecogs.com/png.latex?t%5Cmapsto%5Calpha_t">, different choices for <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> seem to make little impact on the total performance of the model, as we observe in our toy example in Section&nbsp;2.4.</p>
 <p>However, if we allow <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> to depend on the state as in <span class="citation" data-cites="Shi+2024">(Shi et al., 2024, sec. 6)</span>, I believe the masked diffusion model will start to show its real potential over currently dominant autoregressive framework.</p>
-<p>The problem arises when one tries to learn <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> at the same time, for example, by including a term into the loss (1). This will lead to amplified variance of the gradient estimate and unstable training, as reported in <span class="citation" data-cites="Shi+2024">(Shi et al., 2024)</span> and <span class="citation" data-cites="Arriola+2025">(Arriola et al., 2025)</span>.</p>
+<p>A problem arises when one tries to learn <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> at the same time, for example, by including a corresponding term into the loss (1). This will lead to amplified variances of the gradient estimates and unstable training, as reported in <span class="citation" data-cites="Shi+2024">(Shi et al., 2024)</span> and <span class="citation" data-cites="Arriola+2025">(Arriola et al., 2025)</span>.</p>
+<p>The idea of exploiting state-dependent rate is already very common in sampling time <span class="citation" data-cites="Peng+2025">(Peng et al., 2025)</span>, <span class="citation" data-cites="Liu+2025">(Liu et al., 2025)</span>, <span class="citation" data-cites="Kim+2025">(Kim et al., 2025)</span>, <span class="citation" data-cites="Rout+2025">(Rout et al., 2025)</span>, determining which token to unmask next during the backward sampling, a bit like Monte Carlo tree search in reinforcement learning.</p>
 </section>
 </section>
 <section id="sec-Demo" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="sec-Demo"><span class="header-section-number">2</span> Demo</h2>
-<p>We carry out unconditional generation from a toy data distribution <img src="https://latex.codecogs.com/png.latex?%5Cpi_%7B%5Ctext%7Bdata%7D%7D"> on <img src="https://latex.codecogs.com/png.latex?5=%5C%7B0,1,2,3,4%5C%7D">, by running the exact reverse kernel of the absorbing (masked) forward process. Therefore, no neural network training is involved.</p>
+<p>To demonstrate what an absorbing process does, we carry out generation from a toy data distribution <img src="https://latex.codecogs.com/png.latex?%5Cpi_%7B%5Ctext%7Bdata%7D%7D"> on <img src="https://latex.codecogs.com/png.latex?5=%5C%7B0,1,2,3,4%5C%7D">, by running an exact reverse kernel of the absorbing (masked) forward process.</p>
+<p>Therefore, no neural network training will be involved. A 2d example, which is much more interesting, in Section&nbsp;3 will basically process in parallel.</p>
 <section id="setup" class="level3" data-number="2.1">
 <h3 data-number="2.1" class="anchored" data-anchor-id="setup"><span class="header-section-number">2.1</span> Setup</h3>
-<div id="5bf3f7bb" class="cell" data-execution_count="1">
+<div id="be87021b" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><span class="im" style="color: #00769E;
 background-color: null;
 font-style: inherit;">import</span> numpy <span class="im" style="color: #00769E;
@@ -87,7 +98,7 @@ font-style: inherit;">=</span> np.random.default_rng(<span class="dv" style="col
 background-color: null;
 font-style: inherit;">42</span>)</span></code></pre></div>
 </div>
-<div id="cb4a15c1" class="cell" data-execution_count="2">
+<div id="95c4c33d" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1">p_data <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.array([<span class="fl" style="color: #AD0000;
@@ -107,7 +118,7 @@ background-color: null;
 font-style: inherit;">float</span>)</span></code></pre></div>
 </div>
 <p>We will represent the MASK as <img src="https://latex.codecogs.com/png.latex?-1">. The state space is then <img src="https://latex.codecogs.com/png.latex?E:=5%20%5Ccup%20%5C%7B-1%5C%7D">.</p>
-<div id="3a33207f" class="cell" data-execution_count="3">
+<div id="ece93547" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1">MASK <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
@@ -118,7 +129,7 @@ font-style: inherit;">1</span></span></code></pre></div>
 </div>
 <p>An important design choice in the forward process is the noising schedule <img src="https://latex.codecogs.com/png.latex?%5Calpha_t">, which can be interpreted as <em>survival probability</em> and satisfy the following relatioship with the jump intensity <img src="https://latex.codecogs.com/png.latex?%5Cbeta_t">: <img src="https://latex.codecogs.com/png.latex?%0A%5Calpha_t=%5Cexp%5Cleft(-%5Cint%5Et_0%5Cbeta_s%5C,ds%5Cright),%5Cqquad%20t%5Cin%5B0,1%5D.%0A"></p>
 <p>Let us keep it simple and set <img src="https://latex.codecogs.com/png.latex?%5Calpha_t=t">. To achive this, we need to set <img src="https://latex.codecogs.com/png.latex?%0A%5Cbeta_t=%5Cfrac%7B1%7D%7B1-t%7D,%5Cqquad%20t%5Cin%5B0,1),%0A"> which is clearly diverging as <img src="https://latex.codecogs.com/png.latex?t%5Cto1">. This is to ensure the process to converge in finite time.</p>
-<div id="e895a768" class="cell" data-execution_count="4">
+<div id="c865e199" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1">T <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
@@ -142,7 +153,7 @@ font-style: inherit;">1</span>)</span></code></pre></div>
 <section id="the-backward-transition-kernel" class="level3" data-number="2.2">
 <h3 data-number="2.2" class="anchored" data-anchor-id="the-backward-transition-kernel"><span class="header-section-number">2.2</span> The Backward Transition Kernel</h3>
 <p>In this setting, the backward transition kernel <img src="https://latex.codecogs.com/png.latex?p(x_%7Bt-1%7D%20%7C%20x_t)"> satisfies <img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BP%7D%5BX_%7Bt-1%7D=-1%7CX_t=-1%5D=%5Cfrac%7B1%20-%20%5Calpha_%7Bt-1%7D%7D%7B1%20-%20%5Calpha_t%7D.%0A"> In the other cases, the unmasked values <img src="https://latex.codecogs.com/png.latex?x_%7Bt-1%7D"> should be determined according to <img src="https://latex.codecogs.com/png.latex?%5Cpi_%7B%5Ctext%7Bdata%7D%7D">, which is unavailable in a real setting, of course.</p>
-<div id="35d16659" class="cell" data-execution_count="5">
+<div id="ece6987d" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1">p_unmask <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> (alpha[:<span class="op" style="color: #5E5E5E;
@@ -165,7 +176,7 @@ font-style: inherit;">1</span>:])  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;"># length T</span></span></code></pre></div>
 </div>
-<div id="3e3ce91e" class="cell" data-execution_count="6">
+<div id="71030694" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><span class="kw" style="color: #003B4F;
 background-color: null;
 font-style: inherit;">def</span> reverse_sample(num_samples: <span class="bu" style="color: null;
@@ -300,13 +311,13 @@ font-style: inherit;">return</span> x_t, hist</span></code></pre></div>
 <section id="a-note-on-alternative-sampling-strategies" class="level4" data-number="2.2.1">
 <h4 data-number="2.2.1" class="anchored" data-anchor-id="a-note-on-alternative-sampling-strategies"><span class="header-section-number">2.2.1</span> A Note on Alternative Sampling Strategies</h4>
 <p>Note that we need not to obey this exact backward transition kernel to sample from the data distribution.</p>
-<p>For example, remasking <span class="citation" data-cites="Lezama+2023">(Lezama et al., 2023)</span>, <span class="citation" data-cites="Zhao+2024">(S. Zhao et al., 2024)</span>, <span class="citation" data-cites="Gat+2024">(Gat et al., 2024)</span>, <span class="citation" data-cites="Wang+2025">(Wang et al., 2025)</span>, a form of predictor-corrector sampling, can be incorporated to improve sample quality, mitigating numerical errors.</p>
-<p>Recently, sampling time path planning <span class="citation" data-cites="Peng+2025">(Peng et al., 2025)</span>, <span class="citation" data-cites="Liu+2025">(Liu et al., 2025)</span>, <span class="citation" data-cites="Kim+2025">(Kim et al., 2025)</span>, <span class="citation" data-cites="Rout+2025">(Rout et al., 2025)</span> has been proposed to improve sample quality and model log-likelihood.</p>
+<p>For example, remasking <span class="citation" data-cites="Lezama+2023">(Lezama et al., 2023)</span>, <span class="citation" data-cites="Zhao+2024">(S. Zhao et al., 2024)</span>, <span class="citation" data-cites="Gat+2024">(Gat et al., 2024)</span>, <span class="citation" data-cites="Wang+2025">(Wang et al., 2025)</span>, a form of predictor-corrector sampling, can be incorporated to improve sample quality, mitigating numerical errors, as we will see in Section&nbsp;3.5.</p>
+<p>Recently, sampling time path planning <span class="citation" data-cites="Peng+2025">(Peng et al., 2025)</span>, <span class="citation" data-cites="Liu+2025">(Liu et al., 2025)</span>, <span class="citation" data-cites="Kim+2025">(Kim et al., 2025)</span>, <span class="citation" data-cites="Rout+2025">(Rout et al., 2025)</span> has been proposed to improve sample quality and model log-likelihood, which lay out of the scope of this post.</p>
 </section>
 </section>
 <section id="honest-sampling" class="level3" data-number="2.3">
 <h3 data-number="2.3" class="anchored" data-anchor-id="honest-sampling"><span class="header-section-number">2.3</span> Honest Sampling</h3>
-<div id="ee305e58" class="cell" data-execution_count="7">
+<div id="61b923bb" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1">N <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
@@ -318,8 +329,8 @@ font-style: inherit;"># size of sample to get</span></span>
 background-color: null;
 font-style: inherit;">=</span> reverse_sample(N, p_unmask)</span></code></pre></div>
 </div>
-<p>We first make sure our implementation is correct by checking the empirical distribution of the samples agrees with the true distribution.</p>
-<div id="6426c166" class="cell" data-execution_count="8">
+<p>We first make sure our implementation is correct by checking the empirical distribution of the samples generated agrees with the true distribution.</p>
+<div id="6e9e46e0" class="cell" data-execution_count="8">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1">counts <span class="op" style="color: #5E5E5E;
@@ -429,8 +440,8 @@ Empirical p after reverse sampling: [0.3979 0.3002 0.1828 0.0992 0.0198]</code><
 </div>
 </div>
 </div>
-<p>Making sure everything is working, we plot 1000 sample paths from the reverse process.</p>
-<div id="5945cb5b" class="cell" data-execution_count="9">
+<p>Perfect! Making sure everything is working, we plot 1000 sample paths from the reverse process.</p>
+<div id="6f0d93db" class="cell" data-execution_count="9">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1">n_samples_to_plot <span class="op" style="color: #5E5E5E;
@@ -498,7 +509,7 @@ font-style: inherit;">0.3</span>)</span>
 </div>
 </div>
 <p>We see a relatively equal number of jumps per step:</p>
-<div id="3661394e" class="cell" data-execution_count="10">
+<div id="1c649d70" class="cell" data-execution_count="10">
 <div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1">jump_counts <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> np.zeros(T)</span>
@@ -530,7 +541,7 @@ font-style: inherit;">print</span>(jump_counts)</span></code></pre></div>
 </div>
 </div>
 <p>This is because we set <img src="https://latex.codecogs.com/png.latex?%5Calpha_t=1-t"> to be linear.</p>
-<div id="7b8a3617" class="cell" data-execution_count="11">
+<div id="8840ee4b" class="cell" data-execution_count="11">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><span class="co" style="color: #5E5E5E;
@@ -580,7 +591,7 @@ font-style: inherit;">r"$\alpha_t$"</span>)</span>
 <p><img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> controls the convergence rate of the forward process.</p>
 <p>We change <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> to see the impact on the sampling accuracy. (There should be no influence as long as the exact backward kernel is used.)</p>
 <p>Let us change <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> to be an exponential schedule:</p>
-<div id="a7976523" class="cell" data-execution_count="12">
+<div id="4c7bea6e" class="cell" data-execution_count="12">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1">alpha_exp <span class="op" style="color: #5E5E5E;
@@ -654,12 +665,13 @@ font-style: inherit;">r"$\alpha_t$"</span>)</span>
 </div>
 </div>
 </div>
-<div id="34c0a207" class="cell" data-execution_count="13">
+<p>In this way, most of the unmasking events should occur in the very last step of the reverse process.</p>
+<div id="dc31a589" class="cell" data-execution_count="13">
 <div class="sourceCode cell-code" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1">x0_exp, hist_exp <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> reverse_sample(N, p_unmask_exp)</span></code></pre></div>
 </div>
-<div id="e2cd2ddb" class="cell" data-execution_count="14">
+<div id="c9a9a740" class="cell" data-execution_count="14">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1">n_samples_to_plot <span class="op" style="color: #5E5E5E;
@@ -726,10 +738,11 @@ font-style: inherit;">0.3</span>)</span>
 </div>
 </div>
 </div>
-<p>We see many jumps happen in the very last steps. This is certainly not what we want.</p>
-<p>We spend almost half of the computational time (up to 6th step) in simulating the phantom jumps which just do not happen. The same concern was raised by <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span>.</p>
+<p>We see many jumps happen in the latter half.</p>
+<p>Practically speaking, this is certainly not what we want.</p>
+<p>We spend almost half of the computational time (up to the 6th step) in simulating the phantom jumps which just do not happen. The same concern was raised by <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span>.</p>
 <p>However, the accuracy is same, as the exact kernel is used to simulate, if the computational cost might be different.</p>
-<div id="03389418" class="cell" data-execution_count="15">
+<div id="e0983a05" class="cell" data-execution_count="15">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><span class="kw" style="color: #003B4F;
@@ -906,12 +919,12 @@ Exponential Schedule: L1 distance: 0.0148  ±  4.9e-05    KL(p_emp || p_data): 0
 </div>
 </section>
 </section>
-<section id="d-example" class="level2" data-number="3">
-<h2 data-number="3" class="anchored" data-anchor-id="d-example"><span class="header-section-number">3</span> 2D Example</h2>
+<section id="sec-2d-example" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="sec-2d-example"><span class="header-section-number">3</span> 2D Example</h2>
 <section id="setup-1" class="level3" data-number="3.1">
 <h3 data-number="3.1" class="anchored" data-anchor-id="setup-1"><span class="header-section-number">3.1</span> Setup</h3>
 <p>We consider a highly correlated distribution, whose support is degenerated on the diagonal element on <img src="https://latex.codecogs.com/png.latex?5%5E2">.</p>
-<div id="7471f932" class="cell" data-execution_count="16">
+<div id="486e4536" class="cell" data-execution_count="16">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1">K <span class="op" style="color: #5E5E5E;
@@ -1270,7 +1283,7 @@ font-style: inherit;">'Joint Probability Distribution (3D)'</span>)</span>
 <section id="sec-exact-kernel-2d" class="level3" data-number="3.2">
 <h3 data-number="3.2" class="anchored" data-anchor-id="sec-exact-kernel-2d"><span class="header-section-number">3.2</span> The Backward Transition Kernel</h3>
 <p>We will first consider, again, linear schedule:</p>
-<div id="e3c161cf" class="cell" data-execution_count="17">
+<div id="d440566f" class="cell" data-execution_count="17">
 <div class="sourceCode cell-code" id="cb20" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1">T <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
@@ -1314,7 +1327,7 @@ font-style: inherit;">0.0</span>, <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.0</span>)</span></code></pre></div>
 </div>
-<div id="f3e2d274" class="cell" data-execution_count="18">
+<div id="9cfadcb0" class="cell" data-execution_count="18">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1">plt.figure(figsize<span class="op" style="color: #5E5E5E;
@@ -1355,7 +1368,8 @@ font-style: inherit;">r"$\alpha_t$"</span>)</span>
 </div>
 </div>
 </div>
-<div id="58638bc4" class="cell" data-execution_count="19">
+<p>The code for backward sampling is basically the same, except for the number of <code>if</code> branch is now four, rather than just one.</p>
+<div id="2cb71a29" class="cell" data-execution_count="19">
 <details class="code-fold">
 <summary>Code (definition of reverse_sample_pairs)</summary>
 <div class="sourceCode cell-code" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><span class="kw" style="color: #003B4F;
@@ -1728,7 +1742,8 @@ font-style: inherit;">1</span>), hist1, hist2</span></code></pre></div>
 </section>
 <section id="honest-sampling-1" class="level3" data-number="3.3">
 <h3 data-number="3.3" class="anchored" data-anchor-id="honest-sampling-1"><span class="header-section-number">3.3</span> Honest Sampling</h3>
-<div id="d4dfc894" class="cell" data-execution_count="20">
+<p>Again, using the exact backward kernel, we are able to reproduce the true joint distribution.</p>
+<div id="dc739d61" class="cell" data-execution_count="20">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb23" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><span class="co" style="color: #5E5E5E;
@@ -1965,7 +1980,7 @@ font-style: inherit;">0.04</span>)</span>
 </div>
 </div>
 </div>
-<div id="84a9f120" class="cell" data-execution_count="21">
+<div id="885d3f91" class="cell" data-execution_count="21">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><span class="kw" style="color: #003B4F;
@@ -2093,8 +2108,8 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 <pre><code>L1 distance: 0.024162  ±  4.6e-05    KL(emp || true): 7.286359e-04 ± 7.462192e-08</code></pre>
 </div>
 </div>
-<p>This is a gradual unmasking time schedule.</p>
-<div id="9a9e0809" class="cell" data-execution_count="22">
+<p>Note that since the survival rate <img src="https://latex.codecogs.com/png.latex?%5Calpha_t"> decreases linearly, the number of newly unmasked coordinates per step will decrease exponentially.</p>
+<div id="d1b0eb2a" class="cell" data-execution_count="22">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1">new_unmasks_per_step <span class="op" style="color: #5E5E5E;
@@ -2185,7 +2200,7 @@ font-style: inherit;">"#coords"</span>)</span>
 <h4 data-number="3.3.1" class="anchored" data-anchor-id="larger-step-size"><span class="header-section-number">3.3.1</span> Larger Step Size</h4>
 <p>What if we employ a large step size?</p>
 <p>Actually, the result doesn’t change. Moreover, the accuracy is higher, since it is equivalent to direct sampling from <img src="https://latex.codecogs.com/png.latex?%5Cpi_%7B%5Ctext%7Bdata%7D%7D">.</p>
-<div id="05e4648f" class="cell" data-execution_count="23">
+<div id="1276aa86" class="cell" data-execution_count="23">
 <div class="sourceCode cell-code" id="cb27" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1">T <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
@@ -2231,7 +2246,7 @@ font-style: inherit;">0.0</span>, <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1.0</span>)</span></code></pre></div>
 </div>
-<div id="1b4f4ad2" class="cell" data-execution_count="24">
+<div id="f0096506" class="cell" data-execution_count="24">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><span class="co" style="color: #5E5E5E;
@@ -2468,7 +2483,7 @@ font-style: inherit;">0.04</span>)</span>
 </div>
 </div>
 </div>
-<div id="0008ee4a" class="cell" data-execution_count="25">
+<div id="1647e893" class="cell" data-execution_count="25">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb29" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1">l1, kl <span class="op" style="color: #5E5E5E;
@@ -2519,9 +2534,9 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 </section>
 <section id="coordinate-wise-sampling" class="level3" data-number="3.4">
 <h3 data-number="3.4" class="anchored" data-anchor-id="coordinate-wise-sampling"><span class="header-section-number">3.4</span> Coordinate-wise Sampling</h3>
-<p>The joint distribution is unavailable, even if the learning based on the loss (1) has been done perfectly, because of the product form assumption on the neural network predictor <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta">.<sup>3</sup></p>
-<p>We mock this situation by replacing the joint distribution in the exact kernel in Section&nbsp;3.2 with a product of its marginals.</p>
-<div id="b84df183" class="cell" data-execution_count="26">
+<p>The joint distribution would be unavailable, even if the learning based on the loss (1) were perfectly done, because of the product form assumption on the neural network predictor <img src="https://latex.codecogs.com/png.latex?p_%5Ctheta">.<sup>3</sup></p>
+<p>We mock this situation by replacing the joint distribution in the exact kernel, programmed in Section&nbsp;3.2, with the product of its marginals.</p>
+<div id="05bbf1c8" class="cell" data-execution_count="26">
 <details class="code-fold">
 <summary>Code (definition of reverse_sample_incorrect)</summary>
 <div class="sourceCode cell-code" id="cb31" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><span class="kw" style="color: #003B4F;
@@ -2891,7 +2906,7 @@ background-color: null;
 font-style: inherit;">1</span>), hist1, hist2</span></code></pre></div>
 </details>
 </div>
-<div id="00f81f1d" class="cell" data-execution_count="27">
+<div id="a43ce07c" class="cell" data-execution_count="27">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb32" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1">T <span class="op" style="color: #5E5E5E;
@@ -3165,7 +3180,8 @@ font-style: inherit;">0.04</span>)</span>
 </div>
 </div>
 </div>
-<div id="edff59a9" class="cell" data-execution_count="28">
+<p>Then, this time the result is not so good.</p>
+<div id="4a3901ca" class="cell" data-execution_count="28">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb33" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1">l1, kl <span class="op" style="color: #5E5E5E;
@@ -3212,13 +3228,13 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 <pre><code>L1 distance: 0.089135  ±  1.2e-05    KL(emp || true): -4.100716e-02 ± 6.515707e-06</code></pre>
 </div>
 </div>
-<p>There is a small deviation from the exact kernel, where <img src="https://latex.codecogs.com/png.latex?%5Cell%5E1"> distance is <img src="https://latex.codecogs.com/png.latex?0.024%5Cpm0.00005">.</p>
-<p>We can easily see, in the empirical distribution, some cells are assinged with positive mass, although there is <img src="https://latex.codecogs.com/png.latex?0"> probability for them to be sampled.</p>
-<p>This effect becomes smaller when the number of steps <code>T</code> is large. For example, setting <code>T=1000</code> gives us with almost same accuracy as the exact kernel.</p>
+<p>There is a small deviation from the exact kernel, where <img src="https://latex.codecogs.com/png.latex?%5Cell%5E1"> distance was <img src="https://latex.codecogs.com/png.latex?0.024%5Cpm0.00005">.</p>
+<p>We can easily see, in the empirical distribution, some cells are assinged with positive mass, although the true probability is <img src="https://latex.codecogs.com/png.latex?0">.</p>
+<p>This effect becomes smaller when the number of steps <code>T</code> is large. For example, setting <code>T=1000</code> gives us with almost same accuracy as the exact kernel (although we don’t show it here for brevity).</p>
 <section id="larger-step-size-1" class="level4" data-number="3.4.1">
 <h4 data-number="3.4.1" class="anchored" data-anchor-id="larger-step-size-1"><span class="header-section-number">3.4.1</span> Larger Step Size</h4>
-<p>The situation gets worse when the step size is large.</p>
-<div id="cbb95969" class="cell" data-execution_count="29">
+<p>The situation gets worse when the step size is large, for example <code>T=1</code>.</p>
+<div id="29032feb" class="cell" data-execution_count="29">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb35" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1">T <span class="op" style="color: #5E5E5E;
@@ -3492,7 +3508,7 @@ font-style: inherit;">0.04</span>)</span>
 </div>
 </div>
 </div>
-<div id="4e78523d" class="cell" data-execution_count="30">
+<div id="aadd5a6c" class="cell" data-execution_count="30">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb36" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1">l1, kl <span class="op" style="color: #5E5E5E;
@@ -3540,14 +3556,16 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 </div>
 </div>
 <p>The error is now significant, because the incorrect product kernel is used every time, as we set <img src="https://latex.codecogs.com/png.latex?T=1"> meaning unmasking in just one step!</p>
+<p>One way to fix this is to set <code>T</code> as large as possible, making sure no more than one jump occurs simultaneously.</p>
 </section>
 </section>
-<section id="corrector-sampling" class="level3" data-number="3.5">
-<h3 data-number="3.5" class="anchored" data-anchor-id="corrector-sampling"><span class="header-section-number">3.5</span> Corrector Sampling</h3>
-<p>One remedy is to utilise Gibbs sampling ideas to correct the bias, at the expense of computational cost.</p>
+<section id="sec-Predictor-Corrector" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="sec-Predictor-Corrector"><span class="header-section-number">3.5</span> Corrector Sampling</h3>
+<p>Another remedy is to utilise Gibbs sampling ideas to correct the bias, again at the expense of computational cost.</p>
 <p>To do this, we must identify a Markov kernel that keeps the marginal distribution of <img src="https://latex.codecogs.com/png.latex?X_t"> invariant for every timestep <img src="https://latex.codecogs.com/png.latex?t%5Cin%5B0,1%5D">.</p>
-<p>In our case, we simply add a remasking step, only to those pairs <img src="https://latex.codecogs.com/png.latex?(x_t%5E1,x_t%5E2)">’s which are completely unmasked. As they have some probability of being unmasked simultaneously, re-masking only one of them, this time <img src="https://latex.codecogs.com/png.latex?x_t%5E1">, will allow us a second chance to correctly arrive at a correct pair <img src="https://latex.codecogs.com/png.latex?(x_t%5E%7B1,%5Ctext%7Bcorrected%7D%7D,x_t%5E2)">.</p>
-<div id="0c9028ae" class="cell" data-execution_count="31">
+<p>In our case, let us simply add a <em>re-masking</em> step, only to those pairs <img src="https://latex.codecogs.com/png.latex?(x_t%5E1,x_t%5E2)">’s which are completely unmasked.</p>
+<p>As there is some probability of having been unmasked simultaneously, re-masking only one of them, this time <img src="https://latex.codecogs.com/png.latex?x_t%5E1">, will allow us a second chance to arrive at a correct pair <img src="https://latex.codecogs.com/png.latex?(x_t%5E%7B1,%5Ctext%7Bcorrected%7D%7D,x_t%5E2)">.</p>
+<div id="891ea461" class="cell" data-execution_count="31">
 <details class="code-fold">
 <summary>Code (definition of reverse_sample_correct)</summary>
 <div class="sourceCode cell-code" id="cb38" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><span class="kw" style="color: #003B4F;
@@ -4220,7 +4238,7 @@ background-color: null;
 font-style: inherit;">1</span>), hist1, hist2</span></code></pre></div>
 </details>
 </div>
-<div id="27ae74fd" class="cell" data-execution_count="32">
+<div id="4f3c8d7c" class="cell" data-execution_count="32">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb39" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1">T <span class="op" style="color: #5E5E5E;
@@ -4494,7 +4512,7 @@ font-style: inherit;">0.04</span>)</span>
 </div>
 </div>
 </div>
-<div id="1dcd6063" class="cell" data-execution_count="33">
+<div id="00bf15e1" class="cell" data-execution_count="33">
 <details class="code-fold">
 <summary>Code (tap me)</summary>
 <div class="sourceCode cell-code" id="cb40" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb40-1">l1, kl <span class="op" style="color: #5E5E5E;
@@ -4543,10 +4561,19 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 <pre><code>L1 distance: 0.022518  ±  2e-05    KL(emp || true): 4.694469e-05 ± 8.500292e-08</code></pre>
 </div>
 </div>
-<p>We see a small improvement from the <img src="https://latex.codecogs.com/png.latex?%5Cell%5E1"> distance of <img src="https://latex.codecogs.com/png.latex?0.0241">.</p>
-<p>This is the idea behind the predictor-corrector technique proposed, for example, in <span class="citation" data-cites="Gat+2024">(Gat et al., 2024)</span>, <span class="citation" data-cites="Zhao+2024">(S. Zhao et al., 2024)</span>, <span class="citation" data-cites="Zhao+2024Unified">(L. Zhao et al., 2024)</span>.</p>
-<p>We only included one corrector step per reverse step, although more correction will lead to more accurate results.</p>
+<p>We see a small improvement from the <img src="https://latex.codecogs.com/png.latex?%5Cell%5E1"> distance of <img src="https://latex.codecogs.com/png.latex?0.0241">. The difference is significant in terms of our variance of an order <img src="https://latex.codecogs.com/png.latex?O(10%5E%7B-5%7D)"> culculated from <img src="https://latex.codecogs.com/png.latex?10"> repeated experiments.</p>
+<p>This is the idea behind the predictor-corrector technique discussed, for example, in <span class="citation" data-cites="Gat+2024">(Gat et al., 2024)</span>, <span class="citation" data-cites="Zhao+2024">(S. Zhao et al., 2024)</span>, <span class="citation" data-cites="Zhao+2024Unified">(L. Zhao et al., 2024)</span>.</p>
+<p>We only included one corrector step per reverse step, although more correction will increase accuracy.</p>
 <p>This can be regarded as a form of inference time compute scaling <span class="citation" data-cites="Wang+2025">(Wang et al., 2025)</span>, although it is a fairly bad idea to wait for the predictor-corrector steps to converge.</p>
+</section>
+<section id="sec-Chao" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="sec-Chao"><span class="header-section-number">3.6</span> Discussion</h3>
+<p>Let us come back to the technique employed in <span class="citation" data-cites="Chao+2025">(Chao et al., 2025)</span>, which we mentioned in Section&nbsp;1.4.</p>
+<p>As we have seen, the number of steps <img src="https://latex.codecogs.com/png.latex?T"> has to be kept larger than <img src="https://latex.codecogs.com/png.latex?d">, to make sure no more than one jump occurs simultaneously.</p>
+<p>However, this increases the computational cost, as more time steps must be spent in simulating phantom jumps.</p>
+<p>One thing we can do is to fill this blank steps with a informed ‘half-jump’, by introducing a sub-structure in each state <img src="https://latex.codecogs.com/png.latex?x%5Cin%20E">.</p>
+<p>This half-jump is a bit more robust than a direct unmasking. Therefore we are able to spend the time up to <img src="https://latex.codecogs.com/png.latex?T"> more meaningfully.</p>
+<p>Thus, this strategy can be view as another way to mitigate the bias introduced by the incorrect backward kernel.</p>
 </section>
 </section>
 <section id="future-works" class="level2" data-number="4">
@@ -4571,6 +4598,13 @@ font-style: inherit;">"</span>)</span></code></pre></div>
 <p><span class="citation" data-cites="Winkler+2024">(Winkler et al., 2024)</span> builds on their analysis, identifying an OU process on <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D%5Ed"> corresponds to a Ehrenfest process.</p>
 <p>This line of research has a lot to do with thermodynamics, and might provide insights into whether images should be modeled discretely or continuously.</p>
 <p>Also, the limit <img src="https://latex.codecogs.com/png.latex?d%5Cto%5Cinfty"> has yet to be explored.</p>
+</section>
+<section id="concluding-remarks" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="concluding-remarks"><span class="header-section-number">4.3</span> Concluding Remarks</h3>
+<p>I believe that masked diffusion modeling can be viewed as a form of Gibbs sampling, with a learned transition kernel.</p>
+<p>Many current practices are based on (uniformly) random scan Gibbs, while the autoregressive models are a fixed scan Gibbs.</p>
+<p>Most recent improvements are based upon ideas from reinforcement learning and meta learning, where an optimal order to unmask components is pursued.</p>
+<p>This point of view might not be only an abstract nonsense. I actually believe that this point of view will be fruitful in the future.</p>
 </section>
 </section>
 
