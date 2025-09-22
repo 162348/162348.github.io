@@ -35,6 +35,9 @@ format:
           .color-blue {
               color: #0096FF;
           }
+          .small-letter {
+          font-size: 80%;
+          }
           .tiny-letter {
             font-size: 60%;
           }
@@ -245,30 +248,175 @@ At landmark times, $T=60,120,180,240,300$, we check
 
 Sampling diagnostics showed stable mixing without pathological divergences on representative patameters: 
 $$
-ρ0,\;ρ1,\;μ0,\;μ1,\;σ0,\;σ1,\;β.
+ρ_0,\;ρ_1,\;μ_0,\;μ_1,\;σ_0,\;σ_1,\;β.
 $$
 
 Trace, rank, and energy plots were visually acceptable in the combined diagnostic bundle.
 
+$\wh{R}^2$ was almost $1.0$ for all parameters.
+
 ### Rank Plot and Trace Plot
+
+:::: {.columns}
+::: {.column width="40%"}
+![](MrTakatsu/rank_plots.jpeg)
+:::
+
+::: {.column width="60%"}
+![](MrTakatsu/trace_plots.jpeg)
+:::
+::::
 
 ### Energy Diagnosis
 
-### Population-level Fit
+![Energy Plots](MrTakatsu/energy_plot.jpeg)
+
+### Population-level Fit (1/2)
+
+:::: {.columns}
+::: {.column width="40%"}
+* Observed cumulative admission curve (0-300 min) well reproduced
+
+**Baseline (time-only)**
+
+* Posterior mean closely followed empirical trajectory
+* Narrow 95% credible band encompassed observed curve
+
+
+:::
+
+::: {.column width="60%"}
+![](MrTakatsu/cumfrac_m1_baseline_color.jpeg)
+:::
+::::
+
+### Population-level Fit (2/2)
+
+**Covariate (time + age + sex)**
+
+* Covariate model maintained fit while improving individual-level accuracy.
+
+![](MrTakatsu/cumfrac_m1_covariate_color.jpeg)
 
 ### Calibration
 
+* Recalibration improved alignment with 45° line at $t=120$.
+
+* $\operatorname{AUC}(t)$ remained stable; only 2~3% patients crossed threshold.
+
+:::: {.columns}
+::: {.column width="50%"}
+![](MrTakatsu/S__11862102_0.jpg)
+:::
+
+::: {.column width="50%"}
+![](MrTakatsu/S__11862104_0.jpg)
+:::
+::::
+
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+```python
+
+import numpy as np
+import statsmodels.api as sm
+
+def logit_clip(p, eps=1e-6):
+    p = np.clip(p, eps, 1-eps)
+    return np.log(p/(1-p))
+
+def platt_fit(y, p_hat, eps=1e-6):
+    x = logit_clip(p_hat, eps)
+    X = sm.add_constant(x)
+    model = sm.GLM(y, X, family=sm.families.Binomial())
+    res = model.fit()
+    alpha, beta = res.params
+    def p_calibrated(p):
+        z = alpha + beta*logit_clip(np.asarray(p), eps)
+        return 1/(1+np.exp(-z))
+    return alpha, beta, p_calibrated
+```
+:::
+
 ### Decision Curve Analysis
 
-### Robustness to TTU Measurement Error
 
-### Individual-level Performance (1/2)
+:::: {.columns}
+::: {.column width="40%"}
 
-### Individual-level Performance (2/2)
+* Covariate > Baseline for 
+    $$
+    p_t\in[0.1, 0,6]
+    $$
+* Covariate shows small, directionally favorite net benefit vs Baseline at $p_t\in[0.2,0.4]$, but CIs include zero. Evidence of advantage is modest.
+
+$$
+\operatorname{NB}(p_t)=\frac{\mathrm{TP}}{N}-\frac{\mathrm{FP}}{N}\frac{p_t}{1-p_t}
+$$
+
+:::
+
+::: {.column width="60%"}
+
+![](MrTakatsu/S__11862107_0.jpg)
+
+* TP: True Positive, FP: False Positive
+* NB: Net Benefit
+
+:::
+::::
+
+### [Robustness to TTU Measurement Error]{.small-letter}
+
+* Add jitter to $t_i^{\text{raw}}$: 
+    $$
+    \wt{t}_i=t_i^{\text{raw}}+\epsilon_i,\qquad\ep\iidsim\operatorname{Unif}(-\delta,\delta).
+    $$
+
+* Changes in AUC and Brier score were negligible.
+
+![](MrTakatsu/S__11862109_0.jpg)
+
+### [Individual-level Performance (1/2)]{.small-letter}
+
+**Baseline model (time-only)**
+
+* Discrimination: $\operatorname{AUC}(t)\approx0.50$ $\to$ close to random prediction
+* Overall accuracy: $\operatorname{Brier}(t)$ increased with time $\to$ worsening accuracy
+* Calibration: Calibration slope $\approx0$ with instability over time.
+
+![](MrTakatsu/cumfrac_m1_baseline_colorのコピー.jpeg)
+
+
+### [Individual-level Performance (2/2)]{.small-letter}
+
+* Covariate Model (time + age + sex)
+
+* Discrimination: $\operatorname{AUC}(t)$ improve ($\approx0.70$)
+
+* Overall accuracy: $\operatorname{Brier}(t)$ consistently lower than baseline model.
+
+* Calibration: Calibration slope stabilized around 0.70 intercept $\approx 0$
+
 
 ### Posterior Predictive Checks
 
-### Posterior Distribution of the Baseline Model
+:::: {.columns}
+::: {.column width="50%"}
+
+![Baseline Model](MrTakatsu/pred_by_m_baseline_color.jpeg)
+:::
+
+::: {.column width="50%"}
+
+![Covariate Model](MrTakatsu/pred_by_m_covariate_color.jpeg)
+
+:::
+::::
+
+### Posterior
+
+![Posterior Distribution of the Baseline Model](MrTakatsu/posterior.jpg)
 
 ## Summary
 
