@@ -1,0 +1,182 @@
+---
+title: "FECMC と BPS で見る hypocoercivity"
+author: "Draft Draft"
+date: 1120/2025
+categories: [PDMP, MCMC, Process]
+# image: Images/Cochran.svg
+bibliography: 
+    - ../../../assets/2023.bib
+    - ../../../assets/2024.bib
+    - ../../../assets/2025.bib
+csl: ../../../assets/apalike.csl
+jupyter: julia-1.12
+code-fold: false
+---
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+## Autocorelation Decay of the FECMC Limit Radial Momentum Process
+
+$$
+Lf(x)=f'(x)+x_+\Paren{Rf(-x)-f(x)},\qquad f\in C^2_c(\R),
+$$
+$$
+Rf(x):=\int^\infty_0f(y)\,r(y)\,dy,\qquad r(y)=ye^{-\frac{y^2}{2}}.
+$$
+
+```{julia}
+using Random, Distributions, Plots
+
+function SimulateSkeleton(x₀; T::Float64=20.0, seed::Int=2025)
+
+  rng = MersenneTwister(seed)
+  τ = () -> rand(rng, Rayleigh(1.0))
+
+  if x₀ <= 0
+    tₑ = -x₀ + τ()
+  else
+    tₑ = -x₀ + sqrt(x₀ - 2log(1-rand(rng)))
+  end
+
+  skeletons = [0.0, tₑ]
+  positions = [x₀]
+
+  while tₑ < T
+    τ₁, τ₂ = τ(), τ()
+    tₑ += τ₁ + τ₂
+    push!(skeletons, tₑ)
+    push!(positions, -τ₁)
+  end
+
+  return skeletons[1:end-1], positions
+end
+
+function DiscretizeSkeleton(skeletons::Vector{Float64}, positions::Vector{Float64}; dt::Float64=0.005, T::Float64=10.0)
+
+  tᵢ = 0.0:dt:T
+  i = searchsortedfirst.(Ref(skeletons), tᵢ) .- 1
+  i[1] = 1
+  flow = (x,t) -> x + t
+  locate = (j,t) -> flow(positions[j], t - skeletons[j])
+  samples = [locate(j, t) for (j, t) in zip(i, tᵢ)]
+
+  return tᵢ, samples
+end
+
+function sample(x₀::Float64; T::Float64=10.0, seed::Int=2025)
+
+  skeletons, positions = SimulateSkeleton(x₀, seed=seed)
+  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, T=T)
+end
+
+plot(sample(1.0, T=20.0, seed=2024), legend=false)
+```
+
+```{julia}
+function calc_covariance(N::Int=10^5)
+  t, x = sample(0.0, seed=1)
+  ρₙ = Matrix{Float64}(undef, N, length(t))
+
+  for seed in 1:N
+    x₀ = randn()
+    t, x = sample(x₀, seed=seed)
+    ρₙ[seed, :] = x₀ * x
+  end
+
+  return t, mean(ρₙ, dims=1)[:]
+end
+
+t, m = calc_covariance()
+
+print(sum(m) * diff(t)[end])
+
+p = plot(t, m, label="FECMC")
+p
+```
+
+## Autocorelation Decay of the BPS Limit Radial Momentum Process
+
+The following result is also presented at the end of the Section 1 of [@Bierkens-Kamatani-Roberts2022].
+
+```{julia}
+
+function SimulateBPSSkeleton(x₀; T::Float64=20.0, seed::Int=2025)
+
+  rng = MersenneTwister(seed)
+  τ = () -> rand(rng, Rayleigh(1.0))
+
+  if x₀ <= 0
+    tₑ = -x₀ + τ()
+  else
+    tₑ = -x₀ + sqrt(x₀ - 2log(1-rand(rng)))
+  end
+
+  skeletons = [0.0, tₑ]
+  positions = [x₀, - x₀ - tₑ]
+
+  while tₑ < T
+    τ₁ = τ()
+    tₑ += -positions[end] + τ₁
+    push!(skeletons, tₑ)
+    push!(positions, -τ₁)
+  end
+
+  return skeletons[1:end-1], positions
+end
+
+function sampleBPS(x₀::Float64; seed::Int=2025, T::Float64=10.0)
+
+  skeletons, positions = SimulateBPSSkeleton(x₀, seed=seed)
+  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, T=T)
+end
+
+plot(sampleBPS(1.0, T=20.0, seed=2024), legend=false)
+```
+
+```{julia}
+function calc_BPS_Covariance(N::Int=10^5)
+  t, x = sampleBPS(0.0, seed=1)
+  ρₙ = Matrix{Float64}(undef, N, length(t))
+
+  for seed in 1:N
+    x₀ = randn()
+    t, x = sampleBPS(x₀, seed=seed+N)
+    ρₙ[seed, :] = x₀ * x
+  end
+
+  return t, mean(ρₙ, dims=1)[:]
+end
+
+t, m = calc_BPS_Covariance()
+
+print(sum(m) * step(t))
+
+plot!(p, t, m, label="BPS")
+```
+
+$N=10^6$ として計算したのが次のプロットである：
+
+![](Refreshment/n%3DLarge.svg)
+
+$T=30$ としても，$N=10^6$ サンプル，$\Delta t=5.0\times10^{-3}$ では 0.346 と 0.12 とでた．
+
+$T=10$ に特化して考える．$N=2\cdot10^5$ サンプルに減らすが，$\Delta t=5.0\times10^{-4}$ では BPS は $0.116$．シードを変えても $0.118$．
+
+どうシードを変えても大体同じような値が出る．これは [@Bierkens-Kamatani-Roberts2022] の
+
+$$
+\int^\infty_0K(s,0)\,ds=0
+$$
+
+という結果に矛盾している．実際彼らの図で
+
+$$
+\sigma(0)^2=8\int^\infty_0K(s,0)\,ds
+$$
+
+をプロットしている際は，だいたい $0.45$ くらいの値になっている．
+
+## Discussion
+
+今回はプロットで示したが，この程度の収束性の違いでさえ数学的に議論するには大変苦労する．hypocoercivity の理論が必要になる．
+
