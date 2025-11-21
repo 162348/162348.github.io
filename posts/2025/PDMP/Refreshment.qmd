@@ -1,7 +1,7 @@
 ---
 title: "FECMC と BPS で見る hypocoercivity"
 author: "Draft Draft"
-date: 1120/2025
+date: 11/20/2025
 categories: [PDMP, MCMC, Process]
 # image: Images/Cochran.svg
 bibliography: 
@@ -15,7 +15,19 @@ code-fold: false
 
 {{< include ../../../assets/_preamble.qmd >}}
 
-## Autocorelation Decay of the FECMC Limit Radial Momentum Process
+FECMC と BPS の高次元での性能差の鍵を握るのが，角運動量過程 (RMP: Radial Momentum Process)
+$$
+R_t^{(d)}:=\brac{X_t^{(d)}, V_t^{(d)}}=\sum_{i=1}^dX_t^{(d),i}V_t^{(d),i}
+$$
+である．その積分で定まる過程が，原点からの距離に他ならないからである．
+
+つまり，高次元での角運動量過程の mixing の速さが，高次元で FECMC と BPS が動径方向に mixing する速さとほとんど一致する．
+
+本稿では数値実験を通じて，次のように FECMC が BPS を強く優越することを見る：
+
+![](Refreshment/σ(ρ).svg){width=50%}
+
+## Autocorelation Decay of the FECMC Limit RMP
 
 $$
 Lf(x)=f'(x)+x_+\Paren{Rf(-x)-f(x)},\qquad f\in C^2_c(\R),
@@ -25,17 +37,24 @@ Rf(x):=\int^\infty_0f(y)\,r(y)\,dy,\qquad r(y)=ye^{-\frac{y^2}{2}}.
 $$
 
 ```{julia}
-using Random, Distributions, Plots
+using Random, Distributions, Plots, LaTeXStrings
 
-function SimulateSkeleton(x₀; T::Float64=20.0, seed::Int=2025)
-
-  rng = MersenneTwister(seed)
-  τ = () -> rand(rng, Rayleigh(1.0))
+function SimulateSkeleton(x₀; T::Float64=20.0, seed::Int=0)
+  if seed == 0
+    τ = () -> rand(Rayleigh(1.0))
+  else
+    rng = MersenneTwister(seed)
+    τ = () -> rand(rng, Rayleigh(1.0))
+  end
 
   if x₀ <= 0
     tₑ = -x₀ + τ()
   else
-    tₑ = -x₀ + sqrt(x₀ - 2log(1-rand(rng)))
+    if seed == 0
+      tₑ = -x₀ + sqrt(x₀^2 - 2log(1-rand()))
+    else
+      tₑ = -x₀ + sqrt(x₀^2 - 2log(1-rand(rng)))
+    end
   end
 
   skeletons = [0.0, tₑ]
@@ -63,24 +82,24 @@ function DiscretizeSkeleton(skeletons::Vector{Float64}, positions::Vector{Float6
   return tᵢ, samples
 end
 
-function sample(x₀::Float64; T::Float64=10.0, seed::Int=2025)
+function sample(x₀::Float64; T::Float64=10.0, seed::Int=0, dt::Float64=0.005)
 
   skeletons, positions = SimulateSkeleton(x₀, seed=seed)
-  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, T=T)
+  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, dt=dt, T=T)
 end
 
-plot(sample(1.0, T=20.0, seed=2024), legend=false)
+plot(sample(randn(), T=20.0), xlabel=L"t", ylabel=L"R_t", label="FECMC Limit RMP") |> q -> hline!(q, [0], linewidth=0.8, color=:black, label="")
 ```
 
 ```{julia}
-function calc_covariance(N::Int=10^5)
-  t, x = sample(0.0, seed=1)
+function calc_covariance(N::Int=10^5; seed::Int=0)
+  t, x = sample(0.0, seed=seed)
   ρₙ = Matrix{Float64}(undef, N, length(t))
 
-  for seed in 1:N
+  for i in 1:N
     x₀ = randn()
     t, x = sample(x₀, seed=seed)
-    ρₙ[seed, :] = x₀ * x
+    ρₙ[i, :] = x₀ * x
   end
 
   return t, mean(ρₙ, dims=1)[:]
@@ -88,31 +107,41 @@ end
 
 t, m = calc_covariance()
 
-print(sum(m) * diff(t)[end])
+print(sum(m) * step(t))
 
-p = plot(t, m, label="FECMC")
+p = plot(t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_tX_0]", label="FECMC", linewidth=3, size=(800, 400))
 p
 ```
 
-## Autocorelation Decay of the BPS Limit Radial Momentum Process
+ブログに載せる際の計算量の問題で，Monte Carlo サンプルサイズ $N$ を小さく抑えているため，ギザギザしている．$N$ を十分大きくしたプロットは第 [-@sec-smoothed-plot] 節で示す．
+
+## Autocorelation Decay of the BPS Limit RMP
 
 The following result is also presented at the end of the Section 1 of [@Bierkens-Kamatani-Roberts2022].
 
 ```{julia}
 
-function SimulateBPSSkeleton(x₀; T::Float64=20.0, seed::Int=2025)
+function SimulateBPSSkeleton(x₀; T::Float64=20.0, seed::Int=0)
 
-  rng = MersenneTwister(seed)
-  τ = () -> rand(rng, Rayleigh(1.0))
+  if seed == 0
+    τ = () -> rand(Rayleigh(1.0))
+  else
+    rng = MersenneTwister(seed)
+    τ = () -> rand(rng, Rayleigh(1.0))
+  end
 
   if x₀ <= 0
     tₑ = -x₀ + τ()
   else
-    tₑ = -x₀ + sqrt(x₀ - 2log(1-rand(rng)))
+    if seed == 0
+      tₑ = -x₀ + sqrt(x₀^2 - 2log(1-rand()))
+    else
+      tₑ = -x₀ + sqrt(x₀^2 - 2log(1-rand(rng)))
+    end
   end
 
   skeletons = [0.0, tₑ]
-  positions = [x₀, - x₀ - tₑ]
+  positions = [x₀, - (x₀ + tₑ)]
 
   while tₑ < T
     τ₁ = τ()
@@ -124,24 +153,24 @@ function SimulateBPSSkeleton(x₀; T::Float64=20.0, seed::Int=2025)
   return skeletons[1:end-1], positions
 end
 
-function sampleBPS(x₀::Float64; seed::Int=2025, T::Float64=10.0)
+function sampleBPS(x₀::Float64; seed::Int=0, T::Float64=10.0, dt::Float64=0.005)
 
   skeletons, positions = SimulateBPSSkeleton(x₀, seed=seed)
-  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, T=T)
+  tᵢ, samples = DiscretizeSkeleton(skeletons, positions, dt=dt, T=T)
 end
 
-plot(sampleBPS(1.0, T=20.0, seed=2024), legend=false)
+plot(sampleBPS(randn(), T=20.0), xlabel=L"t", ylabel=L"R_t", label="BPS Limit RMP") |> q -> hline!(q, [0], linewidth=0.8, color=:black, label="")
 ```
 
 ```{julia}
-function calc_BPS_Covariance(N::Int=10^5)
-  t, x = sampleBPS(0.0, seed=1)
+function calc_BPS_Covariance(N::Int=10^5; seed::Int=0)
+  t, x = sampleBPS(0.0, seed=seed)
   ρₙ = Matrix{Float64}(undef, N, length(t))
 
-  for seed in 1:N
+  for i in 1:N
     x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed+N)
-    ρₙ[seed, :] = x₀ * x
+    t, x = sampleBPS(x₀, seed=seed)
+    ρₙ[i, :] = x₀ * x
   end
 
   return t, mean(ρₙ, dims=1)[:]
@@ -151,12 +180,14 @@ t, m = calc_BPS_Covariance()
 
 print(sum(m) * step(t))
 
-plot!(p, t, m, label="BPS")
+plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_tX_0]", label="BPS", linewidth=3)
 ```
+
+## A Smoothed Plot for Comparison {#sec-smoothed-plot}
 
 $N=10^6$ として計算したのが次のプロットである：
 
-![](Refreshment/n%3DLarge.svg)
+![](Refreshment/n=Large.svg)
 
 $T=30$ としても，$N=10^6$ サンプル，$\Delta t=5.0\times10^{-3}$ では 0.346 と 0.12 とでた．
 
@@ -175,6 +206,117 @@ $$
 $$
 
 をプロットしている際は，だいたい $0.45$ くらいの値になっている．
+
+そこで $T$ の有限性に関する補正をしたい．
+$$
+\int^T_0K(s,0)\,ds=\frac{\E[X_T^2X_0]}{2}
+$$
+であることを用いて，この右辺の値を計算してみると，
+
+```{julia}
+function calc_ρ_truncated(T::Float64=10.0, N::Int=10^5, seed::Int=0)
+  σ²_truncated = Vector{Float64}(undef, N)
+
+  for i in 1:N
+    x₀ = randn()
+    t, x = sampleBPS(x₀, seed=seed, T=T)
+    σ²_truncated[i] = x₀^2 * x₀
+  end
+
+  return mean(σ²_truncated)/2
+end
+
+println(calc_ρ_truncated())
+```
+
+やはり $T=10$ ではもうすでにモーメントも収束していると捉えて良いかもしれない．
+
+```{julia}
+function calc_ρ_truncated2(T::Float64=10.0, N::Int=10^5, seed::Int=0)
+  σ²_truncated = Vector{Float64}(undef, N)
+
+  for i in 1:N
+    x₀ = randn()
+    t, x = sampleBPS(x₀, seed=seed, T=T)
+    integralX = sum(x) * step(t)
+    σ²_truncated[i] = integralX * x₀
+  end
+
+  return mean(σ²_truncated)/2
+end
+
+println(calc_ρ_truncated2())
+```
+
+やはり Fubini の定理で変形した後に計算すると $=0$ に近いのだが，共分散の計算がどこかおかしい，ということになる．
+
+```{julia}
+function calc_minimum_covariance(T::Float64=2.0, N::Int=10^5, seed::Int=0)
+  minimum_covariance = Vector{Float64}(undef, N)
+
+  for i in 1:N
+    x₀ = randn()
+    t, x = sampleBPS(x₀, seed=seed, T=T)
+    minimum_covariance[i] = x₀ * x[end]
+  end
+
+  return mean(minimum_covariance)
+end
+
+function examine_MC_variance(N::Int=100)
+  MCEstimates = Vector{Float64}(undef, N)
+  for i in 1:N
+    MCEstimates[i] = calc_minimum_covariance()
+  end
+  return MCEstimates
+end
+
+calc_minimum_covariance()
+```
+
+共分散が急に小さくなっているのも怪しい．
+
+```{julia}
+function calc_small_covariance(δ::Float64=0.05, T::Float64=0.1, N::Int=10^5, seed::Int=0, dt=10^(-4))
+  small_covariance = Vector{Float64}(undef, N)
+
+  for i in 1:N
+    x₀ = randn()
+    t, x = sampleBPS(x₀, seed=seed, T=T, dt=dt)
+    index = searchsortedfirst(t,δ)
+    if t[index] != δ
+      raise(IndexError, "Index error: δ is not found in the time series")
+    end
+    small_covariance[i] = x₀ * x[index]
+  end
+
+  theMean = mean(small_covariance)
+
+  return theMean, (theMean - 1) / δ
+end
+
+small_covariance, derivative = calc_small_covariance()
+println(small_covariance)
+println("The derivative at 0 is $(derivative), which shoud be: ", -2 * sqrt(2/π))
+```
+
+やはり共分散の減衰も強すぎる．
+
+## Performance Comparison: Refreshed FECMC vs. BPS
+
+最後に，ポテンシャルの過程の拡散係数 $\sigma(\rho)^2$ を見る．これは
+$$
+\sigma(\rho)^2=8\int^\infty_0K(s,\rho)\,ds
+$$
+と定義され，ほとんど角運動量過程 $R_t$ の mixing の速さに一致する．
+
+FECMC ではリフレッシュをすると性能が逆に悪くなることが綺麗に見て取れる！
+
+![](Refreshment/σ(ρ).svg)
+
+Therefore, we pretty much reconstructed the result of [@Bierkens-Kamatani-Roberts2022], and added a similar analysis of FECMC.
+
+![](Refreshment/Bierkens+2022.png)
 
 ## Discussion
 
