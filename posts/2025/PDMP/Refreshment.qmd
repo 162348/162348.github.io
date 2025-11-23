@@ -10,7 +10,7 @@ bibliography:
     - ../../../assets/2025.bib
 csl: ../../../assets/apalike.csl
 code-fold: false
-# jupyter: julia-1.12
+jupyter: julia-1.12
 ---
 
 {{< include ../../../assets/_preamble.qmd >}}
@@ -92,14 +92,21 @@ plot(sample(randn(), T=20.0), xlabel=L"t", ylabel=L"R_t", label="FECMC Limit RMP
 ```
 
 ```{julia}
-function calc_covariance(N::Int=10^5; seed::Int=0)
+function calc_covariance(N::Int=10^5; seed::Int=0, x₀=nothing)
   t, x = sample(0.0, seed=seed)
   ρₙ = Matrix{Float64}(undef, N, length(t))
 
-  for i in 1:N
-    x₀ = randn()
-    t, x = sample(x₀, seed=seed)
-    ρₙ[i, :] = x₀ * x
+  if x₀ isa Nothing
+    for i in 1:N
+      x₀ = randn()
+      t, x = sample(x₀, seed=seed)
+      ρₙ[i, :] = x₀ * x
+    end
+  else
+    for i in 1:N
+      t, x = sample(x₀, seed=seed)
+      ρₙ[i, :] = x  # This is no longer a covariance. Will be used for resolvent.
+    end
   end
 
   return t, mean(ρₙ, dims=1)[:]
@@ -134,7 +141,6 @@ print("Monte Carlo estimate: $(m) ± $(σ)")
 The following result is also presented at the end of the Section 1 of [@Bierkens-Kamatani-Roberts2022].
 
 ```{julia}
-
 function SimulateBPSSkeleton(x₀; T::Float64=20.0, seed::Int=0)
 
   if seed == 0
@@ -177,14 +183,21 @@ plot(sampleBPS(randn(), T=20.0), xlabel=L"t", ylabel=L"R_t", label="BPS Limit RM
 ```
 
 ```{julia}
-function calc_BPS_Covariance(N::Int=10^5; seed::Int=0)
+function calc_BPS_Covariance(N::Int=10^5; seed::Int=0, x₀=nothing)
   t, x = sampleBPS(0.0, seed=seed)
   ρₙ = Matrix{Float64}(undef, N, length(t))
 
-  for i in 1:N
-    x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed)
-    ρₙ[i, :] = x₀ * x
+  if x₀ isa Nothing
+    for i in 1:N
+      x₀ = randn()
+      t, x = sampleBPS(x₀, seed=seed)
+      ρₙ[i, :] = x₀ * x
+    end
+  else
+    for i in 1:N
+      t, x = sampleBPS(x₀, seed=seed)
+      ρₙ[i, :] = x  # This is no longer a covariance. Will be used for resolvent.
+    end
   end
 
   return t, mean(ρₙ, dims=1)[:]
@@ -194,15 +207,19 @@ t, m = calc_BPS_Covariance()
 
 print(sum(m) * step(t))
 
-plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_tX_0]", label="BPS", linewidth=3)
+plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_tX_0]", label="BPS", linewidth=3, left_margin=5Plots.mm, bottom_margin=3Plots.mm)
 ```
 
-## A Smoothed Plot for Comparison {#sec-smoothed-plot}
+この理論値は $0$ である．
+
+FECMC の方が負方向への揺り戻しの際，反射ではなく幅を取り直しているので，負の相関の overshoot が抑えられている様子が見える．
+
+## Performance Comparison: Refreshed FECMC vs. BPS {#sec-smoothed-plot}
 
 $N=10^6$ として計算したのが次のプロットである：
 
 ![](Refreshment/n=Large.svg)
-
+<!-- 
 $T=30$ としても，$N=10^6$ サンプル，$\Delta t=5.0\times10^{-3}$ では 0.346 と 0.12 とでた．
 
 $T=10$ に特化して考える．$N=2\cdot10^5$ サンプルに減らすが，$\Delta t=5.0\times10^{-4}$ では BPS は $0.116$．シードを変えても $0.118$．
@@ -219,118 +236,131 @@ $$
 \sigma(0)^2=8\int^\infty_0K(s,0)\,ds
 $$
 
-をプロットしている際は，だいたい $0.45$ くらいの値になっている．
+をプロットしている際は，だいたい $0.45$ くらいの値になっている． -->
 
-そこで $T$ の有限性に関する補正をしたい．
+ここから，ポテンシャルの過程の拡散係数 $\sigma(\rho)^2$ を見る．これは Laplace 変換の定数倍
 $$
-\int^T_0K(s,0)\,ds=\frac{\E[X_T^2X_0]}{2}
+\sigma(\rho)^2:=8\int^\infty_0K(s,\rho)\,ds
 $$
-であることを用いて，この右辺の値を計算してみると，
+によって定義され，ほとんど角運動量過程 $R_t$ の mixing の速さに一致する．
 
-```{julia}
-function calc_ρ_truncated(T::Float64=10.0, N::Int=10^5, seed::Int=0)
-  σ²_truncated = Vector{Float64}(undef, N)
-
-  for i in 1:N
-    x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed, T=T)
-    σ²_truncated[i] = x₀^2 * x₀
-  end
-
-  return mean(σ²_truncated)/2
-end
-
-println(calc_ρ_truncated())
-```
-
-やはり $T=10$ ではもうすでにモーメントも収束していると捉えて良いかもしれない．
-
-```{julia}
-function calc_ρ_truncated2(T::Float64=10.0, N::Int=10^5, seed::Int=0)
-  σ²_truncated = Vector{Float64}(undef, N)
-
-  for i in 1:N
-    x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed, T=T)
-    integralX = sum(x) * step(t)
-    σ²_truncated[i] = integralX * x₀
-  end
-
-  return mean(σ²_truncated)/2
-end
-
-println(calc_ρ_truncated2())
-```
-
-やはり Fubini の定理で変形した後に計算すると $=0$ に近いのだが，共分散の計算がどこかおかしい，ということになる．
-
-```{julia}
-function calc_minimum_covariance(T::Float64=2.0, N::Int=10^5, seed::Int=0)
-  minimum_covariance = Vector{Float64}(undef, N)
-
-  for i in 1:N
-    x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed, T=T)
-    minimum_covariance[i] = x₀ * x[end]
-  end
-
-  return mean(minimum_covariance)
-end
-
-function examine_MC_variance(N::Int=100)
-  MCEstimates = Vector{Float64}(undef, N)
-  for i in 1:N
-    MCEstimates[i] = calc_minimum_covariance()
-  end
-  return MCEstimates
-end
-
-calc_minimum_covariance()
-```
-
-共分散が急に小さくなっているのも怪しい．
-
-```{julia}
-function calc_small_covariance(δ::Float64=0.05, T::Float64=0.1, N::Int=10^5, seed::Int=0, dt=10^(-4))
-  small_covariance = Vector{Float64}(undef, N)
-
-  for i in 1:N
-    x₀ = randn()
-    t, x = sampleBPS(x₀, seed=seed, T=T, dt=dt)
-    index = searchsortedfirst(t,δ)
-    if t[index] != δ
-      raise(IndexError, "Index error: δ is not found in the time series")
-    end
-    small_covariance[i] = x₀ * x[index]
-  end
-
-  theMean = mean(small_covariance)
-
-  return theMean, (theMean - 1) / δ
-end
-
-small_covariance, derivative = calc_small_covariance()
-println(small_covariance)
-println("The derivative at 0 is $(derivative), which shoud be: ", -2 * sqrt(2/π))
-```
-
-やはり共分散の減衰も強すぎる．
-
-## Performance Comparison: Refreshed FECMC vs. BPS
-
-最後に，ポテンシャルの過程の拡散係数 $\sigma(\rho)^2$ を見る．これは
-$$
-\sigma(\rho)^2=8\int^\infty_0K(s,\rho)\,ds
-$$
-と定義され，ほとんど角運動量過程 $R_t$ の mixing の速さに一致する．
-
-FECMC ではリフレッシュをすると性能が逆に悪くなることが綺麗に見て取れる！
+この値を見ることで，FECMC ではリフレッシュをすると性能が逆に悪くなることが綺麗に見て取れる！
 
 ![](Refreshment/σ(ρ).svg)
 
 Therefore, we pretty much reconstructed the figures of [@Bierkens-Kamatani-Roberts2022], adding an extra analysis of FECMC.
 
 ![](Refreshment/Bierkens+2022.png)
+
+## Resolvent
+
+このときの Laplace 変換で定まる汎函数は，Resolvent と呼ばれる：
+$$
+(\rho-G)^{-1}\id(x)=\int^\infty_0e^{-\rho t}\operatorname{E}_x[X_t]\,dt.
+$$
+
+この値を $x\in[-0.5,1.0]$ でプロットしてみる．
+
+```{julia}
+function calc_BPS_resolvent(ρ::Float64=1.0, iter::Int=10, T::Float64=10.0, N::Int=10^5, seed::Int=0; T_min::Float64=-5.0, T_max::Float64=10.0)
+  resolvent = Vector{Float64}(undef, iter)
+
+  for (i, x₀) in zip(1:iter, range(T_min, T_max, length=iter))
+    t, m = calc_BPS_Covariance(N, seed=seed, x₀=x₀)
+    e = exp.(-ρ * t)
+    resolvent[i] = sum(e .* m) * step(t)
+  end
+  return range(T_min, T_max, length=iter), resolvent
+end
+
+ρ = 1.0
+x, r_BPS = calc_BPS_resolvent(ρ)
+pᵣ = plot(x, r_BPS, xlabel=L"x", ylabel=L"\int^\infty_0e^{-\rho t}\operatorname{E}_x[X_t]\,dt", label="BPS", title="Resolvent (ρ=$ρ)", linewidth=3, left_margin=4Plots.mm, top_margin=1Plots.mm)
+pᵣ
+```
+
+```{julia}
+function calc_FECMC_resolvent(ρ::Float64=1.0, iter::Int=10, T::Float64=10.0, N::Int=10^5, seed::Int=0; T_min::Float64=-5.0, T_max::Float64=5.0)
+  resolvent = Vector{Float64}(undef, iter)
+
+  for (i, x₀) in zip(1:iter, range(T_min, T_max, length=iter))
+    t, m = calc_covariance(N, seed=seed, x₀=x₀)
+    e = exp.(-ρ * t)
+    resolvent[i] = sum(e .* m) * step(t)
+  end
+  return range(T_min, T_max, length=iter), resolvent
+end
+
+x, r_FECMC = calc_FECMC_resolvent(ρ)
+plot(pᵣ, x, r_FECMC, xlabel=L"x", ylabel=L"\int^\infty_0e^{-\rho t}\operatorname{E}_x[X_t]\,dt", label="FECMC", title="Resolvent (ρ=$ρ)", linewidth=3)
+```
+
+なぜか，$X_0=x_0\ll0$ からスタートした際は，条件付き期待値 $\operatorname{E}_{x_0}[X_t]$ の decay は似通うようである．このときの resolvent の値の差の平均が，$\sigma(\rho)^2$ の差とほとんど等しい：
+
+```{julia}
+diff = r_FECMC - r_BPS
+plot(x, diff, xlabel=L"t", ylabel="Difference of Resolvent (ρ=$ρ)", legend=false, linewidth=3, left_margin=1Plots.mm, top_margin=1Plots.mm)
+```
+
+まさかであるが，負領域ではわずかに BPS の場合が値が大きい！しかし平均的に見た場合，特に $x\ge0$ の領域では FECMC の圧勝である．
+
+```{julia}
+ρ = 1.5
+x, r_BPS = calc_BPS_resolvent(ρ, T_min=-3.0, T_max=3.0)
+pᵣ = plot(x, r_BPS, xlabel=L"x", ylabel=L"\int^\infty_0e^{-\rho t}\operatorname{E}_x[X_t]\,dt", label="BPS", title="Resolvent (ρ=$ρ)", linewidth=3, left_margin=4Plots.mm, top_margin=1Plots.mm)
+x, r_FECMC = calc_FECMC_resolvent(ρ, T_min=-3.0, T_max=3.0)
+plot!(pᵣ, x, r_FECMC, xlabel=L"x", ylabel=L"\int^\infty_0e^{-\rho t}\operatorname{E}_x[X_t]\,dt", label="FECMC", title="Resolvent (ρ=$ρ)", linewidth=3)
+```
+
+```{julia}
+function check_resolvent_difference_at(x₀::Float64=-0.5, ρ::Float64=0.5; T::Float64=10.0, N::Int=10^5, seed::Int=0)
+  t, m = calc_covariance(N, seed=seed, x₀=x₀)
+  e = exp.(-ρ * t)
+  resolvent_FECMC = sum(e .* m) * step(t)
+  t, m = calc_BPS_Covariance(N, seed=seed, x₀=x₀)
+  resolvent_BPS = sum(e .* m) * step(t)
+  return resolvent_FECMC - resolvent_BPS
+end
+
+check_resolvent_difference_at(-0.5)
+```
+
+
+
+```{julia}
+t, m = calc_covariance(x₀=-1.0)
+p = plot(t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=-1.0]", label="FECMC", linewidth=3, size=(800, 400), left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+
+t, m = calc_BPS_Covariance(x₀=-1.0)
+plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=-1.0]", label="BPS", linewidth=3, left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+p
+```
+
+```{julia}
+t, m = calc_covariance(x₀=-3.0)
+p = plot(t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=-3.0]", label="FECMC", linewidth=3, size=(800, 400), left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+
+t, m = calc_BPS_Covariance(x₀=-3.0)
+plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=-3.0]", label="BPS", linewidth=3, left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+p
+```
+
+一方で正に大きな初期値 $X_0=x_0\gg0$ を与えると，FECMC の方が顕著に速く混ざる：
+
+```{julia}
+t, m = calc_covariance(x₀=10.0)
+p = plot(t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=10.0]", label="FECMC", linewidth=3, size=(800, 400), left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+
+t, m = calc_BPS_Covariance(x₀=10.0)
+plot!(p, t, m, xlabel=L"t", ylabel=L"\operatorname{E}[X_t|X_0=10.0]", label="BPS", linewidth=3, left_margin=5Plots.mm, bottom_margin=3Plots.mm)
+print(sum(m) * step(t))
+p
+```
 
 ## Discussion
 
