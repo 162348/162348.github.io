@@ -1,5 +1,6 @@
 ---
 title: "HMC vs Pólya-Gamma Sampler"
+subtitle: "Julia によるベイズ・ロジスティック回帰での計算効率比較"
 author: "司馬 博文"
 date: 12/3/2025
 categories: [Computation, MCMC]
@@ -20,7 +21,7 @@ code-fold: false
 * Pólya-Gamma 拡大に基づく Gibbs サンプラー [@Polson+2013]
 * HMC (Hamiltonian Monte Carlo) [@Duane+1987]
 
-この２つのサンプラーの性能を比較する．
+本稿ではこの２つのサンプラーの性能を比較する．
 
 他にも，Zig-Zag Sampler with Control Variate [@Bierkens+2019], Zig-Zag Sampler with Importance Resampling [@Sen+2020] などの方法が提案されており，大標本 $n\gg1$ に対するスケーラビリティが期待されるが，ここでは扱わない．
 
@@ -40,6 +41,22 @@ X = randn(n, p)
 y = rand.(Bernoulli.(π_true))
 y = collect(Float64, y)
 ```
+
+以降，次のように進む
+
+1. Pólya-Gamma 拡大を解説し，[`PolyaGammaHybridSamplers.jl`](https://github.com/wzhorton/PolyaGammaHybridSamplers.jl) パッケージを利用して Gibbs サンプラーを実装する．
+2. [`Turing.jl`](https://turinglang.org/) を用いて HMC サンプラーを実装する方法を解説する．Turing は完全 Julia ベースの確率的プログラミング言語である．このフレームワーク上で比較することで，Julia 言語の JIT コンパイル，型チェック，ガベージコレクションなどの条件をなるべく揃えた比較を狙う．
+3. 最後に次の３点を指標にして，２つのサンプラーを比較検討する．
+  
+    1. 事後平均により真の回帰係数 $\beta$ を推定したときの $\ell^2$-誤差
+    2. 3000 サンプルあたりの有効サンプル数 (ESS: 独立サンプル何個分に当たるか)
+    3. 単位実行時間あたりの有効サンプル数
+
+これら３つの指標に対して，HMC / PG サンプラーはそれぞれ得意・不得意が違う．
+
+一見 HMC の方がサンプルの質が良いが，実は計算時間で割ると PG サンプラーの方が効率が良いことを見る．
+
+従って，我々の設定（中程度の次元 $d\approx50$ にスパース性を仮定した設定で Gaussian sample of size $n=200$）においては，PG サンプラーからより多くのサンプルを抽出して Monte Carlo 推定量を構成した方が，分散は小さくなると予想される．
 
 ## Pólya-Gamma 拡大に基づく Gibbs サンプラー
 

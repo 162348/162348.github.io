@@ -188,11 +188,11 @@ window.Quarto = {
 
 <link rel="stylesheet" href="../../../assets/styles.css">
 <meta property="og:title" content="Hirofumi Shiba - HMC vs Pólya-Gamma Sampler">
-<meta property="og:description" content="A Blog by a Bayesian Computation Researcher">
+<meta property="og:description" content="Julia によるベイズ・ロジスティック回帰での計算効率比較">
 <meta property="og:image" content="https://162348.github.io/posts/2025/Comp/assets/Shiba2.png">
 <meta property="og:site_name" content="Hirofumi Shiba">
 <meta name="twitter:title" content="Hirofumi Shiba - HMC vs Pólya-Gamma Sampler">
-<meta name="twitter:description" content="A Blog by a Bayesian Computation Researcher">
+<meta name="twitter:description" content="Julia によるベイズ・ロジスティック回帰での計算効率比較">
 <meta name="twitter:image" content="https://162348.github.io/posts/2025/Comp/assets/Shiba2.png">
 <meta name="twitter:creator" content="@ano2math5">
 <meta name="twitter:card" content="summary_large_image">
@@ -259,6 +259,7 @@ window.Quarto = {
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
       <h1 class="title">HMC vs Pólya-Gamma Sampler</h1>
+            <p class="subtitle lead">Julia によるベイズ・ロジスティック回帰での計算効率比較</p>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Computation</div>
                 <div class="quarto-category">MCMC</div>
@@ -318,10 +319,10 @@ window.Quarto = {
 <li>Pólya-Gamma 拡大に基づく Gibbs サンプラー <span class="citation" data-cites="Polson+2013">(<a href="#ref-Polson+2013" role="doc-biblioref">Polson et al., 2013</a>)</span></li>
 <li>HMC (Hamiltonian Monte Carlo) <span class="citation" data-cites="Duane+1987">(<a href="#ref-Duane+1987" role="doc-biblioref">Duane et al., 1987</a>)</span></li>
 </ul>
-<p>この２つのサンプラーの性能を比較する．</p>
+<p>本稿ではこの２つのサンプラーの性能を比較する．</p>
 <p>他にも，Zig-Zag Sampler with Control Variate <span class="citation" data-cites="Bierkens+2019">(<a href="#ref-Bierkens+2019" role="doc-biblioref">Bierkens et al., 2019</a>)</span>, Zig-Zag Sampler with Importance Resampling <span class="citation" data-cites="Sen+2020">(<a href="#ref-Sen+2020" role="doc-biblioref">Sen et al., 2020</a>)</span> などの方法が提案されており，大標本 <span class="math inline">\(n\gg1\)</span> に対するスケーラビリティが期待されるが，ここでは扱わない．</p>
 <p>どちらかというと，中程度の次元 <span class="math inline">\(d\approx50\)</span> にスパース性を仮定した設定の下で，サンプラーの性能を比較することを考える．</p>
-<div id="007b636d" class="cell" data-execution_count="1">
+<div id="007b636d" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>n, p, pₑ <span class="op">=</span> <span class="fl">200</span>, <span class="fl">50</span>, <span class="fl">10</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Random</span>, <span class="bu">StatsFuns</span>, <span class="bu">Distributions</span></span>
@@ -334,10 +335,24 @@ window.Quarto = {
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> <span class="fu">rand</span>.(<span class="fu">Bernoulli</span>.(π_true))</span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> <span class="fu">collect</span>(<span class="dt">Float64</span>, y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>以降，次のように進む</p>
+<ol type="1">
+<li><p>Pólya-Gamma 拡大を解説し，<a href="https://github.com/wzhorton/PolyaGammaHybridSamplers.jl"><code>PolyaGammaHybridSamplers.jl</code></a> パッケージを利用して Gibbs サンプラーを実装する．</p></li>
+<li><p><a href="https://turinglang.org/"><code>Turing.jl</code></a> を用いて HMC サンプラーを実装する方法を解説する．Turing は完全 Julia ベースの確率的プログラミング言語である．このフレームワーク上で比較することで，Julia 言語の JIT コンパイル，型チェック，ガベージコレクションなどの条件をなるべく揃えた比較を狙う．</p></li>
+<li><p>最後に次の３点を指標にして，２つのサンプラーを比較検討する．</p>
+<ol type="1">
+<li>事後平均により真の回帰係数 <span class="math inline">\(\beta\)</span> を推定したときの <span class="math inline">\(\ell^2\)</span>-誤差</li>
+<li>3000 サンプルあたりの有効サンプル数 (ESS: 独立サンプル何個分に当たるか)</li>
+<li>単位実行時間あたりの有効サンプル数</li>
+</ol></li>
+</ol>
+<p>これら３つの指標に対して，HMC / PG サンプラーはそれぞれ得意・不得意が違う．</p>
+<p>一見 HMC の方がサンプルの質が良いが，実は計算時間で割ると PG サンプラーの方が効率が良いことを見る．</p>
+<p>従って，我々の設定（中程度の次元 <span class="math inline">\(d\approx50\)</span> にスパース性を仮定した設定で Gaussian sample of size <span class="math inline">\(n=200\)</span>）においては，PG サンプラーからより多くのサンプルを抽出して Monte Carlo 推定量を構成した方が，分散は小さくなると予想される．</p>
 <section id="pólya-gamma-拡大に基づく-gibbs-サンプラー" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="pólya-gamma-拡大に基づく-gibbs-サンプラー"><span class="header-section-number">1</span> Pólya-Gamma 拡大に基づく Gibbs サンプラー</h2>
 <p>Pólya-Gamma 拡大に基づく Gibbs サンプラーは，次のように定義される：</p>
-<div id="053e2cb7" class="cell" data-execution_count="2">
+<div id="053e2cb7" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">PolyaGammaHybridSamplers</span>, <span class="bu">LinearAlgebra</span>, <span class="bu">MCMCChains</span>, <span class="bu">Dates</span>, <span class="bu">MCMCDiagnosticTools</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pg_logistic_gibbs</span>(</span>
@@ -398,7 +413,7 @@ window.Quarto = {
 <span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> chain, runtime_sec</span>
 <span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="937ac9a7" class="cell" data-execution_count="3">
+<div id="937ac9a7" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>σ_prior <span class="op">=</span> <span class="fl">10.0</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>chain_pg, t_pg <span class="op">=</span> <span class="fu">pg_logistic_gibbs</span>(X, y;</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    n_samples <span class="op">=</span> <span class="fl">3000</span>,</span>
@@ -440,7 +455,7 @@ window.Quarto = {
 </section>
 <section id="hmc" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="hmc"><span class="header-section-number">2</span> HMC</h2>
-<div id="61287ac0" class="cell" data-execution_count="4">
+<div id="61287ac0" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Turing</span>, <span class="bu">LinearAlgebra</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@model</span> <span class="kw">function</span> <span class="fu">logreg_turing</span>(x, y, σ_prior)</span>
@@ -456,7 +471,7 @@ window.Quarto = {
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> <span class="fu">logreg_turing</span>(X, y, σ_prior)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="dffe1a11" class="cell" data-execution_count="5">
+<div id="dffe1a11" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">3000</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>n_adapt   <span class="op">=</span> <span class="fl">3000</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -466,7 +481,7 @@ window.Quarto = {
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    n_samples,</span>
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="61110f00" class="cell" data-execution_count="6">
+<div id="61110f00" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize</span>(chain_hmc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="43">
 <div class="ansi-escaped-output">
@@ -502,7 +517,7 @@ window.Quarto = {
 </section>
 <section id="結果の比較" class="level2" data-number="3">
 <h2 data-number="3" class="anchored" data-anchor-id="結果の比較"><span class="header-section-number">3</span> 結果の比較</h2>
-<div id="58eac404" class="cell" data-execution_count="7">
+<div id="58eac404" class="cell" data-execution_count="8">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 真の β との誤差</span></span>
