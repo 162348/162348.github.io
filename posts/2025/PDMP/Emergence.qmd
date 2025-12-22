@@ -1,0 +1,101 @@
+---
+title: "動き出す PDMP"
+author: "司馬 博文"
+date: "12/24/2025"
+categories: [PDMP, MCMC, Process]
+bibliography: 
+    - ../../../assets/2023.bib
+    - ../../../assets/2024.bib
+    - ../../../assets/2025.bib
+csl: ../../../assets/apalike.csl
+---
+
+## はじめに
+
+PDMP とは近年さかんに研究されている全く新しい MCMC の総称である．
+
+収束が速い，大規模データに特に強い，密度が非正則だったりアトムを持っていても良いなど，理論的な期待は大きいが，その動いている様子を見たことのある者は，まだまだ一部の研究者に限られる．HMC が Stan や PyMC に高度な実装があり，日々の統計と機械学習の実践を支えているのとは対照的である．
+
+ここでは筆者が開発している Julia パッケージ `PDMPFlux.jl` を紹介する．その最大の特徴は柔軟なアニメーション機能を提供する関数 `anim_traj` である．これにより種々の PDMP サンプラーの動きをアニメーションで見ることができる．PDMP はシミュレーションアルゴリズムも未だ定まっておらず，実用上も理論上もまだまだ発展途上である．本稿では特に理論的な側面に注目したい．
+
+以下に，本パッケージが提供する PDMP サンプラーのうち４つを示す．このうち，**最も高次元空間に強い手法はどれだろうか？**
+
+:::: {layout-ncol="4"}
+
+![[@Bouchard-Cote+2018]](../../2024/Slides/PDMPs/BPS_SlantedGauss2D.gif)
+
+![[@Bierkens+2019]](../../2024/Slides/PDMPs/ZigZag_SlantedGauss2D.gif)
+
+![[@Bierkens+2020]](../../2024/Slides/PDMPs/Boomerang_SlantedGauss2D.gif)
+
+![[@Michel+2020]](../../2024/Slides/PDMPs/ForwardECMC_StandardGauss2D.gif)
+
+::::
+
+{{< include ../../../assets/_preamble.qmd >}}
+
+* ただし，目標分布は標準 Gauss 分布 $N_d(0,I_d)$ とする：
+  $$
+  \pi^d(x)\,\propto\,e^{-U^d(x)},\qquad U^d(x)=\frac{\norm{x}^2}{2}.
+  $$
+* 「高次元に強い」とは，次のように決めるものとする：
+  * 計算複雑性（例えば１つの独立サンプルを出力するのに要する $U(x),\nabla U(x)$ 評価の回数）のスケール $O(d^{\alpha})$ の $\alpha$ が小さいと「強い」とする．
+  * 同じスケールにおいては，同一回数の $U(x),\nabla U(x)$ 評価（近似的に CPU 時間と比例するものとする）で，より多くの独立サンプルを生み出す方が「強い」とする．
+
+正解は本記事の最後に触れる．
+
+それまでは，上の６つの gif がどのように生成されているか解説する．`PDMPFlux.jl` の実装について詳しくなってもらうと同時に，６つの PDMP 手法を通じて，「より速い手法を作るにはどういうアイデアがあり得るか？」を一緒に考えて欲しい．
+
+最後に，現状での理論が与える示唆を少し紹介する．
+
+## PDMP の基本：Poisson 点過程を打つ
+
+基本的に，全ての PDMP アルゴリズムは点を打っている（＝特定の Poisson 点過程をシミュレーションしている）だけである．この時点で，既存の MCMC アルゴリズムとは全く違う．^[だが，最終的に最もうまくいく MCMC アルゴリズムと，最もうまくいく PDMP アルゴリズムは，確率過程としてはとても似通ってくる．シミュレーション方法が違うのみである．]
+
+打った点の間を直線で（または他の規定の規則で）補間するだけで最終的な output が完成する（次のコードの `sample_from_skeleton` の部分）．
+
+```{.julia filename="PDMPFlux.jl/src/sample.jl"}
+function sample(
+    sampler::AbstractPDMP,  # PDMP サンプラーの種類を指定
+    N_sk::Int,  # シミュレーションするイベントの数
+    N_samples::Int,  # 最終的に出力するサンプルの数
+    xinit::Vector{Float64},  # 初期値（位置）
+    vinit::Vector{Float64};  # 初期値（速度）
+    seed::Int=nothing,  # 乱数のシード（必要ならば）
+    verbose::Bool = true  # 進捗バーを表示するかどうか
+)::Matrix{Float64}
+
+    history = sample_skeleton(sampler, N_sk, xinit, vinit, seed=seed, verbose=verbose)
+    return sample_from_skeleton(sampler, N_samples, history)
+
+end
+```
+
+この `sample_skeleton` が PDMP シミュレーションの本質であり，中では「次のイベント時刻の特定」の繰り返しである．
+
+仮に１つ前のイベント時刻 $T_{i-1}$ で $(X_{T_{i-1}},V_{T_{i-1}})=(x,v)\in\R^{2d}$ まで来ているとしよう．すると，次のイベント時刻 $T_i$ が来るまでの時間 $T_i-T_{i-1}$ は，強度関数
+$$
+\lambda(t)=\max(0,\brac{V_t|\nabla U(X_t)})
+$$ {#eq-lambda}
+で定まる．$\lambda$ は次のイベントが起こるまでのハザード関数と捉えても良い．
+
+式 ([-@eq-lambda]) は「速度 $V_t$ の，確率密度が下がっていく方向 $\nabla U(X_t)$ の成分が大きければ大きいほどイベントが起きやすい」ことを意味する．
+
+つまり，式 ([-@eq-lambda]) に従ってイベント時刻を決定し，そこでうまく高密度領域に戻るような「方向転換」をデザインすれば，自由にターゲット $e^{-U(x)}$ に収束する PDMP を作り出すことができる．
+
+## PDMP サンプラー戦国時代：方向転換のデザイン
+
+最も代表的な手法は BPS (Bouncy Particle Sampler) 群である．これは Snell の反射の法則の通りに方向転換をする．つまり，イベントが起こった場合，ポテンシャル $U(x)=-\log\pi(x)$ の等高線の接線を鏡に見立てて，反射する：
+$$
+V_t^{\text{new}}\gets V_t-2\frac{\brac{V_t|\nabla U(X_t)}}{\norm{\nabla U(X_t)}^2}\nabla U(X_t).
+$$
+
+これにより速度 $V_t$ のうち $\nabla U(X_t)$ に平行だった成分は反射され，垂直な成分はそのまま残る．
+
+:::: {layout-ncol="2"}
+
+![[@Bouchard-Cote+2018]](../../2024/Slides/PDMPs/BPS_SlantedGauss2D.gif){width=50%}
+
+![[@Bierkens+2020]](../../2024/Slides/PDMPs/Boomerang_SlantedGauss2D.gif){width=50%}
+
+::::
