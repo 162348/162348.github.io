@@ -63,14 +63,14 @@ abstract: |
 
 ### 設定
 
-* **データ**: $x^\nu\in\R^d\;(\nu=1,\cdots,n)$. あとで $d\to\infty$ の極限を考える．
+* **データ**: $\R^d\ni x^\nu\iidsim P_x\;(\nu=1,\cdots,n)$. あとで $d\to\infty$ の極限を考える．
 * **スコア学習に使うNN**：Random Feature $W\in\R^{p\times d}$ with i.i.d. Gaussian
   $$
   s_A(x):=\frac{A}{\sqrt{p}}\sigma^{\otimes p}\paren{\frac{Wx}{\sqrt{d}}}\qquad A\in\R^{d\times p},
   $$
 * **損失関数**: 固定した時刻 $t>0$ での DSM loss
   $$
-  \mathcal{L}_t(A;\{x^\nu\}_{\nu=1}^n):=\frac{1}{dn}\sum_{\nu=1}^n\E\Square{\norm{\sqrt{\Delta_t s_A(x_t^\nu)}+Z}^2}.
+  \mathcal{L}_t(A;\{x^\nu\}_{\nu=1}^n):=\frac{1}{dn}\sum_{\nu=1}^n\E\Square{\norm{\sqrt{\Delta_t s_A(x_t^\nu(\xi))}+Z}^2}.
   $$
 * **訓練**: GD による
   $$
@@ -79,11 +79,265 @@ abstract: |
 
 ### GD の連続時間極限
 
+DSM loss での勾配降下法：
+<!-- $$\mathcal{L}_t(\theta,\{x^\nu\}^n_{\nu=1})=\frac{1}{d}\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\SQuare{\|\sqrt{\Delta_t}s_\theta(X^\nu_t)+\xi\|^2\,\bigg|\,X^\nu_0=\xi}$$ -->
+$$
+A^{(k+1)}\gets A^{(k)}-\eta\nabla_A\mathcal{L}_t(A^{(k)}),\qquad k=0,1,2,\cdots
+$$
+
+時間変換 $\tau(k):=k\eta/d^2$ を施して，$\eta\to0$ の極限を取ると
+$$
+\dot{A}_\tau=-d^2\nabla_A\mathcal{L}_t(A_\tau)=-2\Delta_t\frac{d}{p}A_\tau U-\frac{2d\sqrt{\Delta_t}}{\sqrt{p}}V^\top,\qquad\tau\ge0,
+$$
+$$%:=\frac{1}{n}\sum_{\nu=1}^n\E[y^\nu (y^\nu)^\top]
+U:=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\left[\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}^\top\right],
+$$
+$$
+V:=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\Square{\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}\xi^\top}.
+$$
+
+### $U$ のスペクトルの分布への帰着
+
+::: {.callout-important appearance="simple" icon="false"}
+訓練ダイナミクス $(A_\tau)_{\tau\ge0}$ のスケール分離は，$U$ のスペクトルの分布のスケール分離からくる．
+特に，典型的な緩和時間は $\Delta_tU/\psi_p$ の固有値の逆数が与える．
+:::
+
+$$
+\dot{\textcolor{#E95420}{A}}_{\textcolor{#E95420}{\tau}}=-d^2\nabla_A\mathcal{L}_t(\textcolor{#E95420}{A_\tau})=-2\Delta_t\frac{d}{p}\textcolor{#E95420}{A_\tau} U-\frac{2d\sqrt{\Delta_t}}{\sqrt{p}}V^\top,\qquad\tau\ge0,
+$$
+は行列 $A\in\R^{d\times p}$ に関する線型 ODE．$U\in\GL_p(\R)$ なら Duhamel の公式から
+$$
+\frac{\textcolor{#E95420}{A_\tau}}{\sqrt{p}}=-\frac{1}{\sqrt{\Delta_t}}V^\top U^{-1}+\paren{\frac{1}{\sqrt{\Delta_t}}V^\top U^{-1}+\frac{A_0}{\sqrt{p}}}\exp\paren{-\frac{2\Delta_t}{\psi_p}U\textcolor{#E95420}{\tau}},
+$$
+$$
+\psi_p:=\frac{p}{d},\qquad\psi_n:=\frac{n}{d}.
+$$
+
+::: aside
+$A_0=0$ と仮定する
+:::
+
+### Stieltjes Transform Method (1/2)
+
+$U$ の経験スペクトル分布 $\mu_U$ の Stieltjes transform は，resolvent $R(z):=(U-zI_p)^{-1}$ の平均固有値が与える：
+$$
+q(z):=\frac{\Tr(R(z))}{p}=\frac{1}{p}\sum_{i=1}^pR(z)_{ii}=\int_{-\infty}^\infty\frac{1}{\lambda-z}\mu_U(d\lambda)\quad(z\in\bC\setminus\R).
+$$
+
+::: {.callout-tip title="[IX.2.2 The Spectral Theorem @Conway2007]" icon="false"}
+
+$U$ を Hilbert 空間 $H$ 上の正規作用素とする．このとき，ただ一つのスペクトル測度 $E:\Sp(U)\to B(H)$ が存在して，
+$$
+U=\int_{\Sp(U)} \lambda E(d\lambda).
+$$
+
+:::
+
+::: aside
+Resolvent $R(z)$ は $\Sp(U)$ 上の有界 Borel 関数 $f(\lambda)=(z-\lambda)^{-1}$ の $E$ に関する積分．
+:::
+
+### 3.4 Stieltjes Transform Method (1/2) {.unnumbered .unlisted visibility="uncounted"}
+
+$U$ の経験スペクトル分布 $\mu_U$ の Stieltjes transform は，resolvent $R(z):=(U-zI_p)^{-1}$ の平均固有値が与える：
+$$
+q(z):=\frac{\Tr(R(z))}{p}=\frac{1}{p}\sum_{i=1}^pR(z)_{ii}=\int_{-\infty}^\infty\frac{1}{\lambda-z}\mu_U(d\lambda)\quad(z\in\bC\setminus\R).
+$$
+
+Resolvent $R(z)$ は $f(\lambda)=(z-\lambda)^{-1}$ の $E$ に関する積分：
+$$
+R(z)=\frac{1}{U-z}=\int_{\Sp(U)}\frac{1}{\lambda-z}E(d\lambda).
+$$
+$$
+\therefore\qquad R(z)_{ii}=(e_i|R(z)e_i)=\int_{-\infty}^\infty\frac{1}{\lambda-z}\mu_{e_i}(d\lambda).
+$$
+$$
+\mu_U=\frac{1}{p}\sum_{i=1}^p\mu_{e_i},\qquad \mu_{e_i}(A):=(e_i|E(A)e_i)\quad(A\in \mathcal{B}(\R)).
+$$
 
 
-### 鍵となる reduction argument
+### Stieltjes Transform Method (2/2)
 
-訓練ダイナミクスのスケール分離は，スペクトル分布のスケール分離からくる．
+$q(z)=\Tr(R(z))/p$ を求めれば，$\mu_U$ が復元できる：
+
+::: {.callout-tip title="[定理2.4.3 @Anderson+2011]" icon="false"}
+$\mu$ を $\R$ 上の確率測度，
+$$
+S_\mu(z):=\int_{-\infty}^\infty\frac{\mu(dx)}{x-z},\qquad z\in\bC\setminus\R
+$$
+をStieltjes transform とする．任意の開区間 $I\subset\R$ について，$\mu$ が $\partial I$ 上に atom を持たないならば
+$$
+\mu(I)=\lim_{\ep\to0}\int_I\frac{\Im S_\mu(\lambda+i\epsilon)}{\pi}\,d\lambda.
+$$
+:::
+
+### 3.5 Stieltjes Transform Method (2/2) {.unnumbered .unlisted visibility="uncounted"}
+
+【証明】 任意の $\lambda\in\R$ について，
+
+\begin{align*}
+    \Im\paren{\frac{S_\mu(\lambda+i\ep)}{\pi}}&=\frac{S_\mu(\lambda+i\ep)-S_\mu(\lambda-i\ep)}{2\pi i}\\
+    &=\frac{1}{2\pi i}\int_\R\paren{\frac{1}{x-(\lambda+i\ep)}-\frac{1}{x-(\lambda-i\ep)}}\,\mu(dx)\\
+    &=\frac{1}{2\pi i}\int_\R\frac{2i\ep}{x^2-2\lambda x+(\lambda^2+\ep^2)}\mu(dx)\\
+    &=\int_\R\frac{1}{\pi}\frac{\ep}{(x-\lambda)^2+\ep^2}\mu(dx),\qquad\lambda\in\R.
+  \end{align*}
+
+この右辺は実は $X\sim\mu,C_\ep\sim\operatorname{Cauchy}(0,\epsilon)$ について $X+C_\ep$ の分布の $\lambda$ での確率密度である．$X+C_\ep\Rightarrow X$ から結論が従う．
+
+::: aside
+複素解析の [Sokhotski-Plemelj の公式](https://en.wikipedia.org/wiki/Sokhotski%E2%80%93Plemelj_theorem) の系ともみれる．
+:::
+
+### 主定理：平均レゾルベント $q(z)$ の極限の特徴付け
+
+$q$ を記述するための補助的な量：
+
+$$
+\scriptstyle
+r(z):=\frac{1}{p}\Tr(\Sigma^{1/2}W^\top(U-zI_p)^{-1}W\Sigma^{1/2}),\quad
+s(z):=\frac{1}{p}\Tr(W^\top(U-zI_p)^{-1}W),\quad z\in\bC
+$$
+
+::: {.callout-tip title="[定理3.1 @Bonnaire+2025]" icon="false"}
+
+$q(z)=\Tr(R(z))/p$ はランダム行列極限 $d,p,n\to\infty$ で大数の法則が性質するとする．このとき，後述の仮定の下で，$q$ は次の鞍点方程式の解が与える：
+
+$$
+\begin{align*}
+\scriptstyle
+\wh{s}(q)&\scriptstyle=b^2_t\psi_p+\frac{1}{q},&\scriptstyle\hat{r}(r,q)&\scriptstyle=\frac{\psi_pa_t^2e^{-2t}}{1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q},\\
+\scriptstyle s(z)&\scriptstyle=\int\frac{1}{\hat{s}(q)+\lambda\hat{r}(r,q)}\rho_\Sigma(d\lambda),&\scriptstyle r(z)&\scriptstyle=\int\frac{\lambda}{\hat{s}(q)+\lambda\hat{r}(r,q)}\,\rho_\Sigma(d\lambda),
+\end{align*}
+$$
+$$
+\scriptstyle
+\psi_p(s_t^2-z)+\frac{\psi_pv_t^2}{1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q}+\frac{1-\psi_p}{q}-\frac{s}{q^2}=0.
+$$
+
+:::
+
+### Gaussian Equivalence Principle
+
+::: {.callout-tip title="経験スペクトル極限の構造定理 [定理1.4 @Peche2019]" icon="false"}
+
+ランダム行列 $X\in\R^{d\times n},W\in\R^{p\times d}$ の成分はそれぞれ i.i.d. で，指数より軽い裾を持ち，$(0,1)$ に正規化されているとする．
+$f:\R\to\R$ が Schwartz 急減少関数ならば，
+次の２つの行列 $M,M'$ の経験スペクトル分布は漸近同等：
+$$
+M:=\frac{1}{d}f^{\otimes(p\times n)}\paren{\frac{WX}{\sqrt{d}}}f^{\otimes(p\times n)}\paren{\frac{WX}{\sqrt{d}}}^\top
+$$
+$$
+\scriptstyle
+M':=\frac{1}{n}\paren{\sqrt{\theta_2(f)}\frac{WX}{\sqrt{d}}+\sqrt{\theta_1(f)-\theta_2(f)}Z}\paren{\sqrt{\theta_2(f)}\frac{WX}{\sqrt{d}}+\sqrt{\theta_1(f)-\theta_2(f)}Z}^\top
+$$
+ただし，$Z\in\R^{p\times n}$ は Gaussian random matrix で，
+$$
+\theta_1(f)=\E[f(Z_{11})^2],\quad\theta_2(f)=\E[f'(Z_{11})]^2=\E[Z_{11}f(Z_{11})]^2.
+$$
+
+:::
+
+### 3.7 Gaussian Equivalence Principle {.unnumbered .unlisted visibility="uncounted"}
+
+::: {.callout-tip title="[補題C.1 @Bonnaire+2025]" icon="false"}
+
+1. $\sigma\in L^2_0(\gamma),\;\gamma:=N_1(0,1)$ である．
+2. データ分布 $P_x$ は sub-Gaussian．
+3. $P_x$ の共分散行列 $\Sigma^d:=\E[XX^\top]$ は $d\to\infty$ の極限で有界な固有値を持ち，経験スペクトル分布の極限は密度 $\rho_\Sigma$ を持つ絶対連続分布になる．
+
+上の３条件の下で，次の２つの行列 $U,U'$ の経験スペクトル分布は漸近同等：
+
+$$
+\begin{align*}
+  \scriptstyle
+  U&\scriptstyle:=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\left[\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}^\top\right]\\
+  \scriptstyle U'&\scriptstyle:=\frac{GG^\top}{n}+b_t^2\frac{WW^\top}{d}+s_t^2I_p,\qquad G:=e^{-t}a_t\frac{W}{\sqrt{d}}X'+v_t\Omega
+\end{align*}
+$$
+
+$X'$ は $X$ の独立 copy，$\Omega$ は独立な Gaussian random matrix．
+
+:::
+
+### 3.7 Gaussian Equivalence Principle {.unnumbered .unlisted visibility="uncounted"}
+
+$$
+\begin{align*}
+  U&:=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\left[\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}\sigma^{\otimes p}\paren{\frac{Wx^\nu_t(\xi)}{\sqrt{d}}}^\top\right]\\
+  U'&:=\frac{GG^\top}{n}+b_t^2\frac{WW^\top}{d}+s_t^2I_p,\qquad G:=e^{-t}a_t\frac{W}{\sqrt{d}}X'+v_t\Omega
+\end{align*}
+$$
+
+$\xi,\eta,\zeta\sim\rN_1(0,1)$ とし，$\sigma^2_x:=\Tr(\Sigma)/d$ とする．
+$$
+\begin{align*}
+  b_t&:=\E[\xi\sigma(e^{-t}\sigma_x^2\eta+\sqrt{\Delta_t}\xi)],\qquad a_t:=\E\Square{\sigma\paren{e^{-t}\sigma_x\eta+\sqrt{\Delta_t}\xi}\frac{\eta}{e^{-t}\sigma_x}},\\
+  s^2_t&:=\E[\sigma(\Gamma_t\eta)^2]-a_t^2e^{-2t}\sigma^2_x-v_t^2-b_t^2,\qquad\Gamma_t:=e^{-2t}\sigma^2_x+\Delta_t,
+\end{align*}
+$$
+
+$$
+v_t^2:=\E\Square{\sigma\paren{e^{-t}\sigma_x\eta+\sqrt{\Delta_t}\xi}\sigma\paren{e^{-t}\sigma_x\eta+\sqrt{\Delta_t}\zeta}}-a_t^2e^{-2t}\sigma^2_x.
+$$
+
+### $q(z)=\Tr(R(z))/p$ の極限の計算
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+::: {.callout-important icon="false" style="text-align: left;" title="Replica Method [@Bonnaire+2025]"}
+
+行列微分則 $\frac{d\det(X)}{dX}\scriptstyle=\Tr(X^{-1})\det(X)$ から^[[@Magnus-Neudecker2019 p.201]]
+$$
+\begin{align*}
+  q(z)&=-\frac{1}{p}\pp{}{z}\log\det(U-zI_p)\\
+  &=\frac{2}{p}\pp{}{z}\log\paren{\det(U-zI_p)}^{-\frac{1}{2}}
+\end{align*}
+$$
+
+
+:::
+:::
+
+::: {.column width="50%"}
+::: {.callout-note icon="false" style="text-align: left;" title="Linearization Trick [@George+2025]"}
+
+Resolvent が $(XX^\top/d-zI)^{-1}$ という形なら
+$$
+L(z)=\begin{pmatrix}
+-zI&-X^\top/\sqrt{d}\\
+X/\sqrt{d}&I
+\end{pmatrix}
+$$
+という大きい行列の $L^{-1}$ の一部に見える．
+
+:::
+:::
+
+::::
+
+### 証明
+
+::: {.callout-tip title="[定理3.1 @Bonnaire+2025]" icon="false" style="margin-bottom: 0em; !important"}
+
+$q(z)=\Tr(R(z))/p$ の極限は，次の鞍点方程式の解が与える：
+
+$$
+\begin{align*}
+\scriptstyle
+\wh{s}(q)&\scriptstyle=b^2_t\psi_p+\frac{1}{q},\quad\hat{r}(r,q)=\frac{\psi_pa_t^2e^{-2t}}{1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q},\quad
+s(z)=\int\frac{1}{\hat{s}(q)+\lambda\hat{r}(r,q)}\rho_\Sigma(d\lambda),\\
+\scriptstyle r(z)&\scriptstyle=\int\frac{\lambda}{\hat{s}(q)+\lambda\hat{r}(r,q)}\,\rho_\Sigma(d\lambda),\quad\psi_p(s_t^2-z)+\frac{\psi_pv_t^2}{\scriptscriptstyle 1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q}+\frac{1-\psi_p}{q}-\frac{s}{q^2}=0.
+\end{align*}
+$$
+
+:::
+
+行列微分則 $\frac{d\det(X)}{dX}=\Tr(X^{-1})\det(X)$ [@Magnus-Neudecker2019 p.201] から，
+$$
+q(z)=-\frac{1}{p}\pp{}{z}\log\det(U-zI_p)=\frac{2}{p}\pp{}{z}\log\paren{\det(U-zI_p)}^{-\frac{1}{2}}
+$$
 
 ## まとめ
 
