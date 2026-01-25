@@ -10,7 +10,7 @@
 <link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
   <meta name="generator" content="quarto-1.8.27">
 
-  <meta name="author" content="司馬 博文">
+  <meta name="author" content="司馬博文">
   <title>Hirofumi Shiba – 拡散モデルでの動的暗黙正則化</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -239,7 +239,7 @@
 <div class="quarto-title-authors">
 <div class="quarto-title-author">
 <div class="quarto-title-author-name">
-司馬 博文 
+司馬博文 
 </div>
 </div>
 </div>
@@ -257,6 +257,7 @@
 </ul>
 </nav>
 </section>
+<section>
 <section id="概観" class="title-slide slide level1 center" data-number="1">
 <h1><span class="header-section-number">1</span> 概観</h1>
 <div class="hidden">
@@ -265,7 +266,85 @@
 <p>$$</p>
 </div>
 </section>
+<section id="score-based-diffusion-models" class="slide level2" data-number="1.1">
+<h2><span class="header-section-number">1.1</span> Score-based Diffusion Models</h2>
+<p><span class="math display">
+\text{Forward}\quad dX_t=-X_t\,dt+dB_t,\quad X_0\sim P_x,
+</span> <span class="math display">
+\text{Reverse}\quad dX'_t=-\biggr(X_t'+2s_t'(X_t')\biggl)\,dt+dB'_t.
+</span></p>
+<p>ただし <span class="math inline">s_t'(x):=\nabla_x\log p_t'(x)</span> は <span class="math inline">(X_t')</span> の周辺密度 <span class="math inline">p_t'</span> の Hyvärinen スコア．</p>
+<div title="[Tweedie's Formula @Efron2011] の系">
+<div class="callout callout-tip no-icon callout-titled callout-style-default">
+<div class="callout-body">
+<div class="callout-title">
+<p><strong><span class="citation" data-cites="Efron2011">(Tweedie’s Formula <a href="#/参考文献" role="doc-biblioref" onclick="">Efron, 2011</a>)</span> の系</strong></p>
+</div>
+<div class="callout-content">
+<p><span class="math display">
+\operatorname{E}\left[\frac{e^{-t}X_x-X_{s+t}}{\Delta_t}\,\middle|\,X_{s+t}=x\right]=\nabla_x\log p_{s+t}(x).
+</span></p>
+</div>
+</div>
+</div>
+</div>
+<p><span class="math inline">\Delta_t:=\sqrt{1-e^{-2t}}</span> とすると <span class="math inline">\xi:=\frac{X_{s+t}-e^{-t}X_s}{\sqrt{\Delta_t}}\sim\operatorname{N}(0,1)</span>．</p>
+<p><span class="math inline">s\to\infty</span> を考えて，次の損失関数が発想される： <span class="math display">
+\mathcal{L}_t(\theta;\{x^\nu\}_{\nu=1}^n)=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\left[\|\sqrt{\Delta_t}s_\theta(x_t^\nu(\xi))+\xi\|^2\right].
+</span></p>
 
+<aside><div>
+<p>ただし，<span class="math inline">x_t^\nu(\xi):=e^{-t}x^\nu+\sqrt{\Delta_t}\xi</span>．</p>
+</div></aside></section>
+<section id="generation-from-the-empirical-score" class="slide level2" data-number="1.2">
+<h2><span class="header-section-number">1.2</span> Generation from the Empirical Score</h2>
+<div title="Memorization Regime = 過学習 [@Biroli+2024]">
+<div class="callout callout-important no-icon callout-titled callout-style-default">
+<div class="callout-body">
+<div class="callout-title">
+<p><strong>Memorization Regime = 過学習 <span class="citation" data-cites="Biroli+2024">(<a href="#/参考文献" role="doc-biblioref" onclick="">Biroli et al., 2024</a>)</span></strong></p>
+</div>
+<div class="callout-content">
+<p>経験リスク最小化問題</p>
+<p><span class="math display">
+\mathcal{L}_t(\theta;\{x^\nu\}_{\nu=1}^n)=\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\left[\|\sqrt{\Delta_t}s_\theta(x_t^\nu(\xi))+\xi\|^2\right].
+</span></p>
+<p>を解き切ったらうまくいかない．理論的には <span class="math inline">\mathbb{P}_n</span> からのサンプルを再現してしまう．</p>
+</div>
+</div>
+</div>
+</div>
+<ul>
+<li><p>実際には経験リスク最小化を解き切っていないはず．</p></li>
+<li><p>Early stopping により汎化を達成しているのでは？</p></li>
+</ul>
+</section>
+<section id="本論文の要旨implicit-dynamical-regularization" class="slide level2" data-number="1.3">
+<h2><span class="header-section-number">1.3</span> 本論文の要旨：Implicit Dynamical Regularization</h2>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/Summary1.png" class="quarto-figure quarto-figure-center" style="width:100.0%"></p>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/Summary_diagram_tau_mem.png" class="quarto-figure quarto-figure-center" style="width:100.0%"></p>
+</figure>
+</div>
+</div></div>
+<ul>
+<li>たしかに解き切っていない．汎化のためには early stopping が必須．</li>
+<li><span class="math inline">n&lt;p</span> じゃないと implicit dynamical regularization は起きない．</li>
+<li><span class="math inline">p&lt;n</span> のとき，訓練ダイナミクスにスケール分離が見られる
+<ul>
+<li><p>汎化が始まる時間は <span class="math inline">\tau_{\text{gen}}=O(1)</span> だが，過学習が始まる時間は <span class="math inline">\tau_{\text{mem}}=O(n)</span></p>
+<p>→ <span class="math inline">n</span> が大きいほど early stopping の sweet spot が広い．</p></li>
+</ul></li>
+</ul>
+</section></section>
 <section>
 <section id="実験パート-section-2" class="title-slide slide level1 center" data-number="2">
 <h1><span class="header-section-number">2</span> 実験パート (Section 2)</h1>
@@ -274,14 +353,71 @@
 <section id="設定" class="slide level2" data-number="2.1">
 <h2><span class="header-section-number">2.1</span> 設定</h2>
 <ul>
-<li><strong>データ</strong>：cropped &amp; grayscaled CelebA, <span class="math inline">d=32^2</span>, <span class="math inline">n\in\{128,\cdots,32768\}</span></li>
+<li><strong>データ</strong>：cropped, grayscaled, &amp; downsampled CelebA, <span class="math inline">d=32^2</span></li>
 </ul>
 
 <img data-src="Bonnaire2025/SM_Images_CelebA.jpeg" class="quarto-figure quarto-figure-center r-stretch" width="10"><ul>
 <li><strong>スコア学習に使う NN</strong>：U-Net, 時刻 <span class="math inline">t</span> は sinusoidal position embedding</li>
 <li><strong>損失関数</strong>：DDPM loss．ここまで全て <span class="citation" data-cites="Ho+2020">(<a href="#/参考文献" role="doc-biblioref" onclick="">Ho et al., 2020</a>)</span> の設定に従う．</li>
-<li><strong>訓練</strong>：SGD, momentum <span class="math inline">\beta=0.95</span>, fixed <span class="math inline">\eta=0.01</span>, batch size <span class="math inline">B=n\land512</span></li>
+<li><strong>訓練</strong>：SGD, momentum <span class="math inline">\beta=0.95</span>,<span class="math inline">\eta=0.01</span>, <span class="math inline">B=n\land512</span></li>
 </ul>
+<p><span class="math inline">n\in\{128,\cdots,32768\}</span> を順に動かしていく</p>
+</section>
+<section id="データサイズ-n-を変える" class="slide level2 scrollable" data-number="2.2">
+<h2><span class="header-section-number">2.2</span> データサイズ <span class="math inline">n</span> を変える</h2>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/N1.png" style="width:70.0%"></p>
+<figcaption>横軸：訓練 step 数 <span class="math inline">\tau</span>，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/N2.png" style="width:70.0%"></p>
+<figcaption>スコア学習誤差のプロット<sup>1</sup><br>横軸：訓練 step 数 <span class="math inline">\tau</span>，縦軸：訓練誤差（実線），テスト誤差（点線）．全て <span class="math inline">t=0.01</span>．</figcaption>
+</figure>
+</div>
+</div></div>
+<aside><ol class="aside-footnotes"><li id="fn1"><p><span class="math inline">n</span> が増えるほど汎化ギャップ <span class="math inline">\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}</span> が小さくなる．</p></li></ol></aside></section>
+<section id="データサイズ-n-を変える-1" class="slide level2 unnumbered unlisted scrollable" data-visibility="uncounted">
+<h2>2.2 データサイズ <span class="math inline">n</span> を変える</h2>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/CelebA_B=n.png" style="width:70.0%"></p>
+<figcaption><span class="math inline">B=n</span> と取った場合</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/CelebA_Adam.png" style="width:70.0%"></p>
+<figcaption>SGD with momentum ではなく Adam を使った場合<sup>1</sup></figcaption>
+</figure>
+</div>
+</div><p><span class="small-letter">横軸：訓練 step 数 <span class="math inline">\tau</span>，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．</span></p>
+</div>
+<aside><ol class="aside-footnotes"><li id="fn2"><p><span class="math inline">\tau_{\text{gen}},\tau_{\text{mem}}</span> が全体的に小さい方向へスライドする．</p></li></ol></aside></section>
+<section id="モデルサイズ-p-を変える" class="slide level2" data-number="2.3">
+<h2><span class="header-section-number">2.3</span> モデルサイズ <span class="math inline">p</span> を変える</h2>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/N1.png" class="quarto-figure quarto-figure-center" style="width:70.0%"></p>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="Bonnaire2025/N2.png" class="quarto-figure quarto-figure-center" style="width:70.0%"></p>
+</figure>
+</div>
+</div></div>
 </section></section>
 <section>
 <section id="理論パート-section-3" class="title-slide slide level1 center" data-number="3">
@@ -581,7 +717,7 @@ $$
 q(z)=-\frac{1}{p}\pp{}{z}\log\det(U-zI_p)=\frac{2}{p}\pp{}{z}\log\paren{\det(U-zI_p)}^{-\frac{1}{2}}
 $$
 -->
-<aside><ol class="aside-footnotes"><li id="fn1"><p><span class="citation" data-cites="Magnus-Neudecker2019">(<a href="#/参考文献" role="doc-biblioref" onclick="">Magnus and Neudecker, 2019, p. 201</a>)</span></p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn3"><p><span class="citation" data-cites="Magnus-Neudecker2019">(<a href="#/参考文献" role="doc-biblioref" onclick="">Magnus and Neudecker, 2019, p. 201</a>)</span></p></li></ol></aside></section>
 <section id="主な系スペクトルの-two-bulk-構造" class="slide level2 scrollable" data-number="3.9">
 <h2><span class="header-section-number">3.9</span> 主な系：スペクトルの two-bulk 構造</h2>
 <div title="[定理3.2 @Bonnaire+2025]" style="margin-bottom: 0em; !important">
@@ -610,7 +746,7 @@ $$
 </div>
 </div>
 <p>証明は <span class="math inline">\psi_n,\psi_p\to\infty</span> の近似の下で固定点方程式を解くことによる．</p>
-<aside><ol class="aside-footnotes"><li id="fn2"><p>平均 <span class="math inline">\widetilde{U}:=\operatorname{E}[U]</span> の経験スペクトル分布の極限を <span class="math inline">\mu_{\widetilde{U}}</span> とした．</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn4"><p>平均 <span class="math inline">\widetilde{U}:=\operatorname{E}[U]</span> の経験スペクトル分布の極限を <span class="math inline">\mu_{\widetilde{U}}</span> とした．</p></li></ol></aside></section>
 <section id="主な系スペクトルの-two-bulk-構造-1" class="slide level2 unnumbered unlisted" data-visibility="uncounted">
 <h2>3.9 主な系：スペクトルの two-bulk 構造</h2>
 <div title="過剰パラメータ領域：$\psi_p>\psi_n\gg1$ のとき" style="margin-bottom: 0em; !important">
@@ -699,23 +835,59 @@ $$
 <figcaption>訓練誤差（実線）とテスト誤差（点線）</figcaption>
 </figure>
 </div>
+<p><span class="math inline">\tau_{\text{gen}}</span> までの速いスケールでは，汎化ギャプ <span class="math inline">\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}</span> が消える．</p>
 </div></div>
-</section></section>
+</section>
+<section id="補足経験誤差最小化解-tautoinfty-の汎化誤差" class="slide level2" data-number="3.11">
+<h2><span class="header-section-number">3.11</span> 補足：経験誤差最小化解 <span class="math inline">\tau\to\infty</span> の汎化誤差</h2>
+<p>実は収束先も <span class="math inline">n</span> が大きいほど汎化ギャップ <span class="math inline">\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}</span> は低くなる <span class="citation" data-cites="George+2025">(<a href="#/参考文献" role="doc-biblioref" onclick="">George et al., 2025</a>)</span>．</p>
+<p>ただし，パラメータ不足領域 <span class="math inline">\psi_p&lt;\psi_n</span> に侵入した場合は，時間スケールの分離は見られず，architectural regularization により <span class="math inline">\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}</span> はさらに下がる．</p>
+
+<img data-src="Bonnaire2025/George.png" class="r-stretch quarto-figure-center"><p class="caption"><span class="math inline">t=0.01</span>．縦の点線は <span class="math inline">\psi_n=\psi_p</span> <span class="citation" data-cites="George+2025">(Figure 5 <a href="#/参考文献" role="doc-biblioref" onclick="">George et al., 2025</a>)</span>．<span class="math inline">\tau\to\infty</span> の場合に対応．</p></section></section>
 <section>
 <section id="まとめ" class="title-slide slide level1 center" data-number="4">
 <h1><span class="header-section-number">4</span> まとめ</h1>
 
 </section>
-<section id="open-question" class="slide level2" data-number="4.1">
-<h2><span class="header-section-number">4.1</span> Open Question</h2>
-<div class="callout callout-important no-icon callout-style-simple">
+<section id="学習ダイナミクスのスケール分離" class="slide level2 scrollable" data-number="4.1">
+<h2><span class="header-section-number">4.1</span> 学習ダイナミクスのスケール分離</h2>
+<ol type="1">
+<li>学習ダイナミクスのスケール分離を，勾配流の緩和時間 <span class="math display">
+  \tau^{-1}=\psi_p\lambda_{\text{min}}/\Delta_t
+  </span> の解析から示した．</li>
+<li><span class="math inline">U</span> の固有値分布 <span class="math inline">\rho(d\lambda)</span> が次を満たす <span class="math inline">d\to\infty</span> 極限でスケール分離する： <span class="math display">
+  \psi_p:=\frac{p}{d}\to\infty,\quad\psi_n:=\frac{n}{d}\to\infty,\quad\frac{\psi_p}{\psi_n}\to\infty.
+  </span></li>
+<li>速いスケールは真のデータ分布のみに依存し，<span class="math inline">\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}</span> が消える</li>
+<li>遅いスケールは <span class="math inline">\tau_{\text{mem}}=O(n)</span> のオーダーで，データ分布の <span class="math inline">\sigma_x^2:=\operatorname{Tr}(\Sigma)/d</span> のみに依存する．</li>
+<li><span class="math inline">n</span> も同時に大きくしていくと，経験リスク最小解 <span class="math inline">\tau\to\infty</span> での <span class="math inline">\mathcal{L}_{\text{gen}}</span> は下がる</li>
+</ol>
+</section>
+<section id="なぜ学習ダイナミクスにスケール分離が見られるのか" class="slide level2" data-number="4.2">
+<h2><span class="header-section-number">4.2</span> なぜ学習ダイナミクスにスケール分離が見られるのか？</h2>
+<div title="なぜスケール分離が起こるのか？">
+<div class="callout callout-important no-icon callout-titled callout-style-default">
 <div class="callout-body">
+<div class="callout-title">
+<p><strong>なぜスケール分離が起こるのか？</strong></p>
+</div>
 <div class="callout-content">
-<p>empirical score と population score の違いは，生成の最終段階において，関数的には近いかもしれないが，スペクトル的には高周波成分がひらすら noisy になる．しかし NN の spectral bias により，低周波成分だけを学んでいることが，汎化の主な理由なのではないか？</p>
+<p><span class="math inline">\tau_{\text{mem}}=O(n)</span> というのは，NN が経験スコアの高周波成分を学習するのにかかる時間が <span class="math inline">O(n)</span> でスケールするのが見えている？</p>
 </div>
 </div>
 </div>
-<p>data dependent な高周波成分の学習時間が <span class="math inline">O(n)</span> のスケールでかかるのも独立で興味に値する新たな発見になっている．</p>
+</div>
+<ul>
+<li>NN の spectral bias <span class="citation" data-cites="Rahaman+2019">(<a href="#/参考文献" role="doc-biblioref" onclick="">Rahaman et al., 2019</a>)</span> により低周波成分だけを学んでいることが汎化の主な理由である，という仮説がたつ．</li>
+</ul>
+</section>
+<section id="附言" class="slide level2" data-number="4.3">
+<h2><span class="header-section-number">4.3</span> 附言</h2>
+<ul>
+<li>GD ダイナミクスだけ？ SGD, Adam でも普遍的に観察されるし，説明したい．</li>
+<li>conditional generation でも成り立つように思われ，その場合 <span class="math inline">n,p,d</span> 以外の変数が出てくる？</li>
+<li><span class="math inline">P_x</span> の裾が重い場合はどうなる？部分多様体上に台を持つ場合は？</li>
+</ul>
 </section></section>
 <section id="参考文献" class="title-slide slide level1 smaller scrollable" data-number="5">
 <h1><span class="header-section-number">5</span> 参考文献</h1>
@@ -725,11 +897,17 @@ $$
 <div id="ref-Anderson+2011" class="csl-entry" role="listitem">
 Anderson, G. W., Guionnet, A., and Zeitouni, O. (2011). <em><a href="https://doi.org/10.1017/CBO9780511801334">An introduction to random matrices</a></em>,Vol. 118. Cambridge University Press.
 </div>
+<div id="ref-Biroli+2024" class="csl-entry" role="listitem">
+Biroli, G., Bonnaire, T., Bortoli, V. de, and Mézard, M. (2024). <a href="https://doi.org/10.1038/s41467-024-54281-3">Dynamical regimes of diffusion models</a>. <em>Nature Communications</em>, <em>15</em>(1), 9957.
+</div>
 <div id="ref-Bonnaire+2025" class="csl-entry" role="listitem">
 Bonnaire, T., Urfin, R., Biroli, G., and Mezard, M. (2025). <a href="https://openreview.net/forum?id=BSZqpqgqM0">Why diffusion models don<span>’</span>t memorize: The role of implicit dynamical regularization in training</a>. In <em>The thirty-ninth annual conference on neural information processing systems</em>.
 </div>
 <div id="ref-Conway2007" class="csl-entry" role="listitem">
 Conway, J. B. (2007). <em>A course in functional analysis</em>. Springer New York.
+</div>
+<div id="ref-Efron2011" class="csl-entry" role="listitem">
+Efron, B. (2011). <a href="https://doi.org/10.1198/jasa.2011.tm11181">Tweedie’s formula and selection bias</a>. <em>Journal of the American Statistical Association</em>, <em>106</em>(496), 1602–1614.
 </div>
 <div id="ref-George+2025" class="csl-entry" role="listitem">
 George, A. J., Veiga, R., and Macris, N. (2025). <a href="https://arxiv.org/abs/2502.00336">Denoising score matching with random features: Insights on diffusion models from precise learning curves</a>.
@@ -745,6 +923,9 @@ Marčenko, V. A., and Pastur, L. A. (1967). <a href="https://doi.org/10.1070/SM1
 </div>
 <div id="ref-Peche2019" class="csl-entry" role="listitem">
 Péché, S. (2019). <a href="https://doi.org/10.1214/19-ECP262"><span class="nocase">A note on the Pennington-Worah distribution</span></a>. <em>Electronic Communications in Probability</em>, <em>24</em>(none), 1–7.
+</div>
+<div id="ref-Rahaman+2019" class="csl-entry" role="listitem">
+Rahaman, N., Baratin, A., Arpit, D., Draxler, F., Lin, M., Hamprecht, F., … Courville, A. (2019). <a href="https://proceedings.mlr.press/v97/rahaman19a.html">On the spectral bias of neural networks</a>. In K. Chaudhuri and R. Salakhutdinov, editors, <em>Proceedings of the 36th international conference on machine learning</em>,Vol. 97, pages 5301–5310. PMLR.
 </div>
 </div>
 </section>
