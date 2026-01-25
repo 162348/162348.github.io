@@ -1,7 +1,7 @@
 ---
 title: "拡散モデルでの動的暗黙正則化"
 subtitle: "Bonnaire, Urfin, Biroli & Mézard (2025, NeurIPS)<br>Why Diffusion Models Don’t Memorize: The Role of Implicit Dynamical Regularization in Training"
-author: "司馬 博文"
+author: "司馬博文"
 date: "1/26/2026"
 categories: [Diffusion]
 # image: ../../../static/Materials/総研大.png
@@ -47,17 +47,132 @@ abstract: |
 
 {{< include ../../../assets/_preamble.qmd >}}
 
+### Score-based Diffusion Models
+
+$$
+\text{Forward}\quad dX_t=-X_t\,dt+dB_t,\quad X_0\sim P_x,
+$$
+$$
+\text{Reverse}\quad dX'_t=-\Paren{X_t'+2s_t'(X_t')}\,dt+dB'_t.
+$$
+
+ただし $s_t'(x):=\nabla_x\log p_t'(x)$ は $(X_t')$ の周辺密度 $p_t'$ の Hyvärinen スコア．
+
+::: {.callout-tip title="[Tweedie's Formula @Efron2011] の系" icon="false"}
+
+$$
+\E\Square{\frac{e^{-t}X_x-X_{s+t}}{\Delta_t}\,\middle|\,X_{s+t}=x}=\nabla_x\log p_{s+t}(x).
+$$
+
+:::
+
+$\Delta_t:=\sqrt{1-e^{-2t}}$ とすると $\xi:=\frac{X_{s+t}-e^{-t}X_s}{\sqrt{\Delta_t}}\sim\rN(0,1)$．
+
+$s\to\infty$ を考えて，次の損失関数が発想される：
+$$
+\mathcal{L}_t(\theta;\{x^\nu\}_{\nu=1}^n)=\frac{1}{n}\sum_{\nu=1}^n\E_\xi\Square{\norm{\sqrt{\Delta_t}s_\theta(x_t^\nu(\xi))+\xi}^2}.
+$$
+
+::: aside
+ただし，$x_t^\nu(\xi):=e^{-t}x^\nu+\sqrt{\Delta_t}\xi$．
+:::
+
+### Generation from the Empirical Score
+
+::: {.callout-important icon="false" title="Memorization Regime = 過学習 [@Biroli+2024]"}
+
+経験リスク最小化問題
+
+$$
+\mathcal{L}_t(\theta;\{x^\nu\}_{\nu=1}^n)=\frac{1}{n}\sum_{\nu=1}^n\E_\xi\Square{\norm{\sqrt{\Delta_t}s_\theta(x_t^\nu(\xi))+\xi}^2}.
+$$
+
+を解き切ったらうまくいかない．理論的には $\mathbb{P}_n$ からのサンプルを再現してしまう．
+
+:::
+
+* 実際には経験リスク最小化を解き切っていないはず．
+
+* Early stopping により汎化を達成しているのでは？
+
+### 本論文の要旨：Implicit Dynamical Regularization
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![](Bonnaire2025/Summary1.png){width=100% fig-align="center"}
+:::
+
+::: {.column width="50%"}
+![](Bonnaire2025/Summary_diagram_tau_mem.png){width=100% fig-align="center"}
+:::
+
+::::
+
+* たしかに解き切っていない．汎化のためには early stopping が必須．
+* $n<p$ じゃないと implicit dynamical regularization は起きない．
+* $p<n$ のとき，訓練ダイナミクスにスケール分離が見られる
+  * 汎化が始まる時間は $\tau_{\text{gen}}=O(1)$ だが，過学習が始まる時間は $\tau_{\text{mem}}=O(n)$
+
+    → $n$ が大きいほど early stopping の sweet spot が広い．
+
 ## 実験パート (Section 2)
 
 ### 設定
 
-* **データ**：cropped & grayscaled CelebA, $d=32^2$, $n\in\{128,\cdots,32768\}$
+* **データ**：cropped, grayscaled, & downsampled CelebA, $d=32^2$
 
 ![](Bonnaire2025/SM_Images_CelebA.jpeg){width=10 fig-align="center"}
 
 * **スコア学習に使う NN**：U-Net, 時刻 $t$ は sinusoidal position embedding
 * **損失関数**：DDPM loss．ここまで全て [@Ho+2020] の設定に従う．
-* **訓練**：SGD, momentum $\beta=0.95$, fixed $\eta=0.01$, batch size $B=n\land512$
+* **訓練**：SGD, momentum $\beta=0.95$,$\eta=0.01$, $B=n\land512$
+
+$n\in\{128,\cdots,32768\}$ を順に動かしていく
+
+### データサイズ $n$ を変える
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![横軸：訓練 step 数 $\tau$，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．](Bonnaire2025/N1.png){fig-align="center" width="70%"}
+:::
+
+::: {.column width="50%"}
+![スコア学習誤差のプロット^[$n$ が増えるほど汎化ギャップ $\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}$ が小さくなる．]<br>横軸：訓練 step 数 $\tau$，縦軸：訓練誤差（実線），テスト誤差（点線）．全て $t=0.01$．](Bonnaire2025/N2.png){fig-align="center" width="70%"}
+:::
+
+::::
+
+### 2.2 データサイズ $n$ を変える {.unnumbered .unlisted visibility="uncounted"}
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![$B=n$ と取った場合](Bonnaire2025/CelebA_B=n.png){fig-align="center" width="70%"}
+:::
+
+::: {.column width="50%"}
+![SGD with momentum ではなく Adam を使った場合^[$\tau_{\text{gen}},\tau_{\text{mem}}$ が全体的に小さい方向へスライドする．]](Bonnaire2025/CelebA_Adam.png){fig-align="center" width="70%"}
+:::
+
+[横軸：訓練 step 数 $\tau$，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．]{.small-letter}
+
+::::
+
+### モデルサイズ $p$ を変える
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![](Bonnaire2025/N1.png){fig-align="center" width="70%"}
+:::
+
+::: {.column width="50%"}
+![](Bonnaire2025/N2.png){fig-align="center" width="70%"}
+:::
+
+::::
 
 ## 理論パート (Section 3)
 
@@ -455,21 +570,51 @@ $$
 
 ::: {.column width="50%"}
 ![訓練誤差（実線）とテスト誤差（点線）](Bonnaire2025/test_train_inset_draft.png){fig-align="center" width="70%"}
+
+$\tau_{\text{gen}}$ までの速いスケールでは，汎化ギャプ $\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}$ が消える．
 :::
 
 ::::
 
+### 補足：経験誤差最小化解 $\tau\to\infty$ の汎化誤差
+
+実は収束先も $n$ が大きいほど汎化ギャップ $\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}$ は低くなる [@George+2025]．
+
+ただし，パラメータ不足領域 $\psi_p<\psi_n$ に侵入した場合は，時間スケールの分離は見られず，architectural regularization により $\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}$ はさらに下がる．
+
+![$t=0.01$．縦の点線は $\psi_n=\psi_p$ [Figure 5 @George+2025]．$\tau\to\infty$ の場合に対応．](Bonnaire2025/George.png)
+
 ## まとめ
 
-### Open Question
+### 学習ダイナミクスのスケール分離
 
+1. 学習ダイナミクスのスケール分離を，勾配流の緩和時間
+  $$
+  \tau^{-1}=\psi_p\lambda_{\text{min}}/\Delta_t
+  $$
+  の解析から示した．
+2. $U$ の固有値分布 $\rho(d\lambda)$ が次を満たす $d\to\infty$ 極限でスケール分離する：
+  $$
+  \psi_p:=\frac{p}{d}\to\infty,\quad\psi_n:=\frac{n}{d}\to\infty,\quad\frac{\psi_p}{\psi_n}\to\infty.
+  $$
+3. 速いスケールは真のデータ分布のみに依存し，$\mathcal{L}_{\text{gen}}=\mathcal{L}_{\text{test}}-\mathcal{L}_{\text{train}}$ が消える
+4. 遅いスケールは $\tau_{\text{mem}}=O(n)$ のオーダーで，データ分布の $\sigma_x^2:=\Tr(\Sigma)/d$ のみに依存する．
+5. $n$ も同時に大きくしていくと，経験リスク最小解 $\tau\to\infty$ での $\mathcal{L}_{\text{gen}}$ は下がる
 
-::: {.callout-important appearance="simple" icon="false"}
+### なぜ学習ダイナミクスにスケール分離が見られるのか？
 
-empirical score と population score の違いは，生成の最終段階において，関数的には近いかもしれないが，スペクトル的には高周波成分がひらすら noisy になる．しかし NN の spectral bias により，低周波成分だけを学んでいることが，汎化の主な理由なのではないか？
+::: {.callout-important title="なぜスケール分離が起こるのか？" icon="false"}
+
+$\tau_{\text{mem}}=O(n)$ というのは，NN が経験スコアの高周波成分を学習するのにかかる時間が $O(n)$ でスケールするのが見えている？
 
 :::
 
-data dependent な高周波成分の学習時間が $O(n)$ のスケールでかかるのも独立で興味に値する新たな発見になっている．
+* NN の spectral bias [@Rahaman+2019] により低周波成分だけを学んでいることが汎化の主な理由である，という仮説がたつ．
+
+### 附言
+
+* GD ダイナミクスだけ？ SGD, Adam でも普遍的に観察されるし，説明したい．
+* conditional generation でも成り立つように思われ，その場合 $n,p,d$ 以外の変数が出てくる？
+* $P_x$ の裾が重い場合はどうなる？部分多様体上に台を持つ場合は？
 
 ## 参考文献
