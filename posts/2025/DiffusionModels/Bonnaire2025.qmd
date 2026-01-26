@@ -4,7 +4,7 @@ subtitle: "Bonnaire, Urfin, Biroli & Mézard (2025, NeurIPS)<br>Why Diffusion Mo
 author: "司馬博文"
 date: "1/26/2026"
 categories: [Diffusion]
-# image: ../../../static/Materials/総研大.png
+image: .Bonnaire2025/Summary1.png
 format:
   # html: default
   revealjs: 
@@ -43,7 +43,11 @@ abstract: |
   スライド版は[[こちら]{.underline}](Bonnaire2025Slides.html)．
 ---
 
-## 概観
+## はじめに
+
+1. Diffusion Model とは？
+2. 先行研究 [@Biroli+2024]
+3. 本論文の要旨
 
 {{< include ../../../assets/_preamble.qmd >}}
 
@@ -89,11 +93,20 @@ $$
 
 を解き切ったらうまくいかない．理論的には $\mathbb{P}_n$ からのサンプルを再現してしまう．
 
+→ 実際には経験リスク最小化を解き切っていないはず．
+
 :::
 
-* 実際には経験リスク最小化を解き切っていないはず．
-
 * Early stopping により汎化を達成しているのでは？
+
+* 不完全なスコア学習＋サンプリングでの数値誤差で汎化している？？？
+
+::: aside
+$n=O(e^d)$ で大きくすると memorization が起こる時刻は $\tau_C\to0$ に近づく [@Biroli+2024]：
+$$
+\tau_C=\frac{1}{2}\log\paren{1+\frac{\sigma^2}{n^{\frac{2}{d}}-1}}
+$$
+:::
 
 ### 本論文の要旨：Implicit Dynamical Regularization
 
@@ -126,9 +139,9 @@ $$
 
 * **スコア学習に使う NN**：U-Net, 時刻 $t$ は sinusoidal position embedding
 * **損失関数**：DDPM loss．ここまで全て [@Ho+2020] の設定に従う．
-* **訓練**：SGD, momentum $\beta=0.95$,$\eta=0.01$, $B=n\land512$
+* **訓練**：SGD, momentum $\beta=0.95$, $\eta=0.01$, $B=n\land512$
 
-$n\in\{128,\cdots,32768\}$ を順に動かしていく
+$n\in\{128,\cdots,32768\}$, $p\in\{1/4,1,2,4,9,16\}\times10^6$ を順に動かしていく
 
 ### データサイズ $n$ を変える
 
@@ -162,14 +175,66 @@ $n\in\{128,\cdots,32768\}$ を順に動かしていく
 
 ### モデルサイズ $p$ を変える
 
-:::: {.columns style="text-align: center;"}
+:::: {.columns layout-valign="middle"}
 
-::: {.column width="50%"}
-![](Bonnaire2025/p1.png){fig-align="center" width="70%"}
+::: {.column width="50%" layout-valign="middle"}
+![](Bonnaire2025/p1.png){fig-align="center" width="100%"}
 :::
 
 ::: {.column width="50%"}
-![](Bonnaire2025/p2.png){fig-align="center" width="70%"}
+
+::: {.callout-tip title="U-Net チャンネル数を増やす" icon="false"}
+
+* Base channel width $W$
+  
+  $W\in\{8,16,32,48,64\}$
+
+  → $p\in\{1/4,1,2,4,9,16\}\times10^6$
+
+:::
+
+FID が下がり始める時刻：
+$$
+\tau_{\text{gen}}W=O(1)
+$$
+
+訓練データに酷似した生成が始まる時刻：
+$$
+\tau_{\text{mem}}W=O(n)
+$$
+
+:::
+
+::::
+
+### $(p,n)$ 相図
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![間に挟まれた相では，訓練時間に２つのスケールが現れる．](Bonnaire2025/p2.png){fig-align="center" width="100%"}
+:::
+
+::: {.column width="50%"}
+
+::: {.callout-important title="Memorization Regime" icon="false"}
+
+$n$ が小さすぎると，FID が下がり始める瞬間 $\tau_{\text{gen}}$ に memorization も起こる
+$$
+\tau_{\text{gen}}\approx\tau_{\text{mem}}\quad \textcolor{#EEC1C0}{p\gg n}
+$$
+
+:::
+
+::: {.callout-tip title="Architectural Regularization" icon="false"}
+
+$$
+n>n^*(p)\approx p\qquad(n,p\to\infty)
+$$
+を超えると，$\tau\to\infty$ でも memorization は起こらない．
+
+:::
+
 :::
 
 ::::
@@ -609,7 +674,9 @@ $\tau_{\text{mem}}=O(n)$ というのは，NN が経験スコアの高周波成�
 
 :::
 
-* NN の spectral bias [@Rahaman+2019] により低周波成分だけを学んでいることが汎化の主な理由である，という仮説がたつ．
+* NN の spectral bias [@Rahaman+2019]：NN が関数を学習する際，低周波成分 → 高周波成分の順に学んでいく
+  * → early stopping と併せると「低周波成分だけを学んでいることが汎化の主な理由である」という仮説がたつ．
+* 拡散モデルは訓練データに依らず，高周波成分を縮小して学習する [@Kadkhodaie+2024]^[[@Kadkhodaie+2024] は denoiser を直接 MSE で学習していることに注意．]
 
 ### 附言
 
@@ -617,4 +684,4 @@ $\tau_{\text{mem}}=O(n)$ というのは，NN が経験スコアの高周波成�
 * conditional generation でも成り立つように思われ，その場合 $n,p,d$ 以外の変数が出てくる？
 * $P_x$ の裾が重い場合はどうなる？部分多様体上に台を持つ場合は？
 
-## 参考文献
+## 参考文献 {.unnumbered .unlisted visibility="uncounted"}
