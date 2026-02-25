@@ -14,16 +14,686 @@
 <title>Hirofumi Shiba</title>
 <link>https://162348.github.io/blog.html</link>
 </image>
-<generator>quarto-1.6.39</generator>
+<generator>quarto-1.4.552</generator>
 <lastBuildDate>Sun, 25 Jan 2026 15:00:00 GMT</lastBuildDate>
 <item>
-  <title></title>
+  <title>拡散モデルでの動的暗黙正則化</title>
   <dc:creator>司馬博文 </dc:creator>
-  <link>https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025Slides.html</link>
-  <description><![CDATA[ undefined ]]></description>
+  <link>https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<section id="はじめに" class="level2 page-columns page-full" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="はじめに"><span class="header-section-number">1</span> はじめに</h2>
+<p>1.1. Diffusion Model とは？</p>
+<p>1.2. 先行研究 <span class="citation" data-cites="Biroli+2024">(Biroli et al., 2024)</span></p>
+<p>1.3. 本論文の要旨</p>
+<div class="hidden">
+<p>A Blog Entry on Bayesian Computation by an Applied Mathematician</p>
+<p>$$</p>
+<p>$$</p>
+</div>
+<section id="sec-DMs" class="level3 page-columns page-full" data-number="1.1">
+<h3 data-number="1.1" class="anchored" data-anchor-id="sec-DMs"><span class="header-section-number">1.1</span> Score-based Diffusion Models</h3>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7BForward%7D%5Cquad%20dX_t=-X_t%5C,dt+dB_t,%5Cquad%20X_0%5Csim%20P_x,%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7BReverse%7D%5Cquad%20dX'_t=-%5Cbiggr(X_t'+2s_t'(X_t')%5Cbiggl)%5C,dt+dB'_t.%0A"></p>
+<p>ただし <img src="https://latex.codecogs.com/png.latex?s_t'(x):=%5Cnabla_x%5Clog%20p_t'(x)"> は <img src="https://latex.codecogs.com/png.latex?(X_t')"> の周辺密度 <img src="https://latex.codecogs.com/png.latex?p_t'"> の Hyvärinen スコア．</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[Tweedie's Formula @Efron2011] の系">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Efron2011">(Tweedie’s Formula Efron, 2011)</span> の系
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BE%7D%5Cleft%5B%5Cfrac%7Be%5E%7B-t%7DX_s-X_%7Bs+t%7D%7D%7B%5CDelta_t%7D%5C,%5Cmiddle%7C%5C,X_%7Bs+t%7D=x%5Cright%5D=%5Cnabla_x%5Clog%20p_%7Bs+t%7D(x).%0A"></p>
+</div>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%5CDelta_t:=%5Csqrt%7B1-e%5E%7B-2t%7D%7D"> とすると <img src="https://latex.codecogs.com/png.latex?%5Cxi:=%5Cfrac%7BX_%7Bs+t%7D-e%5E%7B-t%7DX_s%7D%7B%5Csqrt%7B%5CDelta_t%7D%7D%5Csim%5Coperatorname%7BN%7D(0,1)">．</p>
+<p><img src="https://latex.codecogs.com/png.latex?s%5Cto%5Cinfty"> を考えて，次の損失関数が発想される： <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_t(%5Ctheta;%5C%7Bx%5E%5Cnu%5C%7D_%7B%5Cnu=1%7D%5En)=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5C%7C%5Csqrt%7B%5CDelta_t%7Ds_%5Ctheta(x_t%5E%5Cnu(%5Cxi))+%5Cxi%5C%7C%5E2%5Cright%5D.%0A"></p>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p>ただし，<img src="https://latex.codecogs.com/png.latex?x_t%5E%5Cnu(%5Cxi):=e%5E%7B-t%7Dx%5E%5Cnu+%5Csqrt%7B%5CDelta_t%7D%5Cxi">．</p>
+</div></div></section>
+<section id="sec-Biroli" class="level3 page-columns page-full" data-number="1.2">
+<h3 data-number="1.2" class="anchored" data-anchor-id="sec-Biroli"><span class="header-section-number">1.2</span> Generation from the Empirical Score</h3>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="Memorization Regime = 過学習 [@Biroli+2024]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Memorization Regime = 過学習 <span class="citation" data-cites="Biroli+2024">(Biroli et al., 2024)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>経験リスク最小化問題</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_t(%5Ctheta;%5C%7Bx%5E%5Cnu%5C%7D_%7B%5Cnu=1%7D%5En)=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5C%7C%5Csqrt%7B%5CDelta_t%7Ds_%5Ctheta(x_t%5E%5Cnu(%5Cxi))+%5Cxi%5C%7C%5E2%5Cright%5D.%0A"></p>
+<p>を解き切ったらうまくいかない．理論的には <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BP%7D_n"> からのサンプルを再現してしまう．</p>
+<p>→ 実際には経験リスク最小化を解き切っていないはず．</p>
+</div>
+</div>
+<ul>
+<li><p>Early stopping により汎化を達成しているのでは？</p></li>
+<li><p>不完全なスコア学習＋サンプリングでの数値誤差で汎化している？？？</p></li>
+</ul>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p><img src="https://latex.codecogs.com/png.latex?n=O(e%5Ed)"> で大きくすると memorization が起こる時刻は <img src="https://latex.codecogs.com/png.latex?%5Ctau_C%5Cto0"> に近づく <span class="citation" data-cites="Biroli+2024">(Biroli et al., 2024)</span>： <img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_C=%5Cfrac%7B1%7D%7B2%7D%5Clog%5Cleft(1+%5Cfrac%7B%5Csigma%5E2%7D%7Bn%5E%7B%5Cfrac%7B2%7D%7Bd%7D%7D-1%7D%5Cright)%0A"></p>
+</div></div></section>
+<section id="sec-summary" class="level3" data-number="1.3">
+<h3 data-number="1.3" class="anchored" data-anchor-id="sec-summary"><span class="header-section-number">1.3</span> 本論文の要旨：Implicit Dynamical Regularization</h3>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Summary1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Summary_diagram_tau_mem.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li>たしかに解き切っていない．汎化のためには early stopping が必須．</li>
+<li><img src="https://latex.codecogs.com/png.latex?n%3Cp"> じゃないと implicit dynamical regularization は起きない．</li>
+<li><img src="https://latex.codecogs.com/png.latex?p%3Cn"> のとき，訓練ダイナミクスにスケール分離が見られる
+<ul>
+<li><p>汎化が始まる時間は <img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bgen%7D%7D=O(1)"> だが，過学習が始まる時間は <img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bmem%7D%7D=O(n)"></p>
+<p>→ <img src="https://latex.codecogs.com/png.latex?n"> が大きいほど early stopping の sweet spot が広い．</p></li>
+</ul></li>
+</ul>
+</section>
+</section>
+<section id="実験パート-section-2" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="実験パート-section-2"><span class="header-section-number">2</span> 実験パート (Section 2)</h2>
+<p>理論パートではスコア学習に特化して解析するので，</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7B%E3%82%B9%E3%82%B3%E3%82%A2%E5%AD%A6%E7%BF%92%E3%81%A7%E3%81%AE%E6%B1%8E%E5%8C%96%7D%5C,%5Capprox%5C,%5Ctext%7BGenerative%20Model%20%E3%81%A8%E3%81%97%E3%81%A6%E3%81%AE%E6%B1%8E%E5%8C%96%7D%0A"></p>
+<p>を確認する必要がある (2.2)．</p>
+<p>＋スケーリングの検証 (2.3) ＋相図の検証 (2.4)</p>
+<section id="設定" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="設定"><span class="header-section-number">2.1</span> 設定</h3>
+<ul>
+<li><strong>データ</strong>：cropped, grayscaled, &amp; downsampled CelebA, <img src="https://latex.codecogs.com/png.latex?d=32%5E2"></li>
+</ul>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/SM_Images_CelebA.jpeg" class="img-fluid quarto-figure quarto-figure-center figure-img" width="10"></p>
+</figure>
+</div>
+<ul>
+<li><strong>スコア学習に使う NN</strong>：U-Net, 時刻 <img src="https://latex.codecogs.com/png.latex?t"> は sinusoidal position embedding</li>
+<li><strong>損失関数</strong>：DDPM loss．ここまで全て <span class="citation" data-cites="Ho+2020">(Ho et al., 2020)</span> の設定に従う．</li>
+<li><strong>訓練</strong>：SGD, momentum <img src="https://latex.codecogs.com/png.latex?%5Cbeta=0.95">, <img src="https://latex.codecogs.com/png.latex?%5Ceta=0.01">, <img src="https://latex.codecogs.com/png.latex?B=n%5Cland512"></li>
+</ul>
+<p><img src="https://latex.codecogs.com/png.latex?n%5Cin%5C%7B128,%5Ccdots,32768%5C%7D">, <img src="https://latex.codecogs.com/png.latex?p%5Cin%5C%7B1/4,1,2,4,9,16%5C%7D%5Ctimes10%5E6"> を順に動かしていく</p>
+</section>
+<section id="sec-experiment-n" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="sec-experiment-n"><span class="header-section-number">2.2</span> データサイズ <img src="https://latex.codecogs.com/png.latex?n"> を変える</h3>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/N1.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>横軸：訓練 step 数 <img src="https://latex.codecogs.com/png.latex?%5Ctau">，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/N2.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>スコア学習誤差のプロット<br>訓練誤差（実線），テスト誤差（点線）．全て <img src="https://latex.codecogs.com/png.latex?t=0.01">．</figcaption>
+</figure>
+</div>
+</div><ul>
+<li><img src="https://latex.codecogs.com/png.latex?n"> が増えるほど汎化ギャップ <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D=%5Cmathcal%7BL%7D_%7B%5Ctext%7Btest%7D%7D-%5Cmathcal%7BL%7D_%7B%5Ctext%7Btrain%7D%7D"> が小さくなる．</li>
+<li><img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D%3E0"> が始まって，少し遅れて <img src="https://latex.codecogs.com/png.latex?f_%7B%5Ctext%7Bmem%7D%7D%3E0"> が始まる．が，スケーリングは同じ．</li>
+</ul>
+</div>
+</section>
+<section id="データサイズ-n-を変える" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="データサイズ-n-を変える">2.2 データサイズ <img src="https://latex.codecogs.com/png.latex?n"> を変える</h3>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/CelebA_B=n.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>フルバッチ <img src="https://latex.codecogs.com/png.latex?B=n"> を取った場合</figcaption>
+</figure>
+</div>
+<p><span class="small-letter">それでも同じスケーリングが見られる</span></p>
+<p><span class="tiny-letter">→ 「モデルにサンプルを見せた回数」に依らない現象</span></p>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/CelebA_Adam.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>SGD with momentum ではなく Adam を使った場合</figcaption>
+</figure>
+</div>
+<p><span class="small-letter"><img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bgen%7D%7D,%5Ctau_%7B%5Ctext%7Bmem%7D%7D"> が全体的に小さい方向へスライド</span></p>
+<p><span class="small-letter">主要なスケーリングは変わらない</span></p>
+</div><!-- [横軸：訓練 step 数 $\tau$，縦軸：Fréchet Inception Distance（実線），記憶データ点割合 %（点線）．]{.small-letter} -->
+</div>
+</section>
+<section id="sec-experiment-p" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="sec-experiment-p"><span class="header-section-number">2.3</span> モデルサイズ <img src="https://latex.codecogs.com/png.latex?p"> を変える</h3>
+<div class="columns" data-layout-valign="middle">
+<div class="column" data-layout-valign="middle" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/p1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="U-Net チャンネル数を増やす">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+U-Net チャンネル数を増やす
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><p>Base channel width <img src="https://latex.codecogs.com/png.latex?W"></p>
+<p><img src="https://latex.codecogs.com/png.latex?W%5Cin%5C%7B8,16,32,48,64%5C%7D"></p>
+<p>→ <img src="https://latex.codecogs.com/png.latex?p%5Cin%5C%7B1/4,1,2,4,9,16%5C%7D%5Ctimes10%5E6"></p></li>
+</ul>
+</div>
+</div>
+<p>FID が下がり始める時刻： <img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_%7B%5Ctext%7Bgen%7D%7DW=O(1)%0A"></p>
+<p>訓練データに酷似した生成が始まる時刻： <img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_%7B%5Ctext%7Bmem%7D%7DW=O(n)%0A"></p>
+</div>
+</div>
+</section>
+<section id="sec-experiment-p-n" class="level3" data-number="2.4">
+<h3 data-number="2.4" class="anchored" data-anchor-id="sec-experiment-p-n"><span class="header-section-number">2.4</span> <img src="https://latex.codecogs.com/png.latex?(p,n)"> 相図</h3>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/p2.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>間に挟まれた相では，訓練時間に２つのスケールが現れる．</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="Memorization Regime">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Memorization Regime
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?n"> が小さすぎると，FID が下がり始める瞬間 <img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bgen%7D%7D"> に memorization も起こる <img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_%7B%5Ctext%7Bgen%7D%7D%5Capprox%5Ctau_%7B%5Ctext%7Bmem%7D%7D%5Cquad%20%5Ctextcolor%7B#EEC1C0%7D%7Bp%5Cgg%20n%7D%0A"></p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="Architectural Regularization">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Architectural Regularization
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%0An%3En%5E*(p)%5Capprox%20p%5Cqquad(n,p%5Cto%5Cinfty)%0A"> を超えると，<img src="https://latex.codecogs.com/png.latex?%5Ctau%5Cto%5Cinfty"> でも memorization は起こらない．</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="理論パート-section-3" class="level2 page-columns page-full" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="理論パート-section-3"><span class="header-section-number">3</span> 理論パート (Section 3)</h2>
+<p>ランダム行列の経験スペクトル分布の極限に対するスケーリング解析</p>
+<ul>
+<li>ランダム行列のスペクトル分布解析への帰着 (3.3)</li>
+<li>ランダム行列の Stieltjes Transform Method (3.4)</li>
+<li><strong>主定理</strong>：平均レゾルベントの満たす自己無撞着方程式 (3.6)</li>
+<li><strong>主補題</strong>：Gaussian Equivalence Principle (3.7)</li>
+<li>証明方針２つ：Replica Method v. Free Probability (3.8)</li>
+<li><strong>主な系</strong>：Two-Bulk 構造 (3.9)</li>
+<li>結論・ダイナミクスへの示唆：Separation of Timescales (3.10)</li>
+</ul>
+<section id="設定-1" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="設定-1"><span class="header-section-number">3.1</span> 設定</h3>
+<ul>
+<li><strong>データ</strong>: <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D%5Ed%5Cni%20x%5E%5Cnu%5Coverset%7B%5Ctext%7Bi.i.d.%7D%7D%7B%5Csim%7DP_x%5C;(%5Cnu=1,%5Ccdots,n)">. あとで <img src="https://latex.codecogs.com/png.latex?d%5Cto%5Cinfty"> の極限を考える．</li>
+<li><strong>スコア学習に使うNN</strong>：Random Feature <img src="https://latex.codecogs.com/png.latex?W%5Cin%5Cmathbb%7BR%7D%5E%7Bp%5Ctimes%20d%7D"> with i.i.d. Gaussian <img src="https://latex.codecogs.com/png.latex?%0As_A(x):=%5Cfrac%7BA%7D%7B%5Csqrt%7Bp%7D%7D%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5Cqquad%20A%5Cin%5Cmathbb%7BR%7D%5E%7Bd%5Ctimes%20p%7D,%0A"></li>
+<li><strong>損失関数</strong>: 固定した時刻 <img src="https://latex.codecogs.com/png.latex?t%3E0"> での DSM loss <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_t(A;%5C%7Bx%5E%5Cnu%5C%7D_%7B%5Cnu=1%7D%5En):=%5Cfrac%7B1%7D%7Bdn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D%5Cleft%5B%5C%7C%5Csqrt%7B%5CDelta_t%7D%20s_A(x_t%5E%5Cnu(%5Cxi))+%5Cxi%5C%7C%5E2%5Cright%5D.%0A"></li>
+<li><strong>訓練</strong>: GD の連続時間極限 <img src="https://latex.codecogs.com/png.latex?%0A%5Cdot%7BA%7D_%5Ctau=-d%5E2%5Cnabla_A%5Cmathcal%7BL%7D_t(A_%5Ctau)=-2%5CDelta_t%5Cfrac%7Bd%7D%7Bp%7DAU_%5Ctau-%5Cfrac%7B2d%5Csqrt%7B%5CDelta_t%7D%7D%7B%5Csqrt%7Bp%7D%7DV_%5Ctau%5E%5Ctop,%5Cqquad%5Ctau%5Cge0.%0A"></li>
+</ul>
+</section>
+<section id="gd-の連続時間極限" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="gd-の連続時間極限"><span class="header-section-number">3.2</span> GD の連続時間極限</h3>
+<p>DSM loss での勾配降下法： <!-- $$\mathcal{L}_t(\theta,\{x^\nu\}^n_{\nu=1})=\frac{1}{d}\frac{1}{n}\sum_{\nu=1}^n\operatorname{E}_\xi\SQuare{\|\sqrt{\Delta_t}s_\theta(X^\nu_t)+\xi\|^2\,\bigg|\,X^\nu_0=\xi}$$ --> <img src="https://latex.codecogs.com/png.latex?%0AA%5E%7B(k+1)%7D%5Cgets%20A%5E%7B(k)%7D-%5Ceta%5Cnabla_A%5Cmathcal%7BL%7D_t(A%5E%7B(k)%7D),%5Cqquad%20k=0,1,2,%5Ccdots%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BL%7D_t(A)=%5Cfrac%7B1%7D%7Bd%7D%5Cleft(%5Cfrac%7B%5CDelta_t%7D%7Bp%7D%5Coperatorname%7BTr%7D(A%5E%5Ctop%20AU)+%5Cfrac%7B2%5Csqrt%7B%5CDelta_t%7D%7D%7B%5Csqrt%7Bp%7D%7D%5Coperatorname%7BTr%7D(AV)+d%5Cright)%0A"></p>
+<p>時間変換 <img src="https://latex.codecogs.com/png.latex?%5Ctau(k):=k%5Ceta/d%5E2"> を施して，<img src="https://latex.codecogs.com/png.latex?%5Ceta%5Cto0"> の極限を取ると <img src="https://latex.codecogs.com/png.latex?%0A%5Cdot%7BA%7D_%5Ctau=-d%5E2%5Cnabla_A%5Cmathcal%7BL%7D_t(A_%5Ctau)=-2%5CDelta_t%5Cfrac%7Bd%7D%7Bp%7DA_%5Ctau%20U-%5Cfrac%7B2d%5Csqrt%7B%5CDelta_t%7D%7D%7B%5Csqrt%7Bp%7D%7DV%5E%5Ctop,%5Cqquad%5Ctau%5Cge0,%0A"> <img src="https://latex.codecogs.com/png.latex?%25:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5CE%5By%5E%5Cnu%20(y%5E%5Cnu)%5E%5Ctop%5D%0AU:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5E%5Ctop%5Cright%5D,%0A"> <img src="https://latex.codecogs.com/png.latex?%0AV:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5Cxi%5E%5Ctop%5Cright%5D.%0A"></p>
+</section>
+<section id="sec-reduction" class="level3 page-columns page-full" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="sec-reduction"><span class="header-section-number">3.3</span> <img src="https://latex.codecogs.com/png.latex?U"> のスペクトルの分布への帰着</h3>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>訓練ダイナミクス <img src="https://latex.codecogs.com/png.latex?(A_%5Ctau)_%7B%5Ctau%5Cge0%7D"> のスケール分離は，<img src="https://latex.codecogs.com/png.latex?U"> のスペクトルの分布のスケール分離からくる． 特に，典型的な緩和時間は <img src="https://latex.codecogs.com/png.latex?%5CDelta_tU/%5Cpsi_p"> の固有値の逆数が与える．</p>
+</div>
+</div>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cdot%7B%5Ctextcolor%7B#E95420%7D%7BA%7D%7D_%7B%5Ctextcolor%7B#E95420%7D%7B%5Ctau%7D%7D=-d%5E2%5Cnabla_A%5Cmathcal%7BL%7D_t(%5Ctextcolor%7B#E95420%7D%7BA_%5Ctau%7D)=-2%5CDelta_t%5Cfrac%7Bd%7D%7Bp%7D%5Ctextcolor%7B#E95420%7D%7BA_%5Ctau%7D%20U-%5Cfrac%7B2d%5Csqrt%7B%5CDelta_t%7D%7D%7B%5Csqrt%7Bp%7D%7DV%5E%5Ctop,%5Cqquad%5Ctau%5Cge0,%0A"> は行列 <img src="https://latex.codecogs.com/png.latex?A%5Cin%5Cmathbb%7BR%7D%5E%7Bd%5Ctimes%20p%7D"> に関する線型 ODE．<img src="https://latex.codecogs.com/png.latex?U%5Cin%5Cmathrm%7BGL%7D_p(%5Cmathbb%7BR%7D)"> なら Duhamel の公式から <img src="https://latex.codecogs.com/png.latex?%0A%5Cfrac%7B%5Ctextcolor%7B#E95420%7D%7BA_%5Ctau%7D%7D%7B%5Csqrt%7Bp%7D%7D=-%5Cfrac%7B1%7D%7B%5Csqrt%7B%5CDelta_t%7D%7DV%5E%5Ctop%20U%5E%7B-1%7D+%5Cleft(%5Cfrac%7B1%7D%7B%5Csqrt%7B%5CDelta_t%7D%7DV%5E%5Ctop%20U%5E%7B-1%7D+%5Cfrac%7BA_0%7D%7B%5Csqrt%7Bp%7D%7D%5Cright)%5Cexp%5Cleft(-%5Cfrac%7B2%5CDelta_t%7D%7B%5Cpsi_p%7DU%5Ctextcolor%7B#E95420%7D%7B%5Ctau%7D%5Cright),%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cpsi_p:=%5Cfrac%7Bp%7D%7Bd%7D,%5Cqquad%5Cpsi_n:=%5Cfrac%7Bn%7D%7Bd%7D.%0A"></p>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p><img src="https://latex.codecogs.com/png.latex?A_0=0"> と仮定する．</p>
+<p><span class="citation" data-cites="George+2025">(George et al., 2025)</span> は解 <img src="https://latex.codecogs.com/png.latex?-V%5E%5Ctop%20U%5E%7B-1%7D/%5Csqrt%7B%5CDelta_t%7D"> に注目して，別の道具を通じてスペクトル分布を調べる．</p>
+</div></div></section>
+<section id="sec-Stieltjes" class="level3 page-columns page-full" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="sec-Stieltjes"><span class="header-section-number">3.4</span> Stieltjes Transform Method (1/2)</h3>
+<p><img src="https://latex.codecogs.com/png.latex?U"> の経験スペクトル分布 <img src="https://latex.codecogs.com/png.latex?%5Cmu_U"> の Stieltjes transform は，resolvent <img src="https://latex.codecogs.com/png.latex?R(z):=(U-zI_p)%5E%7B-1%7D"> の平均固有値が与える： <img src="https://latex.codecogs.com/png.latex?%0Aq(z):=%5Cfrac%7B%5Coperatorname%7BTr%7D(R(z))%7D%7Bp%7D=%5Cfrac%7B1%7D%7Bp%7D%5Csum_%7Bi=1%7D%5EpR(z)_%7Bii%7D=%5Cint_%7B-%5Cinfty%7D%5E%5Cinfty%5Cfrac%7B1%7D%7B%5Clambda-z%7D%5Cmu_U(d%5Clambda)%5Cquad(z%5Cin%5Cmathbb%7BC%7D%5Csetminus%5Cmathbb%7BR%7D).%0A"></p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[IX.2.2 The Spectral Theorem @Conway2007]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Conway2007">(IX.2.2 The Spectral Theorem Conway, 2007)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?U"> を Hilbert 空間 <img src="https://latex.codecogs.com/png.latex?H"> 上の正規作用素とする．このとき，ただ一つのスペクトル測度 <img src="https://latex.codecogs.com/png.latex?E:%5Cmathrm%7BSp%7D(U)%5Cto%20B(H)"> が存在して， <img src="https://latex.codecogs.com/png.latex?%0AU=%5Cint_%7B%5Cmathrm%7BSp%7D(U)%7D%20%5Clambda%20E(d%5Clambda).%0A"></p>
+</div>
+</div>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p>Resolvent <img src="https://latex.codecogs.com/png.latex?R(z)"> は <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BSp%7D(U)"> 上の有界 Borel 関数 <img src="https://latex.codecogs.com/png.latex?f(%5Clambda)=(z-%5Clambda)%5E%7B-1%7D"> の <img src="https://latex.codecogs.com/png.latex?E"> に関する積分．</p>
+</div></div></section>
+<section id="stieltjes-transform-method-12" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="stieltjes-transform-method-12">3.4 Stieltjes Transform Method (1/2)</h3>
+<p><img src="https://latex.codecogs.com/png.latex?U"> の経験スペクトル分布 <img src="https://latex.codecogs.com/png.latex?%5Cmu_U"> の Stieltjes transform は，resolvent <img src="https://latex.codecogs.com/png.latex?R(z):=(U-zI_p)%5E%7B-1%7D"> の平均固有値が与える： <img src="https://latex.codecogs.com/png.latex?%0Aq(z):=%5Cfrac%7B%5Coperatorname%7BTr%7D(R(z))%7D%7Bp%7D=%5Cfrac%7B1%7D%7Bp%7D%5Csum_%7Bi=1%7D%5EpR(z)_%7Bii%7D=%5Cint_%7B-%5Cinfty%7D%5E%5Cinfty%5Cfrac%7B1%7D%7B%5Clambda-z%7D%5Cmu_U(d%5Clambda)%5Cquad(z%5Cin%5Cmathbb%7BC%7D%5Csetminus%5Cmathbb%7BR%7D).%0A"></p>
+<p>Resolvent <img src="https://latex.codecogs.com/png.latex?R(z)"> は <img src="https://latex.codecogs.com/png.latex?f(%5Clambda)=(z-%5Clambda)%5E%7B-1%7D"> の <img src="https://latex.codecogs.com/png.latex?E"> に関する積分： <img src="https://latex.codecogs.com/png.latex?%0AR(z)=%5Cfrac%7B1%7D%7BU-z%7D=%5Cint_%7B%5Cmathrm%7BSp%7D(U)%7D%5Cfrac%7B1%7D%7B%5Clambda-z%7DE(d%5Clambda).%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Ctherefore%5Cqquad%20R(z)_%7Bii%7D=(e_i%7CR(z)e_i)=%5Cint_%7B-%5Cinfty%7D%5E%5Cinfty%5Cfrac%7B1%7D%7B%5Clambda-z%7D%5Cmu_%7Be_i%7D(d%5Clambda).%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cmu_U=%5Cfrac%7B1%7D%7Bp%7D%5Csum_%7Bi=1%7D%5Ep%5Cmu_%7Be_i%7D,%5Cqquad%20%5Cmu_%7Be_i%7D(A):=(e_i%7CE(A)e_i)%5Cquad(A%5Cin%20%5Cmathcal%7BB%7D(%5Cmathbb%7BR%7D)).%0A"></p>
+</section>
+<section id="stieltjes-transform-method-22" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="stieltjes-transform-method-22"><span class="header-section-number">3.5</span> Stieltjes Transform Method (2/2)</h3>
+<p><img src="https://latex.codecogs.com/png.latex?q(z)=%5Coperatorname%7BTr%7D(R(z))/p"> を求めれば，<img src="https://latex.codecogs.com/png.latex?%5Cmu_U"> が復元できる：</p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[定理2.4.3 @Anderson+2011]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Anderson+2011">(定理2.4.3 Anderson et al., 2011)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%5Cmu"> を <img src="https://latex.codecogs.com/png.latex?%5Cmathbb%7BR%7D"> 上の確率測度， <img src="https://latex.codecogs.com/png.latex?%0AS_%5Cmu(z):=%5Cint_%7B-%5Cinfty%7D%5E%5Cinfty%5Cfrac%7B%5Cmu(dx)%7D%7Bx-z%7D,%5Cqquad%20z%5Cin%5Cmathbb%7BC%7D%5Csetminus%5Cmathbb%7BR%7D%0A"> をStieltjes transform とする．任意の開区間 <img src="https://latex.codecogs.com/png.latex?I%5Csubset%5Cmathbb%7BR%7D"> について，<img src="https://latex.codecogs.com/png.latex?%5Cmu"> が <img src="https://latex.codecogs.com/png.latex?%5Cpartial%20I"> 上に atom を持たないならば <img src="https://latex.codecogs.com/png.latex?%0A%5Cmu(I)=%5Clim_%7B%5Cepsilon%5Cto0%7D%5Cint_I%5Cfrac%7B%5Cmathrm%7BIm%7D%5C,S_%5Cmu(%5Clambda+i%5Cepsilon)%7D%7B%5Cpi%7D%5C,d%5Clambda.%0A"></p>
+</div>
+</div>
+</section>
+<section id="stieltjes-transform-method-22-1" class="level3 unnumbered unlisted page-columns page-full" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="stieltjes-transform-method-22-1">3.5 Stieltjes Transform Method (2/2)</h3>
+<p>【証明】 任意の <img src="https://latex.codecogs.com/png.latex?%5Clambda%5Cin%5Cmathbb%7BR%7D"> について，</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cbegin%7Balign*%7D%0A%20%20%20%20%5Cmathrm%7BIm%7D%5C,%5Cleft(%5Cfrac%7BS_%5Cmu(%5Clambda+i%5Cepsilon)%7D%7B%5Cpi%7D%5Cright)&amp;=%5Cfrac%7BS_%5Cmu(%5Clambda+i%5Cepsilon)-S_%5Cmu(%5Clambda-i%5Cepsilon)%7D%7B2%5Cpi%20i%7D%5C%5C%0A%20%20%20%20&amp;=%5Cfrac%7B1%7D%7B2%5Cpi%20i%7D%5Cint_%5Cmathbb%7BR%7D%5Cleft(%5Cfrac%7B1%7D%7Bx-(%5Clambda+i%5Cepsilon)%7D-%5Cfrac%7B1%7D%7Bx-(%5Clambda-i%5Cepsilon)%7D%5Cright)%5C,%5Cmu(dx)%5C%5C%0A%20%20%20%20&amp;=%5Cfrac%7B1%7D%7B2%5Cpi%20i%7D%5Cint_%5Cmathbb%7BR%7D%5Cfrac%7B2i%5Cepsilon%7D%7Bx%5E2-2%5Clambda%20x+(%5Clambda%5E2+%5Cepsilon%5E2)%7D%5Cmu(dx)%5C%5C%0A%20%20%20%20&amp;=%5Cint_%5Cmathbb%7BR%7D%5Cfrac%7B1%7D%7B%5Cpi%7D%5Cfrac%7B%5Cepsilon%7D%7B(x-%5Clambda)%5E2+%5Cepsilon%5E2%7D%5Cmu(dx),%5Cqquad%5Clambda%5Cin%5Cmathbb%7BR%7D.%0A%20%20%5Cend%7Balign*%7D"></p>
+<p>この右辺は実は <img src="https://latex.codecogs.com/png.latex?X%5Csim%5Cmu,C_%5Cepsilon%5Csim%5Coperatorname%7BCauchy%7D(0,%5Cepsilon)"> について <img src="https://latex.codecogs.com/png.latex?X+C_%5Cepsilon"> の分布の <img src="https://latex.codecogs.com/png.latex?%5Clambda"> での確率密度である．<img src="https://latex.codecogs.com/png.latex?X+C_%5Cepsilon%5CRightarrow%20X"> から結論が従う．</p>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p>複素解析の <a href="https://en.wikipedia.org/wiki/Sokhotski%E2%80%93Plemelj_theorem">Sokhotski-Plemelj の公式</a> の系ともみれる．</p>
+</div></div></section>
+<section id="sec-main-theorem" class="level3 page-columns page-full" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="sec-main-theorem"><span class="header-section-number">3.6</span> 主定理：平均レゾルベント <img src="https://latex.codecogs.com/png.latex?q(z)"> の極限の特徴付け</h3>
+<p><img src="https://latex.codecogs.com/png.latex?q"> を記述するための補助的な量（<img src="https://latex.codecogs.com/png.latex?R(z)"> と <img src="https://latex.codecogs.com/png.latex?W,%5CSigma%5E%7B-1%7DW"> との overlap）を導入：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cscriptstyle%0Ar(z):=%5Cfrac%7B1%7D%7Bp%7D%5Coperatorname%7BTr%7D(%5CSigma%5E%7B1/2%7DW%5E%5Ctop(U-zI_p)%5E%7B-1%7DW%5CSigma%5E%7B1/2%7D),%5Cquad%0As(z):=%5Cfrac%7B1%7D%7Bp%7D%5Coperatorname%7BTr%7D(W%5E%5Ctop(U-zI_p)%5E%7B-1%7DW),%5Cquad%20z%5Cin%5Cmathbb%7BC%7D%0A"></p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[定理3.1 @Bonnaire+2025]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Bonnaire+2025">(定理3.1 Bonnaire et al., 2025)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?q(z)=%5Coperatorname%7BTr%7D(R(z))/p"> はランダム行列極限 <img src="https://latex.codecogs.com/png.latex?d,p,n%5Cto%5Cinfty"> で大数の法則が性質するとする．このとき，後述の仮定の下で，<img src="https://latex.codecogs.com/png.latex?q"> は次の鞍点方程式の解が与える：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%5Cscriptstyle%0A%5Cwidehat%7Bs%7D(q)&amp;%5Cscriptstyle=b%5E2_t%5Cpsi_p+%5Cfrac%7B1%7D%7Bq%7D,%5Cquad%5Chat%7Br%7D(r,q)=%5Cfrac%7B%5Cpsi_pa_t%5E2e%5E%7B-2t%7D%7D%7B1+%5Cfrac%7Ba_t%5E2e%5E%7B-2t%7D%5Cpsi_p%7D%7B%5Cpsi_n%7Dr+%5Cfrac%7B%5Cpsi_pv_t%5E2%7D%7B%5Cpsi_n%7Dq%7D,%5Cquad%0As(z)=%5Cint%5Cfrac%7B1%7D%7B%5Chat%7Bs%7D(q)+%5Clambda%5Chat%7Br%7D(r,q)%7D%5Crho_%5CSigma(d%5Clambda),%5C%5C%0A%5Cscriptstyle%20r(z)&amp;%5Cscriptstyle=%5Cint%5Cfrac%7B%5Clambda%7D%7B%5Chat%7Bs%7D(q)+%5Clambda%5Chat%7Br%7D(r,q)%7D%5C,%5Crho_%5CSigma(d%5Clambda),%5Cquad%5Cpsi_p(s_t%5E2-z)+%5Cfrac%7B%5Cpsi_pv_t%5E2%7D%7B%5Cscriptscriptstyle%201+%5Cfrac%7Ba_t%5E2e%5E%7B-2t%7D%5Cpsi_p%7D%7B%5Cpsi_n%7Dr+%5Cfrac%7B%5Cpsi_pv_t%5E2%7D%7B%5Cpsi_n%7Dq%7D+%5Cfrac%7B1-%5Cpsi_p%7D%7Bq%7D-%5Cfrac%7Bs%7D%7Bq%5E2%7D=0.%0A%5Cend%7Balign*%7D%0A"></p>
+</div>
+</div>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p><img src="https://latex.codecogs.com/png.latex?%5Csigma=%5Cmathrm%7Bid%7D_%7B%5Cmathbb%7BR%7D%7D,P_x=N_d(0,I_d)"> のとき，<img src="https://latex.codecogs.com/png.latex?r=s"> で <img src="https://latex.codecogs.com/png.latex?s,%5Chat%7Bs%7D"> を消去すると <span class="citation" data-cites="Marčenko-Pastur1967">(Marčenko and Pastur, 1967)</span> の自己無撞着方程式を得る： <img src="https://latex.codecogs.com/png.latex?%0Aq(z)=%5Cfrac%7B1%7D%7B-z+%5Cfrac%7B%5Cpsi_p%7D%7B1+q(z)%7D%7D.%0A"></p>
+</div></div></section>
+<section id="sec-GEP" class="level3 page-columns page-full" data-number="3.7">
+<h3 data-number="3.7" class="anchored" data-anchor-id="sec-GEP"><span class="header-section-number">3.7</span> Gaussian Equivalence Principle</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="経験スペクトル極限の構造定理 [定理1.4 @Peche2019]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+経験スペクトル極限の構造定理 <span class="citation" data-cites="Peche2019">(定理1.4 Péché, 2019)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ランダム行列 <img src="https://latex.codecogs.com/png.latex?X%5Cin%5Cmathbb%7BR%7D%5E%7Bd%5Ctimes%20n%7D,W%5Cin%5Cmathbb%7BR%7D%5E%7Bp%5Ctimes%20d%7D"> の成分はそれぞれ i.i.d. で，指数より軽い裾を持ち，<img src="https://latex.codecogs.com/png.latex?(0,1)"> に正規化されているとする． <img src="https://latex.codecogs.com/png.latex?f:%5Cmathbb%7BR%7D%5Cto%5Cmathbb%7BR%7D"> が Schwartz 急減少関数ならば， 次の２つの行列 <img src="https://latex.codecogs.com/png.latex?M,M'"> の経験スペクトル分布は漸近同等： <img src="https://latex.codecogs.com/png.latex?%0AM:=%5Cfrac%7B1%7D%7Bd%7Df%5E%7B%5Cotimes(p%5Ctimes%20n)%7D%5Cleft(%5Cfrac%7BWX%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)f%5E%7B%5Cotimes(p%5Ctimes%20n)%7D%5Cleft(%5Cfrac%7BWX%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5E%5Ctop%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Cscriptstyle%0AM':=%5Cfrac%7B1%7D%7Bn%7D%5Cleft(%5Csqrt%7B%5Ctheta_2(f)%7D%5Cfrac%7BWX%7D%7B%5Csqrt%7Bd%7D%7D+%5Csqrt%7B%5Ctheta_1(f)-%5Ctheta_2(f)%7DZ%5Cright)%5Cleft(%5Csqrt%7B%5Ctheta_2(f)%7D%5Cfrac%7BWX%7D%7B%5Csqrt%7Bd%7D%7D+%5Csqrt%7B%5Ctheta_1(f)-%5Ctheta_2(f)%7DZ%5Cright)%5E%5Ctop%0A"> ただし，<img src="https://latex.codecogs.com/png.latex?Z%5Cin%5Cmathbb%7BR%7D%5E%7Bp%5Ctimes%20n%7D"> は Gaussian random matrix で， <img src="https://latex.codecogs.com/png.latex?%0A%5Ctheta_1(f)=%5Coperatorname%7BE%7D%5Bf(Z_%7B11%7D)%5E2%5D,%5Cquad%5Ctheta_2(f)=%5Coperatorname%7BE%7D%5Bf'(Z_%7B11%7D)%5D%5E2=%5Coperatorname%7BE%7D%5BZ_%7B11%7Df(Z_%7B11%7D)%5D%5E2.%0A"></p>
+</div>
+</div>
+
+<div class="no-row-height column-margin column-container"><div class="margin-aside">
+<p><img src="https://latex.codecogs.com/png.latex?%5Csqrt%7B%5Ctheta_2(f)%7D"> は <img src="https://latex.codecogs.com/png.latex?f(Z_%7B11%7D)"> を <img src="https://latex.codecogs.com/png.latex?Z_%7B11%7D"> で線型回帰した際の係数の絶対値，<img src="https://latex.codecogs.com/png.latex?%5Ctheta_1(f)-%5Ctheta_2(f)"> は残差と見れる．</p>
+</div></div></section>
+<section id="gaussian-equivalence-principle" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="gaussian-equivalence-principle">3.7 Gaussian Equivalence Principle</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[補題C.1 @Bonnaire+2025]">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Bonnaire+2025">(補題C.1 Bonnaire et al., 2025)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><img src="https://latex.codecogs.com/png.latex?%5Csigma%5Cin%20L%5E2_0(%5Cgamma),%5C;%5Cgamma:=N_1(0,1)"> である．</li>
+<li>データ分布 <img src="https://latex.codecogs.com/png.latex?P_x"> は sub-Gaussian．</li>
+<li><img src="https://latex.codecogs.com/png.latex?P_x"> の共分散行列 <img src="https://latex.codecogs.com/png.latex?%5CSigma%5Ed:=%5Coperatorname%7BE%7D%5BXX%5E%5Ctop%5D"> は <img src="https://latex.codecogs.com/png.latex?d%5Cto%5Cinfty"> の極限で有界な固有値を持ち，経験スペクトル分布の極限は密度 <img src="https://latex.codecogs.com/png.latex?%5Crho_%5CSigma"> を持つ絶対連続分布になる．</li>
+</ol>
+<p>上の３条件の下で，次の２つの行列 <img src="https://latex.codecogs.com/png.latex?U,U'"> の経験スペクトル分布は漸近同等：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%20%20%5Cscriptstyle%0A%20%20U&amp;%5Cscriptstyle:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5E%5Ctop%5Cright%5D%5C%5C%0A%20%20%5Cscriptstyle%20U'&amp;%5Cscriptstyle:=%5Cfrac%7BGG%5E%5Ctop%7D%7Bn%7D+b_t%5E2%5Cfrac%7BWW%5E%5Ctop%7D%7Bd%7D+s_t%5E2I_p,%5Cqquad%20G:=e%5E%7B-t%7Da_t%5Cfrac%7BW%7D%7B%5Csqrt%7Bd%7D%7DX'+v_t%5COmega%0A%5Cend%7Balign*%7D%0A"></p>
+<p><img src="https://latex.codecogs.com/png.latex?X'"> は <img src="https://latex.codecogs.com/png.latex?X"> の独立 copy，<img src="https://latex.codecogs.com/png.latex?%5COmega"> は独立な Gaussian random matrix．</p>
+</div>
+</div>
+</section>
+<section id="gaussian-equivalence-principle-1" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="gaussian-equivalence-principle-1">3.7 Gaussian Equivalence Principle</h3>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%20%20U&amp;:=%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7B%5Cnu=1%7D%5En%5Coperatorname%7BE%7D_%5Cxi%5Cleft%5B%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5Csigma%5E%7B%5Cotimes%20p%7D%5Cleft(%5Cfrac%7BWx%5E%5Cnu_t(%5Cxi)%7D%7B%5Csqrt%7Bd%7D%7D%5Cright)%5E%5Ctop%5Cright%5D%5C%5C%0A%20%20U'&amp;:=%5Cfrac%7BGG%5E%5Ctop%7D%7Bn%7D+b_t%5E2%5Cfrac%7BWW%5E%5Ctop%7D%7Bd%7D+s_t%5E2I_p,%5Cqquad%20G:=e%5E%7B-t%7Da_t%5Cfrac%7BW%7D%7B%5Csqrt%7Bd%7D%7DX'+v_t%5COmega%0A%5Cend%7Balign*%7D%0A"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Csigma%5E2_x:=%5Coperatorname%7BTr%7D(%5CSigma)/d,%5C;f_t(%5Cxi,%5Ceta):=%5Csigma(e%5E%7B-t%7D%5Csigma_x%5Ceta+%5Csqrt%7B%5CDelta_t%7D%5Cxi)%5C;%5Cxi,%5Ceta,%5Czeta%5Csim%5Coperatorname%7BN%7D_1(0,1)"> とすると <img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%20%20b_t&amp;:=%5Coperatorname%7BE%7D%5B%5Cxi%20f_t(%5Cxi,%5Ceta)%5D,%5Cqquad%20a_t:=%5Coperatorname%7BE%7D%5Cleft%5B%5Cfrac%7B%5Ceta%7D%7Be%5E%7B-t%7D%5Csigma_x%7D%20f_t(%5Cxi,%5Ceta)%5Cright%5D,%5C%5C%0A%20%20v_t%5E2&amp;:=%5Coperatorname%7BE%7D%5Bf_t(%5Cxi,%5Ceta)f_t(%5Cxi,%5Czeta)%5D-a_t%5E2e%5E%7B-2t%7D%5Csigma%5E2_x,%5C%5C%0A%20%20s%5E2_t&amp;:=%5Coperatorname%7BE%7D%5B%5Csigma(%5CGamma_t%5Ceta)%5E2%5D-a_t%5E2e%5E%7B-2t%7D%5Csigma%5E2_x-v_t%5E2-b_t%5E2,%5Cqquad%5CGamma_t:=e%5E%7B-2t%7D%5Csigma%5E2_x+%5CDelta_t.%0A%5Cend%7Balign*%7D%0A"></p>
+</section>
+<section id="sec-proof" class="level3" data-number="3.8">
+<h3 data-number="3.8" class="anchored" data-anchor-id="sec-proof"><span class="header-section-number">3.8</span> <img src="https://latex.codecogs.com/png.latex?q(z)=%5Coperatorname%7BTr%7D(R(z))/p"> の極限の計算方法</h3>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="callout callout-style-default callout-important no-icon callout-titled" style="text-align: left;" title="Replica Trick [[@Bonnaire+2025]]{.tiny-letter}">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Replica Trick <span class="tiny-letter"><span class="citation" data-cites="Bonnaire+2025">(Bonnaire et al., 2025)</span></span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%5Cfrac%7Bd%5Cdet(X)%7D%7BdX%7D%5Cscriptstyle=%5Coperatorname%7BTr%7D(X%5E%7B-1%7D)%5Cdet(X)"> より，<sup>1</sup> <img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%20%20q(z)%25&amp;=-%5Cfrac%7B1%7D%7Bp%7D%5Cpp%7B%7D%7Bz%7D%5Clog%5Cdet(U-zI_p)%5C%5C%0A%20%20&amp;=%5Cfrac%7B2%7D%7Bp%7D%5Cfrac%7B%5Cpartial%20%7D%7B%5Cpartial%20z%7D%5Clog%5Cleft(%5Cdet(U-zI_p)%5Cright)%5E%7B-%5Cfrac%7B1%7D%7B2%7D%7D%5C%5C%0A%20%20&amp;=2%5Cfrac%7B%5Cpartial%20%7D%7B%5Cpartial%20z%7D%5Clim_%7Bp%5Cto%5Cinfty%7D%5Cfrac%7B%5Coperatorname%7BE%7D%5B%5Clog%20Z(z)%5D%7D%7Bp%7D%5C%5C%0A%20%20Z(z)&amp;:=%5Cfrac%7B1%7D%7B(2%5Cpi)%5E%7B%5Cfrac%7Bp%7D%7B2%7D%7D%7D%5Cint_%7B%5Cmathbb%7BR%7D%5Ep%7De%5E%7B-%5Cfrac%7B%5Cphi%5E%5Ctop(U-zI_p)%5Cphi%7D%7B2%7D%7D%5C,d%5Cphi%0A%5Cend%7Balign*%7D%0A"> 次の関係を用いて計算する： <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%20Z=%5Clim_%7Bn%5Cto%5Cinfty%7D%5Cfrac%7BZ%5En-1%7D%7Bn%7D.%0A"></p>
+</div>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="callout callout-style-default callout-note no-icon callout-titled" style="text-align: left;" title="Linearization [[@George+2025]]{.tiny-letter}">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Linearization <span class="tiny-letter"><span class="citation" data-cites="George+2025">(George et al., 2025)</span></span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?U=FF%5E*/n"> と表せたとき， <img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Balign*%7D%0A%20%20L(z)&amp;:=%5Cbegin%7Bpmatrix%7D%0A%20%20%20-z_pI&amp;F%5E%5Ctop/%5Csqrt%7Bn%7D%5C%5C%0A%20%20%20F/%5Csqrt%7Bn%7D&amp;I_n%0A%20%20%20%5Cend%7Bpmatrix%7D%5C%5C%0A%20%20%20&amp;%5Cscriptstyle=B_0%5Cotimes%20I+E_%7B12%7D%5Cotimes%20F+E_%7B21%7D%5Cotimes%20F%5E*%0A%5Cend%7Balign*%7D%0A"> という大きい行列 <img src="https://latex.codecogs.com/png.latex?L(z)%5E%7B-1%7D"> の一部 <img src="https://latex.codecogs.com/png.latex?%0A(L(z)%5E%7B-1%7D)_%7B11%7D=-(U+zI_p)%5E%7B-1%7D%0A"> に <img src="https://latex.codecogs.com/png.latex?R(z)"> が入る．この<strong>直線束 (linear pencil) 表現</strong>の <img src="https://latex.codecogs.com/png.latex?%5Coperatorname%7BTr%7D(L(z)%5E%7B-1%7D)"> の計算が自由確率論 (free CLT) で出来る．</p>
+</div>
+</div>
+</div>
+</div>
+<!--
+### 証明
+
+::: {.callout-tip title="[定理3.1 @Bonnaire+2025]" icon="false" style="margin-bottom: 0em; !important"}
+
+$q(z)=\Tr(R(z))/p$ の極限は，次の鞍点方程式の解が与える：
+
+$$
+\begin{align*}
+\scriptstyle
+\wh{s}(q)&\scriptstyle=b^2_t\psi_p+\frac{1}{q},\quad\hat{r}(r,q)=\frac{\psi_pa_t^2e^{-2t}}{1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q},\quad
+s(z)=\int\frac{1}{\hat{s}(q)+\lambda\hat{r}(r,q)}\rho_\Sigma(d\lambda),\\
+\scriptstyle r(z)&\scriptstyle=\int\frac{\lambda}{\hat{s}(q)+\lambda\hat{r}(r,q)}\,\rho_\Sigma(d\lambda),\quad\psi_p(s_t^2-z)+\frac{\psi_pv_t^2}{\scriptscriptstyle 1+\frac{a_t^2e^{-2t}\psi_p}{\psi_n}r+\frac{\psi_pv_t^2}{\psi_n}q}+\frac{1-\psi_p}{q}-\frac{s}{q^2}=0.
+\end{align*}
+$$
+
+:::
+
+行列微分則 $\frac{d\det(X)}{dX}=\Tr(X^{-1})\det(X)$ [@Magnus-Neudecker2019 p.201] から，
+$$
+q(z)=-\frac{1}{p}\pp{}{z}\log\det(U-zI_p)=\frac{2}{p}\pp{}{z}\log\paren{\det(U-zI_p)}^{-\frac{1}{2}}
+$$
+-->
+</section>
+<section id="sec-two-bulk" class="level3" data-number="3.9">
+<h3 data-number="3.9" class="anchored" data-anchor-id="sec-two-bulk"><span class="header-section-number">3.9</span> 主な系：スペクトルの two-bulk 構造</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="[定理3.2 @Bonnaire+2025]" style="margin-bottom: 0em; !important">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="citation" data-cites="Bonnaire+2025">(定理3.2 Bonnaire et al., 2025)</span>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?U"> のランダム行列極限での極限固有値分布 <img src="https://latex.codecogs.com/png.latex?%5Crho"> は次の表示を持つ：<sup>2</sup></p>
+<ol type="1">
+<li>過剰パラメータ領域：<img src="https://latex.codecogs.com/png.latex?%5Cpsi_p%3E%5Cpsi_n%5Cgg1"> のとき</li>
+</ol>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%20%20%5Crho(%5Clambda)=%5Cleft(1-%5Cfrac%7B1+%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Cright)%5Cdelta_%7B%5C%7Bs_t%5E2%5C%7D%7D(%5Clambda)+%5Cfrac%7B%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Crho_1(%5Clambda)+%5Cfrac%7B1%7D%7B%5Cpsi_p%7D%5Cmu_%7B%5Cwidetilde%7BU%7D%7D(%5Clambda).%0A%20%20"></p>
+<ol start="2" type="1">
+<li>不足パラメータ領域：<img src="https://latex.codecogs.com/png.latex?%5Cpsi_n%3E%5Cpsi_p%5Cgg1"> のとき</li>
+</ol>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%20%20%5Crho(%5Clambda)=%5Cleft(1-%5Cfrac%7B1%7D%7B%5Cpsi_p%7D%5Cright)%5Crho_1(%5Clambda)+%5Cfrac%7B1%7D%7B%5Cpsi_p%7D%5Cmu_%7B%5Cwidetilde%7BU%7D%7D(%5Clambda).%0A%20%20"></p>
+<p>ただし，<img src="https://latex.codecogs.com/png.latex?%5Crho_1"> とは……（続く）</p>
+</div>
+</div>
+<p>証明は <img src="https://latex.codecogs.com/png.latex?%5Cpsi_n,%5Cpsi_p%5Cto%5Cinfty"> の近似の下で固定点方程式を解くことによる．</p>
+</section>
+<section id="主な系スペクトルの-two-bulk-構造" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="主な系スペクトルの-two-bulk-構造">3.9 主な系：スペクトルの two-bulk 構造</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="過剰パラメータ領域：$\psi_p>\psi_n\gg1$ のとき" style="margin-bottom: 0em; !important">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+過剰パラメータ領域：<img src="https://latex.codecogs.com/png.latex?%5Cpsi_p%3E%5Cpsi_n%5Cgg1"> のとき
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Crho(%5Clambda)=%5Cleft(1-%5Cfrac%7B1+%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Cright)%5Cdelta_%7B%5C%7Bs_t%5E2%5C%7D%7D(%5Clambda)+%5Cfrac%7B%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Crho_1(%5Clambda)+%5Cfrac%7B1%7D%7B%5Cpsi_p%7D%5Cmu_%7B%5Cwidetilde%7BU%7D%7D(%5Clambda).%0A"></p>
+<ul>
+<li><img src="https://latex.codecogs.com/png.latex?s_t%5E2"> に属する固有ベクトルは <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BKer%7D%5C;(A_%5Ctau)"> に入り，訓練／テスト誤差の値を変えない．</li>
+<li><img src="https://latex.codecogs.com/png.latex?%5Crho_1"> は atom を持たず， <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7Bsupp%7D%5C;(%5Crho_1)=%5Cleft%5Bs_t%5E2+v_t%5E2%5Cleft(1-%5Csqrt%7B%5Cpsi_p/%5Cpsi_n%7D%5Cright)%5E2,s_t%5E2+v_t%5E2%5Cleft(1+%5Csqrt%7B%5Cpsi_p/%5Cpsi_n%7D%5Cright)%5E2%5Cright%5D%0A"></li>
+<li><img src="https://latex.codecogs.com/png.latex?%5Cmu_%7B%5Cwidetilde%7BU%7D%7D"> は atom を持つかもしれないが，絶対連続部分は <img src="https://latex.codecogs.com/png.latex?%0A%5Cinf%5Cmathrm%7Bsupp%7D%5C;(%5Cmu_%7B%5Cwidetilde%7BU%7D%7D)=O(%5Cpsi_p)%5Cqquad(%5Cpsi_n,%5Cpsi_p%5Cto%5Cinfty).%0A"></li>
+</ul>
+</div>
+</div>
+<p>特に，<img src="https://latex.codecogs.com/png.latex?%5Cpsi_p/%5Cpsi_n%5Cto%5Cinfty"> も仮定すると，<img src="https://latex.codecogs.com/png.latex?%5Csup%5Cmathrm%7Bsupp%7D%5C;(%5Crho_1)=O(%5Cpsi_p/%5Cpsi_n)">．</p>
+</section>
+<section id="主な系スペクトルの-two-bulk-構造-1" class="level3 unnumbered unlisted" data-visibility="uncounted">
+<h3 class="unnumbered unlisted anchored" data-visibility="uncounted" data-anchor-id="主な系スペクトルの-two-bulk-構造-1">3.9 主な系：スペクトルの two-bulk 構造</h3>
+<div class="callout callout-style-default callout-tip no-icon callout-titled" title="過剰パラメータ領域：$\psi_n,\psi_p/\psi_n\to\infty$ のとき" style="margin-bottom: 0em; !important">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+過剰パラメータ領域：<img src="https://latex.codecogs.com/png.latex?%5Cpsi_n,%5Cpsi_p/%5Cpsi_n%5Cto%5Cinfty"> のとき
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Crho(%5Clambda)=%5Cleft(1-%5Cfrac%7B1+%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Cright)%5Cdelta_%7B%5C%7Bs_t%5E2%5C%7D%7D(%5Clambda)+%5Cfrac%7B%5Cpsi_n%7D%7B%5Cpsi_p%7D%5Crho_1(%5Clambda)+%5Cfrac%7B1%7D%7B%5Cpsi_p%7D%5Cmu_%7B%5Cwidetilde%7BU%7D%7D(%5Clambda).%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Csup%5Cmathrm%7Bsupp%7D%5C;(%5Ctextcolor%7B#928EC3%7D%7B%5Crho_1%7D)=O(%5Cpsi_p/%5Cpsi_n),%5Cqquad%5Cinf%5Cmathrm%7Bsupp%7D%5C;(%5Ctextcolor%7B#E69252%7D%7B%5Cmu_%7B%5Cwidetilde%7BU%7D%7D%7D)=O(%5Cpsi_p/%5Cpsi_n%5Ccdot%5Cpsi_n).%0A"></p>
+</div>
+</div>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Spectrum.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption><img src="https://latex.codecogs.com/png.latex?d=10%5E2,%5Cpsi_p=64,%5Cpsi_n=8,t=0.01,%5Crho_%5CSigma=%5Cdelta_1"> の場合．</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Spectrum2.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption><img src="https://latex.codecogs.com/png.latex?%5Crho_%5CSigma=(%5Cdelta_%7B1/2%7D+%5Cdelta_%7B3/2%7D)/2"> の場合．</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%5Crho_1"> は <img src="https://latex.codecogs.com/png.latex?%5Csigma%5E2_x:=%5Coperatorname%7BTr%7D(%5CSigma)/d"> を通じてしかデータに依存しないので，２つの図で変わらない．</p>
+</section>
+<section id="sec-dynamics" class="level3" data-number="3.10">
+<h3 data-number="3.10" class="anchored" data-anchor-id="sec-dynamics"><span class="header-section-number">3.10</span> 過剰パラメータ領域での訓練ダイナミクス</h3>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_%7B%5Ctext%7Bgen%7D%7D:=%5Cfrac%7B%5Cpsi_p%7D%7B%5CDelta_t%7D%5Cinf%5Cmathrm%7Bsupp%7D%5C;(%5Ctextcolor%7B#E69252%7D%7B%5Cmu_%7B%5Cwidetilde%7BU%7D%7D%7D)=O(1/%5CDelta_t).%0A"> <img src="https://latex.codecogs.com/png.latex?%0A%5Ctau_%7B%5Ctext%7Bmem%7D%7D:=%5Cfrac%7B%5Cpsi_p%7D%7B%5CDelta_t%7D%5Cinf%5Cmathrm%7Bsupp%7D%5C;(%5Ctextcolor%7B#928EC3%7D%7B%5Crho_1%7D)=O(%5Cpsi_n/%5CDelta_t).%0A"> <img src="https://latex.codecogs.com/png.latex?t%3E0"> が大きく，<img src="https://latex.codecogs.com/png.latex?n"> が大きいほど <img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bmem%7D%7D"> が大きい．</p>
+<div class="columns" style="text-align: center;">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Error_score_draft.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>スコア誤差 <img src="https://latex.codecogs.com/png.latex?%5Cpsi_n=4,8,16,32,t=0.1">．</figcaption>
+</figure>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BE%7D_%7B%5Ctext%7Bscore%7D%7D:=%5Cfrac%7B1%7D%7Bd%7D%5Coperatorname%7BE%7D_x%5Cbiggl%5B%5C%7Cs_A(x)-%5Cnabla%5Clog%20P_x%5C%7C%5E2%5Cbiggr%5D%0A"></p>
+</div><div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/test_train_inset_draft.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption>訓練誤差（実線）とテスト誤差（点線）</figcaption>
+</figure>
+</div>
+<p><img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bgen%7D%7D"> までの速いスケールでは，汎化ギャプ <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D=%5Cmathcal%7BL%7D_%7B%5Ctext%7Btest%7D%7D-%5Cmathcal%7BL%7D_%7B%5Ctext%7Btrain%7D%7D"> が消える．</p>
+</div>
+</div>
+</section>
+<section id="補足経験誤差最小化解-tautoinfty-の汎化誤差" class="level3" data-number="3.11">
+<h3 data-number="3.11" class="anchored" data-anchor-id="補足経験誤差最小化解-tautoinfty-の汎化誤差"><span class="header-section-number">3.11</span> 補足：経験誤差最小化解 <img src="https://latex.codecogs.com/png.latex?%5Ctau%5Cto%5Cinfty"> の汎化誤差</h3>
+<p>実は収束先も <img src="https://latex.codecogs.com/png.latex?n"> が大きいほど汎化ギャップ <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D=%5Cmathcal%7BL%7D_%7B%5Ctext%7Btest%7D%7D-%5Cmathcal%7BL%7D_%7B%5Ctext%7Btrain%7D%7D"> は低くなる <span class="citation" data-cites="George+2025">(George et al., 2025)</span>．</p>
+<p>ただし，パラメータ不足領域 <img src="https://latex.codecogs.com/png.latex?%5Cpsi_p%3C%5Cpsi_n"> に侵入した場合は，時間スケールの分離は見られず，architectural regularization により <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D=%5Cmathcal%7BL%7D_%7B%5Ctext%7Btest%7D%7D-%5Cmathcal%7BL%7D_%7B%5Ctext%7Btrain%7D%7D"> はさらに下がる．</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/George.png" class="img-fluid figure-img"></p>
+<figcaption><img src="https://latex.codecogs.com/png.latex?t=0.01">．縦の点線は <img src="https://latex.codecogs.com/png.latex?%5Cpsi_n=%5Cpsi_p"> <span class="citation" data-cites="George+2025">(Figure 5 George et al., 2025)</span>．<img src="https://latex.codecogs.com/png.latex?%5Ctau%5Cto%5Cinfty"> の場合に対応．</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="まとめ" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="まとめ"><span class="header-section-number">4</span> まとめ</h2>
+<section id="学習ダイナミクスのスケール分離" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="学習ダイナミクスのスケール分離"><span class="header-section-number">4.1</span> 学習ダイナミクスのスケール分離</h3>
+<ol type="1">
+<li>学習ダイナミクスのスケール分離を，勾配流の緩和時間 <img src="https://latex.codecogs.com/png.latex?%0A%20%20%5Ctau%5E%7B-1%7D=%5Cpsi_p%5Clambda_%7B%5Ctext%7Bmin%7D%7D/%5CDelta_t%0A%20%20"> の解析から示した．</li>
+<li><img src="https://latex.codecogs.com/png.latex?U"> の固有値分布 <img src="https://latex.codecogs.com/png.latex?%5Crho(d%5Clambda)"> が次を満たす <img src="https://latex.codecogs.com/png.latex?d%5Cto%5Cinfty"> 極限でスケール分離する： <img src="https://latex.codecogs.com/png.latex?%0A%20%20%5Cpsi_p:=%5Cfrac%7Bp%7D%7Bd%7D%5Cto%5Cinfty,%5Cquad%5Cpsi_n:=%5Cfrac%7Bn%7D%7Bd%7D%5Cto%5Cinfty,%5Cquad%5Cfrac%7B%5Cpsi_p%7D%7B%5Cpsi_n%7D%5Cto%5Cinfty.%0A%20%20"></li>
+<li>速いスケールは真のデータ分布のみに依存し，<img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D=%5Cmathcal%7BL%7D_%7B%5Ctext%7Btest%7D%7D-%5Cmathcal%7BL%7D_%7B%5Ctext%7Btrain%7D%7D"> が消える</li>
+<li>遅いスケールは <img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bmem%7D%7D=O(n)"> のオーダーで，データ分布の <img src="https://latex.codecogs.com/png.latex?%5Csigma_x%5E2:=%5Coperatorname%7BTr%7D(%5CSigma)/d"> のみに依存する．</li>
+<li><img src="https://latex.codecogs.com/png.latex?n"> も同時に大きくしていくと，経験リスク最小解 <img src="https://latex.codecogs.com/png.latex?%5Ctau%5Cto%5Cinfty"> での <img src="https://latex.codecogs.com/png.latex?%5Cmathcal%7BL%7D_%7B%5Ctext%7Bgen%7D%7D"> は下がる</li>
+</ol>
+</section>
+<section id="なぜ学習ダイナミクスにスケール分離が見られるのか" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="なぜ学習ダイナミクスにスケール分離が見られるのか"><span class="header-section-number">4.2</span> なぜ学習ダイナミクスにスケール分離が見られるのか？</h3>
+<div class="callout callout-style-default callout-important no-icon callout-titled" title="なぜスケール分離が起こるのか？">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+なぜスケール分離が起こるのか？
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><img src="https://latex.codecogs.com/png.latex?%5Ctau_%7B%5Ctext%7Bmem%7D%7D=O(n)"> というのは，NN が経験スコアの高周波成分を学習するのにかかる時間が <img src="https://latex.codecogs.com/png.latex?O(n)"> でスケールするのが見えている？</p>
+</div>
+</div>
+<ul>
+<li>NN の spectral bias <span class="citation" data-cites="Rahaman+2019">(Rahaman et al., 2019)</span>：NN が関数を学習する際，低周波成分 → 高周波成分の順に学んでいく
+<ul>
+<li>→ early stopping と併せると「低周波成分だけを学んでいることが汎化の主な理由である」という仮説がたつ．</li>
+</ul></li>
+<li>拡散モデルは訓練データに依らず，高周波成分を縮小して学習する <span class="citation" data-cites="Kadkhodaie+2024">(Kadkhodaie et al., 2024)</span><sup>3</sup></li>
+</ul>
+</section>
+<section id="附言" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="附言"><span class="header-section-number">4.3</span> 附言</h3>
+<ul>
+<li>GD ダイナミクスだけ？ SGD, Adam でも普遍的に観察されるし，説明したい．</li>
+<li>conditional generation でも成り立つように思われ，その場合 <img src="https://latex.codecogs.com/png.latex?n,p,d"> 以外の変数が出てくる？</li>
+<li><img src="https://latex.codecogs.com/png.latex?P_x"> の裾が重い場合はどうなる？部分多様体上に台を持つ場合は？</li>
+</ul>
+</section>
+</section>
+<section id="参考文献" class="level2 unnumbered unlisted" data-visibility="uncounted">
+
+
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Anderson+2011" class="csl-entry">
+Anderson, G. W., Guionnet, A., and Zeitouni, O. (2011). <em><a href="https://doi.org/10.1017/CBO9780511801334">An introduction to random matrices</a></em>,Vol. 118. Cambridge University Press.
+</div>
+<div id="ref-Biroli+2024" class="csl-entry">
+Biroli, G., Bonnaire, T., Bortoli, V. de, and Mézard, M. (2024). <a href="https://doi.org/10.1038/s41467-024-54281-3">Dynamical regimes of diffusion models</a>. <em>Nature Communications</em>, <em>15</em>(1), 9957.
+</div>
+<div id="ref-Bonnaire+2025" class="csl-entry">
+Bonnaire, T., Urfin, R., Biroli, G., and Mezard, M. (2025). <a href="https://openreview.net/forum?id=BSZqpqgqM0">Why diffusion models don<span>’</span>t memorize: The role of implicit dynamical regularization in training</a>. In <em>The thirty-ninth annual conference on neural information processing systems</em>.
+</div>
+<div id="ref-Conway2007" class="csl-entry">
+Conway, J. B. (2007). <em>A course in functional analysis</em>. Springer New York.
+</div>
+<div id="ref-Efron2011" class="csl-entry">
+Efron, B. (2011). <a href="https://doi.org/10.1198/jasa.2011.tm11181">Tweedie’s formula and selection bias</a>. <em>Journal of the American Statistical Association</em>, <em>106</em>(496), 1602–1614.
+</div>
+<div id="ref-George+2025" class="csl-entry">
+George, A. J., Veiga, R., and Macris, N. (2025). <a href="https://arxiv.org/abs/2502.00336">Denoising score matching with random features: Insights on diffusion models from precise learning curves</a>.
+</div>
+<div id="ref-Ho+2020" class="csl-entry">
+Ho, J., Jain, A., and Abbeel, P. (2020). <a href="https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html"><span>Denoising Diffusion Probabilistic Models</span></a>. In <em>Advances in neural information processing systems</em>,Vol. 33.
+</div>
+<div id="ref-Kadkhodaie+2024" class="csl-entry">
+Kadkhodaie, Z., Guth, F., Simoncelli, E. P., and Mallat, S. (2024). <a href="https://openreview.net/forum?id=ANvmVS2Yr0">Generalization in diffusion models arises from geometry-adaptive harmonic representations</a>. In <em>The twelfth international conference on learning representations</em>.
+</div>
+<div id="ref-Magnus-Neudecker2019" class="csl-entry">
+Magnus, J. R., and Neudecker, H. (2019). <em><a href="https://doi.org/10.1002/9781119541219">Matrix differential calculus with applications in statistics and econometrics</a></em>. John Wiley &amp; Sons.
+</div>
+<div id="ref-Marčenko-Pastur1967" class="csl-entry">
+Marčenko, V. A., and Pastur, L. A. (1967). <a href="https://doi.org/10.1070/SM1967v001n04ABEH001994">DISTRIBUTION OF EIGENVALUES FOR SOME SETS OF RANDOM MATRICES</a>. <em>Mathematics of the USSR-Sbornik</em>, <em>1</em>(4), 457.
+</div>
+<div id="ref-Peche2019" class="csl-entry">
+Péché, S. (2019). <a href="https://doi.org/10.1214/19-ECP262"><span class="nocase">A note on the Pennington-Worah distribution</span></a>. <em>Electronic Communications in Probability</em>, <em>24</em>(none), 1–7.
+</div>
+<div id="ref-Rahaman+2019" class="csl-entry">
+Rahaman, N., Baratin, A., Arpit, D., Draxler, F., Lin, M., Hamprecht, F., … Courville, A. (2019). <a href="https://proceedings.mlr.press/v97/rahaman19a.html">On the spectral bias of neural networks</a>. In K. Chaudhuri and R. Salakhutdinov, editors, <em>Proceedings of the 36th international conference on machine learning</em>,Vol. 97, pages 5301–5310. PMLR.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p><span class="citation" data-cites="Magnus-Neudecker2019">(Magnus and Neudecker, 2019, p. 201)</span>↩︎</p></li>
+<li id="fn2"><p>平均 <img src="https://latex.codecogs.com/png.latex?%5Cwidetilde%7BU%7D:=%5Coperatorname%7BE%7D%5BU%5D"> の経験スペクトル分布の極限を <img src="https://latex.codecogs.com/png.latex?%5Cmu_%7B%5Cwidetilde%7BU%7D%7D"> とした．↩︎</p></li>
+<li id="fn3"><p><span class="citation" data-cites="Kadkhodaie+2024">(Kadkhodaie et al., 2024)</span> は denoiser を直接 MSE で学習していることに注意．↩︎</p></li>
+</ol>
+</section></div> ]]></description>
   <category>Diffusion</category>
   <category>Nonresearch</category>
-  <guid>https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025Slides.html</guid>
+  <guid>https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025.html</guid>
   <pubDate>Sun, 25 Jan 2026 15:00:00 GMT</pubDate>
   <media:content url="https://162348.github.io/posts/2025/DiffusionModels/Bonnaire2025/Summary1.png" medium="image" type="image/png" height="144" width="144"/>
 </item>
@@ -112,7 +782,6 @@
 </div>
 <div class="sourceCode" id="cb1" data-filename="PDMPFlux.jl/src/sample.jl" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sample</span>(</span>
@@ -188,14 +857,12 @@ background-color: null;
 font-style: inherit;">=</span>verbose)</span>
 <span id="cb1-12">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sample_from_skeleton</span>(sampler, N_samples, history)</span>
 <span id="cb1-13"></span>
 <span id="cb1-14"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span></code></pre></div>
 </div>
 <p>この <code>sample_skeleton</code> が PDMP シミュレーションの本質であり，中では「次のイベント時刻の特定」の繰り返しである．</p>
@@ -253,7 +920,6 @@ font-style: inherit;">Plots</span></span>
 background-color: null;
 font-style: inherit;">@inline</span> <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">∇U</span>(x<span class="op" style="color: #5E5E5E;
@@ -263,11 +929,9 @@ background-color: null;
 font-style: inherit;">AbstractVector</span>)</span>
 <span id="cb2-4">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> x</span>
 <span id="cb2-5"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb2-6"></span>
 <span id="cb2-7">dim <span class="op" style="color: #5E5E5E;
@@ -397,7 +1061,6 @@ font-style: inherit;">LinearAlgebra</span></span>
 <span id="cb3-2"></span>
 <span id="cb3-3"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">const</span> γ <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
@@ -408,7 +1071,6 @@ font-style: inherit;">10</span></span>
 background-color: null;
 font-style: inherit;">@inline</span> <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">∇U</span>(x<span class="op" style="color: #5E5E5E;
@@ -418,7 +1080,6 @@ background-color: null;
 font-style: inherit;">AbstractVector</span>)</span>
 <span id="cb3-6">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> [γ,<span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
@@ -428,7 +1089,6 @@ background-color: null;
 font-style: inherit;">⋅</span> x</span>
 <span id="cb3-7"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb3-8"></span>
 <span id="cb3-9">dim <span class="op" style="color: #5E5E5E;
@@ -611,7 +1271,6 @@ font-style: inherit;">StatsPlots</span></span>
 <span id="cb4-2"></span>
 <span id="cb4-3"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">const</span> dim <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span> <span class="fl" style="color: #AD0000;
@@ -622,7 +1281,6 @@ font-style: inherit;">100</span></span>
 background-color: null;
 font-style: inherit;">@inline</span> <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">∇U</span>(x<span class="op" style="color: #5E5E5E;
@@ -632,18 +1290,15 @@ background-color: null;
 font-style: inherit;">AbstractVector</span>)</span>
 <span id="cb4-6">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> x</span>
 <span id="cb4-7"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-8"></span>
 <span id="cb4-9"><span class="pp" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">@inline</span> <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">∇U_Boomerang</span>(x<span class="op" style="color: #5E5E5E;
@@ -653,18 +1308,15 @@ background-color: null;
 font-style: inherit;">AbstractVector</span>)</span>
 <span id="cb4-10">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">ones</span>(dim)</span>
 <span id="cb4-11"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-12"></span>
 <span id="cb4-13"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">h_estimate_online</span>(</span>
@@ -702,7 +1354,6 @@ background-color: null;
 font-style: inherit;">Float64</span></span>
 <span id="cb4-20">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> !(<span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">isfinite</span>(T_end)) <span class="op" style="color: #5E5E5E;
@@ -725,7 +1376,6 @@ background-color: null;
 font-style: inherit;">"</span>))</span>
 <span id="cb4-22">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-23">  d <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -734,7 +1384,6 @@ background-color: null;
 font-style: inherit;">length</span>(xinit)</span>
 <span id="cb4-24">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> d <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">==</span> <span class="fl" style="color: #AD0000;
@@ -749,11 +1398,9 @@ background-color: null;
 font-style: inherit;">"xinit must be non-empty"</span>))</span>
 <span id="cb4-26">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-27">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> T_end <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">==</span> <span class="fl" style="color: #AD0000;
@@ -761,13 +1408,11 @@ background-color: null;
 font-style: inherit;">0.0</span></span>
 <span id="cb4-28">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0.0</span></span>
 <span id="cb4-29">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-30"></span>
 <span id="cb4-31">  state <span class="op" style="color: #5E5E5E;
@@ -801,7 +1446,6 @@ font-style: inherit;">copy</span>(state.v)</span>
 <span id="cb4-39"></span>
 <span id="cb4-40">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">while</span> t_prev <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">&lt;</span> T_end</span>
@@ -816,7 +1460,6 @@ font-style: inherit;">=</span> state.t</span>
 <span id="cb4-43"></span>
 <span id="cb4-44">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> t_next <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">&lt;=</span> T_end</span>
@@ -873,7 +1516,6 @@ background-color: null;
 font-style: inherit;">copyto!</span>(v_prev, state.v)</span>
 <span id="cb4-54">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">else</span></span>
 <span id="cb4-55">      <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -918,20 +1560,16 @@ background-color: null;
 font-style: inherit;">*</span> xv</span>
 <span id="cb4-60">      <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">break</span></span>
 <span id="cb4-61">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-62">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-63"></span>
 <span id="cb4-64">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> (estimate <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span> d <span class="op" style="color: #5E5E5E;
@@ -951,12 +1589,10 @@ background-color: null;
 font-style: inherit;">: inprecise denominator (intentionally)</span></span>
 <span id="cb4-65"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-66"></span>
 <span id="cb4-67"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">Experiment_once</span>()</span>
@@ -1049,7 +1685,6 @@ background-color: null;
 font-style: inherit;">h_estimate_online</span>(FECMC, T, xinit, vinit)</span>
 <span id="cb4-81">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> [<span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">abs2</span>(output_ZZ) <span class="op" style="color: #5E5E5E;
@@ -1065,12 +1700,10 @@ background-color: null;
 font-style: inherit;">*</span> t_ForwardECMC]</span>
 <span id="cb4-82"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-83"></span>
 <span id="cb4-84"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">Experiment</span>(iter<span class="op" style="color: #5E5E5E;
@@ -1093,10 +1726,8 @@ background-color: null;
 font-style: inherit;">3</span>)</span>
 <span id="cb4-86">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> i <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">ProgressBar</span>(<span class="fl" style="color: #AD0000;
@@ -1113,15 +1744,12 @@ background-color: null;
 font-style: inherit;">Experiment_once</span>()</span>
 <span id="cb4-88">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-89">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> results</span>
 <span id="cb4-90"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb4-91"></span>
 <span id="cb4-92">results <span class="op" style="color: #5E5E5E;
@@ -2217,18 +2845,15 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb7-2"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb7-3">}</span>
 <span id="cb7-4"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb7-5">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -2248,7 +2873,6 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -2258,7 +2882,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -2270,7 +2893,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -2289,7 +2911,6 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -2299,7 +2920,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -2311,7 +2931,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -2331,12 +2950,10 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb7-20">}</span>
 <span id="cb7-21"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb7-22">}</span>
 <span id="cb7-23"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb7-24">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -2347,7 +2964,6 @@ font-style: inherit;">// temporary intercept for centered predictors</span></spa
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -2364,7 +2980,6 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -2380,7 +2995,6 @@ font-style: inherit;">// standardized group-level effects</span></span>
 <span id="cb7-29">}</span>
 <span id="cb7-30"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb7-31">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -2447,14 +3061,12 @@ font-style: inherit;">3</span>);</span>
 <span id="cb7-41">}</span>
 <span id="cb7-42"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb7-43">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb7-44">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb7-45">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -2467,10 +3079,8 @@ font-style: inherit;">0.0</span>, N);</span>
 <span id="cb7-47">    mu += Intercept;</span>
 <span id="cb7-48">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -2481,7 +3091,6 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb7-51">    }</span>
 <span id="cb7-52">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb7-53">  }</span>
 <span id="cb7-54">  <span class="co" style="color: #5E5E5E;
@@ -2489,24 +3098,20 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb7-55">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb7-56">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb7-57">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_2[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb7-58">}</span>
 <span id="cb7-59"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb7-60">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -6919,10 +7524,8 @@ background-color: null;
 font-style: inherit;">100</span>)</span>
 <span id="cb10-4"><span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> sims_to_display) {</span>
 <span id="cb10-5">  <span class="fu" style="color: #4758AB;
 background-color: null;
@@ -9638,7 +10241,6 @@ font-style: inherit;">PDMPFlux</span></span></code></pre></div>
 <li><p>まずポテンシャル＝<strong>負の対数尤度</strong>を（定数倍の違いを除いて）自分で定義する：</p>
 <div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">U_Gauss</span>(x<span class="op" style="color: #5E5E5E;
@@ -9648,7 +10250,6 @@ background-color: null;
 font-style: inherit;">Vector</span>)</span>
 <span id="cb2-2">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sum</span>(x<span class="op" style="color: #5E5E5E;
@@ -9662,7 +10263,6 @@ background-color: null;
 font-style: inherit;">2</span></span>
 <span id="cb2-3"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span></code></pre></div>
 <p>標準正規分布 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BN%7D_d(0,I_d)"> だと，対数尤度は <img src="https://latex.codecogs.com/png.latex?%0A%5Clog%5Cphi(x)%20=%20-%20%5Cfrac%7B1%7D%7B2%7D%5Csum_%7Bi=1%7D%5Ed%20x_i%5E2%20-%20%5Cfrac%7Bd%7D%7B2%7D%5Clog(2%5Cpi)%0A"> 第二項は定数であるから無視して良い．<img src="https://latex.codecogs.com/png.latex?U(x)%20=%20-%5Clog%5Cphi(x)"> とすべき点に注意（先頭のマイナス符号は落とす）．</p></li>
 <li><p>次のようにしてサンプラーをインスタンス化する：</p>
@@ -9787,7 +10387,6 @@ font-style: inherit;">as</span> jnp</span>
 <span id="cb8-6"></span>
 <span id="cb8-7"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> funnel(d<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -9807,7 +10406,6 @@ font-style: inherit;">"""Funnel distribution for testing. Returns energy and sam
 <span id="cb8-9"></span>
 <span id="cb8-10">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> unbatched(x):</span>
 <span id="cb8-11">    y <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -9858,7 +10456,6 @@ font-style: inherit;">*</span> variance_other)</span>
 <span id="cb8-17"></span>
 <span id="cb8-18">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span> log_density_y <span class="op" style="color: #5E5E5E;
@@ -9867,7 +10464,6 @@ font-style: inherit;">-</span> log_density_other</span>
 <span id="cb8-19"></span>
 <span id="cb8-20">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> sample_data(n_samples):</span>
 <span id="cb8-21">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -9898,7 +10494,6 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb8-24">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> jnp.concatenate((y, x), axis<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -9907,7 +10502,6 @@ font-style: inherit;">1</span>)</span>
 <span id="cb8-25"></span>
 <span id="cb8-26">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> unbatched, sample_data</span></code></pre></div>
 <div class="sourceCode" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><span class="im" style="color: #00769E;
 background-color: null;
@@ -10109,7 +10703,6 @@ background-color: null;
 font-style: inherit;">"""</span></span>
 <span id="cb11-9"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">funnel</span>(d<span class="op" style="color: #5E5E5E;
@@ -10134,7 +10727,6 @@ font-style: inherit;">11</span>)</span>
 <span id="cb11-10"></span>
 <span id="cb11-11">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">neg_energy</span>(x<span class="op" style="color: #5E5E5E;
@@ -10192,11 +10784,9 @@ font-style: inherit;">2</span><span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">:</span><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span>])</span>
 <span id="cb11-19">        <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">-</span> log_density_v <span class="op" style="color: #5E5E5E;
@@ -10204,12 +10794,10 @@ background-color: null;
 font-style: inherit;">-</span> log_density_other</span>
 <span id="cb11-20">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-21"></span>
 <span id="cb11-22">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">sample_data</span>(n_samples<span class="op" style="color: #5E5E5E;
@@ -10254,27 +10842,22 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb11-26">        <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">hcat</span>(y, x)</span>
 <span id="cb11-27">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-28"></span>
 <span id="cb11-29">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> neg_energy, sample_data</span>
 <span id="cb11-30"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-31"></span>
 <span id="cb11-32"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">plot_funnel</span>(d<span class="op" style="color: #5E5E5E;
@@ -10386,7 +10969,6 @@ background-color: null;
 font-style: inherit;"># y軸の範囲を -7 から 7 に設定</span></span>
 <span id="cb11-47"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-48"><span class="fu" style="color: #4758AB;
 background-color: null;
@@ -10394,7 +10976,6 @@ font-style: inherit;">plot_funnel</span>()</span>
 <span id="cb11-49"></span>
 <span id="cb11-50"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">run_ZigZag_on_funnel</span>(N_sk<span class="op" style="color: #5E5E5E;
@@ -10485,11 +11066,9 @@ background-color: null;
 font-style: inherit;">sample_from_skeleton</span>(sampler, N, out)</span>
 <span id="cb11-60">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> out, samples</span>
 <span id="cb11-61"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb11-62">output, samples <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -10945,7 +11524,6 @@ font-style: inherit;">as</span> jnp</span>
 <span id="cb1-6"></span>
 <span id="cb1-7"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> funnel(d<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -10965,11 +11543,9 @@ font-style: inherit;">"""Funnel distribution for testing. Returns energy and sam
 <span id="cb1-9"></span>
 <span id="cb1-10">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> neg_energy(x):</span>
 <span id="cb1-11">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> unbatched(x):</span>
 <span id="cb1-12">      v <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -11020,7 +11596,6 @@ background-color: null;
 font-style: inherit;">=</span>cov_other)</span>
 <span id="cb1-23">      <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> log_density_v <span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">+</span> log_density_other</span>
@@ -11029,12 +11604,10 @@ background-color: null;
 font-style: inherit;">=</span> jax.vmap(unbatched)(x)</span>
 <span id="cb1-25">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> output</span>
 <span id="cb1-26"></span>
 <span id="cb1-27">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> sample_data(n_samples):</span>
 <span id="cb1-28">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -11065,7 +11638,6 @@ background-color: null;
 font-style: inherit;">2</span>)</span>
 <span id="cb1-31">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> jnp.concatenate((y, x), axis<span class="op" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">=</span><span class="dv" style="color: #AD0000;
@@ -11074,7 +11646,6 @@ font-style: inherit;">1</span>)</span>
 <span id="cb1-32"></span>
 <span id="cb1-33">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> neg_energy, sample_data</span></code></pre></div>
 </details>
 </div>
@@ -11701,12 +12272,10 @@ background-color: null;
 font-style: inherit;"># 初期化関数</span></span>
 <span id="cb7-45"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> init():</span>
 <span id="cb7-46">    scat.set_offsets(data0)</span>
 <span id="cb7-47">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> scat,</span>
 <span id="cb7-48"></span>
 <span id="cb7-49"><span class="co" style="color: #5E5E5E;
@@ -11714,7 +12283,6 @@ background-color: null;
 font-style: inherit;"># フレームごとの更新関数</span></span>
 <span id="cb7-50"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">def</span> animate(i):</span>
 <span id="cb7-51">    y <span class="op" style="color: #5E5E5E;
 background-color: null;
@@ -11736,7 +12304,6 @@ font-style: inherit;">=</span> np.column_stack((y, x))</span>
 <span id="cb7-54">    scat.set_offsets(data)</span>
 <span id="cb7-55">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> scat,</span>
 <span id="cb7-56"></span>
 <span id="cb7-57"><span class="co" style="color: #5E5E5E;
@@ -11930,7 +12497,6 @@ font-style: inherit;">DynamicalSystems</span></span>
 <span id="cb1-2"></span>
 <span id="cb1-3"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">lorenz96_rule!</span>(du, u, p, t)</span>
@@ -12012,10 +12578,8 @@ background-color: null;
 font-style: inherit;"># then the general case</span></span>
 <span id="cb1-10">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> n <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="fl" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">3</span><span class="op" style="color: #5E5E5E;
@@ -12050,11 +12614,9 @@ background-color: null;
 font-style: inherit;">+</span> F</span>
 <span id="cb1-12">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb1-13">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> <span class="cn" style="color: #8f5902;
 background-color: null;
 font-style: inherit;">nothing</span> <span class="co" style="color: #5E5E5E;
@@ -12062,7 +12624,6 @@ background-color: null;
 font-style: inherit;"># always `return nothing` for in-place form!</span></span>
 <span id="cb1-14"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb1-15"></span>
 <span id="cb1-16">N <span class="op" style="color: #5E5E5E;
@@ -12143,10 +12704,8 @@ background-color: null;
 font-style: inherit;">false</span>)</span>
 <span id="cb3-4"><span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> var <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">eachcol</span>(Y)</span>
@@ -12155,7 +12714,6 @@ background-color: null;
 font-style: inherit;">plot!</span>(p, t, var)</span>
 <span id="cb3-6"><span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span></span>
 <span id="cb3-7"><span class="fu" style="color: #4758AB;
 background-color: null;
@@ -12276,7 +12834,6 @@ background-color: null;
 font-style: inherit;">=</span> sampling_time)</span>
 <span id="cb4-6">Y[<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">end</span>]</span></code></pre></div>
 </div>
 </div>
@@ -13402,7 +13959,6 @@ font-style: inherit;">apply</span>(selected_theta_mcmc, <span class="dv" style="
 background-color: null;
 font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span>(x) <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">quantile</span>(x, <span class="fl" style="color: #AD0000;
@@ -13416,7 +13972,6 @@ font-style: inherit;">apply</span>(selected_theta_mcmc, <span class="dv" style="
 background-color: null;
 font-style: inherit;">2</span>, <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">function</span>(x) <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">quantile</span>(x, <span class="fl" style="color: #AD0000;
@@ -13595,10 +14150,8 @@ background-color: null;
 font-style: inherit;">"blue"</span></span>
 <span id="cb4-13"><span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span>(i <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">c</span>(<span class="dv" style="color: #AD0000;
@@ -14033,18 +14586,15 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb14-2"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb14-3">}</span>
 <span id="cb14-4"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb14-5">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -14064,7 +14614,6 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -14074,7 +14623,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -14086,7 +14634,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -14105,7 +14652,6 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -14115,7 +14661,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -14127,7 +14672,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -14147,12 +14691,10 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb14-20">}</span>
 <span id="cb14-21"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb14-22">}</span>
 <span id="cb14-23"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb14-24">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -14163,7 +14705,6 @@ font-style: inherit;">// temporary intercept for centered predictors</span></spa
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -14180,7 +14721,6 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -14196,7 +14736,6 @@ font-style: inherit;">// standardized group-level effects</span></span>
 <span id="cb14-29">}</span>
 <span id="cb14-30"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb14-31">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -14271,14 +14810,12 @@ font-style: inherit;">2.5</span>);</span>
 <span id="cb14-41">}</span>
 <span id="cb14-42"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb14-43">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb14-44">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb14-45">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -14291,10 +14828,8 @@ font-style: inherit;">0.0</span>, N);</span>
 <span id="cb14-47">    mu += Intercept;</span>
 <span id="cb14-48">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -14305,7 +14840,6 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb14-51">    }</span>
 <span id="cb14-52">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb14-53">  }</span>
 <span id="cb14-54">  <span class="co" style="color: #5E5E5E;
@@ -14313,24 +14847,20 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb14-55">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb14-56">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb14-57">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_2[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb14-58">}</span>
 <span id="cb14-59"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb14-60">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15404,7 +15934,6 @@ background-color: null;
 font-style: inherit;">// generated with brms 2.21.0</span></span>
 <span id="cb21-2"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">functions</span> {</span>
 <span id="cb21-3"> <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15444,19 +15973,16 @@ background-color: null;
 font-style: inherit;">// r is stored in another dimension order than z</span></span>
 <span id="cb21-13">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">return</span> transpose(diag_pre_multiply(SD, L) * z);</span>
 <span id="cb21-14">  }</span>
 <span id="cb21-15">}</span>
 <span id="cb21-16"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">data</span> {</span>
 <span id="cb21-17">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N;  <span class="co" style="color: #5E5E5E;
@@ -15476,7 +16002,6 @@ font-style: inherit;">// data for group-level effects of ID 1</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_1;  <span class="co" style="color: #5E5E5E;
@@ -15486,7 +16011,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_1;  <span class="co" style="color: #5E5E5E;
@@ -15498,7 +16022,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_1;  <span class="co" style="color: #5E5E5E;
@@ -15517,7 +16040,6 @@ font-style: inherit;">// data for group-level effects of ID 2</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; N_2;  <span class="co" style="color: #5E5E5E;
@@ -15527,7 +16049,6 @@ font-style: inherit;">// number of grouping levels</span></span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; M_2;  <span class="co" style="color: #5E5E5E;
@@ -15539,7 +16060,6 @@ font-style: inherit;">array</span>[N] <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; J_2;  <span class="co" style="color: #5E5E5E;
@@ -15558,7 +16078,6 @@ font-style: inherit;">vector</span>[N] Z_2_2;</span>
 background-color: null;
 font-style: inherit;">int</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt; NC_2;  <span class="co" style="color: #5E5E5E;
@@ -15572,18 +16091,15 @@ font-style: inherit;">// should the likelihood be ignored?</span></span>
 <span id="cb21-34">}</span>
 <span id="cb21-35"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed data</span> {</span>
 <span id="cb21-36">}</span>
 <span id="cb21-37"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">parameters</span> {</span>
 <span id="cb21-38">  <span class="dt" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_1] sd_1;  <span class="co" style="color: #5E5E5E;
@@ -15600,7 +16116,6 @@ font-style: inherit;">// standardized group-level effects</span></span>
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">0</span>&gt;[M_2] sd_2;  <span class="co" style="color: #5E5E5E;
@@ -15619,7 +16134,6 @@ font-style: inherit;">// cholesky factor of correlation matrix</span></span>
 <span id="cb21-43">}</span>
 <span id="cb21-44"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">transformed parameters</span> {</span>
 <span id="cb21-45">  <span class="dt" style="color: #AD0000;
 background-color: null;
@@ -15704,14 +16218,12 @@ font-style: inherit;">1</span>);</span>
 <span id="cb21-61">}</span>
 <span id="cb21-62"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">model</span> {</span>
 <span id="cb21-63">  <span class="co" style="color: #5E5E5E;
 background-color: null;
 font-style: inherit;">// likelihood including constants</span></span>
 <span id="cb21-64">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">if</span> (!prior_only) {</span>
 <span id="cb21-65">    <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15723,10 +16235,8 @@ background-color: null;
 font-style: inherit;">0.0</span>, N);</span>
 <span id="cb21-67">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (n <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:N) {</span>
@@ -15737,7 +16247,6 @@ font-style: inherit;">// add more terms to the linear predictor</span></span>
 <span id="cb21-70">    }</span>
 <span id="cb21-71">    <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> bernoulli_logit_lpmf(Y | mu);</span>
 <span id="cb21-72">  }</span>
 <span id="cb21-73">  <span class="co" style="color: #5E5E5E;
@@ -15745,22 +16254,18 @@ background-color: null;
 font-style: inherit;">// priors including constants</span></span>
 <span id="cb21-74">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> lprior;</span>
 <span id="cb21-75">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(z_1[<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>]);</span>
 <span id="cb21-76">  <span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">target +=</span> std_normal_lpdf(to_vector(z_2));</span>
 <span id="cb21-77">}</span>
 <span id="cb21-78"><span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">generated quantities</span> {</span>
 <span id="cb21-79">  <span class="co" style="color: #5E5E5E;
 background-color: null;
@@ -15772,12 +16277,10 @@ font-style: inherit;">corr_matrix</span>[M_2] Cor_2 = multiply_lower_tri_self_tr
 background-color: null;
 font-style: inherit;">vector</span>&lt;<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">lower</span>=-<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>,<span class="kw" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">upper</span>=<span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>&gt;[NC_2] cor_2;</span>
@@ -15786,19 +16289,15 @@ background-color: null;
 font-style: inherit;">// extract upper diagonal of correlation matrix</span></span>
 <span id="cb21-83">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:M_2) {</span>
 <span id="cb21-84">    <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (j <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span>:(k - <span class="dv" style="color: #AD0000;
@@ -15899,7 +16398,6 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> covariates <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> judges</span>
 <span id="cb23-8">  array[n] int<span class="sc" style="color: #5E5E5E;
 background-color: null;
@@ -15917,10 +16415,8 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> indicator <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> judges i <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> [N]</span>
 <span id="cb23-9">  array[n] int<span class="sc" style="color: #5E5E5E;
 background-color: null;
@@ -15938,10 +16434,8 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> indicator <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> cases j <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> [J]</span>
 <span id="cb23-10">}</span>
 <span id="cb23-11">parameters {</span>
@@ -15951,7 +16445,6 @@ font-style: inherit;">/</span><span class="er" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">/</span> ideal points <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> judges</span>
 <span id="cb23-13">  vector[J] alpha;</span>
 <span id="cb23-14">  vector[J] beta;</span>
@@ -16099,10 +16592,8 @@ background-color: null;
 font-style: inherit;">0</span>, n);</span>
 <span id="cb23-35">  <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (k <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
@@ -16480,10 +16971,8 @@ p
 </div>
 <div class="sourceCode" id="cb25" data-filename="experiment.r" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">for</span> (i <span class="cf" style="color: #003B4F;
 background-color: null;
-font-weight: bold;
 font-style: inherit;">in</span> <span class="dv" style="color: #AD0000;
 background-color: null;
 font-style: inherit;">1</span><span class="sc" style="color: #5E5E5E;
