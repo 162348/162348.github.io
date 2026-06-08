@@ -12,9 +12,9 @@ image: ISM/FECMC_横長の横長.gif
 format:
   # html: default
   revealjs: 
-    output-file: IMS-APRM_Slides.html
+    output-file: ims-aprm_Slides.html
     footer: |
-      [IMS-APRM 2026](IMS-APRM.qmd)
+      [IMS-APRM 2026](ims-aprm.qmd)
     toc-depth: 1
     slide-number: true
     chalkboard: 
@@ -44,7 +44,7 @@ include-in-header:
                 }
                 </style>
 description: |
-  Revealjs slides are [[here]{.underline}](IMS-APRM_Slides.html)．
+  Revealjs slides are [[here]{.underline}](ims-aprm_Slides.html)．
 comment: false
 bibliography: 
     - ../../../assets/2023.bib
@@ -65,7 +65,249 @@ slide:
 
 ![A [PDMP]{.color-unite}: Forward Event-Chain Monte Carlo](ISM/FECMC_横長.gif)
 
+::: {.content-visible when-format="html" unless-format="revealjs"}
+This process is exactly what we are going to be talking about. But first, we place this method in the context of the evolution of Monte Carlo methods, before moving on to a theoretical analysis of PDMP.
+:::
+
 {{< include ../../../assets/_preamble.qmd >}}
 
+### [Evolution of Markov Chain Monte Carlo]{.smaller}
 
+:::: {.columns style="text-align: center;"}
+::: {.column width="33%"}
+![[Markov Chain<br>(1953--)]{.large-letter}](ISM/RWMH2.gif)
+:::
+
+::: {.column width="33%"}
+![[Langevin Diffusion]{.medium-letter .color-blue}<br>[(1978--)]{.large-letter .color-blue}](ISM/LMC.gif)
+:::
+
+::: {.column width="33%"}
+![[PDMP<br>(2008--)]{.large-letter .color-unite}](ISM/FECMC.gif)
+:::
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+The Monte Carlo method has a long history, approximately 75 years.
+Here is my take on the evolution of Monte Carlo methods. The history starts with a Markov chain driven by a simple uniform random variable, originally simulated on the MANIAC computer [@Metropolis+1953]. Then the attention naturally shifted to more structured stochastic processes, such as Langevin diffusion [@Rossky+1978] and PDMP [@Michel+2014], [@Peters-deWith2012].
+:::
+
+### PDMP: Mathematical Definition
+
+![](ISI-ISM-ISSAS/Equations.png){fig-align="center"}
+
+<!-- **Takeaway**: [PDMP]{.color-unite} ≒ [Diffusion]{.color-blue} - Brownian Motion + Jump -->
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="45%"}
+![[Langevin Diffusion]{.color-blue}](ISM/LMC_横長.gif)
+:::
+
+::: {.column width="45%"}
+![[Randomized Hamiltonian Monte Carlo]{.color-unite}](ISM/RHMC_横長.gif)
+:::
+
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+One view of PDMP would be a `diffusion' process driven by jumps, rather than a Brownian motion. An immediate consequence is a strong ballistic / transport property, which is typically absent in a Langevin diffusion. Informally, the Brownian term moves in a scale $\Delta B_t \sim \sqrt{\Delta t}$, while the jump term moves in a scale $\Delta J_t \sim \Delta t$.
+:::
+
+### Classical MCMC methods turn out to be [PDMPs]{.color-unite} in disguise
+
+Many [PDMPs]{.color-unite} behave similarly in high dimensions.
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![RHMC $(d=2)$](ISM/RHMC.gif)
+
+discretized by symplectic integrator
+
+$O(d^{1.25})$ complexity
+:::
+
+::: {.column width="50%"}
+![[BPS]{.color-unite} with Gaussian speed $(d=10^3)$](ISM/BPS_GaussianSpeed2.gif)
+
+approximated by (random) piecewise linear interpolation
+
+$O(d^{1.5})$ complexity
+:::
+
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+So far, I may have suggested that PDMP is an entirely new class of MCMC methods.
+Yes, in some sense, e.g., the output is a continuous trajectory instead of a set of discrete samples.
+However, though the term may be new to the field, it might be nothing new conceptually. To me, PDMP also works as an umbrella term that helps shed light upon a previously overlooked aspect of classical MCMC methods.
+
+This is a somewhat strong claim, but let me pose it this way. Somehow, every successful MCMC method is implicitly a PDMP. To be precise, it chases Hamiltonian dynamics in high-dimensional settings, which may be one of the reasons why PDMP is a class of Markov processes worth considering collectively [@Deligiannidis+2021].
+
+The randomized Hamiltonian Monte Carlo dynamics mix fast regardless of the dimension (for a certain class of target). From this point of view, classical Hamiltonian Monte Carlo and Bouncy Particle Sampler give different ways of numerically simulating the same dynamics.
+
+We see a trade-off between the computational complexity and the robustness of the method.
+:::
+
+### Digression: Killer applications of PDMP
+
+:::: {.columns valign="center"}
+
+::: {.column width="70%"}
+![$x$: CPU time, $y$: Estimate．[@Bouchard-Cote+2018]<br>Sparse Markov Random Field with $d=10$](ISM/Bouchard-Cote+2018.png)
+:::
+
+::: {.column width="30%" .vcenter}
+
+[**Local Implementation**]{.normal-letter .underline} $O(d^1)$
+
+Exploiting sparsity, [BPS]{style="color: #E67C71;"} atteins better scaling than [HMC]{style="color: #56BCC2;"} (MSE/sec.)
+
+:::
+
+::::
+
+:::: {.columns}
+
+::: {.column width="40%"}
+![[@Bierkens+2019]](ISM/Bierkens+2019.png)
+:::
+
+::: {.column width="60%"}
+[**Stochastic Gradient**]{.normal-letter .underline} $O(n^0)$
+
+$x$: sample size $n$, $y$: log ESS<br>
+Logistic regression with $d=16$<br>
+Using an appropriate control variate, the efficiency of [Zig-Zag]{style="color: magenta;"} is $O(1)$<br>
+in the limit of $n\to\infty$, it outperforms [Langevin]{style="color: #75FB4D;"}.
+:::
+
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+I briefly touch upon some killer applications of PDMP, as they are important motivations for the development of PDMP.
+:::
+
+## Towards Better Jump Strategy: A Scaling Analysis
+
+We compare two famous PDMP methods under the following condition:
+
+* ODE: Fixed
+* Jump: [Reflection + Refreshment]{.color-blue} vs. [Combination]{.color-unite}
+* Target: High dimensional standard Gaussian
+
+![](IMS-APRM/arxiv.png){fig-align="center"}
+
+### [FECMC]{.color-unite} vs. [BPS]{.color-blue} {#sec-FECMC-vs-BPS}
+
+:::: {.columns}
+
+::: {.column width="33%"}
+![[Forward Event Chain Monte Carlo]{.color-unite} [@Michel+2020]](ISM/FECMC_0.0_Trajectory.gif)
+:::
+
+::: {.column width="33%"}
+![[Bouncy Particle Sampler]{.color-blue} [@Bouchard-Cote+2018]](ISM/BPS_1.0_Trajectory.gif)
+:::
+
+::: {.column width="33%"}
+![[BPS]{.color-blue} with different hyperparameter $\rho$](ISM/BPS_10.0_Trajectory.gif)
+:::
+
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+To get straight to the point, we compare the two methods with possibly different hyperparameter values $\rho$.
+Once animated, one might easily see the red method, Forward Event-Chain Monte Carlo proposed in [@Michel+2020], is the fastest.
+We would like to show this quantitatively, together with dependence upon $\rho$.
+:::
+
+### Jump Strategy in [FECMC]{.color-unite} vs. [BPS]{.color-blue}
+
+:::: {.columns}
+
+::: {.column width="33%"}
+![[Stochastic Reflection]{.color-unite .normal-letter}](IMS-APRM/FECMC.png)
+:::
+
+::: {.column width="33%"}
+![[Reflection]{.color-blue .medium-letter}](IMS-APRM/BPS_reflection.png)
+:::
+
+::: {.column width="33%"}
+![[Refreshment]{.color-blue .medium-letter} $\rho$](IMS-APRM/BPS_refreshment.png)
+:::
+
+::::
+
+::: {.content-visible when-format="html" unless-format="revealjs"}
+The velocity jump mechanism in [BPS]{.color-blue} is simpler and we start with it.
+When jumps, the BPS process either reflect or refresh. On reflection, the process changes the velocity as a light ray does, matching the incidence and reflection angles. On refreshment, the process resamples the velocity from the invariant distribution, a uniform distribution on the unit sphere in our setting.
+
+Forward Event-Chain Monte Carlo, on the other hand, is more sophisticated, combining the two mechanisms.
+:::
+
+### Empirical Comparison: [BPS]{.color-blue} vs. [FECMC]{.color-unite} {#sec-comparison}
+
+![Effective Sample Size of $U(x)=\|x\|^2$, the negative log-density of 100 dimensional standard Gaussian, estimated over 1000 runs](ISM/Comparison_black.svg)
+
+### Scaling Analysis = Deriving a Diffusion Limit
+
+$$
+\text{Plotting } \textcolor{#0096FF}{Y_t^{(d)}}=\frac{\abs{\textcolor{#0096FF}{X}_{d\textcolor{#0096FF}{t}}^{\textcolor{#0096FF}{(d)}}}^2-d}{\sqrt{d}} \text{ with } d=10^2,10^3,10^4:
+$$
+
+![](ISM/BPS_ScalingAnalysis.svg){fig-align="center"}
+
+### Theorem 1： Diffusion Limits of [FECMC]{.color-unite} & [BPS]{.color-blue}
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![](ISM/BPS_10000d.svg)
+
+$$
+dY_t^{\textcolor{#0096FF}{\text{B}}}=-\frac{\sigma^2_{\textcolor{#0096FF}{\text{B}}}(\rho)}{4}Y_t^{\textcolor{#0096FF}{\text{B}}}\,dt+\sigma_{\textcolor{#0096FF}{\text{B}}}(\rho)\,dB_t
+$$
+$$
+\sigma^2_{\textcolor{#0096FF}{\text{B}}}(\rho)=8\int^\infty_0e^{-\rho s}\E[R_0^{\textcolor{#0096FF}{\text{B}}}R_s^{\textcolor{#0096FF}{\text{B}}}]\,ds
+$$
+:::
+
+::: {.column width="50%"}
+![](ISM/FECMC_10000d.svg)
+
+$$
+dY_t^{\textcolor{#E95420}{\text{F}}}=-\frac{\sigma^2_{\textcolor{#E95420}{\text{F}}}(\rho)}{4}Y_t^{\textcolor{#E95420}{\text{F}}}\,dt+\sigma_{\textcolor{#E95420}{\text{F}}}(\rho)\,dB_t
+$$
+$$
+\sigma^2_{\textcolor{#E95420}{\text{F}}}(\rho)=8\int^\infty_0e^{-\rho s}\E[R_0^{\textcolor{#E95420}{\text{F}}}R_s^{\textcolor{#E95420}{\text{F}}}]\,ds
+$$
+
+:::
+
+::::
+
+### Theorem 2: Analytic Expression of $\sigma^2$'s
+
+![While [BPS]{.color-blue} atteins maximum at non-trivial value of $\rho$, [FECMC]{.color-unite} achieves maximum at $\rho=0$](ISM/sigma.svg){fig-align="center"}
+
+## Asymptotic Variance / ESS Estimation for [PDMP]{.color-unite}
+
+Algorithmically, there is a fundamental difference between
+
+$$
+\text{PDMP}\quad\wh{h}_T^{\textcolor{#E95420}{\text{PDMP}}}=\frac{1}{T}\int^T_0h(\textcolor{#E95420}{X}_{\textcolor{#E95420}{t}}^{\textcolor{#E95420}{(d)}})\,dt,
+$$
+$$
+\text{classical MCMC}\quad\wh{h}_N^{\textcolor{#0096FF}{\text{Classical MCMC}}}=\frac{1}{N}\sum_{n=1}^Nh(\textcolor{#0096FF}{X_n^{(d)}}).
+$$
+
+Exploiting this continuous-time nature of PDMP, we can derive an efficient estimator for the asymptotic variance of $\wh{h}_T^{\textcolor{#E95420}{\text{PDMP}}}$.
+
+## References
+
+::: {#refs}
+:::
 
