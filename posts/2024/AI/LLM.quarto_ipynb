@@ -45,7 +45,7 @@
         "! pip install faiss-cpu==1.7.4 mistralai==0.0.12\n",
         "```\n"
       ],
-      "id": "6b3e9fef"
+      "id": "87177e3b"
     },
     {
       "cell_type": "code",
@@ -61,7 +61,7 @@
         "api_key= getpass(\"Type your API Key\")\n",
         "client = MistralClient(api_key=api_key)"
       ],
-      "id": "64100800",
+      "id": "b177a835",
       "execution_count": null,
       "outputs": []
     },
@@ -73,7 +73,7 @@
         "\n",
         "[Paul Graham](https://ja.wikipedia.org/wiki/%E3%83%9D%E3%83%BC%E3%83%AB%E3%83%BB%E3%82%B0%E3%83%AC%E3%82%A2%E3%83%A0) のエッセイを知識ベースとして用いることを考える．\n"
       ],
-      "id": "eb9855a2"
+      "id": "0d209cfb"
     },
     {
       "cell_type": "code",
@@ -83,7 +83,7 @@
         "text = response.text\n",
         "len(text)"
       ],
-      "id": "26bbacbd",
+      "id": "ca8c16df",
       "execution_count": null,
       "outputs": []
     },
@@ -101,7 +101,7 @@
         "\n",
         "In a RAG system, it is crucial to split the document into smaller chunks so that it’s more effective to identify and retrieve the most relevant information in the retrieval process later. In this example, we simply split our text by character, combine 2048 characters into each chunk, and we get 37 chunks.\n"
       ],
-      "id": "954d15f8"
+      "id": "990bd9c3"
     },
     {
       "cell_type": "code",
@@ -110,7 +110,7 @@
         "chunk_size = 2048\n",
         "chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]"
       ],
-      "id": "0d94c7b4",
+      "id": "b6228b1d",
       "execution_count": null,
       "outputs": []
     },
@@ -120,7 +120,7 @@
       "source": [
         "len(chunks)"
       ],
-      "id": "f6fac010",
+      "id": "602aaac2",
       "execution_count": null,
       "outputs": []
     },
@@ -137,7 +137,7 @@
         "For each text chunk, we then need to create text embeddings, which are numeric representations of the text in the vector space. Words with similar meanings are expected to be in closer proximity or have a shorter distance in the vector space.\n",
         "To create an embedding, use Mistral’s embeddings API endpoint and the embedding model `mistral-embed`. We create a `get_text_embedding` to get the embedding from a single text chunk and then we use list comprehension to get text embeddings for all text chunks.\n"
       ],
-      "id": "7b9275db"
+      "id": "e68c58b7"
     },
     {
       "cell_type": "code",
@@ -150,7 +150,7 @@
         "      )\n",
         "    return embeddings_batch_response.data[0].embedding"
       ],
-      "id": "73dc5f97",
+      "id": "3b937501",
       "execution_count": null,
       "outputs": []
     },
@@ -160,7 +160,7 @@
       "source": [
         "text_embeddings = np.array([get_text_embedding(chunk) for chunk in chunks])"
       ],
-      "id": "3b8ad69c",
+      "id": "3a862792",
       "execution_count": null,
       "outputs": []
     },
@@ -171,7 +171,7 @@
         "#| outputId: 8b3a9427-9bb0-4036-a29c-046d8936e4c1\n",
         "text_embeddings.shape"
       ],
-      "id": "bda976d4",
+      "id": "a6c8c1e0",
       "execution_count": null,
       "outputs": []
     },
@@ -182,7 +182,7 @@
         "#| outputId: 40b973b7-bc36-41b4-be10-cd17ddde28e1\n",
         "text_embeddings"
       ],
-      "id": "e4087fe9",
+      "id": "2e7cf8a4",
       "execution_count": null,
       "outputs": []
     },
@@ -195,7 +195,7 @@
         "\n",
         "With Faiss, we instantiate an instance of the Index class, which defines the indexing structure of the vector database. We then add the text embeddings to this indexing structure.\n"
       ],
-      "id": "86b4e845"
+      "id": "d73af7f8"
     },
     {
       "cell_type": "code",
@@ -205,7 +205,7 @@
         "index = faiss.IndexFlatL2(d)\n",
         "index.add(text_embeddings)"
       ],
-      "id": "1313a8dc",
+      "id": "90675ae7",
       "execution_count": null,
       "outputs": []
     },
@@ -219,7 +219,7 @@
         "### Create embeddings for a question\n",
         "Whenever users ask a question, we also need to create embeddings for this question using the same embedding models as before.\n"
       ],
-      "id": "00b2dede"
+      "id": "1d739c9c"
     },
     {
       "cell_type": "code",
@@ -230,7 +230,7 @@
         "question_embeddings = np.array([get_text_embedding(question)])\n",
         "question_embeddings.shape"
       ],
-      "id": "df5f5894",
+      "id": "5ef9c3a4",
       "execution_count": null,
       "outputs": []
     },
@@ -241,7 +241,7 @@
         "#| outputId: 6c196b41-215d-4c7e-c823-80456eebb5e0\n",
         "question_embeddings"
       ],
-      "id": "41a03bd6",
+      "id": "981db33a",
       "execution_count": null,
       "outputs": []
     },
@@ -255,7 +255,7 @@
         "### Retrieve similar chunks from the vector database\n",
         "We can perform a search on the vector database with `index.search`, which takes two arguments: the first is the vector of the question embeddings, and the second is the number of similar vectors to retrieve. This function returns the distances and the indices of the most similar vectors to the question vector in the vector database. Then based on the returned indices, we can retrieve the actual relevant text chunks that correspond to those indices.\n"
       ],
-      "id": "cb949ffc"
+      "id": "02416fa3"
     },
     {
       "cell_type": "code",
@@ -265,7 +265,7 @@
         "D, I = index.search(question_embeddings, k=2)\n",
         "print(I)"
       ],
-      "id": "1551a5b9",
+      "id": "48f03852",
       "execution_count": null,
       "outputs": []
     },
@@ -277,7 +277,7 @@
         "retrieved_chunk = [chunks[i] for i in I.tolist()[0]]\n",
         "print(retrieved_chunk)"
       ],
-      "id": "656f41b4",
+      "id": "fe529f40",
       "execution_count": null,
       "outputs": []
     },
@@ -296,7 +296,7 @@
         "\n",
         "Finally, we can offer the retrieved text chunks as the context information within the prompt. Here is a prompt template where we can include both the retrieved text and user question in the prompt.\n"
       ],
-      "id": "d6a3d20b"
+      "id": "08522c13"
     },
     {
       "cell_type": "code",
@@ -312,7 +312,7 @@
         "Answer:\n",
         "\"\"\""
       ],
-      "id": "1ad97860",
+      "id": "07adc04b",
       "execution_count": null,
       "outputs": []
     },
@@ -330,7 +330,7 @@
         "    )\n",
         "    return (chat_response.choices[0].message.content)"
       ],
-      "id": "4acc89dc",
+      "id": "75804cae",
       "execution_count": null,
       "outputs": []
     },
@@ -341,7 +341,7 @@
         "#| outputId: e3df97c0-817d-4e4b-ddc9-63e80531bda9\n",
         "run_mistral(prompt)"
       ],
-      "id": "cb4b41b1",
+      "id": "31495fab",
       "execution_count": null,
       "outputs": []
     },
@@ -357,7 +357,7 @@
         "\n",
         "## LangChain\n"
       ],
-      "id": "916309b7"
+      "id": "6bfbfeb6"
     },
     {
       "cell_type": "code",
@@ -365,7 +365,7 @@
       "source": [
         "!pip install langchain langchain-mistralai==0.0.4"
       ],
-      "id": "d48ecaaf",
+      "id": "1f32c865",
       "execution_count": null,
       "outputs": []
     },
@@ -419,7 +419,7 @@
         "response = retrieval_chain.invoke({\"input\": \"What were the two main things the author worked on before college?\"})\n",
         "print(response[\"answer\"])"
       ],
-      "id": "7b09fba5",
+      "id": "9f3b0591",
       "execution_count": null,
       "outputs": []
     },
@@ -429,7 +429,7 @@
       "source": [
         "## LlamaIndex\n"
       ],
-      "id": "5be91979"
+      "id": "ad88a25c"
     },
     {
       "cell_type": "code",
@@ -438,7 +438,7 @@
         "#| scrolled: true\n",
         "!pip install llama-index==0.10.13 llama-index-llms-mistralai==0.1.4 llama-index-embeddings-mistralai==0.1.3"
       ],
-      "id": "7647858f",
+      "id": "7631e033",
       "execution_count": null,
       "outputs": []
     },
@@ -466,7 +466,7 @@
         ")\n",
         "print(str(response))"
       ],
-      "id": "4ad7e7aa",
+      "id": "2140fecd",
       "execution_count": null,
       "outputs": []
     },
@@ -476,7 +476,7 @@
       "source": [
         "# Haystack\n"
       ],
-      "id": "f524eef0"
+      "id": "1f1792bc"
     },
     {
       "cell_type": "code",
@@ -484,7 +484,7 @@
       "source": [
         "!pip install mistral-haystack==0.0.1"
       ],
-      "id": "e68e1231",
+      "id": "4e46db00",
       "execution_count": null,
       "outputs": []
     },
@@ -552,7 +552,7 @@
         "\n",
         "print(result[\"llm\"][\"replies\"][0].content)"
       ],
-      "id": "a7c96dfd",
+      "id": "8c4df4ba",
       "execution_count": null,
       "outputs": []
     }
