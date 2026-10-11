@@ -12,6 +12,12 @@ image: ProbabilityUCL/BPSvFECMC.gif
 format:
   # html: default
   revealjs: 
+    title-slide-attributes:
+      data-background-image: "ProbabilityUCL/BPSvFECMC.gif"
+      data-background-size: cover
+      data-background-position: center
+      data-background-color: "white"
+      data-background-opacity: "0.3"
     output-file: ProbabilityUCL_Slides.html
     footer: |
       [Probability at UCL](ProbabilityUCL.qmd)
@@ -129,10 +135,10 @@ computes space averages as time averages
 
 [Kinetic Langevin]{.large-letter .color-blue}
 
-$$
+$$\large
 \begin{cases}
 \dot{X}_t=V_t,\\
-\dot{V}_t=-\big(\nabla U(X_t)-\gamma V_t\big)\,dt+\sqrt{2\gamma}\,dB_t.
+\dot{V}_t=-\big(\nabla U(X_t)+\gamma V_t\big)\,dt+\sqrt{2\gamma}\,dB_t.
 \end{cases}
 $$
 :::
@@ -150,7 +156,7 @@ $$
 
 [Velocity-Jump PDMP]{.large-letter .color-unite}
 
-$$
+$$\large
 \begin{cases}
 \dot{X}_t=V_{t-},\\
 \dot{V}_t=\big(\operatorname{Jump}_{X_t}(V_{t-};\xi_t)-V_{t-}\big)\,dN_t.
@@ -160,68 +166,11 @@ $$
 
 ::::
 
-### [PDMP]{.color-unite} as a New Discretisation Scheme
-
-Many [PDMP]{.color-unite} and MCMC behave similarly in high dimensions [@Deligiannidis+2021]
-
-:::: {.columns style="text-align: center;"}
-
-::: {.column width="50%"}
-![RHMC $(d=2)$](ISM/RHMC.gif)
-
-discretized by a symplectic integrator
-
-e.g. HMC has $O(d^{1.25})$ complexity
-:::
-
-::: {.column width="50%"}
-![[BPS]{.color-unite} with Gaussian speed $(d=10^3)$](ISM/BPS_GaussianSpeed2.gif)
-
-simulate piecewise linear trajectory
-
-e.g. BPS with normal velocity has $O(d^{1.5})$ complexity
-:::
-
-::::
-
-### In Passing... Some Killer Applications of PDMP
-
-:::: {.columns valign="center"}
-
-::: {.column width="70%"}
-![$x$: CPU time, $y$: Estimate．[@Bouchard-Cote+2018]<br>Sparse Markov Random Field with $d=10$](ISM/Bouchard-Cote+2018.png)
-:::
-
-::: {.column width="30%" .vcenter}
-
-$O(d^1)$ [**Local Implementation**]{.normal-letter .underline}
-
-Exploiting sparsity, [BPS]{style="color: #E67C71;"} atteins better scaling than [HMC]{style="color: #56BCC2;"} (MSE/sec.)
-
-:::
-
-::::
-
-:::: {.columns}
-
-::: {.column width="40%"}
-![$x$: sample size $n$, $y$: log ESS/sec, $d=16$<br>[@Bierkens+2019]](ISM/Bierkens+2019.png){width=70%}
-:::
-
-::: {.column width="60%"}
-[**Stochastic Gradient**]{.normal-letter .underline} $O(n^0)$
-
-Using an appropriate control variate, [Zig-Zag]{style="color: magenta;"} attains $O(1)$ complexity<br>
-in the limit of $n\to\infty$, it outperforms [Langevin]{style="color: #75FB4D;"}.
-:::
-
-::::
-
 ## A Scaling Analysis {#sec-2}
 
 We compare two famous PDMP methods under the following condition:
 
-* ODE: Fixed
+* ODE: Linear flow
 * Jump: [Reflection + Refreshment]{.color-blue} vs. [Combination]{.color-unite}
 * Target: High dimensional standard Gaussian $U(x):=-\log\pi(x)=\|x\|^2/2$.
 
@@ -322,7 +271,7 @@ where
 $$
 \Omega(\rho)\coloneqq\sqrt{\frac{\pi}{2}}\rho\operatorname{erfcx}\paren{\frac{\rho}{\sqrt{2}}}=\rho e^{\frac{\rho^2}{2}}\int^\infty_\rho e^{-\frac{t^2}{2}}\,dt
 $$
-is the moment generating function of the standard Rayleigh distribution.
+satisfies $\Omega(\rho)=1-\E[e^{-\rho\tau}]$ for $\tau\sim\operatorname{Rayleigh}(1)$.
 
 ### Theorem 2 (cont.): Plot of $\sigma^2$
 
@@ -335,7 +284,7 @@ is the moment generating function of the standard Rayleigh distribution.
   * Its time derivative $\textcolor{#E95420}{R_t}:=(X_t|V_t)=dU(X_t)/dt$ fluctuates on a fast timescale.
 * Spectral properties of $\textcolor{#E95420}{R}$ are reflected in $\sigma^2$
 
-![](ProbabilityUCL/YandR.svg)
+![](ProbabilityUCL/YandR.svg){fig-align="center"}
 
 ### The Non-Markovianity of the Rescaled Energy $Y^d$
 
@@ -343,70 +292,51 @@ is the moment generating function of the standard Rayleigh distribution.
 
 $Y^d_{t-}$ alone cannot determine the speed of $Y^d_t$ at jumps.
 
-### Two Approaches in Scaling Analysis
+### Goal: Solve the Limiting Martingale Problem
+
+For any $\varphi\in C^\infty_c(\mathbb{R})$, the following is a local martingale:
+$$
+M^\varphi_t:=\varphi(Y_t)-\varphi(Y_0)-\int^t_0\mathcal{L}\varphi(Y_s)\,ds.
+$$
 
 :::: {.columns style="text-align: center;"}
 ::: {.column width="50%"}
-::: {.callout-tip title="Augmented Generator [@Ethier-Kurtz1986]" icon="false"}
-* Add enough variables to have a Markovian tuple
+::: {.callout-tip title="Lifted Generator<br>[@Ethier-Kurtz1986]" icon="false"}
+1. Find a Markovian tuple
   $$
-  Z^d:=(Y^d,A^d,B^d,\cdots).
+  Z^d:=(Y^d,R^d,\cdots)
   $$
-* Consider generator of $Z$ and compute
+  with generator $\mathcal{L}^d$.
+1. Guess the limiting generator
   $$
-  \mathcal{L}^df(y,a,b,\cdots)\to\mathcal{L}f(y)
+  \mathcal{L}\varphi=b\varphi'+\frac{c}{2}\varphi''.
   $$
-  by guessing the limiting generator $\mathcal{L}$.
-* Prove that the difference disappears:
-  $$
-  \int^T_0|\mathcal{L}^df(z)-\mathcal{L}f(y)|\,ds\pto0.
+1. Prove that the difference vanishes:
+  $$\scriptsize
+  \int^t_0|\mathcal{L}^d(\varphi\circ\pr_1)(Z^d_s)-\mathcal{L}\varphi(Y^d_s)|\,ds\xrightarrow{\operatorname{P}}0.
   $$
 :::
 :::
 
 ::: {.column width="50%"}
 ::: {.callout-tip title="Semimartingale Characteristics [@Jacod-Shiryaev2003]" icon="false"}
-* Prove $Y^d$ is still a semimartingale
-* Consider predictable projection
+1. Obtain a canonical semimartingale decomposition
   $$
-
+  Y^d_t=Y^d_0+B^d_t+M^d_t.
+  $$
+2. Prove the convergence of semimartingale characteristics triplet:
+  $$
+  B^d,\quad C^d:=\brac{M^d},\quad\nu^d.
+  $$
+3. Recover the generator via Ito's formula
+  $$\tiny
+  \int^t_0(\mathcal{L}\varphi)(Y_s)\,ds
+  =\varphi'(Y_t)\,dB_t
+  +\frac12\varphi''(Y_t)\,dC_t
   $$
 :::
 :::
 ::::
-
-### Two Approaches Applied to Different Samplers
-
-
-
-### A Sketch of Proof: A Semimartingale Approach
-
-::: {.callout-tip title="Doob-Meyer Decomposition [@Doleans-Dade-Meyer1970]" icon="false"}
-
-$Y^d$ is non-Markovian, but is a (special) semimartingale, having
-$$
-Y^d_t=Y^d_0+B^d_t+M^d_t,
-$$
-where $B^d$ is the dual predictable projection of $Y^d$, and $M^d$ is a local $L^2$-martingale.
-
-:::
-
-::: {.callout-tip title="[Convergence of Semimartingales [@Jacod-Shiryaev2003 Theorem IX.3.48]]{.small-letter}" icon="false"}
-<!--
-The convergence of $B^d$, $C^d_t:=\brac{M^d}_t$, and $\nu^d$ in a suitable sense implies the convergence of $Y^d$, where $\nu^d$ is the dual predictable projection of the jump measure
-$$
-\mu^d(dtdx)=\sum_{s\ge0}1_{\Brace{\Delta X_s\ne0}}\delta_{(s,\Delta X_s)}(dtdx).
-$$
--->
-The convergence of $B^d$ and $C^d_t:=\brac{M^d}_t$ (in a suitable sense) to
-$$
-B_t=-\int^t_0\frac{\sigma^2}{4}Y_s\,ds,\quad C_t=\sigma^2t,
-$$
-is part of the sufficient conditions ensuring weak convergence $Y^d\Rightarrow Y$ where
-$$
-dY_t=-\frac{\sigma^2}{4}Y_t\,dt+\sigma\,dB_t.
-$$
-:::
 
 ### The Event-Time Skeleton Reveals Local Averaging
 
@@ -451,7 +381,7 @@ $$
 $$
 :::
 
-Directly connects to the limit.
+Leads directly to the limit $C_t=\sigma^2t$.
 
 :::
 
@@ -644,3 +574,132 @@ The optimal choice seems to be $\Delta=O(d^{1/2})$.
 ::: {#refs}
 :::
 
+## Appendix {.unlisted .unnumbered visibility="uncounted"}
+
+### [PDMP]{.color-unite} as a New Discretisation Scheme {.unlisted .unnumbered visibility="uncounted"}
+
+Many [PDMP]{.color-unite} and MCMC behave similarly in high dimensions [@Deligiannidis+2021]
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="50%"}
+![RHMC $(d=2)$](ISM/RHMC.gif)
+
+discretized by a symplectic integrator
+
+e.g. HMC has $O(d^{1.25})$ complexity
+:::
+
+::: {.column width="50%"}
+![[BPS]{.color-unite} with Gaussian speed $(d=10^3)$](ISM/BPS_GaussianSpeed2.gif)
+
+simulate piecewise linear trajectory
+
+e.g. BPS with normal velocity has $O(d^{1.5})$ complexity
+:::
+
+::::
+
+### In Passing... Some Killer Applications of PDMP {.unlisted .unnumbered visibility="uncounted"}
+
+:::: {.columns valign="center"}
+
+::: {.column width="70%"}
+![$x$: CPU time, $y$: Estimate．[@Bouchard-Cote+2018]<br>Sparse Markov Random Field with $d=10$](ISM/Bouchard-Cote+2018.png)
+:::
+
+::: {.column width="30%" .vcenter}
+
+$O(d^1)$ [**Local Implementation**]{.normal-letter .underline}
+
+Exploiting sparsity, [BPS]{style="color: #E67C71;"} atteins better scaling than [HMC]{style="color: #56BCC2;"} (MSE/sec.)
+
+:::
+
+::::
+
+:::: {.columns}
+
+::: {.column width="40%"}
+![$x$: sample size $n$, $y$: log ESS/sec, $d=16$<br>[@Bierkens+2019]](ISM/Bierkens+2019.png){width=70%}
+:::
+
+::: {.column width="60%"}
+[**Stochastic Gradient**]{.normal-letter .underline} $O(n^0)$
+
+Using an appropriate control variate, [Zig-Zag]{style="color: magenta;"} attains $O(1)$ complexity<br>
+in the limit of $n\to\infty$, it outperforms [Langevin]{style="color: #75FB4D;"}.
+:::
+
+::::
+
+### 課題：[非一様 Poisson 点過程]{.color-minty}のシミュレーション {.unlisted .unnumbered visibility="uncounted"}
+
+:::: {.columns style="text-align: center;"}
+
+::: {.column width="33%"}
+![](PDMPs/ZigZag_Simulation.gif)
+:::
+
+::: {.column width="66%"}
+::: {.callout-important title="[PDMP]{.color-unite} シミュレーションの原則" icon="false" style="text-align: right;"}
+
+[[方向転換地点]{.color-minty} $\textcolor{#78C2AD}{x_1,x_2,\cdots}$ を決めれば良い]{.r-fit-text}
+
+＊これが難しい
+:::
+::: {.callout-tip title="$\textcolor{#78C2AD}{x_1,x_2,\cdots}$ の決め方" icon="false" style="text-align: left;"}
+
+確率密度 $\pi$ に収束させたい場合，強度
+$$
+m^{(i)}(t)=\Paren{-v\cdot\nabla\log\pi(\textcolor{#78C2AD}{x_{i-1}}+tv)}_+,\quad t\ge0,
+$$
+を持つ[非一様 Poisson 点過程]{.color-minty}をシミュレートする．
+
+[{{< fa arrow-right >}}]{.color-minty} 最初の到着点を $\textcolor{#78C2AD}{x_i}=\textcolor{#78C2AD}{x_{i-1}}+vT_1^{(i)}$ とする．
+
+:::
+:::
+
+::::
+
+### 直観：１次元の場合 {.unlisted .unnumbered visibility="uncounted"}
+
+:::: {.columns}
+
+::: {.column width="30%"}
+![](IRT-ZigZag/potential.png)
+:::
+
+::: {.column width="70%"}
+
+１次元の Gauss 分布を考える：
+
+$$
+\pi(x)=\frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{x^2}{2\sigma^2}}
+$$
+$$
+\therefore\quad U(x):=-\log\pi(x)=\frac{x^2}{2\sigma^2}+\const
+$$
+
+負の対数尤度 $U=-\log\pi$ は **ポテンシャル** ともいう．
+
+:::
+::::
+
+:::: {.columns}
+
+::: {.column width="30%"}
+![](IRT-ZigZag/intensity.png)
+:::
+
+::: {.column width="70%"}
+
+\begin{align*}
+  m^{(1)}(t)&=(v_0\cdot U'(\textcolor{#78C2AD}{x_0}+\textcolor{#E95420}{v_0}t))_+\\
+  &=(\textcolor{#78C2AD}{x_0}+\textcolor{#E95420}{v_0}t)\cdot1{\Brace{\textcolor{#78C2AD}{x_0}+\textcolor{#E95420}{v_0}t>0}},\quad t\ge0,
+\end{align*}
+を強度にもつ [非一様 Poisson 点過程]{.color-minty} の最初の到着時刻 $T_1^{(1)}$ について，$\textcolor{#78C2AD}{x_1}=\textcolor{#78C2AD}{x_0}+\textcolor{#E95420}{v_0}T_1^{(1)}$ とすれば良い．
+
+:::
+::::
