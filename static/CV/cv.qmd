@@ -5,7 +5,9 @@ format:
         toc: true
         number-sections: false
         default-image-extension: svg
-        include-in-header: 
+        execute:
+            eval: false
+        include-in-header:
             - text: |
                 <style>
                 h1, h2, h3, p, li, .small-letter {
@@ -23,6 +25,12 @@ format:
         urlcolor: minty
         template-partials: 
             - before-title.tex
+        include-in-header:
+            text: |
+                \usepackage{luatexja-fontspec}
+                \IfFontExistsTF{UnBatang.ttf}
+                  {\newjfontfamily\cvhangul{UnBatang.ttf}}
+                  {\newjfontfamily\cvhangul{AppleMyungjo}}
         keep-tex: true
         mainfont: TeX Gyre Pagella
         block-headings: false
@@ -33,6 +41,41 @@ format:
         fontenc: T1
         fontfamily: kpfonts  # https://tug.org/FontCatalogue/kpsansserif/
         shift-heading-level-by: -1
+# Shared by the HTML listings and PDF Python cells, even in PDF-only mode.
+listing:
+    - id: citable-listing
+      template: ../../assets/publications.ejs
+      sort: "date desc"
+      contents:
+          - "../../publications/PDMP/*.qmd"
+    - id: talk-listing
+      template: ../../assets/presentations.ejs
+      sort: "date desc"
+      contents:
+          - "../../posts/2024/Slides/*"
+          - "../../posts/2025/Slides/*"
+          - "../../posts/2026/Slides/*"
+      exclude:
+          author: "{Draft Draft,司馬 博文}"
+          categories: [Nonresearch]
+      include:
+          categories: [Slide]  # なぜかこれがあると安定する
+    - id: poster-listing
+      template: ../../assets/posters.ejs
+      sort: "date desc"
+      contents:
+          - "../../posts/2024/Posters/*.qmd"
+          - "../../posts/2025/Posters/*.qmd"
+          - "../../posts/2026/Posters/*.qmd"
+      exclude:
+          author: "{Draft Draft,司馬 博文}"
+      include:
+          categories: [Poster]
+jupyter: python3
+execute:
+    freeze: false  # Re-read source YAML whenever the CV is rendered.
+    cache: false
+    echo: false
 format-links: [pdf]
 comments: false
 ---
@@ -56,7 +99,7 @@ comments: false
 
 :::
 
-\color{gray}\hfill [Last Update: 2026/10/22]{.small-letter}
+\color{gray}\hfill [Last Update: 2026/11/7]{.small-letter}
 
 :::
 
@@ -70,30 +113,18 @@ comments: false
 \renewcommand{\labelitemi}{\textcolor{minty}{\faGraduationCap}}
 :::
 
-* **Ph.D. in Statistical Science**. _Graduate University for Advanced Studies, SOKENDAI, Tokyo, Japan_. \hfill [2023.4 -- 2028.3]{.cvdate}
+* **PhD Statistical Science**. _Graduate University for Advanced Studies, SOKENDAI, Tokyo, Japan_. \hfill [2023.4 -- 2028.3]{.cvdate}
 
-    Superivsor: [Kengo Kamatani](https://sites.google.com/view/kengokamatani/home)
+    Superivsor: Prof. [Kengo Kamatani](https://sites.google.com/view/kengokamatani/home)
 
-* **B.A. in Mathematics**. _The University of Tokyo, Japan_. \hfill [2019.4 -- 2023.3]{.cvdate}
+* **BA Mathematics**. _Department of Mathematics, University of Tokyo_. \hfill [2019.4 -- 2023.3]{.cvdate}
 
-    Supervisor: [Nakahiro Yoshida](https://www.ms.u-tokyo.ac.jp/~nakahiro/hp-naka-e)
+    Supervisor: Prof. [Nakahiro Yoshida](https://www.ms.u-tokyo.ac.jp/~nakahiro/hp-naka-e)
 
+<!--
 ## Research Interests
 
-Computational Statistics & Machine Learning, including Markov Chain Monte Carlo, Piecewise Deterministic Markov Process, Denoising Diffusion Models, Stochastic Gradient Descent, Evolution Strategies, and Variational Inference, especially in applications to health and behavioural sciences.
-
-## Experience
-
-::: {.content-visible when-format="pdf"}
-\renewcommand{\labelitemi}{\textcolor{minty}{\faSuitcase}}
-:::
-* **Data Scientist**. _PreMedica, Inc., Tokyo, Japan_. \hfill [2024.9 -- today]{.cvdate}
-
-    Provided Bayesian data analysis solutions to healthcare applications.
-
-* **Research Assistant**. _The Institute of Statistical Mathematics, Tokyo, Japan_. \hfill [2023.7 -- 2026.3]{.cvdate}
-
-    Contributed to the R package `YUIMA`, an open-source project aiming to simulate and infer multidimensional stochastic differential equations, with an emphasis on Bayesian inference.
+Computational Statistics & Machine Learning, including Markov Chain Monte Carlo, Piecewise Deterministic Markov Process, Denoising Diffusion Models, Stochastic Gradient Descent, Evolution Strategies, and Variational Inference, especially in applications to health and behavioural sciences. -->
 
 <!-- 
 
@@ -106,28 +137,207 @@ Computational Statistics & Machine Learning, including Markov Chain Monte Carlo,
     Provided statistical analysis and machine learning solutions for clients in the manufacturing industry.
 -->
 
+## Publications
+
+:::: {.content-visible when-format="html"}
+
+::: {#citable-listing}
+:::
+
+::::
+
+:::: {.content-visible when-format="pdf"}
+
+```{python}
+#| output: asis
+
+import os
+import re
+from datetime import datetime
+from glob import glob
+from pathlib import Path
+
+import yaml
+
+def front_matter(path):
+    return yaml.safe_load(re.split(r"(?m)^---\s*$", path.read_text(encoding="utf-8"), maxsplit=2)[1])
+
+def item_date(item):
+    value = item.get("date") or item.get("citation", {}).get("issued")
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y"):
+        try:
+            return datetime.strptime(str(value), fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Unsupported date: {value}")
+
+def markdown(text):
+    text = re.sub(r"([\\`*_{}\[\]<>])", r"\\\1", str(text))
+    # Keep Hangul in venue names legible without changing the other fonts.
+    return re.sub(r"[\uac00-\ud7a3]+", r"`{\\cvhangul \g<0>}`{=latex}", text)
+
+def author_names(authors):
+    if not isinstance(authors, list):
+        authors = [authors]
+    return [author["name"] if isinstance(author, dict) else author for author in authors]
+
+def format_authors(authors):
+    return ", ".join(markdown(name).replace("Hirofumi Shiba", "**Hirofumi Shiba**")
+                     for name in author_names(authors))
+
+# Use the Web listing's file selection as well as the papers' YAML metadata.
+project_dir = os.environ.get("QUARTO_PROJECT_DIR")
+working_dir = Path.cwd().resolve()
+candidates = ([Path(project_dir).resolve()] if project_dir else []) + [working_dir, *working_dir.parents]
+root = next((path for path in candidates
+             if (path / "_quarto.yml").is_file() and (path / "static/CV/cv.qmd").is_file()), None)
+if root is None:
+    raise FileNotFoundError("CV project root not found. Run Quarto from the repository or static/CV directory.")
+web_page = root / "static/Publications.qmd"
+listing = next(item for item in front_matter(web_page)["listing"] if item["id"] == "citable-listing")
+paths = sorted({Path(path).resolve() for pattern in listing["contents"]
+                for path in glob(str(web_page.parent / pattern), recursive=True)})
+papers = [front_matter(path) for path in paths]
+papers = [paper for paper in papers if not paper.get("draft", False)]
+
+for paper in sorted(papers, key=item_date, reverse=True):
+    citation = paper["citation"]
+    authors = format_authors(paper["author"])
+    venue = (paper.get("container-title-short") or citation.get("container-title-short")
+             or paper.get("container-title") or citation.get("container-title"))
+    title = markdown(paper["title"])
+    url = citation.get("url") or paper.get("pub", {}).get("arxiv-url")
+    if url:
+        title = f"[{title}](<{url}>)"
+    entry = f"{authors} ({markdown(citation['issued'])}). {title}."
+    if venue:
+        entry += f" *{markdown(venue)}*."
+    print(f"1. {entry}\n")
+```
+
+::::
+
+## Talks
+
+:::: {.content-visible when-format="html"}
+
+::: {#talk-listing}
+:::
+
+::::
+
+:::: {.content-visible when-format="pdf"}
+
+```{python}
+#| output: asis
+
+from fnmatch import fnmatchcase
+from urllib.parse import quote, urljoin
+
+cv_page = root / "static/CV/cv.qmd"
+cv_listings = {item["id"]: item for item in front_matter(cv_page)["listing"]}
+site_url = yaml.safe_load((root / "_quarto.yml").read_text(encoding="utf-8"))["website"]["site-url"]
+
+def matches_field(item, field, patterns):
+    values = author_names(item.get(field, [])) if field == "author" else item.get(field, [])
+    values = values if isinstance(values, list) else [values]
+    patterns = patterns if isinstance(patterns, list) else [patterns]
+    for pattern in patterns:
+        # Match the listing's glob alternatives, e.g. {Draft Draft,司馬 博文}.
+        alternatives = pattern[1:-1].split(",") if pattern.startswith("{") and pattern.endswith("}") else [pattern]
+        if any(fnmatchcase(str(value), alternative) for value in values for alternative in alternatives):
+            return True
+    return False
+
+def presentation_items(listing_id):
+    listing = cv_listings[listing_id]
+    paths = set()
+    for pattern in listing["contents"]:
+        for match in glob(str(cv_page.parent / pattern), recursive=True):
+            path = Path(match)
+            candidates = path.rglob("*.qmd") if path.is_dir() else [path]
+            paths.update(candidate.resolve() for candidate in candidates
+                         if candidate.suffix == ".qmd" and not candidate.name.startswith(("_", ".")))
+    if not paths:
+        raise ValueError(f"No source files found for {listing_id}")
+    items = []
+    for path in sorted(paths):
+        item = front_matter(path)
+        if item.get("draft", False):
+            continue
+        if not all(matches_field(item, field, pattern) for field, pattern in listing.get("include", {}).items()):
+            continue
+        if any(matches_field(item, field, pattern) for field, pattern in listing.get("exclude", {}).items()):
+            continue
+        items.append((item, path))
+    return sorted(items, key=lambda pair: item_date(pair[0]), reverse=True)
+
+def print_presentations(listing_id, kind):
+    for item, path in presentation_items(listing_id):
+        event = item[kind]
+        title = item["title"] + (f": {item['subtitle']}" if item.get("subtitle") else "")
+        # Absolute links to the same Details pages used by the HTML listing.
+        url = urljoin(site_url.rstrip("/") + "/", quote(path.relative_to(root).with_suffix(".html").as_posix()))
+        entry = f"{item_date(item):%Y-%m-%d}."
+        if event.get("time"):
+            entry += f" ({markdown(event['time'])})"
+        entry += f" {format_authors(item['author'])}. [{markdown(title)}](<{url}>)."
+        if event.get("event-title"):
+            venue = markdown(event["event-title"])
+            if event.get("event-url"):
+                venue = f"[{venue}](<{event['event-url']}>)"
+            entry += f" *{venue}*."
+        if event.get("place"):
+            entry += f" {markdown(event['place'])}."
+        if event.get("note"):
+            entry += f" ({markdown(event['note'])})"
+        print(f"1. {entry}\n")
+
+print_presentations("talk-listing", "slide")
+```
+
+::::
+
+## Posters
+
+:::: {.content-visible when-format="html"}
+
+::: {#poster-listing}
+:::
+
+::::
+
+:::: {.content-visible when-format="pdf"}
+
+```{python}
+#| output: asis
+
+print_presentations("poster-listing", "poster")
+```
+
+::::
+
 ## Research Visit
 
 ::: {.content-visible when-format="pdf"}
 \renewcommand{\labelitemi}{\textcolor{minty}{\faUniversity}}
 :::
 
-* Department of Statistical Science, **University College London**, United Kingdom. \hfill [2024.11.4 -- 2024.12.2]{.cvdate}
+* School of Mathematics, **University of Bristol**. \hfill [2026.9.21 -- 2026.10.21]{.cvdate}
 
-    Supervisor: Alexandros Beskos
-
-* Department of Statistics & Data Science, **National University of Singapore**. \hfill [2025.6.1 -- 2025.6.30]{.cvdate}
-
-    Supervisor: Alexandre Thiéry
+    Supervisor: Prof. Christophe Andrieu
 
 * Institute of Stochastics, **Ulm University**, Germany. \hfill [2025.7.13 -- 2025.7.26]{.cvdate}
 
-    Supervisor: Evgeny Spodarev
+    Supervisor: Prof. Evgeny Spodarev
 
-* School of Mathematics, **University of Bristol**. \hfill [2026.9.21 -- 2026.10.21]{.cvdate}
+* Department of Statistics & Data Science, **National University of Singapore**. \hfill [2025.6.1 -- 2025.6.30]{.cvdate}
 
-    Supervisor: Christophe Andrieu
+    Supervisor: Dr. Alexandre Thiéry
 
+* Department of Statistical Science, **University College London**, United Kingdom. \hfill [2024.11.4 -- 2024.12.2]{.cvdate}
+
+    Supervisor: Prof. Alexandros Beskos
 
 
 ## Grants & Awards
@@ -147,3 +357,22 @@ Computational Statistics & Machine Learning, including Markov Chain Monte Carlo,
 ::: {.content-visible when-format="pdf"}
 \renewcommand{\labelitemi}{\textcolor{minty}{\faBookmark}}
 :::
+
+
+## Service
+
+**Reviewing**: Bayesian Analysis, Journal of Machine Learning Research
+
+## Additional Experience
+
+::: {.content-visible when-format="pdf"}
+\renewcommand{\labelitemi}{\textcolor{minty}{\faSuitcase}}
+:::
+
+* **Data Scientist**. _PreMedica, Inc., Tokyo, Japan_. \hfill [2024.9 -- today]{.cvdate}
+
+    _Responsibilities_: Provided Bayesian data analysis solutions to healthcare applications.
+
+* **Research Assistant**. _The Institute of Statistical Mathematics, Tokyo, Japan_. \hfill [2023.7 -- 2026.3]{.cvdate}
+
+    _Responsibilities_: Contributed to the R package `YUIMA`, an open-source project aiming to simulate and infer multidimensional stochastic differential equations, with an emphasis on Bayesian inference.
